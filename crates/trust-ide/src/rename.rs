@@ -266,7 +266,9 @@ fn rename_symbol_checked(
     let (target_identity, target_range) =
         canonical_symbol_identity(db, file_id, symbol_id).ok_or(RenameError::NoTarget)?;
 
-    let origin_symbols = db.file_symbols_with_project(target_identity.file_id);
+    // Every declaration of the project, whether the origin file names the new name or not
+    // (specification 14 §6.4.1, §10.2).
+    let origin_symbols = db.file_symbols_with_every_declaration(target_identity.file_id);
     if conflict_in_declaring_scope(&origin_symbols, target_identity.symbol_id, new_name).is_some() {
         if target_identity.file_id != file_id {
             return Err(RenameError::CrossFileImportedSymbolConflict {

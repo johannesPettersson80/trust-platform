@@ -15,6 +15,10 @@ use super::project_constants::{project_constant_expressions, project_declared_ex
 use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
 };
+use super::project_units::{
+    build_unit_index, file_units, select_all_units, select_units, written_names, FileUnits,
+    UnitIndex, UnitSelection,
+};
 use super::symbol_import::SymbolImporter;
 use super::GlobalOwnership;
 use super::*;
@@ -363,8 +367,96 @@ pub(super) fn merged_project_symbols_query(
         .get(&file_id)
         .map(|table| (**table).clone())
         .unwrap_or_default();
-    merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    let selection = unit_selection_query(db, project, file_id);
+    merge_project_symbols(file_id, &mut symbols, project_tables.as_ref(), selection);
     Arc::new(symbols)
+}
+
+/// The units each file declares, for the unit index (`project_units`).
+#[salsa::tracked(returns(ref))]
+pub(super) fn file_units_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<FileUnits> {
+    cancellation_checkpoint(db);
+    let tables = project_symbol_tables_query(db, project);
+    let (Some(table), Some(input)) = (tables.get(&file_id), source_input(db, project, file_id))
+    else {
+        return Arc::default();
+    };
+    let root = SyntaxNode::new_root(parse_green(db, input).clone());
+    Arc::new(file_units(table, &root))
+}
+
+/// Every unit of the project by the names that select it.
+#[salsa::tracked(returns(ref))]
+pub(super) fn project_unit_index_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+) -> Arc<UnitIndex> {
+    let mut files = Vec::new();
+    for (file_id, _) in project.files(db).iter().copied() {
+        cancellation_checkpoint(db);
+        files.push((file_id, file_units_query(db, project, file_id).clone()));
+    }
+    Arc::new(build_unit_index(&files))
+}
+
+/// The other files' units that the analysis of `file_id` imports: those it names, directly or
+/// through their declarations (specification 14 §10.2).
+#[salsa::tracked(returns(ref))]
+pub(super) fn unit_selection_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<UnitSelection> {
+    cancellation_checkpoint(db);
+    let Some(input) = source_input(db, project, file_id) else {
+        return Arc::default();
+    };
+    let index = project_unit_index_query(db, project);
+    // The owners of the globals a file declares follow every program's code through the file's
+    // own table (`shared_globals`), so that file imports every unit.
+    let tables = project_symbol_tables_query(db, project);
+    if tables
+        .get(&file_id)
+        .is_some_and(|table| has_owned_global_variables(table, file_id))
+    {
+        return Arc::new(select_all_units(file_id, index));
+    }
+    let root = SyntaxNode::new_root(parse_green(db, input).clone());
+    Arc::new(select_units(file_id, written_names(&root), index))
+}
+
+/// The file's own symbols with every unit of the other files, not memoized: what completion, the
+/// learner's suggestions and rename's conflict check read, which must see every name a position
+/// can reach, whether the file names it yet or not (specification 14 §6.1, §10.2).
+pub(super) fn merged_with_every_unit(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<SymbolTable> {
+    cancellation_checkpoint(db);
+    let project_tables = project_symbol_tables_query(db, project);
+    let Some(table) = project_tables.get(&file_id) else {
+        return Arc::default();
+    };
+    let mut symbols = (**table).clone();
+    let selection = select_all_units(file_id, project_unit_index_query(db, project));
+    merge_project_symbols(file_id, &mut symbols, project_tables.as_ref(), &selection);
+    Arc::new(symbols)
+}
+
+fn source_input(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Option<SourceInput> {
+    project
+        .files(db)
+        .iter()
+        .find_map(|(candidate_id, input)| (*candidate_id == file_id).then_some(*input))
 }
 
 #[salsa::tracked(returns(ref))]
@@ -448,7 +540,8 @@ pub(super) fn checked_file_query(
     {
         symbols = (**merged_project_symbols_query(db, project, file_id)).clone();
     } else {
-        merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+        let selection = unit_selection_query(db, project, file_id);
+        merge_project_symbols(file_id, &mut symbols, project_tables.as_ref(), selection);
     }
     let config_inits = super::collector::config_inits_of(&config_roots);
     let (checked_symbols, access_config_diagnostics) =
@@ -866,10 +959,11 @@ fn merge_project_symbols(
     file_id: FileId,
     symbols: &mut SymbolTable,
     tables: &FxHashMap<FileId, Arc<SymbolTable>>,
+    selection: &UnitSelection,
 ) {
     let _trace = crate::timing::CompilerStage::new("hir.merge_project_symbols", tables.len());
     let ordered_tables = ordered_table_entries(tables);
-    let mut importer = SymbolImporter::new(symbols, tables);
+    let mut importer = SymbolImporter::new(symbols, tables).with_selection(selection);
     for (other_id, table) in ordered_tables.iter().copied() {
         if other_id == file_id {
             continue;

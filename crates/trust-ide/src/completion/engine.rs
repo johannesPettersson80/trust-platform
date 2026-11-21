@@ -23,8 +23,15 @@ pub fn complete_with_filter(
     let context = IdeContext::new(db, file_id);
     let root = &context.root;
     let symbols = &context.symbols;
-    let filter = SymbolFilter::new(symbols);
     let detect = detect_context(root, position);
+    // The names in scope are every declaration the position reaches, whether the file names it yet
+    // or not; the file's analysis holds only those it names (specification 14 §6.1, §10.2).
+    let reachable = (!matches!(
+        detect,
+        CompletionContext::TopLevel | CompletionContext::MemberAccess | CompletionContext::VarBlock
+    ))
+    .then(|| db.file_symbols_with_every_declaration(file_id));
+    let filter = SymbolFilter::new(reachable.as_deref().unwrap_or(symbols));
     let typed_literal_context = typed_literal_completion_context(&context, position);
     let scope_id = context.scope_at_position(position);
 

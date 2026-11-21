@@ -76,6 +76,38 @@ END_PROGRAM"#;
     );
 }
 
+/// Specification 14 §6.1 and §10.2: a file's analysis holds only the declarations it names, and
+/// completion still offers every declaration the position reaches. Catches a completion that lists
+/// only what the file names already, which would never offer another file's block while its name
+/// is being typed.
+#[test]
+fn test_completion_offers_other_files_declarations_the_file_does_not_name_yet() {
+    let mut db = Database::new();
+    let library = FileId(0);
+    let main = FileId(1);
+    db.set_source_text(
+        library,
+        "FUNCTION_BLOCK FB_Pump\nVAR_INPUT\n    run : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION F_Scale : REAL\nVAR_INPUT\n    raw : INT;\nEND_VAR\nF_Scale := INT_TO_REAL(raw);\nEND_FUNCTION\n".to_string(),
+    );
+    let declaring = "PROGRAM Main VAR pump : END_VAR END_PROGRAM";
+    db.set_source_text(main, declaring.to_string());
+    let in_declaration = TextSize::from(declaring.find(": ").unwrap() as u32 + 2);
+    let types = complete(&db, main, in_declaration);
+    assert!(
+        types.iter().any(|item| item.label == "FB_Pump"),
+        "the type annotation offers FB_Pump, declared in another file"
+    );
+
+    let stating = "PROGRAM Main\n\nEND_PROGRAM";
+    db.set_source_text(main, stating.to_string());
+    let in_body = TextSize::from(stating.find("\n\n").unwrap() as u32 + 1);
+    let names = complete(&db, main, in_body);
+    assert!(
+        names.iter().any(|item| item.label == "F_Scale"),
+        "a statement offers F_Scale, declared in another file and not named in this one"
+    );
+}
+
 #[test]
 fn test_completion_member_access_struct_fields() {
     let source = r#"

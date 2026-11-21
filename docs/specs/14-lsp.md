@@ -176,6 +176,11 @@ workspace indexing.
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
 | Expression | Variables, literals, standard functions/FBs with IEC docs (IEC 61131-3 Ed.3, Tables 22-36, 43-46) |
 
+The names completion offers in a scope are every declaration of the project that the position reaches by name,
+whether the file names it yet or not. A file's analysis holds only the declarations the file names (§10.2), so
+completion, like the learner's suggestions for an unknown name, reads every declaration of the project for each
+request.
+
 Completion does not offer a declaration that CODESYS hides from its Input Assistant and its "List components"
 (the vendor's help for `{attribute 'hide'}`): a variable, POU, method, property or action with `{attribute 'hide'}`
 before it (a variable's line, a POU's first line), nor the `VAR` locals of a POU with
@@ -366,8 +371,9 @@ contract, including when a newer document or workspace request supersedes it.
 ###### Rename Conflict Safety
 
 Rename is atomic and fail-closed. Before returning edits, the server evaluates
-the complete candidate edit set against the merged project symbol table. It
-refuses the request when the replacement identifier:
+the complete candidate edit set against every declaration of the project,
+including those the target's file does not name (§10.2). It refuses the request
+when the replacement identifier:
 
 - is invalid or reserved;
 - names a different declaration in the target's declaring scope, including an
@@ -1284,6 +1290,23 @@ struct Diagnostic {
 | Per-file overhead | < 10x source size |
 | Idle memory | < 100MB |
 | Large project (100 files) | < 500MB |
+
+**What one file's analysis holds.** A file's analysis holds its own declarations and the declarations of the
+project's other files that it names, with the declarations those need in turn, never a copy of the whole project: a
+file's memory grows with what it uses, not with the size of its project.
+
+- A declaration at the top of a file or directly inside a namespace is imported when the file writes its name, or a
+  name the declaration makes visible everywhere: an enumeration's values, and the global variables and constants of
+  a configuration or resource. Every namespace is imported, so that `USING` and qualified names find it.
+- An imported declaration brings the declarations that it names outside its statement bodies (the types of its
+  members, its bases and its interfaces), and those bring theirs in turn.
+- A file that declares global variables imports every declaration: the owners of its globals and their cross-task
+  hazards (specification 28 §6) follow the code of every program through that file's analysis.
+- Completion, the learner's suggestions and rename's conflict check read every declaration of the project for each
+  request (§6.1.2, §6.4.1).
+
+Two files that declare the same name are reported where the name is declared or used; a file that neither declares
+nor uses the name does not report it.
 
 #### 10.3 Optimization Strategies
 

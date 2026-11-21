@@ -777,7 +777,20 @@ VAR
     ws : LibWString;
     fb : LibFb;
     cls : LibClass;
+    itf : LibInterface;
 END_VAR
+(* A file imports the declarations it names (specification 14 §10.2): Main names each global. *)
+arr := rawArray;
+un := rawUnion;
+en := rawEnum;
+refValue := rawReference;
+sub := rawSubrange;
+sub := rawInlineSubrange;
+s := rawString;
+ws := rawWString;
+ptr := rawPointer;
+fb := rawFb;
+cls := rawClass;
 END_PROGRAM
 "#
         .to_string(),
