@@ -465,6 +465,14 @@ package, or end-to-end evidence.
   the matching intent for retry. Completing an older request MUST NOT clear a
   newer intent. Existing legacy Main/README keys may be read for migration, but
   newly produced intents shall have one authoritative stored representation.
+  That representation MUST read back, in the window that wrote it and in every
+  other window of the profile, as it was last written: it is a file in the
+  extension's global storage, replaced whole. VS Code's `globalState` does not
+  read back so: a window that writes a value 100 to 200 ms after an earlier
+  write sees the earlier value for about 150 ms, and keeps it when another
+  write follows (VS Code 1.147). An intent that an earlier version left in
+  `globalState` moves to the file at the next landing, unless the file holds
+  one.
 - The unified dispatcher shall migrate legacy handoffs only when their
   destination belongs to the active workspace. A lesson README's parent is
   its project; a starter `src/Main.st` belongs to the parent of `src`. If both

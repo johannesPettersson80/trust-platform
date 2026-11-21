@@ -13,6 +13,7 @@ import {
   type ExampleEntry,
 } from "../../examples/model";
 import { loadExamples } from "../../examples/load";
+import { readProjectLanding } from "../../projectLanding";
 import { captureCopiedLessonPreview } from "./examples-markdown-preview";
 // Keep the pre-fix checkout compilable: these behavior seams are intentionally absent there,
 // so the baseline reaches an assertion failure rather than failing during TypeScript binding.
@@ -229,7 +230,8 @@ suite("Control gallery model", () => {
       const updates: Array<[string, unknown]> = [];
       const context = {
         extensionUri: vscode.Uri.file(path.resolve(__dirname, "..", "..", "..")),
-        globalState: { update: async (key: string, value: unknown) => { updates.push([key, value]); } },
+        globalStorageUri: vscode.Uri.file(path.join(base, "global-storage")),
+        globalState: { get: () => undefined, update: async (key: string, value: unknown) => { updates.push([key, value]); } },
       };
       const previousOpen = vscode.window.showOpenDialog;
       const previousInput = vscode.window.showInputBox;
@@ -252,7 +254,12 @@ suite("Control gallery model", () => {
         assert.strictEqual(copied, true);
         assert.strictEqual(await fs.promises.readFile(path.join(existing, "keep.txt"), "utf8"), "unrelated user content");
         assert.ok(await fs.promises.stat(path.join(base, "fresh-example", "src", "Main.st")));
-        assert.ok(updates.length > 0);
+        // The copy hands its landing over in the intent's file, and writes no globalState for it (specification 25 §3.2).
+        assert.strictEqual(
+          readProjectLanding(context as unknown as vscode.ExtensionContext)?.filePath,
+          path.join(base, "fresh-example", "src", "Main.st"),
+        );
+        assert.deepStrictEqual(updates, []);
       } finally {
         (vscode.window as unknown as { showOpenDialog: typeof vscode.window.showOpenDialog }).showOpenDialog = previousOpen;
         (vscode.window as unknown as { showInputBox: typeof vscode.window.showInputBox }).showInputBox = previousInput;
@@ -280,20 +287,20 @@ suite("Control gallery model", () => {
       process.env.TRUST_UX_EXAMPLE_NAME = "lesson-one-copy";
       process.env.TRUST_UX_EXAMPLE_OPEN_FOLDER = "0";
       try {
-        const copied = await copyModule.copyExample({
+        const context = {
           extensionUri: vscode.Uri.file(extensionRoot),
+          globalStorageUri: vscode.Uri.file(path.join(base, "global-storage")),
           globalState: {
             get: (key: string) => [...updates].reverse().find(([storedKey]) => storedKey === key)?.[1],
             update: async (key: string, value: unknown) => { updates.push([key, value]); },
           },
-        }, {
+        };
+        const copied = await copyModule.copyExample(context, {
           id: "control-lesson-01", title: "1. Control-loop elements", description: "", path: "control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy", hardware: "none",
           tags: ["control"], lesson: { sequence: 1, level: "Foundation", equipment: "Simulator", principalTechnique: "Feedback", prerequisites: [] },
         });
         assert.strictEqual(copied, true);
-        const landing = updates.find(([key]) => key === "trust.projectLanding")?.[1] as {
-          intentId?: string; projectPath?: string; kind?: string; filePath?: string; exampleId?: string;
-        } | undefined;
+        const landing = readProjectLanding(context as unknown as vscode.ExtensionContext);
         assert.ok(landing, "copying a lesson must publish the structured landing intent");
         assert.strictEqual(landing?.kind, "lesson");
         assert.strictEqual(landing?.exampleId, "control-lesson-01");
