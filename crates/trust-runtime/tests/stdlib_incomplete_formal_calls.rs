@@ -95,3 +95,74 @@ fn an_incomplete_formal_call_runs_with_each_omitted_input_at_its_default_value()
         assert_eq!(harness.get_output(name), Some(expected), "{name}");
     }
 }
+
+/// A call of each string function with an input omitted.
+const INCOMPLETE_STRING_CALLS: &str = r#"
+PROGRAM Main
+VAR
+    leftNone : STRING;
+    rightNone : STRING;
+    midFirst : STRING;
+    deletedNone : STRING;
+    deletedFirst : STRING;
+    insertedFront : STRING;
+    insertedAlone : STRING;
+    replacedInsert : STRING;
+    replacedFirst : STRING;
+    foundEmpty : INT;
+    foundNothing : INT;
+    wideInserted : WSTRING;
+END_VAR
+leftNone := LEFT(IN := 'Hello');
+rightNone := RIGHT(IN := 'Hello');
+midFirst := MID(IN := 'Hello', L := 2);
+deletedNone := DELETE(IN := 'ABCD', P := 2);
+deletedFirst := DELETE(IN := 'ABCD', L := 2);
+insertedFront := INSERT(IN1 := 'AC', IN2 := 'B');
+insertedAlone := INSERT(IN2 := 'B', P := 1);
+replacedInsert := REPLACE(IN1 := 'ABCD', IN2 := 'XX', P := 2);
+replacedFirst := REPLACE(IN1 := 'ABCD', IN2 := 'XX', L := 2);
+foundEmpty := FIND(IN1 := 'ABC');
+foundNothing := FIND(IN2 := 'B');
+wideInserted := INSERT(IN2 := "w");
+END_PROGRAM
+"#;
+
+// Worked by hand from specification 07 §8.1, each omitted length or position 0 and each omitted
+// text empty:
+// - LEFT and RIGHT of a non-positive length are the empty string;
+// - MID('Hello', 2, 0) clamps the position to the first character: 'He';
+// - DELETE with a non-positive length leaves 'ABCD' unchanged, and DELETE('ABCD', 2, 0) deletes
+//   two characters from the first: 'CD';
+// - INSERT('AC', 'B', 0) inserts before the first character: 'BAC'; INSERT('', 'B', 1) appends to
+//   the empty text: 'B';
+// - REPLACE with a non-positive length inserts at its start: REPLACE('ABCD', 'XX', 0, 2) is
+//   'AXXBCD'; REPLACE('ABCD', 'XX', 2, 0) replaces from the first character: 'XXCD';
+// - an empty IN2 is found at position 1, and nothing is found in an empty IN1: 0;
+// - INSERT("", "w", 0) is "w", a WSTRING, as an omitted text takes the family of the other.
+// Catches a build that refused each ("LEFT without its L"), an omitted position taken as 1 where
+// the rule clamps 0 (they agree here, so the inserts and the found positions decide it), an omitted
+// text that is no empty text, and an empty text of the wrong family.
+#[test]
+fn an_incomplete_formal_string_call_runs_with_empty_texts_and_zero_counts() {
+    let mut harness =
+        TestHarness::from_source(INCOMPLETE_STRING_CALLS).expect("the program builds");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    for (name, expected) in [
+        ("leftNone", Value::String("".into())),
+        ("rightNone", Value::String("".into())),
+        ("midFirst", Value::String("He".into())),
+        ("deletedNone", Value::String("ABCD".into())),
+        ("deletedFirst", Value::String("CD".into())),
+        ("insertedFront", Value::String("BAC".into())),
+        ("insertedAlone", Value::String("B".into())),
+        ("replacedInsert", Value::String("AXXBCD".into())),
+        ("replacedFirst", Value::String("XXCD".into())),
+        ("foundEmpty", Value::Int(1)),
+        ("foundNothing", Value::Int(0)),
+        ("wideInserted", Value::WString("w".into())),
+    ] {
+        assert_eq!(harness.get_output(name), Some(expected), "{name}");
+    }
+}

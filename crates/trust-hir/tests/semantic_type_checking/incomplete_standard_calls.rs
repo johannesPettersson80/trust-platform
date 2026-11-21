@@ -122,3 +122,46 @@ fn a_non_formal_call_still_gives_every_input() {
         assert_eq!(errors(statement), [message], "{statement}");
     }
 }
+
+#[test]
+fn a_formal_string_call_may_omit_its_lengths_positions_and_one_of_two_texts() {
+    // Specification 07 §1: an omitted length or position is 0, and an omitted text of INSERT,
+    // REPLACE or FIND is the empty text of the other's family. Catches the refusals "expected 2
+    // arguments, found 1" and "expected 3 arguments, found 2" that truST gave each (checklist G227).
+    for statement in [
+        "s := LEFT(IN := s);",
+        "s := RIGHT(IN := s);",
+        "s := MID(IN := s, L := 2);",
+        "s := MID(IN := s);",
+        "s := DELETE(IN := s, P := 2);",
+        "s := INSERT(IN1 := s, IN2 := 'x');",
+        "s := INSERT(IN2 := s);",
+        "s := REPLACE(IN1 := s, IN2 := 'x');",
+        "a := FIND(IN1 := s);",
+        "a := FIND(IN2 := 'x');",
+    ] {
+        assert_eq!(errors(statement), Vec::<String>::new(), "{statement}");
+    }
+}
+
+#[test]
+fn a_formal_string_call_without_the_text_that_types_it_is_refused() {
+    // Specification 07 §1: the text of LEFT, RIGHT, MID and DELETE, and one of INSERT's,
+    // REPLACE's and FIND's two, gives the call its family, STRING or WSTRING; without it an
+    // omitted text has no type. Catches a call that took a STRING for granted.
+    for (statement, function, inputs) in [
+        ("s := LEFT(L := 2);", "LEFT", "IN"),
+        ("s := RIGHT();", "RIGHT", "IN"),
+        ("s := MID(L := 1, P := 2);", "MID", "IN"),
+        ("s := DELETE(P := 1);", "DELETE", "IN"),
+        ("s := INSERT(P := 1);", "INSERT", "IN1 or IN2"),
+        ("s := REPLACE();", "REPLACE", "IN1 or IN2"),
+        ("a := FIND();", "FIND", "IN1 or IN2"),
+    ] {
+        assert_eq!(
+            errors(statement),
+            [untyped(function, inputs)],
+            "{statement}"
+        );
+    }
+}
