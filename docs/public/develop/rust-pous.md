@@ -278,8 +278,11 @@ after it, parameters of the types a local takes, `async fn move_to(&mut self, s:
 f64)`. Awaited with `self.move_to(s, 25.0).await?`, it runs as a call would, from the activation that
 reaches it, so moving part of a sequence into a child changes nothing about when anything happens.
 Its parameters are variables of its state: the arguments set them when it starts, and they keep
-their values across its waits. The POU's sequence is the one `async fn` of the block that no other
-awaits, and it takes no parameter.
+their values across its waits. A child can also be a member of `s.all` or `s.race`: `s.all(self.left(s),
+self.right(s))` runs two children side by side, as an SFC's parallel branches, and
+`s.race(self.fill(s), s.until(|me: &Self| me.stop))` abandons the filling where it waits when the stop
+comes first, so the sequence closes what the filling left open. The POU's sequence is the one `async
+fn` of the block that no other awaits, and it takes no parameter.
 
 **The state.** The POU keeps where its sequence waits in its last variable, `_seq`: `point`, 0 at
 the top and then the wait point's number, `began`, the time its wait began, the locals, and each

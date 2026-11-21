@@ -16,7 +16,8 @@
   RU-72), decided under the same delegation. 0.8, 21 November 2026: how an online change tells that
   a sequence's wait points or locals changed, through its state's `shape_<signature>` (RU-71,
   RU-73). 0.9, 21 November 2026: a child sequence's parameters (RU-71, RU-72, RU-73), decided under
-  the same delegation.
+  the same delegation. 0.10, 21 November 2026: child sequences as members of `s.all` and `s.race`
+  (RU-72), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1332,8 +1333,10 @@ at the first later activation at whose start `pred` holds, and `s.wait(t)` at th
 whose logical time is at least `t` after the one that began it. A wait point's number is its place
 among the body's wait points, from 1.
 
-`s.all(..)` and `s.race(..)` take two to sixteen members, each `s.next_cycle()`, `s.until(pred)` or
-`s.wait(t)`, which all begin with the wait point, and each member completes as it would alone.
+`s.all(..)` and `s.race(..)` take two to sixteen members, each `s.next_cycle()`, `s.until(pred)`,
+`s.wait(t)` or a child sequence with its arguments, `self.fill(s, ..)`, which all begin with the wait
+point, and each member completes as it would alone: a plain wait at a later activation, a child when
+it returns.
 `s.all` completes at the activation at which the last of its members completes, a member that has
 completed staying complete, as simultaneous sequences evolve each on its own and converge once each
 has reached its end (IEC §6.7.5, Table 61, features 4a and 4b): `s.all(s.until(a), s.until(b))`
@@ -1345,6 +1348,19 @@ feature 2a). `let won: u16 = s.race(..).await;` keeps that member's number, from
 `won`. The state of a sequence whose body holds an `s.all` has `done : WORD` after `began` (RU-71):
 the members of the `s.all` that the sequence waits at that have completed, bit 0 for the first, and 0
 at every other wait point.
+
+A child that is a member runs as part of its wait point. The activation that reaches the wait point
+starts each child member in the members' order, from its top with its arguments, as a child awaited
+alone starts, and each later activation that checks the wait point resumes each child member that has
+not returned, in the members' order with the plain members. So `s.all(self.left(s), self.right(s))`
+runs two child sequences side by side, as an SFC's simultaneous sequences of several steps each run
+(IEC §6.7.5, Table 61, features 4a and 4b), and `s.race(self.fill(s), s.until(|me| me.stop))`
+abandons the filling where it waits when the stop comes first: a child that loses a race is not
+resumed, keeps what it last wrote, and starts at its top the next time it is awaited. A child member
+that returns at the activation that began the wait point has completed there: an `s.all` all of whose
+members do completes at once, and an `s.race` completes at once with the first child member in order
+that does, starting no member after it. A child is a member of one `s.all` or `s.race` once at most,
+as it has one state.
 
 A child sequence is another `async fn` of the same `#[trust_sequence]` block, which takes the context
 and, after it, parameters of the types a local takes (`async fn move_to(&mut self, s: &mut Seq,
@@ -1376,12 +1392,14 @@ point. A wait point stands as a statement of its own (`s.wait(t).await;`, `....w
 `let won: u16 = s.race(..).await;`). The attribute refuses any other `.await`, an `.await` inside
 another expression, an `async` block or closure, a future of another crate, a loop that can run
 without reaching a wait point (a child sequence counts as one only when every way through it waits
-before it returns), a `for` loop with a wait point in it (its iterator would have to survive the
+before it returns, an `s.race` only when every child member does, and an `s.all` when one of its
+members does), a `for` loop with a wait point in it (its iterator would have to survive the
 wait), an `if let` or a `while let` with a wait point in it (its binding would have to live across
 the wait), a labelled block with a wait point in it (its `break` would leave the wait behind), a
 `break` with a value out of a loop that holds a wait point, an `s.all` or an
 `s.race` with fewer than two members or more than sixteen, a member that is not `s.next_cycle()`,
-`s.until(..)` or `s.wait(..)` or that has a `.within` of its own, a value from a wait point other than
+`s.until(..)`, `s.wait(..)` or a child sequence or that has a `.within` of its own, a child that two
+members of one `s.all` or `s.race` await, a value from a wait point other than
 `s.race`, a local of `s.race`'s member number whose type is not `u16`, a local without its type, two
 locals of one name in one sequence, a local that takes a name of the state's own fields (RU-71), a
 parameter of the POU's sequence, a child's parameter that is not one name with its type or that

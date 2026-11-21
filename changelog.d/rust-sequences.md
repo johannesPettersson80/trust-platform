@@ -29,3 +29,7 @@
   target: f64)`, which the sequence that awaits it passes, `self.move_to(s, 25.0).await?`
   (specification 48 RU-72): they are variables of the child's state, set when it starts and kept
   across its waits.
+- A child sequence can be a member of `s.all` and `s.race` (specification 48 RU-72):
+  `s.all(self.left(s), self.right(s))` runs two children side by side, as an SFC's simultaneous
+  branches, and an `s.race` abandons a child that loses where it waits; it starts at its top the
+  next time it is awaited.

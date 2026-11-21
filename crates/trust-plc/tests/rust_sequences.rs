@@ -310,3 +310,222 @@ fn a_childs_parameter_is_set_at_each_await_and_kept_across_its_wait() -> Result<
     );
     Ok(())
 }
+
+/// Two stations that work side by side, each a child sequence of several steps, as an SFC's
+/// simultaneous sequences: the cell counts a cycle once both have finished.
+#[trust_program(name = "TWIN", sequence = "run")]
+#[budget("60us")]
+// Its inputs and outputs are a PLC's bits, one BOOL each.
+#[allow(clippy::struct_excessive_bools)]
+pub struct Twin {
+    #[input]
+    pub left_done: bool,
+    #[input]
+    pub right_done: bool,
+    #[output]
+    pub left_on: bool,
+    #[output]
+    pub right_on: bool,
+    #[output]
+    pub cycles: i16,
+}
+
+#[trust_sequence]
+impl Twin {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.all(self.left(s), self.right(s)).await;
+            self.cycles = checked::add(s, self.cycles, 1)?;
+            s.next_cycle().await;
+        }
+    }
+
+    async fn left(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        self.left_on = true;
+        s.until(|me: &Self| me.left_done).await;
+        self.left_on = false;
+        s.next_cycle().await;
+        Ok(())
+    }
+
+    async fn right(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        self.right_on = true;
+        s.until(|me: &Self| me.right_done).await;
+        self.right_on = false;
+        Ok(())
+    }
+}
+
+#[test]
+fn an_all_of_child_sequences_runs_them_side_by_side() -> Result<(), Fault> {
+    // RU-72 and IEC §6.7.5 Table 61 features 4a and 4b. Activation 1 starts both stations in the
+    // members' order, each switched on and waiting, its point 1, and the cell waits at the s.all,
+    // point 1. At 2 the right station is done and returns: done 0b10. At 3 the left one is done and
+    // waits a cycle more, its point 2. At 4 it returns: both done, the cell counts 1 and waits a
+    // cycle, point 2, done 0 again. At 5 both stations start anew. Catches children run one after
+    // the other, a child resumed after it returned, and an s.all that does not wait for its slower
+    // branch.
+    let mut cx = trust_plc::test::cx();
+    let mut twin = Twin::new();
+    let mut seen = Vec::new();
+    for activation in 1..=5 {
+        twin.right_done = activation >= 2;
+        twin.left_done = activation >= 3;
+        twin.call(&mut cx)?;
+        seen.push((
+            twin.left_on,
+            twin.right_on,
+            twin.cycles,
+            twin._seq.point,
+            twin._seq.done.0,
+            twin._seq.left.point,
+            twin._seq.right.point,
+        ));
+    }
+    assert_eq!(
+        seen,
+        [
+            (true, true, 0, 1, 0b00, 1, 1),
+            (true, false, 0, 1, 0b10, 1, 0),
+            (false, false, 0, 1, 0b10, 2, 0),
+            (false, false, 1, 2, 0b00, 0, 0),
+            (true, true, 1, 1, 0b00, 1, 1),
+        ]
+    );
+    Ok(())
+}
+
+/// A filler whose filling, a child sequence, races a stop: the stop abandons the filling where it
+/// waits, and the cell closes the valve itself.
+#[trust_program(name = "STOPPABLE", sequence = "run")]
+#[budget("60us")]
+pub struct Stoppable {
+    #[input]
+    pub full: bool,
+    #[input]
+    pub stop: bool,
+    #[output]
+    pub valve: bool,
+    #[output]
+    pub ended: u16,
+}
+
+#[trust_sequence]
+impl Stoppable {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            let won: u16 = s.race(self.fill(s), s.until(|me: &Self| me.stop)).await;
+            self.ended = won;
+            if won == 2 {
+                self.valve = false;
+            }
+            s.next_cycle().await;
+        }
+    }
+
+    async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        self.valve = true;
+        s.until(|me: &Self| me.full).await;
+        self.valve = false;
+        Ok(())
+    }
+}
+
+#[test]
+fn a_race_abandons_the_child_that_loses_where_it_waits() -> Result<(), Fault> {
+    // RU-72: activation 1 starts the filling, which opens the valve and waits for the level, its
+    // point 1. The stop at 2 wins, member 2: the filling is not resumed, keeps its point 1, and the
+    // cell closes the valve itself and waits a cycle. At 3 the race begins anew and starts the
+    // filling from its top. The level at 4: the filling returns, member 1, and closes the valve.
+    // Catches a race that resumes its loser, one that keeps the loser's progress for the next race,
+    // and a stop that does not win when it comes first.
+    let mut cx = trust_plc::test::cx();
+    let mut cell = Stoppable::new();
+    let mut seen = Vec::new();
+    for activation in 1..=4 {
+        cell.stop = activation == 2;
+        cell.full = activation == 4;
+        cell.call(&mut cx)?;
+        seen.push((
+            cell.valve,
+            cell.ended,
+            cell._seq.point,
+            cell._seq.fill.point,
+            cell._seq.won,
+        ));
+    }
+    assert_eq!(
+        seen,
+        [
+            (true, 0, 1, 1, 0),
+            (false, 2, 2, 1, 2),
+            (true, 2, 1, 1, 2),
+            (false, 1, 2, 0, 1),
+        ]
+    );
+    Ok(())
+}
+
+/// A cell whose preparation and check, child sequences, return at once when it is ready, in an
+/// s.all and in an s.race.
+#[trust_program(name = "READY_CELL", sequence = "run")]
+#[budget("60us")]
+pub struct ReadyCell {
+    #[input]
+    pub ready: bool,
+    #[input]
+    pub go: bool,
+    #[output]
+    pub prepared: i16,
+    #[output]
+    pub result: u16,
+}
+
+#[trust_sequence]
+impl ReadyCell {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.all(self.prepare(s), self.check(s)).await;
+            let won: u16 = s.race(s.until(|me: &Self| me.go), self.check(s)).await;
+            self.result = won;
+            s.next_cycle().await;
+        }
+    }
+
+    async fn prepare(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        self.prepared = checked::add(s, self.prepared, 1)?;
+        if self.ready {
+            return Ok(());
+        }
+        s.next_cycle().await;
+        Ok(())
+    }
+
+    async fn check(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        if self.ready {
+            return Ok(());
+        }
+        s.next_cycle().await;
+        Ok(())
+    }
+}
+
+#[test]
+fn children_that_return_at_once_complete_their_wait_point_at_once() -> Result<(), Fault> {
+    // RU-72: ready, the preparation and the check return at the activation that starts them, so the
+    // s.all completes there, and the s.race that follows completes there too, with its child member
+    // 2 that returned at once, while `go` could not complete at the activation that began it. So
+    // activation 1 prepares once, ends the race with 2 and waits a cycle, point 3; activation 2
+    // prepares again and ends the race with 2 again. Catches a child member that takes an activation
+    // to complete although it returned, and a race that starts members after the one that won.
+    let mut cx = trust_plc::test::cx();
+    let mut cell = ReadyCell::new();
+    cell.ready = true;
+    let mut seen = Vec::new();
+    for _ in 1..=2 {
+        cell.call(&mut cx)?;
+        seen.push((cell.prepared, cell.result, cell._seq.point));
+    }
+    assert_eq!(seen, [(1, 2, 3), (2, 2, 3)]);
+    Ok(())
+}

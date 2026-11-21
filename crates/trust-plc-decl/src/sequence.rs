@@ -594,6 +594,9 @@ impl Reader {
                 arguments,
             });
         }
+        if matches!(wait, Wait::All | Wait::Race) {
+            self.child_members(&awaited.base)?;
+        }
         let number = u16::try_from(self.wait_points.len() + 1)
             .map_err(|_| Error::new(awaited.span(), "a sequence has at most 65535 wait points"))?;
         self.wait_points.push(WaitPoint {
@@ -711,10 +714,11 @@ impl Reader {
                     ));
                 }
                 Expr::MethodCall(inner) => {
-                    self.is_context(&inner.receiver)
+                    (self.is_context(&inner.receiver)
                         && ["next_cycle", "until", "wait"]
                             .iter()
-                            .any(|name| inner.method == name)
+                            .any(|name| inner.method == name))
+                        || self.child_member(inner).is_some()
                 }
                 _ => false,
             };
@@ -722,11 +726,64 @@ impl Reader {
                 return Err(Error::new(
                     member.span(),
                     format!(
-                        "a member of `{s}.{method}` is `{s}.next_cycle()`, `{s}.until(..)` or \
-                         `{s}.wait(..)` (specification 48 RU-72)"
+                        "a member of `{s}.{method}` is `{s}.next_cycle()`, `{s}.until(..)`, \
+                         `{s}.wait(..)` or a child sequence `self.<child>({s}, ..)` (specification 48 \
+                         RU-72)"
                     ),
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// The child sequence `call` awaits as a member of an `s.all` or `s.race`, `self.fill(s, ..)`,
+    /// with the number of its arguments after the context.
+    fn child_member<'a>(&self, call: &'a syn::ExprMethodCall) -> Option<(&'a syn::Ident, usize)> {
+        let child = matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident("self"))
+            && call
+                .args
+                .first()
+                .is_some_and(|argument| self.is_context(argument));
+        child.then(|| (&call.method, call.args.len().saturating_sub(1)))
+    }
+
+    /// The child sequences of the members of `s.all(..)` or `s.race(..)`, `base`'s call, recorded as
+    /// awaited, each once at most (RU-72).
+    fn child_members(&mut self, base: &Expr) -> Result<(), Error> {
+        let mut call = base;
+        while let Expr::MethodCall(within) = call
+            && within.method == "within"
+        {
+            call = &within.receiver;
+        }
+        let Expr::MethodCall(call) = call else {
+            return Ok(());
+        };
+        let mut seen: Vec<String> = Vec::new();
+        for member in &call.args {
+            let Expr::MethodCall(inner) = member else {
+                continue;
+            };
+            let Some((child, arguments)) = self.child_member(inner) else {
+                continue;
+            };
+            let name = child.unraw().to_string();
+            if seen.contains(&name) {
+                return Err(Error::new(
+                    child.span(),
+                    format!(
+                        "the child sequence `{name}` is a member of this `{}.{}` twice: a child has \
+                         one state (specification 48 RU-72)",
+                        self.context, call.method
+                    ),
+                ));
+            }
+            seen.push(name.clone());
+            self.children.push(Awaited {
+                child: name,
+                place: child.span(),
+                arguments,
+            });
         }
         Ok(())
     }

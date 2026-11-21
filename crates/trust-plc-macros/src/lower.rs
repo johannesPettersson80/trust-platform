@@ -100,6 +100,9 @@ enum Op {
     /// The child sequence that the wait point of this number awaits begins: start the child, and
     /// store the state and return while it waits, or go on at the label when it has returned.
     BeginChild(u16, usize),
+    /// The `s.all` or `s.race` of this number with child members begins: start the child members,
+    /// and store the state and return, or go on at the label when the wait point completed at once.
+    BeginMembers(u16, usize),
     /// The check of the wait point of this number, where its resumption begins.
     Resume(u16),
     /// Go on at the label.
@@ -209,12 +212,19 @@ pub(crate) fn lower(
             }
         }
     });
+    // The member of an `s.race` that ended it, which the race's local takes (see `waits`).
+    let won = lowering
+        .waits
+        .iter()
+        .any(|wait| matches!(wait.check, Check::Race(_)))
+        .then(|| quote! { let mut __trust_won: u16 = 0; });
     Ok(quote! {
         #(#attributes)*
         #[allow(unused_mut, unused_assignments, unreachable_code, clippy::never_loop)]
         #visibility #signature {
             #reset
             #(let mut #names: #types = #state.#names;)*
+            #won
             let mut __trust_at: usize = match #state.point {
                 #(#numbers => #resumes,)*
                 _ => 0,
@@ -395,14 +405,24 @@ impl Lowering {
     fn wait_point(&mut self, awaited: &ExprAwait) -> Result<(), Error> {
         let wait = self.wait_of(&awaited.base)?;
         let child = matches!(wait.check, Check::Child(..));
+        let child_members = match &wait.check {
+            Check::All(members) | Check::Race(members) => members
+                .iter()
+                .any(|member| matches!(member, Check::Child(..))),
+            _ => false,
+        };
         self.waits.push(wait);
         let number = u16::try_from(self.waits.len())
             .map_err(|_| Error::new(awaited.span(), "a sequence has at most 65535 wait points"))?;
         let resume = self.label();
         self.resumes.push(resume);
-        if child {
+        if child || child_members {
             let after = self.label();
-            self.ops.push(Op::BeginChild(number, after));
+            self.ops.push(if child {
+                Op::BeginChild(number, after)
+            } else {
+                Op::BeginMembers(number, after)
+            });
             self.ops.push(Op::Label(resume));
             self.ops.push(Op::Resume(number));
             self.ops.push(Op::Label(after));
@@ -517,26 +537,19 @@ impl Lowering {
                     let begin = self.begin(*number, &names);
                     let jump = goto(*after);
                     if let Some((child, arguments)) = self.child_of(*number) {
-                        // The arguments are evaluated once, before the child starts, and set its
-                        // parameters, variables of its state (RU-72).
-                        let parameters = self
-                            .parameters
-                            .get(&child.unraw().to_string())
-                            .cloned()
-                            .unwrap_or_default();
-                        let values: Vec<Ident> = (0..arguments.len())
-                            .map(|index| format_ident!("__trust_argument_{index}"))
-                            .collect();
+                        let start = self.start_child(child, arguments);
                         chunk.extend(quote! {
-                            #(let #values = #arguments;)*
-                            self._seq.#child = ::trust_plc::declared_default();
-                            #(self._seq.#child.#parameters = #values;)*
+                            #start
                             if !self.#child(#context)? {
                                 #begin
                             }
                             #jump
                         });
                     }
+                    ended = true;
+                }
+                Op::BeginMembers(number, after) => {
+                    chunk.extend(self.begin_members(*number, *after, &names));
                     ended = true;
                 }
                 Op::Resume(number) => chunk.extend(self.resume(*number)),
@@ -573,10 +586,15 @@ impl Lowering {
     /// The wait point `number` begins: an `s.all` with none of its members complete (RU-72), the
     /// wait's point and time stored with the locals, and the activation returns.
     fn begin(&self, number: u16, names: &[&Ident]) -> TokenStream {
+        let done = quote! { ::trust_plc::Word(0) };
+        self.begin_with(number, names, &done)
+    }
+
+    /// The wait point `number` begins as [`begin`](Self::begin) does, an `s.all`'s members that
+    /// have completed in `done`.
+    fn begin_with(&self, number: u16, names: &[&Ident], done: &TokenStream) -> TokenStream {
         let (context, state, waiting) = (&self.context, &self.state, self.waiting());
-        let all = self
-            .is_all(number)
-            .then(|| quote! { #state.done = ::trust_plc::Word(0); });
+        let all = self.is_all(number).then(|| quote! { #state.done = #done; });
         let number = Literal::u16_unsuffixed(number);
         quote! {
             #all
@@ -589,6 +607,24 @@ impl Lowering {
             #state.began = __trust_wait.began;
             #(#state.#names = #names;)*
             return #waiting;
+        }
+    }
+
+    /// Starts the child sequence `child` from its top with its `arguments`: they are evaluated
+    /// once, then the child's state starts at its default and its parameters take them (RU-72).
+    fn start_child(&self, child: &Ident, arguments: &[Expr]) -> TokenStream {
+        let parameters = self
+            .parameters
+            .get(&child.unraw().to_string())
+            .cloned()
+            .unwrap_or_default();
+        let values: Vec<Ident> = (0..arguments.len())
+            .map(|index| format_ident!("__trust_argument_{index}"))
+            .collect();
+        quote! {
+            #(let #values = #arguments;)*
+            self._seq.#child = ::trust_plc::declared_default();
+            #(self._seq.#child.#parameters = #values;)*
         }
     }
 
