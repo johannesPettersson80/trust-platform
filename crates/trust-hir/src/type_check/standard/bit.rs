@@ -6,30 +6,25 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn infer_bit_shift_call(
         &mut self,
         node: &SyntaxNode,
-        _name: &str,
+        name: &str,
     ) -> TypeId {
         let params = vec![
             builtin_param("IN", ParamDirection::In),
             builtin_param("N", ParamDirection::In),
         ];
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
+        // The value gives the result its type; a count a formal call omits is 0.
         let Some((arg_in, ty_in)) = call.arg(0) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
+            return self.untyped_call(node, &name.to_ascii_uppercase(), "IN");
         };
-        let Some((arg_n, ty_n)) = call.arg(1) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        };
-        if ty_in == TypeId::UNKNOWN || ty_n == TypeId::UNKNOWN {
+        let count = call.arg(1);
+        if ty_in == TypeId::UNKNOWN || count.as_ref().is_some_and(|(_, ty)| *ty == TypeId::UNKNOWN)
+        {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::CannotResolve, node.text_range());
@@ -48,7 +43,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 );
             }
         };
-        if !self.checker.is_assignable(TypeId::ANY_INT, ty_n) {
+        if let Some((arg_n, ty_n)) = count
+            && !self.checker.is_assignable(TypeId::ANY_INT, ty_n)
+        {
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::InvalidArgumentType,
                 arg_n.range,

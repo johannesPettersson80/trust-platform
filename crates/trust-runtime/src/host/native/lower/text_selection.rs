@@ -13,32 +13,35 @@ use crate::native::types::Elem;
 use crate::native::NativeError;
 
 impl Lowerer<'_, '_> {
-    /// `name`, `MAX`, `MIN`, `LIMIT` or `SEL`, of `values` when its inputs are texts: the selected
-    /// text. `MAX` and `MIN` keep the first of equal texts, and `LIMIT` raises its input to `MN`
-    /// before it caps it at `MX`, as they treat other values (specification 07 §6.1). `None` for
+    /// `name`, `MAX`, `MIN`, `LIMIT` or `SEL`, of `operands` when its inputs are texts: the
+    /// selected text. `MAX` and `MIN` keep the first of equal texts, and `LIMIT` raises its input
+    /// to `MN` before it caps it at `MX`, as they treat other values (specification 07 §6.1). An
+    /// input that a formal call omits is the empty text, an omitted selector `FALSE`. `None` for
     /// any other function, and for inputs that are no texts.
     pub(super) fn text_selection(
         &mut self,
         node: &SyntaxNode,
         name: &str,
-        values: &[SyntaxNode],
+        operands: &[Option<SyntaxNode>],
     ) -> Result<Option<Called>, NativeError> {
-        let (select, inputs) = match (name, values) {
+        let (select, inputs) = match (name, operands) {
             ("SEL", [select, inputs @ ..]) => (Some(select), inputs),
             ("MAX" | "MIN" | "LIMIT", inputs) => (None, inputs),
             _ => return Ok(None),
         };
-        let Some(wide) = self.text_family(node, inputs)? else {
+        let given: Vec<SyntaxNode> = inputs.iter().flatten().cloned().collect();
+        let Some(wide) = self.text_family(node, &given)? else {
             return Ok(None);
         };
         let select = match select {
-            Some(select) => {
+            Some(Some(select)) => {
                 let boolean = self.model.types.elem(Elem::Bool);
                 Some(self.scalar_to(select, boolean)?)
             }
+            Some(None) => Some("false".to_string()),
             None => None,
         };
-        let texts = self.texts_of(inputs)?;
+        let texts = self.operand_texts(inputs, wide)?;
         let views: Vec<String> = texts
             .iter()
             .map(|(text, _)| format!("({text}).view()"))

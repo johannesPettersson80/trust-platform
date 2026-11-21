@@ -48,8 +48,8 @@ impl Lowerer<'_, '_> {
         Ok((self.text_temp(&parts, capacity), capacity))
     }
 
-    /// The arguments of standard function `name` in the order of `formals`: positional ones in
-    /// order, formal ones by name (IEC §6.6.1.4).
+    /// The arguments of standard function `name` in the order of `formals`, each of which the call
+    /// gives: positional ones in order, formal ones by name (IEC §6.6.1.4).
     pub(super) fn formal_order(
         &self,
         node: &SyntaxNode,
@@ -57,6 +57,23 @@ impl Lowerer<'_, '_> {
         formals: &[&str],
         args: Vec<Arg>,
     ) -> Result<Vec<SyntaxNode>, NativeError> {
+        self.formal_slots(name, formals, args)?
+            .into_iter()
+            .zip(formals)
+            .map(|(slot, formal)| {
+                slot.ok_or_else(|| self.unsupported(node, format!("{name} without its {formal}")))
+            })
+            .collect()
+    }
+
+    /// The arguments of standard function `name` in the order of `formals`: positional ones in
+    /// order, formal ones by name, `None` for an input that a formal call omits (IEC §6.6.1.4).
+    pub(super) fn formal_slots(
+        &self,
+        name: &str,
+        formals: &[&str],
+        args: Vec<Arg>,
+    ) -> Result<Vec<Option<SyntaxNode>>, NativeError> {
         let mut slots: Vec<Option<SyntaxNode>> = vec![None; formals.len()];
         let mut next = 0;
         for arg in args {
@@ -74,13 +91,7 @@ impl Lowerer<'_, '_> {
             };
             slots[slot] = Some(arg.value);
         }
-        slots
-            .into_iter()
-            .zip(formals)
-            .map(|(slot, formal)| {
-                slot.ok_or_else(|| self.unsupported(node, format!("{name} without its {formal}")))
-            })
-            .collect()
+        Ok(slots)
     }
 
     /// An integer argument of a string function as an `i64`, as the runtime takes it.

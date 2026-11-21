@@ -6,6 +6,31 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-11-21 - Incomplete formal calls of the standard functions
+
+- Area: calls of the standard functions of fixed inputs (specification 07 §1, "Calls")
+- IEC context: IEC 61131-3 Ed.3 §6.6.1.4.2: "The formal parameter list may be complete or
+  incomplete. Any variable to which no value is assigned in the list shall have the initial value,
+  if any, assigned in the declaration of the called entity, or the default value for the associated
+  data type." Its EXAMPLE 1 is `A:= LIMIT(IN:= B, MX:= 5); // Incomplete`. The standard does not say
+  which type an omitted input of a generic or an overloaded function has, nor how a formal call
+  names the inputs of an extensible function.
+- Decision:
+  - An omitted input takes the default value of the type its call gives it: the common type of the
+    inputs given with it where one generic types them, or the input's own type (the selector of
+    `SEL`, the count of a shift, the exponent of `EXPT`).
+  - A formal call is refused when no input it gives types an omitted one: every input of the
+    generic omitted, the value of a shift, the base of `EXPT`; and `SUB` or `DIV` given a time with
+    the other input omitted, as the omitted input's type depends on the overload (Table 37).
+  - An extensible function numbers its inputs `IN1` to `INn` by their places, so a formal call
+    names them without a gap.
+- Reason:
+  - A default value exists only for a known type. Choosing a type the call does not give, such as
+    `INT` for `LIMIT()`, would invent one, and an error that names the needed inputs says what to
+    write.
+  - An extensible function's inputs have no declaration beyond their count; a gap would leave an
+    input without a place.
+
 ## 2026-11-19 - Standard functions and function blocks take no EN and ENO
 
 - Area: calls of the standard functions and function blocks (specification 04, "EN/ENO

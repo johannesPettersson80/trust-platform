@@ -40,6 +40,8 @@ mod expression_operator_contract_rejection;
 mod generic_type_contract;
 #[path = "semantic_type_checking/hir_mutation_hardening.rs"]
 mod hir_mutation_hardening;
+#[path = "semantic_type_checking/incomplete_standard_calls.rs"]
+mod incomplete_standard_calls;
 #[path = "semantic_type_checking/member_access_acceptance.rs"]
 mod member_access_acceptance;
 #[path = "semantic_type_checking/member_access_declaration_rejection.rs"]

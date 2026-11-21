@@ -9,30 +9,30 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             builtin_param("IN1", ParamDirection::In),
         ];
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 3);
-        if call.arg_count() != 3 {
+        if !call.gives_inputs(3) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
-        let Some((arg_g, ty_g)) = call.arg(0) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        };
-        if ty_g == TypeId::UNKNOWN {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::CannotResolve, arg_g.range);
-        }
-        if self.base_type_id(ty_g) != TypeId::BOOL {
-            return self.checker.legacy_diagnostic_type(
-                DiagnosticCode::InvalidArgumentType,
-                arg_g.range,
-                "expected BOOL selector",
-            );
+        // A selector a formal call omits is FALSE, which selects IN0.
+        if let Some((arg_g, ty_g)) = call.arg(0) {
+            if ty_g == TypeId::UNKNOWN {
+                return self
+                    .checker
+                    .legacy_suppressed_type(DiagnosticCode::CannotResolve, arg_g.range);
+            }
+            if self.base_type_id(ty_g) != TypeId::BOOL {
+                return self.checker.legacy_diagnostic_type(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg_g.range,
+                    "expected BOOL selector",
+                );
+            }
         }
         let inputs = call.args_from(1);
+        if inputs.is_empty() {
+            return self.untyped_call(node, "SEL", "IN0 or IN1");
+        }
         self.common_any_type_for_args(&inputs).unwrap_or_else(|| {
             self.checker
                 .legacy_suppressed_type(DiagnosticCode::InvalidArgumentType, node.text_range())
@@ -65,13 +65,15 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             builtin_param("MX", ParamDirection::In),
         ];
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 3);
-        if call.arg_count() != 3 {
+        if !call.gives_inputs(3) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let inputs = call.args_from(0);
+        if inputs.is_empty() {
+            return self.untyped_call(node, "LIMIT", "MN, IN or MX");
+        }
         self.common_elementary_type_for_args(&inputs)
             .unwrap_or_else(|| {
                 self.checker

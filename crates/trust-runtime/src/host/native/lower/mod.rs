@@ -21,6 +21,7 @@ mod functions;
 mod jumps;
 mod literal;
 mod object;
+mod omitted;
 mod open;
 mod overlap;
 mod partial;
