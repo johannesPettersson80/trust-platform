@@ -12,6 +12,10 @@ as an ordinary Rust program, which you build with your own Rust.
 
 --8<-- "examples/rust_barcode/README.md:3"
 
+## Rust Signal Filter and CRC
+
+--8<-- "examples/rust_signal/README.md:3"
+
 ## Rust Service
 
 --8<-- "examples/rust_service/README.md:3"
