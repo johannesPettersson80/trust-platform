@@ -30,7 +30,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-trust-plc = "=0.43.0" # exactly your truST version
+trust-plc = "=0.44.0" # exactly your truST version
 ```
 
 ```rust
@@ -361,7 +361,7 @@ bindings that the build generates in the project's `build/trust_st/`. Name them 
 
 ```toml
 [dependencies]
-trust-plc = "=0.43.0"
+trust-plc = "=0.44.0"
 trust_st = { path = "../build/trust_st" }
 ```
 
