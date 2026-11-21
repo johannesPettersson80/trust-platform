@@ -3284,7 +3284,9 @@ private to its user, and `control.json` carries the endpoint without the token. 
 written before `control.json`. Every file is written to a temporary name and renamed, so a reader
 never sees half of it. The runtime removes its files when its process ends cleanly: after SIGINT
 or SIGTERM on Unix-like systems, after Ctrl+C on Windows, and after `shutdown` with `exit`
-(`ctl shutdown --exit`). A plain `shutdown` stops the program and keeps the process, its control
+(`ctl shutdown --exit`). On Unix-like systems that includes the socket of its control endpoint,
+the default or a configured `unix://` one, unless another process has bound a socket at that path
+since; a socket that a stopped runtime left behind is replaced at the next bind. A plain `shutdown` stops the program and keeps the process, its control
 endpoint and so its files (specification 34, STATE-08). A process that stops a runtime without a
 clean stop, such as the config UI when it stops or restarts its child, removes the endpoint file
 and the token file that name the stopped process.

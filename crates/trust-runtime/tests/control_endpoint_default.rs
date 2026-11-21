@@ -4,8 +4,9 @@
 //! publishes where it is in `<project>/.trust-runtime/control.json`. `ctl` then finds the runtime
 //! through that file, with no endpoint and no token on its command line. The Unix test checks the
 //! socket's directory and file modes, the endpoint that `ctl endpoint --json` reports, and that a
-//! clean shutdown removes the file. A second Unix test starts a runtime in a read-only project
-//! folder: it runs on the fallback socket without its endpoint file and says so. The Windows tests,
+//! clean shutdown removes the file and the socket. A second Unix test starts a runtime in a
+//! read-only project folder: it runs on the fallback socket without its endpoint file and says so,
+//! and removes that socket at a clean shutdown. The Windows tests,
 //! behind `cfg(windows)`, check the bound loopback port, the generated token in the per-user token
 //! file, and `not_running` before the runtime starts. `ctl endpoint --json` reports every failure
 //! as an error object with a stable code on every platform.
@@ -335,6 +336,8 @@ fn a_runtime_without_an_endpoint_is_found_through_its_endpoint_file() {
     assert_eq!(report["source"], "endpoint_file");
     assert_eq!(report["endpoint"], endpoint);
     assert!(report["auth_token"].is_null(), "{report}");
+    let socket = Path::new(endpoint.strip_prefix("unix://").expect("a Unix endpoint"));
+    assert!(socket.exists(), "the runtime's socket {}", socket.display());
 
     let shutdown = ctl(root.path(), &["shutdown", "--exit"]);
     assert!(shutdown.status.success(), "{}", describe(&shutdown));
@@ -347,6 +350,11 @@ fn a_runtime_without_an_endpoint_is_found_through_its_endpoint_file() {
             .join("control.json")
             .exists(),
         "a clean stop removes the endpoint file"
+    );
+    assert!(
+        !socket.exists(),
+        "a clean stop removes the control socket {}",
+        socket.display()
     );
 }
 
@@ -614,10 +622,18 @@ fn a_runtime_in_a_read_only_project_runs_without_its_endpoint_file() {
         "the runtime ID that the project cannot hold is kept for the user"
     );
 
+    let socket = Path::new(endpoint.strip_prefix("unix://").expect("a Unix endpoint"));
+    assert!(socket.exists(), "the fallback socket {}", socket.display());
+
     let shutdown = ctl_env(&["shutdown", "--exit"]);
     assert!(shutdown.status.success(), "{}", describe(&shutdown));
     let exit = wait_for_exit(&mut runtime);
     assert!(exit.success(), "{exit}");
+    assert!(
+        !socket.exists(),
+        "a clean stop removes the fallback socket {}",
+        socket.display()
+    );
 }
 
 /// Removes a folder when the test ends.

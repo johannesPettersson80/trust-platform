@@ -118,9 +118,9 @@ After it binds the endpoint, the runtime writes `<project>/.trust-runtime/contro
 endpoint and its process ID. On Unix-like systems the file has mode 0600 and also holds a token that
 the runtime generated. On Windows a generated token never goes into the project folder: it is kept
 in `%LOCALAPPDATA%\trust\runtimes\<hash>.json`, which only your Windows user can read. The runtime
-removes its files when its process ends cleanly: after Ctrl+C, SIGINT or SIGTERM, and after
-`ctl shutdown --exit`. A plain `ctl shutdown` stops the program and keeps the runtime, its control
-endpoint and its files.
+removes its files when its process ends cleanly, on Unix-like systems its control socket too: after
+Ctrl+C, SIGINT or SIGTERM, and after `ctl shutdown --exit`. A plain `ctl shutdown` stops the program
+and keeps the runtime, its control endpoint and its files.
 
 A runtime that cannot write the endpoint file still starts: the PLC program never depends on a
 tooling file. It logs the warning `control_endpoint_file_unavailable`, records an event of the same

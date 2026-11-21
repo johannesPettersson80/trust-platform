@@ -9,12 +9,20 @@ use crate::error::RuntimeError;
 
 use super::{prepare_request_line, ControlEndpoint, ControlState};
 
+/// A served endpoint: the endpoint that is bound and, on Unix-like systems, the socket file of a Unix
+/// endpoint, which the control server removes when it is dropped.
+pub(crate) struct Served {
+    pub(crate) endpoint: ControlEndpoint,
+    #[cfg(unix)]
+    pub(crate) socket_file: Option<SocketFile>,
+}
+
 /// Binds `endpoint` and starts serving it. The returned endpoint is the one that is bound: a TCP
 /// endpoint with port 0 comes back with the port that the operating system chose.
 pub(crate) fn spawn_control_server(
     endpoint: &ControlEndpoint,
     state: Arc<ControlState>,
-) -> Result<ControlEndpoint, RuntimeError> {
+) -> Result<Served, RuntimeError> {
     match endpoint {
         ControlEndpoint::Tcp(addr) => {
             let listener = TcpListener::bind(addr)
@@ -30,11 +38,15 @@ pub(crate) fn spawn_control_server(
                     thread::spawn(move || handle_client(stream, state, client));
                 }
             });
-            Ok(ControlEndpoint::Tcp(bound))
+            Ok(Served {
+                endpoint: ControlEndpoint::Tcp(bound),
+                #[cfg(unix)]
+                socket_file: None,
+            })
         }
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
-            let listener = bind_owner_only_socket(path)?;
+            let (listener, socket_file) = bind_owner_only_socket(path)?;
             let state = state.clone();
             thread::spawn(move || {
                 for stream in listener.incoming().map_while(Result::ok) {
@@ -42,7 +54,10 @@ pub(crate) fn spawn_control_server(
                     thread::spawn(move || handle_unix_client(stream, state));
                 }
             });
-            Ok(ControlEndpoint::Unix(path.clone()))
+            Ok(Served {
+                endpoint: ControlEndpoint::Unix(path.clone()),
+                socket_file: Some(socket_file),
+            })
         }
     }
 }
@@ -92,11 +107,12 @@ fn handle_unix_client(stream: std::os::unix::net::UnixStream, state: Arc<Control
 /// A socket that is bound but not yet listening refuses every connection, so the socket is
 /// bound, restricted to its owner and only then made to listen: no connection can be made
 /// while its mode is still the umask default. The process umask, which every thread shares, is
-/// never changed. A path that holds anything other than a socket is refused, not removed.
+/// never changed. A path that holds anything other than a socket is refused, not removed. The
+/// socket's file comes back with the listener and is removed when it is dropped.
 #[cfg(unix)]
 fn bind_owner_only_socket(
     path: &std::path::Path,
-) -> Result<std::os::unix::net::UnixListener, RuntimeError> {
+) -> Result<(std::os::unix::net::UnixListener, SocketFile), RuntimeError> {
     use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 
     match std::fs::symlink_metadata(path) {
@@ -130,17 +146,61 @@ fn bind_owner_only_socket(
     let address =
         rustix::net::SocketAddrUnix::new(path).map_err(|err| failed("address", err.into()))?;
     rustix::net::bind(&socket, &address).map_err(|err| failed("bind", err.into()))?;
-    // From here on a failure removes the socket file this call created.
-    let listen = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-        .map_err(|err| failed("restrict", err))
-        .and_then(|()| {
-            rustix::net::listen(&socket, 128).map_err(|err| failed("listen on", err.into()))
-        });
-    if let Err(err) = listen {
-        let _ = std::fs::remove_file(path);
-        return Err(err);
+    // From here on a failure removes the socket file this call created: `file` does when it drops.
+    let file = match SocketFile::bound_at(path) {
+        Ok(file) => file,
+        Err(err) => {
+            let _ = std::fs::remove_file(path);
+            return Err(failed("inspect", err));
+        }
+    };
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+        .map_err(|err| failed("restrict", err))?;
+    rustix::net::listen(&socket, 128).map_err(|err| failed("listen on", err.into()))?;
+    Ok((std::os::unix::net::UnixListener::from(socket), file))
+}
+
+/// The socket file that a control server bound. Dropping it removes the file while the path still
+/// holds that socket, so a runtime that ends cleanly leaves no socket behind (spec 11, section
+/// 6.8.0a), and a socket that another server has bound at the path since is kept. The socket is
+/// known by its device and inode: its listener, which stays open until the process ends, keeps that
+/// inode in use, so no other file at the path can have it while this file is held.
+#[cfg(unix)]
+#[derive(Debug)]
+pub(crate) struct SocketFile {
+    path: std::path::PathBuf,
+    device: u64,
+    inode: u64,
+}
+
+#[cfg(unix)]
+impl SocketFile {
+    /// The socket that `bind` has just created at `path`.
+    fn bound_at(path: &std::path::Path) -> std::io::Result<Self> {
+        use std::os::unix::fs::MetadataExt;
+
+        let metadata = std::fs::symlink_metadata(path)?;
+        Ok(Self {
+            path: path.to_path_buf(),
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        })
     }
-    Ok(std::os::unix::net::UnixListener::from(socket))
+}
+
+#[cfg(unix)]
+impl Drop for SocketFile {
+    fn drop(&mut self) {
+        use std::os::unix::fs::{FileTypeExt, MetadataExt};
+
+        if let Ok(metadata) = std::fs::symlink_metadata(&self.path)
+            && metadata.file_type().is_socket()
+            && metadata.dev() == self.device
+            && metadata.ino() == self.inode
+        {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
 }
 
 /// A close-on-exec Unix stream socket, as `UnixListener::bind` creates. Apple targets have no
