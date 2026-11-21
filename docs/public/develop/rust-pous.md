@@ -199,7 +199,9 @@ what breaks it:
 `#[budget("15us")]` declares the longest one call takes. For each task, the build adds up the budgets
 of the Rust calls its scan can make, and `trust-runtime build` warns when they exceed the task's
 interval, or when a loop calls a Rust POU with no bound. In `trust.toml`, `[timing] profile =
-"production"` makes these errors. Structured Text's statement budget does not count Rust code; the
+"production"` makes these errors, and a production build also needs a current measurement of each
+Rust POU its tasks run (see [Measure a Rust POU](#measure-a-rust-pou)): it counts the larger of the
+budget and the measured time. Structured Text's statement budget does not count Rust code; the
 watchdog still ends a scan that overruns its task.
 
 A debug image also times each call of a Rust POU while it runs, on a computer and on a board. A

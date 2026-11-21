@@ -952,11 +952,13 @@ In detail:
   measures and the image a deployment builds have the same `code`; a change to any of these files
   makes the measurement older than the image. A build computes it from the same files. The
   deployment's device type is the build's target.
-- **Production.** In a `production` profile (RU-47) the build refuses the image when a Rust POU of
-  the crate, or a method of one that Structured Text can call, has no current measurement for the
-  build's target, and names each such POU and the command that measures it,
-  `trust-dev rust bench`, with `--device` for a device's target. RU-47's sum then takes for each
-  Rust POU the larger of its budget for the target (RU-46) and its measured time. A `development`
+- **Production.** In a `production` profile (RU-47) the build refuses the image when a Rust POU or
+  method that the tasks' scans can call, one whose budget RU-47's sum counts, has no current
+  measurement for the build's target, and names each such POU and the command that measures it,
+  `trust-dev rust bench`, with `--device` and `--target` for a device's target. RU-47's sum then
+  takes for each of them the larger of its budget for the target (RU-46) and its measured time.
+  The images that `trust-dev test` and `trust-dev rust bench` build hold test programs and are
+  never deployed, so they need no measurement; their sum takes the budgets. A `development`
   profile neither requires measurements nor uses them.
 
 **RU-49. On the device.** The kernel measures each Rust POU's call time in a debug image and reports a call that exceeds its declared budget as the event

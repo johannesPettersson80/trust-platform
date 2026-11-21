@@ -11,7 +11,7 @@ mod rust_pous_support;
 
 use std::path::{Path, PathBuf};
 
-use rust_pous_support::{build_error, built, custom_project, manifest, sources};
+use rust_pous_support::{build_error, built, custom_project, manifest, measure_here, sources};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::native::rust_pous::{write_declarations, Written, DECLARATIONS_FILE};
 use trust_runtime::native::{build_project, load, Build, NoHooks, Options, Target, Toolchain};
@@ -629,6 +629,7 @@ fn a_production_profile_makes_the_findings_errors() {
         "[timing]\nprofile = \"production\"\n",
     )
     .expect("trust.toml");
+    measure_here(&root, &[("SLOW", 1), ("QUICK", 1)]); // RU-48: under the budgets
     let (result, _) = build_result(&root);
     let error = result.err().expect("the build is refused");
     assert!(
@@ -651,6 +652,7 @@ fn trust_toml_lowers_a_budget_and_never_raises_it() {
         "[timing]\nprofile = \"production\"\n[timing.budgets]\n\"SLOW\" = {{ \"{triple}\" = \"1ms\" }}\n"
     );
     std::fs::write(root.join("trust.toml"), &lowered).expect("trust.toml");
+    measure_here(&root, &[("SLOW", 1), ("QUICK", 1)]); // RU-48: under the budgets
     let (result, _) = build_result(&root);
     let error = result.err().unwrap_or_default();
     // Only QUICK's loop is left, which production refuses before the crate compiles: SLOW's work
@@ -767,6 +769,7 @@ fn a_task_counts_the_rust_work_its_methods_properties_and_overrides_reach() {
         "[timing]\nprofile = \"production\"\n",
     )
     .expect("trust.toml");
+    measure_here(&root, &[("SLOW", 1), ("QUICK", 1)]); // RU-48: under the budgets
     let (result, _) = build_result(&root);
     let error = result.err().expect("the build is refused");
     assert!(
