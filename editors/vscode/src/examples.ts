@@ -6,7 +6,6 @@ import {
   controlLessonProgressState,
   controlModuleId,
   controlModulesFromEntries,
-  hardwareBadge,
   type ExampleEntry,
   type GalleryView,
 } from "./examples/model";
@@ -257,7 +256,9 @@ class ExamplesGalleryPanel {
         title: entry.title,
         description: compactExampleDescription(entry.description),
         hardware: entry.hardware,
-        hardwareLabel: hardwareBadge(entry.hardware),
+        execution: entry.execution,
+        hardwareLabel: entry.hardwareLabel,
+        hardwareRequired: entry.hardwareRequired,
         tags: entry.tags ?? [],
         lesson: entry.lesson
           ? {

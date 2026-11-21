@@ -2,7 +2,9 @@
 //!
 //! - `trust-lsp.examplesCatalog` `{ root, created? }`: the gallery's entries from the packaged
 //!   `manifest.json` in `root`, each control lesson with its availability, whether each entry can be
-//!   copied, and which of the `created` lesson ids the learner's progress keeps. A manifest that
+//!   copied, what each card says of its packaged default (`execution`, `hardwareLabel` and
+//!   `hardwareRequired`, specification 25 §3.1), and which of the `created` lesson ids the learner's
+//!   progress keeps. A manifest that
 //!   cannot be read, or whose entries miss their fields, fails the gallery; one lesson whose
 //!   `lesson.json` is missing, unreadable or invalid only makes that lesson unavailable. The
 //!   repository's catalog, which the extension's build copies, passes the stricter packaging check
@@ -172,6 +174,15 @@ fn entry_answer(root: &Path, entry: &ManifestEntry) -> Map<String, Value> {
     if let Some(tags) = &entry.tags {
         answer.insert("tags".to_owned(), json!(tags));
     }
+    let badges = card_badges(root, entry);
+    if let Some(execution) = badges.execution {
+        answer.insert("execution".to_owned(), json!(execution));
+    }
+    answer.insert("hardwareLabel".to_owned(), json!(badges.hardware_label));
+    answer.insert(
+        "hardwareRequired".to_owned(),
+        json!(badges.hardware_required),
+    );
     if !entry.is_control_lesson() {
         answer.insert("copyable".to_owned(), json!(true));
         return answer;
@@ -197,6 +208,68 @@ fn entry_answer(root: &Path, entry: &ManifestEntry) -> Map<String, Value> {
     answer.insert("lessonAvailability".to_owned(), Value::Object(state));
     answer.insert("copyable".to_owned(), json!(availability.available));
     answer
+}
+
+/// What a card says of an example's packaged default (specification 25 §3.1).
+#[derive(Debug, PartialEq)]
+struct CardBadges {
+    /// `Runs in simulator` for an example that is not a course lesson and whose packaged `io.toml`
+    /// uses the simulated driver.
+    execution: Option<&'static str>,
+    /// The hardware badge: optional for an example that runs in the simulator, else required.
+    hardware_label: String,
+    /// Whether the packaged default needs its hardware, which the badge shows as a warning.
+    hardware_required: bool,
+}
+
+/// The badges of `entry`'s card. Its packaged `io.toml` decides whether it runs in the simulator;
+/// its catalog hardware names the hardware (`none`, `twincat`, `raspberrypi` or another name).
+fn card_badges(root: &Path, entry: &ManifestEntry) -> CardBadges {
+    let hardware = match entry.hardware.as_str() {
+        "none" => None,
+        "twincat" => Some("TwinCAT".to_owned()),
+        "raspberrypi" => Some("Raspberry Pi".to_owned()),
+        other => Some(other.to_owned()),
+    };
+    let simulated = !entry.is_control_lesson() && ships_simulated_io(&root.join(&entry.path));
+    match (simulated, hardware) {
+        (true, None) => CardBadges {
+            execution: Some("Runs in simulator"),
+            hardware_label: "No hardware needed".to_owned(),
+            hardware_required: false,
+        },
+        (true, Some(name)) => CardBadges {
+            execution: Some("Runs in simulator"),
+            hardware_label: format!("Hardware optional: {name}"),
+            hardware_required: false,
+        },
+        (false, None) => CardBadges {
+            execution: None,
+            hardware_label: "No hardware".to_owned(),
+            hardware_required: false,
+        },
+        (false, Some(name)) => CardBadges {
+            execution: None,
+            hardware_label: format!("Requires {name}"),
+            hardware_required: true,
+        },
+    }
+}
+
+/// Whether the example in `folder` ships the simulated I/O driver (`[io] driver = "simulated"` in
+/// its `io.toml`); an `io.toml` that is missing or unreadable is no simulated default.
+fn ships_simulated_io(folder: &Path) -> bool {
+    std::fs::read_to_string(folder.join("io.toml"))
+        .ok()
+        .and_then(|text| text.parse::<toml::Table>().ok())
+        .and_then(|table| {
+            table
+                .get("io")
+                .and_then(|io| io.get("driver"))
+                .and_then(toml::Value::as_str)
+                .map(|driver| driver == "simulated")
+        })
+        .unwrap_or(false)
 }
 
 /// The `lesson.json` of the lesson at gallery path `path`.

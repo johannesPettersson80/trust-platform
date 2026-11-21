@@ -379,7 +379,10 @@ the standard error; a build whose install fails fails with its reason. The exten
 debug launch, asks `trust-runtime toolchain status` and, when no toolchain is installed, runs
 `trust-runtime toolchain install --json` with its progress shown; when the install fails, the
 launch goes on, its build fails with the reason (NX-16), and the extension offers "Install
-toolchain from file". The commands "truST: Install Toolchain" and "truST: Install
+toolchain from file". A Compile installs it the same way when its check names the toolchain
+missing, with the issue code `toolchain` (a project's Rust crate is checked with the
+toolchain's cargo, specification 11 §6.8.1c), and then checks again: the Start that a failed
+Compile holds back would otherwise never reach its launch's install. The commands "truST: Install Toolchain" and "truST: Install
 Toolchain from File" install it at any time.
 
 ## 5. The program image

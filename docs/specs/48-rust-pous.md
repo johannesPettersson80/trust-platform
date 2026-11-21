@@ -1079,7 +1079,10 @@ the program's own. The build refuses a path that names nothing, a constant, an i
 that is not elementary, and a variable that a service gives twice or that two services give, as a
 variable has one service that writes it, naming the service and the path, and the signed
 image carries each service's `writes` (specification 44 §5.14), so that a chip holds a service to
-them as a computer does. A service without `writes` writes no variable but its heartbeat. The program library's function block `SERVICE_FRESH` (its
+them as a computer does. A service without `writes` writes no variable but its heartbeat. A
+`[services.<name>]` holds only the settings Appendix B lists, `package`, `heartbeat`, `writes`,
+`endpoint` and `credentials`: the build refuses another key, naming the service and the key, as
+runtime.toml refuses an unknown key, so that a misspelt setting is never lost. The program library's function block `SERVICE_FRESH` (its
 inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
 §5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
@@ -1251,19 +1254,36 @@ impl Palletizer {
 ```
 
 **RU-71. What it is.** `#[trust_sequence]` is a restricted sequence language with Rust's syntax, not
-Rust's `async`: the attribute validates the body and lowers it to a state machine whose state, the
-wait point it stands at and the locals that live across a wait point, are variables of the instance
-(in the area, in the symbol table, shown by Live Values as `<instance>.__seq.point` and its locals).
-No Rust future is stored, no executor runs, and nothing waits inside a scan: each activation runs the
-sequence from its wait point to its next one and returns.
+Rust's `async`: the attribute validates the body and lowers it to a state machine. No Rust future is
+stored, no executor runs, and nothing waits inside a scan: each activation runs the sequence from its
+wait point to its next one and returns. The sequence's state is a variable of the instance, `_seq`,
+after the POU's own variables: its wait point `point` (0 at the top, then the wait point's number,
+RU-72), the logical time `began` of the activation that began the wait, and each local of the body,
+a variable of the same name and type, so that a local keeps its value from one activation to the
+next. A local names its type (`let count: i16 = 0;`), which the attribute cannot infer. The name
+`_seq` takes the one leading underscore that an IEC identifier may have (IEC §6.1.2; two in a row
+are not allowed, so `__seq` could not be declared). The state is in the symbol table: the debugger's
+Variables view shows it, and `variables.read` and the HMI read it by its path,
+`<instance>._seq.point` (Live Values lists only variables with an address, specification 25 §4.3).
 
 **RU-72. Wait points.** The body awaits only the SDK's wait points: `s.next_cycle()`, `s.until(pred)`
 (true at the start of a later cycle), `s.wait(t)` (the task's logical time advanced by `t`),
 `s.all(...)` and `s.race(...)` of these, a child sequence of the same instance, and `.within(t)`
-on any of them, which faults with `RustFault` when the wait outlasts `t` in logical time. A
-predicate is a plain function of the instance, without a wait point. The attribute refuses any other
-`.await`, an `async` block or closure, a future of another crate and a loop that can run without
-reaching a wait point, each with its place in the body.
+on any of them, which faults with `RustFault` when the wait outlasts `t` in logical time. A wait
+begins at the activation that reaches its wait point, which then returns, and completes at a later
+activation, never at the one that began it: `s.next_cycle()` at the next activation, `s.until(pred)`
+at the first later activation at whose start `pred` holds, and `s.wait(t)` at the first activation
+whose logical time is at least `t` after the one that began it. A wait point's number is its place
+among the body's wait points, from 1. `.within(t)` faults at the first activation whose logical time
+is more than `t` after the one that began the wait, a wait of exactly `t` being still in time, with
+the wait point's number as the fault's number and `t` and the time waited, in milliseconds, as its
+two numbers (Appendix A), as an SFC names the step that overran its time. A
+predicate is a plain function of the instance, without a wait point. A wait point stands as a
+statement of its own (`s.wait(t).await;`, `....within(t).await?;`). The attribute refuses any other
+`.await`, an `.await` inside another expression, an `async` block or closure, a future of another
+crate, a loop that can run without reaching a wait point, a `for` loop with a wait point in it (its
+iterator would have to survive the wait), a local without its type, two locals of one name in one
+sequence, and a variable of the POU named `_seq` in any case, each with its place in the body.
 
 **RU-73. Restarts and changes.** A cold or warm restart starts every sequence at its top, as an SFC
 starts at its initial step (IEC §6.7); a sequence that must resume keeps its progress in retained
@@ -1493,7 +1513,7 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
 
 | Name | Code | Detail |
 |---|---|---|
-| `RustFault` | 20 in `trust-plc-abi` (specification 44 Appendix A, kernel interface version 6), stable code `runtime_rust_fault` (specification 10 §10.2), `RTSEXCPT_UNKNOWN` in `__TRY` (specification 06 §15) | the POU's number, then two numbers of its choice; the calling statement names the Rust POU |
+| `RustFault` | 20 in `trust-plc-abi` (specification 44 Appendix A, kernel interface version 6), stable code `runtime_rust_fault` (specification 10 §10.2), `RTSEXCPT_UNKNOWN` in `__TRY` (specification 06 §15) | the POU's number, then two numbers of its choice; a sequence's `.within` gives the wait point's number, then its limit and the time waited in milliseconds (RU-72); the calling statement names the Rust POU |
 | event `rust_budget_exceeded` | specification 11's events | the POU's name, the measured time, the budget |
 
 ## Appendix B — `trust.toml`
@@ -1511,7 +1531,6 @@ profile = "development"         # or "production" (RU-47)
 [services.recipe]               # tier 3 (§13): the global recipe_heartbeat (RU-63)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
-timeout = "2s"
 writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
 endpoint = "tcp://127.0.0.1:47800"
 credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
