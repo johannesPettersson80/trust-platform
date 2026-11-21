@@ -23,7 +23,6 @@ use trust_runtime::value::{Duration, Value};
 const TRUST_TOML: &str = "[services.recipe]
 package = \"recipe-service\"
 heartbeat = \"500ms\"
-timeout = \"2s\"
 ";
 
 /// A program that gates on the recipe service's heartbeat with a timeout of one second.

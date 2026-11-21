@@ -1079,7 +1079,10 @@ the program's own. The build refuses a path that names nothing, a constant, an i
 that is not elementary, and a variable that a service gives twice or that two services give, as a
 variable has one service that writes it, naming the service and the path, and the signed
 image carries each service's `writes` (specification 44 §5.14), so that a chip holds a service to
-them as a computer does. A service without `writes` writes no variable but its heartbeat. The program library's function block `SERVICE_FRESH` (its
+them as a computer does. A service without `writes` writes no variable but its heartbeat. A
+`[services.<name>]` holds only the settings Appendix B lists, `package`, `heartbeat`, `writes`,
+`endpoint` and `credentials`: the build refuses another key, naming the service and the key, as
+runtime.toml refuses an unknown key, so that a misspelt setting is never lost. The program library's function block `SERVICE_FRESH` (its
 inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
 §5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
@@ -1511,7 +1514,6 @@ profile = "development"         # or "production" (RU-47)
 [services.recipe]               # tier 3 (§13): the global recipe_heartbeat (RU-63)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
-timeout = "2s"
 writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
 endpoint = "tcp://127.0.0.1:47800"
 credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
