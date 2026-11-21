@@ -185,7 +185,8 @@ what breaks it:
   fault as Structured Text does on overflow and division by zero. Plain `+`, `-` and `*` on integers
   wrap. `rust_fault(cx, number, first, second)` returns a fault of your own, `RustFault`.
 - **Time from `Cx` only.** `cx.now()` is the task's logical time, `cx.interval()` its interval and
-  `cx.wall_clock()` the wall clock. A Rust POU never waits or sleeps.
+  `cx.wall_clock()` the wall clock. A Rust POU never waits or sleeps inside a scan; a sequence waits
+  from one activation to the next ([Sequences](#sequences)).
 - **The same results on every device.** The elementary functions (`sin`, `exp` and the rest) come
   from `trust_plc::math`, never from a target's own library.
 - **No recursion, and no `static` that changes.** A Rust POU's state is its fields, which lie in the
@@ -210,6 +211,86 @@ in every scan does not fill the event list. `trust-runtime ctl events` shows the
 `rust_pou=SPIN budget_ns=1000 longest_ns=52000 over_budget=7`: its budget, its longest call and its
 calls over the budget since the program started (`rust_pous` in the `tasks.stats` reply). A release image (`[build] debug = false`) times
 nothing.
+
+## Sequences
+
+Sequential logic, which Structured Text writes as an SFC or a `CASE` machine, can be written in Rust
+as straight-line code that waits. The POU names its sequence, and `#[trust_sequence]` on its `impl`
+block turns that `async fn` into a state machine: each activation runs the sequence from the wait
+point where it waits to its next one, and returns. No future is kept, and nothing waits inside a
+scan.
+
+```rust
+#[trust_program(name = "PALLETIZER", sequence = "run")]
+#[budget("80us")]
+pub struct Palletizer {
+    #[input] pub part_present: bool,
+    #[input] pub gripper_closed: bool,
+    #[output] pub close_gripper: bool,
+    #[output] pub active_step: Str<16>,
+}
+
+#[trust_sequence]
+impl Palletizer {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.step(&mut self.active_step, "WAIT_PART");
+            s.until(|me: &Self| me.part_present).await;
+            s.step(&mut self.active_step, "GRIP");
+            self.close_gripper = true;
+            s.until(|me: &Self| me.gripper_closed)
+                .within(Time::from_millis(s, 2_000)?)
+                .await?;
+            s.wait(Time::from_millis(s, 500)?).await;
+            self.close_gripper = false;
+        }
+    }
+}
+```
+
+The POU has no `impl Body` of its own: each activation, a program's or a block's call, runs the
+sequence. The wait points:
+
+| Wait point | Completes |
+|---|---|
+| `s.next_cycle().await;` | at the next activation |
+| `s.until(pred).await;` | at the first later activation at whose start `pred` holds for the instance |
+| `s.wait(t).await;` | at the first activation whose logical time is at least `t` after the one that began the wait |
+| `s.all(w1, w2, ..).await;` | when each of its waits has completed, each at an activation of its own, as an SFC's parallel branches converge |
+| `let won: u16 = s.race(w1, w2, ..).await;` | when the first of its waits completes; `won` is that wait's number, from 1, and the earlier one in the list wins a tie |
+| `self.fill(s).await?;` | when the child sequence `fill` has returned |
+
+A wait never completes at the activation that began it. `.within(t)`, last before `.await`, faults
+with `RustFault` when the wait lasts longer than `t`: the fault's number is the wait point's, its
+place among the body's wait points from 1, and its two numbers are `t` and the time waited, in
+milliseconds. `s.step(&mut output, "NAME")` writes the step's name to a text output, so the HMI and
+Live Values show where the sequence is.
+
+**Locals.** A local of the sequence names its type, `let count: i16 = 0;`: it is a variable of the
+sequence's state and keeps its value from one activation to the next. A wait point stands as a
+statement of its own, and every way round a loop reaches one, or the scan would never end. The
+attribute refuses anything else at its place and says what to write instead: a `for` loop or an
+`if let` around a wait point, an `.await` inside an expression, a loop that can go round without
+waiting.
+
+**Child sequences.** Another `async fn` of the same block, with no parameter but `s`, is a child
+sequence. Awaited with `self.fill(s).await?`, it runs as a call would, from the activation that
+reaches it, so moving part of a sequence into a child changes nothing about when anything happens.
+The POU's sequence is the one `async fn` of the block that no other awaits.
+
+**The state.** The POU keeps where its sequence waits in its last variable, `_seq`: `point`, 0 at
+the top and then the wait point's number, `began`, the time its wait began, the locals, and each
+child's state in a field named as the child. The debugger's Variables view shows it, and
+`variables.read` reads `<instance>._seq.point`.
+
+**Restarts and online changes.** A cold or warm restart starts every sequence at its top. An online
+change keeps a sequence where it waits when its wait points, named by their steps or by their order,
+and its locals are the same. Otherwise the sequence starts at its top at its next activation, and the
+change's report lists the state's new member `shape_<signature>`.
+
+A crate's own tests run a sequence activation by activation: `trust_plc::test::task(interval)` gives
+a context, `trust_plc::test::advance(&mut cx)` moves it on by one interval, and each `call` is one
+activation.
 
 ## Call Structured Text from Rust
 
