@@ -328,6 +328,7 @@ fn a_pou_that_runs_a_sequence_has_its_state_last_with_the_sequences_locals() {
         [
             ("point", &DataType::Elementary(Elementary::Uint)),
             ("began", &DataType::Elementary(Elementary::Time)),
+            ("shape_ba73d595", &DataType::Elementary(Elementary::Bool)),
             ("count", &DataType::Elementary(Elementary::Int)),
         ]
     );
@@ -378,6 +379,7 @@ fn an_all_and_a_race_read_as_wait_points_and_the_race_gives_its_local() {
             ("point", &DataType::Elementary(Elementary::Uint)),
             ("began", &DataType::Elementary(Elementary::Time)),
             ("done", &DataType::Elementary(Elementary::Word)),
+            ("shape_dfd956cf", &DataType::Elementary(Elementary::Bool)),
             ("won", &DataType::Elementary(Elementary::Uint)),
         ]
     );
@@ -406,8 +408,8 @@ fn a_sequence_without_an_all_has_no_done_and_may_name_a_local_so() {
         .iter()
         .map(|field| field.name.as_str())
         .collect();
-    assert_eq!(names, ["point", "began", "done", "won"]);
-    assert_eq!(state.fields[2].ty, DataType::Elementary(Elementary::Bool));
+    assert_eq!(names, ["point", "began", "shape_350d2ce0", "done", "won"]);
+    assert_eq!(state.fields[3].ty, DataType::Elementary(Elementary::Bool));
 }
 
 #[test]
@@ -622,6 +624,7 @@ fn a_block_holds_the_pous_sequence_and_its_children_in_the_blocks_order() {
     let uint = DataType::Elementary(Elementary::Uint);
     let time = DataType::Elementary(Elementary::Time);
     let int = DataType::Elementary(Elementary::Int);
+    let boolean = DataType::Elementary(Elementary::Bool);
     let settle = DataType::Named("FillerSequenceSettle".into());
     let fill = DataType::Named("FillerSequenceFill".into());
     assert_eq!(
@@ -633,6 +636,7 @@ fn a_block_holds_the_pous_sequence_and_its_children_in_the_blocks_order() {
                 vec![
                     ("point", &uint),
                     ("began", &time),
+                    ("shape_f0f8592b", &boolean),
                     ("settle", &settle),
                     ("fill", &fill)
                 ]
@@ -640,12 +644,21 @@ fn a_block_holds_the_pous_sequence_and_its_children_in_the_blocks_order() {
             (
                 "FILLER_SEQ_SETTLE",
                 "FillerSequenceSettle",
-                vec![("point", &uint), ("began", &time), ("ticks", &int)]
+                vec![
+                    ("point", &uint),
+                    ("began", &time),
+                    ("shape_f2f1bb94", &boolean),
+                    ("ticks", &int)
+                ]
             ),
             (
                 "FILLER_SEQ_FILL",
                 "FillerSequenceFill",
-                vec![("point", &uint), ("began", &time)]
+                vec![
+                    ("point", &uint),
+                    ("began", &time),
+                    ("shape_2850a962", &boolean)
+                ]
             ),
         ]
     );
@@ -856,4 +869,85 @@ fn a_loop_waits_only_where_every_way_round_waits() {
         }
     } };
     assert!(crate::sequence::block(&waits).is_ok());
+}
+
+#[test]
+fn a_sequences_shape_changes_with_its_wait_points_and_locals_and_with_nothing_else() {
+    // RU-73: the shape is `shape_` and the FNV-1a hash of the lines `wait WAIT_PART`, `wait GRIP`
+    // and `wait #3`, a wait point named by its step or by its number, then `local parts: INT`;
+    // 0xd61125c5 was computed independently from those lines. Plain code that changes, a step's
+    // wait that waits otherwise, and a local renamed only in case keep it; a wait point added before
+    // the others, a step renamed, and a local of another type change it. Catches a shape that a
+    // change of plain code would reset, and one that keeps a state whose wait points moved.
+    let shape = |body: syn::ImplItemFn| crate::sequence::shape(&sequence(&body).expect("reads"));
+    let running = shape(parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let mut parts: i16 = 0;
+            loop {
+                s.step(&mut self.active_step, "WAIT_PART");
+                s.until(|me: &Self| me.part_present).await;
+                s.step(&mut self.active_step, "GRIP");
+                self.close_gripper = true;
+                s.until(|me: &Self| me.gripper_closed).await;
+                s.wait(Time::from_millis(s, 500)?).await;
+                parts = checked::add(s, parts, 1)?;
+            }
+        }
+    });
+    assert_eq!(running, "shape_d61125c5");
+    let kept = shape(parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let mut Parts: i16 = 0;
+            loop {
+                s.step(&mut self.active_step, "WAIT_PART");
+                s.until(|me: &Self| me.part_present && me.enabled).await;
+                s.step(&mut self.active_step, "GRIP");
+                self.close_gripper = self.enabled;
+                s.wait(Time::from_millis(s, 300)?).await;
+                s.next_cycle().await;
+                Parts = checked::add(s, Parts, 2)?;
+            }
+        }
+    });
+    assert_eq!(kept, running);
+    let added = shape(parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let mut parts: i16 = 0;
+            loop {
+                s.next_cycle().await;
+                s.step(&mut self.active_step, "WAIT_PART");
+                s.until(|me: &Self| me.part_present).await;
+                s.step(&mut self.active_step, "GRIP");
+                s.until(|me: &Self| me.gripper_closed).await;
+                s.wait(Time::from_millis(s, 500)?).await;
+            }
+        }
+    });
+    let renamed = shape(parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let mut parts: i16 = 0;
+            loop {
+                s.step(&mut self.active_step, "WAIT_PART");
+                s.until(|me: &Self| me.part_present).await;
+                s.step(&mut self.active_step, "CLAMP");
+                s.until(|me: &Self| me.gripper_closed).await;
+                s.wait(Time::from_millis(s, 500)?).await;
+            }
+        }
+    });
+    let retyped = shape(parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let mut parts: i32 = 0;
+            loop {
+                s.step(&mut self.active_step, "WAIT_PART");
+                s.until(|me: &Self| me.part_present).await;
+                s.step(&mut self.active_step, "GRIP");
+                s.until(|me: &Self| me.gripper_closed).await;
+                s.wait(Time::from_millis(s, 500)?).await;
+            }
+        }
+    });
+    for changed in [added, renamed, retyped] {
+        assert_ne!(changed, running);
+    }
 }

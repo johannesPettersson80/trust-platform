@@ -51,7 +51,15 @@ pub(crate) fn expand(args: &TokenStream, item: &TokenStream) -> TokenStream {
             let state = pou.map(|pou| {
                 let document =
                     format!("The state of the sequence of `{pou}` (specification 48 RU-71).");
-                declaration(&state_type(&pou), &document, false, &[], &[], &[])
+                declaration(
+                    &state_type(&pou),
+                    &document,
+                    false,
+                    &format_ident!("shape_00000000"),
+                    &[],
+                    &[],
+                    &[],
+                )
             });
             stub_sequences(&mut block);
             quote! { #error #state #block }
@@ -98,7 +106,8 @@ fn lowered(block: &mut ItemImpl) -> Result<TokenStream, (Error, Option<Ident>)> 
                 "the sequence's locals could not be read alike by the reader and the lowering",
             )));
         }
-        let lowered = lower::lower(function, &context, &hoisted, &role).map_err(fail)?;
+        let shape = format_ident!("{}", trust_plc_decl::sequence::shape(sequence));
+        let lowered = lower::lower(function, &context, &hoisted, &role, &shape).map_err(fail)?;
         let lowered: ImplItem = syn::parse2(lowered).map_err(fail)?;
         let all = sequence.holds_all();
         if let lower::Role::Child(field) = role {
@@ -110,16 +119,24 @@ fn lowered(block: &mut ItemImpl) -> Result<TokenStream, (Error, Option<Ident>)> 
                 "The state of the child sequence `{name}` of `{pou}`, the field `_seq.{name}` \
                  (specification 48 RU-71): where it waits and its locals."
             );
-            child_states.extend(declaration(&ty, &document, all, &hoisted, &starts, &[]));
+            child_states.extend(declaration(
+                &ty,
+                &document,
+                all,
+                &shape,
+                &hoisted,
+                &starts,
+                &[],
+            ));
             children.push((field, ty));
         } else {
-            own = Some((name, all, hoisted, starts));
+            own = Some((name, all, shape, hoisted, starts));
         }
         if let Some(slot) = block.items.get_mut(index) {
             *slot = lowered;
         }
     }
-    let Some((name, all, hoisted, starts)) = own else {
+    let Some((name, all, shape, hoisted, starts)) = own else {
         return Err(fail(Error::new(
             block.impl_token.span(),
             "the POU's sequence went missing",
@@ -133,6 +150,7 @@ fn lowered(block: &mut ItemImpl) -> Result<TokenStream, (Error, Option<Ident>)> 
         &state_type(&pou),
         &document,
         all,
+        &shape,
         &hoisted,
         &starts,
         &children,
@@ -175,13 +193,14 @@ fn context_of(function: &ImplItemFn) -> Result<Ident, Error> {
 
 /// The declaration of the type `ty` of a sequence's state, documented by `document`: the wait
 /// point, the time its wait began, the members of an `s.all` that have completed when the body holds
-/// one (`all`), the locals, and for the POU's sequence the state of each child, `children` as the
-/// field and its type (RU-71, RU-72), with the defaults a cold or a warm restart starts it at, its
-/// top (RU-73).
+/// one (`all`), its shape, the member `shape` (RU-73), the locals, and for the POU's sequence the
+/// state of each child, `children` as the field and its type (RU-71, RU-72), with the defaults a
+/// cold or a warm restart starts it at, its top, its shape `FALSE` until its first activation.
 fn declaration(
     ty: &Ident,
     document: &str,
     all: bool,
+    shape: &Ident,
     locals: &[Hoisted],
     starts: &[TokenStream],
     children: &[(Ident, Ident)],
@@ -221,6 +240,10 @@ fn declaration(
             /// The logical time of the activation that began the wait.
             pub began: ::trust_plc::Time,
             #done
+            /// Whether the sequence has run with these wait points and locals, whose signature the
+            /// member's name carries: an online change that changes them makes it new, `false`,
+            /// and the next activation starts the sequence at its top (specification 48 RU-73).
+            pub #shape: bool,
             #(
                 #[doc = #documents]
                 pub #names: #types,
@@ -236,6 +259,7 @@ fn declaration(
                 point: 0,
                 began: #began,
                 #done_start
+                #shape: false,
                 #(#names: #starts,)*
                 #(#fields: <#child_types as ::trust_plc::Declared>::DEFAULT,)*
             };

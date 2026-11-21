@@ -13,7 +13,9 @@
   `s.all` and `s.race` wait for, by IEC §6.7.5, and the state an `s.all` keeps (RU-71, RU-72),
   decided under the owner's standing delegation ("do whats most professional and best for the user
   and us"). 0.7, 21 November 2026: child sequences, when one runs and where its state is (RU-71,
-  RU-72), decided under the same delegation.
+  RU-72), decided under the same delegation. 0.8, 21 November 2026: how an online change tells that
+  a sequence's wait points or locals changed, through its state's `shape_<signature>` (RU-71,
+  RU-73).
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1277,8 +1279,9 @@ stored, no executor runs, and nothing waits inside a scan: each activation runs 
 wait point to its next one and returns. The sequence's state is a variable of the instance, `_seq`,
 after the POU's own variables: its wait point `point` (0 at the top, then the wait point's number,
 RU-72), the logical time `began` of the activation that began the wait, `done` when the body holds
-an `s.all` (RU-72), and each local of the body, a variable of the same name and type, so that a local
-keeps its value from one activation to the next. A local names its type (`let count: i16 = 0;`),
+an `s.all` (RU-72), `shape_<signature>`, which tells an online change whether the sequence changed
+(RU-73), and each local of the body, a variable of the same name and type, so that a local keeps its
+value from one activation to the next. A local names its type (`let count: i16 = 0;`),
 which the attribute cannot infer, and takes no name of the state's own fields in any case: `point`,
 `began`, and `done` in a body that holds an `s.all`. The name
 `_seq` takes the one leading underscore that an IEC identifier may have (IEC §6.1.2; two in a row
@@ -1304,7 +1307,8 @@ runs at each activation; a sequence that must stop waits at its end (`loop { s.n
 
 The generated declarations (RU-23) declare `_seq` as the POU's last variable, an internal one of
 the structure `<POU>_SEQ` in the POU's namespace, whose fields are `point : UINT`, `began : TIME`,
-`done : WORD` when the body holds an `s.all`, and the locals with their types; the program's code builds the state from `<struct>Sequence` and
+`done : WORD` when the body holds an `s.all`, `shape_<signature> : BOOL`, and the locals with their
+types; the program's code builds the state from `<struct>Sequence` and
 writes it back as it does any structure of the crate (RU-25), so that type must be reachable as
 the POU is: a POU re-exported from a private module re-exports its state's type beside it. Each
 child sequence (RU-72) has a state of its own, laid out as the POU's sequence's (`point`, `began`,
@@ -1387,6 +1391,19 @@ variables of its own and reads them at its top. An online change keeps a sequenc
 changed code has the same wait points (each named by `s.step` or, unnamed, by its order) and the same
 locals across them, and otherwise starts the sequence at its top and says so in the change's report
 (specification 44 §12).
+
+The state's member `shape_<signature> : BOOL` carries this, with no rule of its own in the change:
+`<signature>` is eight hexadecimal digits of the 32-bit FNV-1a hash of a line per wait point, `wait
+<step>` with its step's name or `wait #<number>`, and a line per local, `local <name>: <type>` with
+its name in small letters and its IEC type, in the body's order, each line ending in a line feed.
+The member starts `FALSE`, and an activation that finds it `FALSE` starts the sequence at its top,
+with the state as a restart leaves it, and sets it. A change carries it by its name, as any variable
+(specification 44 §12.2): when the wait points and the locals are the same, so is its name, and the
+state goes on as the change carried it; when they changed, the member is new, `FALSE`, which the
+change's report lists as a new variable, `<instance>._seq.shape_<signature>`, and the sequence's next
+activation starts it at its top. Each child sequence has a shape of its own in its state, so a change
+of a child starts that child at its top, the next time it runs, and a change of the POU's sequence
+starts the whole sequence, its children's states with it.
 
 ## 16. The toolchain and the user's own Rust
 
