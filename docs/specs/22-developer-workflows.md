@@ -554,9 +554,14 @@ truST items of the status bar and a screenshot in `<folder>/<session>/`. A
 step that fails is recorded and the journey goes on, so that one run shows
 every failing step, and the session fails. Every session runs,
 `<folder>/summary.json` lists each result, and the run fails when a session
-failed. A session whose edit of its copy finds the example changed, so that
-the text it replaces is not there exactly once, fails instead of running on
-the unmodified project.
+failed. VS Code's crash reporter writes the crash dumps of a session's
+processes to `<folder>/<session>/crashes/` (`--crash-reporter-directory`) and
+uploads nothing. A session whose VS Code ends with a signal fails, also after
+its journey passed, and its result names the dumps that folder holds
+(21 November 2026: VS Code ended with SIGTRAP after the `hmi-equipment` journey
+passed, and nothing showed what failed). A session whose edit of its copy
+finds the example changed, so that the text it replaces is not there exactly
+once, fails instead of running on the unmodified project.
 
 ### CI reliability and release-gate artifact contract
 

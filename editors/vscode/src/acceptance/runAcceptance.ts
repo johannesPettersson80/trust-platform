@@ -17,6 +17,7 @@ import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath, runTests } from "@vscode/test-electron";
+import { crashDumps, withCrashDumps } from "./crashes";
 import { describeError, withRetries } from "./download";
 
 const REPO = path.resolve(__dirname, "..", "..", "..", "..");
@@ -265,6 +266,8 @@ async function main(): Promise<number> {
     const project = path.join(scratch, session.name);
     const profile = path.join(scratch, `ud-${session.name}`);
     const shots = path.join(out, session.name);
+    // VS Code's crash reporter writes each crash of the session's processes here and uploads nothing (specification 22).
+    const crashes = path.join(shots, "crashes");
     // Control Studio journals its operations in $XDG_STATE_HOME/trust (specification 35, A8.3): each session has its own.
     const state = path.join(scratch, `state-${session.name}`);
     let runtime: child.ChildProcess | undefined;
@@ -290,6 +293,7 @@ async function main(): Promise<number> {
           project,
           "--extensions-dir", extensions,
           "--user-data-dir", profile,
+          "--crash-reporter-directory", crashes,
           "--remote-debugging-port=0",
           "--disable-workspace-trust", "--skip-welcome", "--skip-release-notes",
           ...(process.platform === "linux" ? ["--ozone-platform=x11"] : []),
@@ -313,7 +317,12 @@ async function main(): Promise<number> {
       });
       results.push({ session: session.name, passed: true, seconds: Math.round((Date.now() - started) / 1_000) });
     } catch (error) {
-      results.push({ session: session.name, passed: false, error: (error as Error).message, seconds: Math.round((Date.now() - started) / 1_000) });
+      results.push({
+        session: session.name,
+        passed: false,
+        error: withCrashDumps((error as Error).message, crashDumps(crashes, out)),
+        seconds: Math.round((Date.now() - started) / 1_000),
+      });
     } finally {
       if (runtime) await stopRuntime(runtime);
     }
