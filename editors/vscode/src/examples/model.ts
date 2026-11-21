@@ -36,6 +36,10 @@ export interface ExampleEntry {
   readonly lessonAvailability?: ControlLessonAvailability;
   /** The language server's answer: a starter can be copied, a lesson only when its contract holds. */
   readonly copyable?: boolean;
+  /** The language server's answer: what the card says of the packaged default (specification 25 §3.1). */
+  readonly execution?: string;
+  readonly hardwareLabel?: string;
+  readonly hardwareRequired?: boolean;
 }
 
 export function controlLessonPositionLabel(sequence: number, total: number): string {
@@ -141,28 +145,6 @@ export function controlLessonProgressLabel(state: ControlLessonProgressState): s
   return state === "project_created" ? "Project created" : "Not started";
 }
 
-export interface ExamplePick {
-  readonly label: string;
-  readonly description: string; // the hardware-requirement badge
-  readonly detail: string;
-  readonly id: string;
-  readonly path: string;
-}
-
-// The user-facing hardware-requirement badge shown next to each example.
-export function hardwareBadge(hardware: ExampleHardware): string {
-  switch (hardware) {
-    case "none":
-      return "No hardware";
-    case "twincat":
-      return "Requires TwinCAT";
-    case "raspberrypi":
-      return "Requires Raspberry Pi";
-    default:
-      return `Requires ${hardware}`;
-  }
-}
-
 /** Keep gallery summaries scannable while preserving the full catalog description on disk. */
 export function compactExampleDescription(description: string, limit = 80): string {
   if (description.length <= limit) {
@@ -171,16 +153,4 @@ export function compactExampleDescription(description: string, limit = 80): stri
   const prefix = description.slice(0, limit - 1);
   const boundary = prefix.lastIndexOf(" ");
   return `${prefix.slice(0, boundary > 0 ? boundary : prefix.length).trimEnd()}…`;
-}
-
-export function exampleQuickPickItems(
-  entries: ReadonlyArray<ExampleEntry>
-): ExamplePick[] {
-  return entries.map((entry) => ({
-    label: entry.title,
-    description: hardwareBadge(entry.hardware),
-    detail: compactExampleDescription(entry.description),
-    id: entry.id,
-    path: entry.path,
-  }));
 }
