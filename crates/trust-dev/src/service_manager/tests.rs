@@ -90,7 +90,9 @@ fn a_service_is_refused_until_its_settings_let_it_connect() {
     let no_endpoint = project(&RECIPE.replace("endpoint = \"tcp://127.0.0.1:47800\"\n", ""));
     let binary = built(&no_endpoint.join("target"), "recipe-service");
     let plan = resolve(&no_endpoint, "recipe", Some(&binary)).expect("a plan");
-    assert_eq!((plan.name.as_str(), plan.binary), ("recipe", binary));
+    // `built` names the binary as the system does (`\\?\C:\...` on Windows), the plan as given.
+    let planned = std::fs::canonicalize(&plan.binary).expect("the planned binary");
+    assert_eq!((plan.name.as_str(), planned), ("recipe", binary));
     let no_token = project(RECIPE);
     std::fs::remove_file(no_token.join("secrets").join("recipe.token")).expect("no token");
     let message = refusal(&no_token, None);
