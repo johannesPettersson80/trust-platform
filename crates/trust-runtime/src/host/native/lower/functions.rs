@@ -97,7 +97,26 @@ impl Lowerer<'_, '_> {
                 "(!same_target({answer}, abi::RefValue::NULL_REF))"
             )));
         }
-        let values = self.standard_arguments(node, name, args)?;
+        let operands = self.standard_operands(name, args)?;
+        // The families whose functions of fixed inputs a formal call may leave incomplete, an
+        // omitted input taking the default value of its type (IEC 61131-3 Ed.3 §6.6.1.4.2;
+        // specification 07 §1), with their extensible functions.
+        match name {
+            "EXPT" => return self.expt(node, &operands, &want),
+            "ATAN2" => return self.atan2(node, &operands, &want),
+            "SHL" | "SHR" | "ROL" | "ROR" => return self.shift(node, name, &operands, &want),
+            "GT" | "GE" | "EQ" | "LE" | "LT" | "NE" => {
+                return self.compare_function(node, name, &operands, &want)
+            }
+            "ADD" | "MUL" | "SUB" | "DIV" | "MOD" => {
+                return self.arithmetic_function(node, name, &operands, &want)
+            }
+            "SEL" | "LIMIT" | "MAX" | "MIN" | "ABS" => {
+                return self.selection(node, name, &operands, &want)
+            }
+            _ => {}
+        }
+        let values = self.given(node, name, operands)?;
         if name == "CONCAT" {
             let mut parts = Vec::new();
             for value in &values {
@@ -139,20 +158,32 @@ impl Lowerer<'_, '_> {
         }
         match name {
             "MOVE" => self.move_value(node, &values, &want),
-            "EXPT" => self.expt(node, &values, &want),
-            "ATAN2" => self.atan2(node, &values, &want),
-            "SHL" | "SHR" | "ROL" | "ROR" => self.shift(node, name, &values, &want),
             "MUX" => self.mux(node, &values, &want),
-            "GT" | "GE" | "EQ" | "LE" | "LT" | "NE" => {
-                self.compare_function(node, name, &values, &want)
-            }
-            "ADD" | "MUL" | "SUB" | "DIV" | "MOD" => {
-                self.arithmetic_function(node, name, &values, &want)
-            }
             "AND" | "OR" | "XOR" | "NOT" => self.bitwise_function(node, name, &values, &want),
             "IS_VALID" | "IS_VALID_BCD" => self.validation(node, name, &values, &want),
-            _ => self.selection(node, name, &values, &want),
+            _ => Err(self.unsupported(node, format!("the standard function {name}"))),
         }
+    }
+
+    /// The inputs of `name`, a function whose inputs a formal call may not omit, each of which the
+    /// call gives.
+    fn given(
+        &self,
+        node: &SyntaxNode,
+        name: &str,
+        operands: Vec<Option<SyntaxNode>>,
+    ) -> Result<Vec<SyntaxNode>, NativeError> {
+        let formals = fixed_formals(name).unwrap_or(&[]);
+        operands
+            .into_iter()
+            .enumerate()
+            .map(|(index, operand)| {
+                operand.ok_or_else(|| {
+                    let formal = formals.get(index).copied().unwrap_or("input");
+                    self.unsupported(node, format!("{name} without its {formal}"))
+                })
+            })
+            .collect()
     }
 
     /// `IS_VALID(IN)`, whether a `REAL` or an `LREAL` is finite, and `IS_VALID_BCD(IN)`, whether
@@ -187,19 +218,19 @@ impl Lowerer<'_, '_> {
     }
 
     /// The arguments of standard function `name` in the order of its formal parameters
-    /// (specification 07 §1): positional ones as they come; formal ones by name, `IN1`, `IN2`, …
-    /// of an extensible function by their numbers and `K` of `MUX` first.
-    fn standard_arguments(
+    /// (specification 07 §1): positional ones as they come; formal ones by name, `None` for an
+    /// input of fixed inputs that a formal call omits, and `IN1`, `IN2`, … of an extensible
+    /// function by their numbers, `K` of `MUX` first.
+    fn standard_operands(
         &self,
-        node: &SyntaxNode,
         name: &str,
         args: Vec<Arg>,
-    ) -> Result<Vec<SyntaxNode>, NativeError> {
+    ) -> Result<Vec<Option<SyntaxNode>>, NativeError> {
         if args.iter().all(|arg| arg.name.is_none()) {
-            return Ok(args.into_iter().map(|arg| arg.value).collect());
+            return Ok(args.into_iter().map(|arg| Some(arg.value)).collect());
         }
         if let Some(formals) = fixed_formals(name) {
-            return self.formal_order(node, name, formals, args);
+            return self.formal_slots(name, formals, args);
         }
         // An extensible function: `MUX`'s `K` first, then the inputs by their numbers.
         let mut keyed = Vec::with_capacity(args.len());
@@ -224,7 +255,7 @@ impl Lowerer<'_, '_> {
             keyed.push((key, arg.value));
         }
         keyed.sort_by_key(|(key, _)| *key);
-        Ok(keyed.into_iter().map(|(_, value)| value).collect())
+        Ok(keyed.into_iter().map(|(_, value)| Some(value)).collect())
     }
 
     /// The common type of `operands`, the widest, as the runtime's functions take their inputs
@@ -305,15 +336,19 @@ impl Lowerer<'_, '_> {
         )
     }
 
-    /// `EXPT(IN1, IN2)`: a real base to any number's power, in binary64.
+    /// `EXPT(IN1, IN2)`: a real base to any number's power, in binary64; an exponent that a formal
+    /// call omits is 0.
     fn expt(
         &mut self,
         node: &SyntaxNode,
-        values: &[SyntaxNode],
+        operands: &[Option<SyntaxNode>],
         want: &Want,
     ) -> Result<Called, NativeError> {
-        let [base, exponent] = values else {
+        let [base, exponent] = operands else {
             return Err(self.unsupported(node, "EXPT with other than two inputs"));
+        };
+        let Some(base) = base else {
+            return Err(self.unsupported(node, "EXPT without its IN1"));
         };
         let ty = self.type_of(base)?;
         let library = match self.elem_of(node, ty, "EXPT")? {
@@ -325,6 +360,14 @@ impl Lowerer<'_, '_> {
         };
         let base = self.scalar(base)?;
         let base = self.bind(&base);
+        let Some(exponent) = exponent else {
+            return self.result(
+                node,
+                &format!("lib::{library}(cx, {base}, 0f64)?"),
+                ty,
+                want,
+            );
+        };
         let exponent_ty = self.type_of(exponent)?;
         let exponent_elem = self.elem_of(node, exponent_ty, "EXPT")?;
         let value = self.scalar(exponent)?;
@@ -345,36 +388,40 @@ impl Lowerer<'_, '_> {
         )
     }
 
-    /// `ATAN2(Y, X)` in the common type of its inputs.
+    /// `ATAN2(Y, X)` in the common type of its inputs, an omitted one 0.
     fn atan2(
         &mut self,
         node: &SyntaxNode,
-        values: &[SyntaxNode],
+        operands: &[Option<SyntaxNode>],
         want: &Want,
     ) -> Result<Called, NativeError> {
-        let ty = self.common_of(node, values)?;
+        let ty = self.common_of_given(node, operands)?;
         let library = match self.elem_of(node, ty, "ATAN2")? {
             Elem::Real => "atan2_32",
             Elem::LReal => "atan2_64",
             other => return Err(self.unsupported(node, format!("ATAN2 of {}", other.name()))),
         };
-        let scalars = self.scalars_of(values, ty)?;
+        let scalars = self.operand_scalars(node, operands, ty)?;
         let [y, x] = scalars.as_slice() else {
             return Err(self.unsupported(node, "ATAN2 with other than two inputs"));
         };
         self.result(node, &format!("lib::{library}({y}, {x})"), ty, want)
     }
 
-    /// `SHL`, `SHR`, `ROL` and `ROR` of a bit string by a count (specification 07 §4).
+    /// `SHL`, `SHR`, `ROL` and `ROR` of a bit string by a count (specification 07 §4); a count that
+    /// a formal call omits is 0.
     fn shift(
         &mut self,
         node: &SyntaxNode,
         name: &str,
-        values: &[SyntaxNode],
+        operands: &[Option<SyntaxNode>],
         want: &Want,
     ) -> Result<Called, NativeError> {
-        let [value, count] = values else {
+        let [value, count] = operands else {
             return Err(self.unsupported(node, format!("{name} with other than two inputs")));
+        };
+        let Some(value) = value else {
+            return Err(self.unsupported(node, format!("{name} without its IN")));
         };
         let ty = self.type_of(value)?;
         let elem = self.elem_of(node, ty, name)?;
@@ -383,15 +430,22 @@ impl Lowerer<'_, '_> {
         }
         let value = self.scalar(value)?;
         let value = self.bind(&value);
-        let count_ty = self.type_of(count)?;
-        let count_elem = self.elem_of(node, count_ty, name)?;
-        let count = self.scalar(count)?;
-        let count = if count_elem.is_signed() {
-            self.bind(&format!("lib::shift_count(cx, i64::from({count}))?"))
-        } else if count_elem.is_unsigned() {
-            format!("u64::from({count})")
-        } else {
-            return Err(self.unsupported(node, format!("{name} by a {}", count_elem.name())));
+        let count = match count {
+            Some(count) => {
+                let count_ty = self.type_of(count)?;
+                let count_elem = self.elem_of(node, count_ty, name)?;
+                let count = self.scalar(count)?;
+                if count_elem.is_signed() {
+                    self.bind(&format!("lib::shift_count(cx, i64::from({count}))?"))
+                } else if count_elem.is_unsigned() {
+                    format!("u64::from({count})")
+                } else {
+                    return Err(
+                        self.unsupported(node, format!("{name} by a {}", count_elem.name()))
+                    );
+                }
+            }
+            None => "0u64".to_string(),
         };
         let shifted = match (elem, name) {
             (Elem::Bool, "SHL" | "SHR") => format!("lib::shift_bool({value}, {count})"),
@@ -475,11 +529,11 @@ impl Lowerer<'_, '_> {
         &mut self,
         node: &SyntaxNode,
         name: &str,
-        values: &[SyntaxNode],
+        operands: &[Option<SyntaxNode>],
         want: &Want,
     ) -> Result<Called, NativeError> {
-        if values.len() < 2 || (name == "NE" && values.len() != 2) {
-            return Err(self.unsupported(node, format!("{name} with {} inputs", values.len())));
+        if operands.len() < 2 || (name == "NE" && operands.len() != 2) {
+            return Err(self.unsupported(node, format!("{name} with {} inputs", operands.len())));
         }
         let sign = match name {
             "GT" => ">",
@@ -489,20 +543,19 @@ impl Lowerer<'_, '_> {
             "LT" => "<",
             _ => "!=",
         };
-        let ty = self.common_of(node, values)?;
+        let ty = self.common_of_given(node, operands)?;
         let wide = matches!(self.info(ty).kind, Kind::WStr(_));
-        let operands: Vec<String> = if matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
-            let mut texts = Vec::with_capacity(values.len());
-            for value in values {
-                texts.push(self.text_ref(value)?.0);
-            }
-            texts
+        let compared: Vec<String> = if matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
+            self.operand_texts(operands, wide)?
+                .into_iter()
+                .map(|(text, _)| text)
+                .collect()
         } else {
-            self.scalars_of(values, ty)?
+            self.operand_scalars(node, operands, ty)?
         };
         let text = matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_));
         let compare = if wide { "compare_wide" } else { "compare" };
-        let links: Vec<String> = operands
+        let links: Vec<String> = compared
             .windows(2)
             .map(|pair| {
                 if text {
@@ -525,14 +578,14 @@ impl Lowerer<'_, '_> {
         &mut self,
         node: &SyntaxNode,
         name: &str,
-        values: &[SyntaxNode],
+        operands: &[Option<SyntaxNode>],
         want: &Want,
     ) -> Result<Called, NativeError> {
         let variadic = matches!(name, "ADD" | "MUL");
-        if values.len() < 2 || (!variadic && values.len() != 2) {
-            return Err(self.unsupported(node, format!("{name} with {} inputs", values.len())));
+        if operands.len() < 2 || (!variadic && operands.len() != 2) {
+            return Err(self.unsupported(node, format!("{name} with {} inputs", operands.len())));
         }
-        let ty = self.common_of(node, values)?;
+        let ty = self.common_of_given(node, operands)?;
         let elem = self.elem_of(node, ty, name)?;
         let function = match (name, elem.is_real()) {
             ("ADD", false) if elem.is_integer() || elem.is_duration() => "add",
@@ -546,7 +599,7 @@ impl Lowerer<'_, '_> {
             ("DIV", true) => "fdiv",
             _ => return Err(self.unsupported(node, format!("{name} of {}", elem.name()))),
         };
-        let scalars = self.scalars_of(values, ty)?;
+        let scalars = self.operand_scalars(node, operands, ty)?;
         let mut acc = scalars[0].clone();
         for next in &scalars[1..] {
             acc = self.bind(&format!("lib::{function}(cx, {acc}, {next})?"));
@@ -608,31 +661,35 @@ impl Lowerer<'_, '_> {
     }
 
     /// `LIMIT`, `MAX`, `MIN`, `ABS` and `SEL` in the common type of their inputs, the selector of
-    /// `SEL` aside (specification 07 §6).
+    /// `SEL` aside (specification 07 §6); an omitted input is the default value of its type, an
+    /// omitted selector `FALSE`.
     fn selection(
         &mut self,
         node: &SyntaxNode,
         name: &str,
-        values: &[SyntaxNode],
+        operands: &[Option<SyntaxNode>],
         want: &Want,
     ) -> Result<Called, NativeError> {
-        if let Some(called) = self.text_selection(node, name, values)? {
+        if let Some(called) = self.text_selection(node, name, operands)? {
             return Ok(called);
         }
-        let operands = if name == "SEL" {
-            values.get(1..).unwrap_or(&[])
+        let inputs = if name == "SEL" {
+            operands.get(1..).unwrap_or(&[])
         } else {
-            values
+            operands
         };
-        let ty = self.common_of(node, operands)?;
-        let mut scalars = Vec::with_capacity(values.len());
-        for value in values {
+        let ty = self.common_of_given(node, inputs)?;
+        let mut scalars = Vec::with_capacity(operands.len());
+        for operand in operands {
             let target = if name == "SEL" && scalars.is_empty() {
                 self.model.types.elem(Elem::Bool)
             } else {
                 ty
             };
-            scalars.push(self.scalar_to(value, target)?);
+            scalars.push(match operand {
+                Some(value) => self.scalar_to(value, target)?,
+                None => self.default_scalar(node, target)?,
+            });
         }
         let elem = self.elem_of(node, ty, name)?;
         let value = match (name, scalars.as_slice()) {

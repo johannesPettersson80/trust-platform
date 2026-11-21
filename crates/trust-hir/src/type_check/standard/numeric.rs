@@ -70,13 +70,15 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             builtin_param("X", ParamDirection::In),
         ];
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let inputs = call.args_from(0);
+        if inputs.is_empty() {
+            return self.untyped_call(node, "ATAN2", "Y or X");
+        }
         self.common_real_type_for_args(&inputs).unwrap_or_else(|| {
             self.checker
                 .legacy_suppressed_type(DiagnosticCode::InvalidArgumentType, node.text_range())
@@ -131,23 +133,21 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn infer_sub_call(&mut self, node: &SyntaxNode) -> TypeId {
         let params = builtin_in_params("IN", 1, 2);
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let inputs = call.args_from(0);
-        if inputs.len() != 2 {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
+        if inputs.is_empty() {
+            return self.untyped_call(node, "SUB", "IN1 or IN2");
         }
 
         if inputs.iter().any(|(_, ty)| self.is_time_related_type(*ty)) {
-            let lhs = inputs[0].1;
-            let rhs = inputs[1].1;
-            if let Some(result) = self.time_sub_result(lhs, rhs) {
+            let [(_, lhs), (_, rhs)] = inputs.as_slice() else {
+                return self.both_time_inputs(node, "SUB");
+            };
+            if let Some(result) = self.time_sub_result(*lhs, *rhs) {
                 return result;
             }
             return self.checker.legacy_diagnostic_type(
@@ -212,23 +212,21 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn infer_div_call(&mut self, node: &SyntaxNode) -> TypeId {
         let params = builtin_in_params("IN", 1, 2);
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let inputs = call.args_from(0);
-        if inputs.len() != 2 {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
+        if inputs.is_empty() {
+            return self.untyped_call(node, "DIV", "IN1 or IN2");
         }
 
         if inputs.iter().any(|(_, ty)| self.is_time_duration_type(*ty)) {
-            let lhs = inputs[0].1;
-            let rhs = inputs[1].1;
-            if let Some(result) = self.time_div_result(lhs, rhs) {
+            let [(_, lhs), (_, rhs)] = inputs.as_slice() else {
+                return self.both_time_inputs(node, "DIV");
+            };
+            if let Some(result) = self.time_div_result(*lhs, *rhs) {
                 return result;
             }
             return self.checker.legacy_diagnostic_type(
@@ -248,17 +246,14 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn infer_mod_call(&mut self, node: &SyntaxNode) -> TypeId {
         let params = builtin_in_params("IN", 1, 2);
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
         let inputs = call.args_from(0);
-        if inputs.len() != 2 {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
+        if inputs.is_empty() {
+            return self.untyped_call(node, "MOD", "IN1 or IN2");
         }
         self.common_integer_type_for_args(&inputs)
             .unwrap_or_else(|| {
@@ -270,40 +265,42 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(in crate::type_check) fn infer_expt_call(&mut self, node: &SyntaxNode) -> TypeId {
         let params = builtin_in_params("IN", 1, 2);
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
-        let inputs = call.args_from(0);
-        if inputs.len() != 2 {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        }
-        let (arg1, ty1) = &inputs[0];
-        let (arg2, ty2) = &inputs[1];
-        if *ty1 == TypeId::UNKNOWN || *ty2 == TypeId::UNKNOWN {
+        // The base gives the result its type; an exponent a formal call omits is 0.
+        let Some((arg1, ty1)) = call.arg(0) else {
+            return self.untyped_call(node, "EXPT", "IN1");
+        };
+        let exponent = call.arg(1);
+        if ty1 == TypeId::UNKNOWN
+            || exponent
+                .as_ref()
+                .is_some_and(|(_, ty)| *ty == TypeId::UNKNOWN)
+        {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::CannotResolve, node.text_range());
         }
-        if !self.is_real_type(*ty1) {
+        if !self.is_real_type(ty1) {
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::InvalidArgumentType,
                 arg1.range,
                 "expected REAL or LREAL input",
             );
         }
-        if !self.is_numeric_type(*ty2) {
+        if let Some((arg2, ty2)) = exponent
+            && !self.is_numeric_type(ty2)
+        {
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::InvalidArgumentType,
                 arg2.range,
                 "expected numeric exponent",
             );
         }
-        if self.base_type_id(*ty1) == TypeId::LREAL {
+        if self.base_type_id(ty1) == TypeId::LREAL {
             TypeId::LREAL
         } else {
             TypeId::REAL
