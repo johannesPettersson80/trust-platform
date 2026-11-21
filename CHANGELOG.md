@@ -6,6 +6,324 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-21
+
+### Added
+
+- `trust-dev rust bench` measures a project's Rust functions, function blocks, methods and
+  programs on this computer, or with `--device` and `--target` on a board by stepped scans, each
+  case once a scan for 1,000 scans (`--scans`), a program on its instances, and writes each one's
+  longest call
+  into `trust.toml` `[timing.measured]`, with the hash of the files the program is built from. A
+  Rust POU takes the inputs it is measured with from `#[bench_case(...)]`, one attribute per case;
+  without one it is measured at its declared initial values. The command names each POU whose
+  longest call is over its budget, and each case that faulted, which measures nothing
+  (specification 48 RU-48).
+- A `cycle.step` of a debug image with Rust POUs replies with `rust_pous`, each Rust POU's record as
+  `tasks.stats` lists it, so that a bench on a board reads what its steps' calls took
+  (specification 11 §6.8.1).
+- Rust sequences (specification 48 §15): `#[trust_sequence]` on a POU's `impl` block turns an
+  `async fn` written as straight-line Rust, which waits with `s.next_cycle()`, `s.until(pred)` and
+  `s.wait(t)`, each limited by `.within(t)` when it must be, into a state machine that each
+  activation runs from one wait point to the next, with no future and no executor. The POU names
+  its sequence (`sequence = "run"`) and keeps where it waits and its locals in its last variable,
+  `_seq`, which the generated declarations declare as a structure, so the debugger shows it and
+  `variables.read` reads `<instance>._seq.point`. A cold or a warm restart starts the sequence at
+  its top. A crate's unit tests run a sequence activation by activation with `trust_plc::test`.
+- A Rust sequence waits for several things at once (specification 48 RU-72): `s.all(..)` until each
+  of its waits has completed, at an activation of its own, as an SFC's simultaneous branches
+  converge, and `s.race(..)` until the first of them completes, the earlier one in the list winning
+  a tie, as an SFC's selection does. `let won: u16 = s.race(..).await;` tells which wait ended it,
+  and the state's `done` shows which waits of an `s.all` have completed.
+- A Rust sequence awaits another `async fn` of its block as a child sequence, `self.fill(s).await?`
+  (specification 48 RU-72): the child runs as a call would, from the activation that reaches it, so
+  moving part of a sequence into a child changes nothing about when anything happens, and it keeps
+  a state of its own, which the debugger shows as `<instance>._seq.fill`. A loop whose only wait is
+  a child that can return without waiting, or an inner loop that can `break` before its wait, is now
+  refused, as it could keep a scan from ending.
+- An online change keeps a Rust sequence where it waits when the changed code has the same wait
+  points, each named by its step or its order, and the same locals, and otherwise starts the
+  sequence at its top at its next activation (specification 48 RU-73). The change's report then
+  lists the sequence state's new member `shape_<signature>`, whose name changes with the wait points,
+  the parameters and the locals of the sequence and its children: a child that changed starts the
+  whole sequence at its top.
+- A child sequence takes parameters after its context, `async fn move_to(&mut self, s: &mut Seq,
+  target: f64)`, which the sequence that awaits it passes, `self.move_to(s, 25.0).await?`
+  (specification 48 RU-72): they are variables of the child's state, set when it starts and kept
+  across its waits.
+- A child sequence can be a member of `s.all` and `s.race` (specification 48 RU-72):
+  `s.all(self.left(s), self.right(s))` runs two children side by side, as an SFC's simultaneous
+  branches, and an `s.race` abandons a child that loses where it waits; it starts at its top the
+  next time it is awaited.
+- The example `rust_signal`, **Rust signal filter and CRC** in the example gallery: two function
+  blocks written in Rust, a median filter of a level sensor's last five readings, which drops its
+  spikes where the average shown beside it jumps, and the CRC-16 check of a Modbus RTU frame, which
+  refuses a frame with a bit changed on the line before the program takes its value.
+- The example `rust_barcode`, **Rust barcode reader** in the example gallery: a packing line's label
+  check, where a function block written in Rust reads a GS1-128 label's text into its GTIN, batch and
+  expiry date, with the GTIN's check digit and an expiry day of 00 read as the month's last, and the
+  program accepts the box or names why not (expired, unreadable, another product). The block reports
+  a label it cannot read with an error code and never stops the scan.
+- The example `rust_service`, **Rust service** in the example gallery: a Rust service beside the
+  runtime fetches the electricity price over HTTP and writes a water heater's setpoint through the
+  variable its `writes` names and its typed bindings, and the program takes the setpoint only while
+  `SERVICE_FRESH` says the service's heartbeat is fresh, falling back to a safe setpoint when the
+  service stops. A stand-in price source lets it run with no internet service.
+- **Start from example** offers **Memory marker counter**: watch a counter in Live Values, stop the program at a
+  breakpoint and step one statement. Its launch configuration is now **truST Simulator**, as in the other examples.
+- A warning, W017, for located variables whose process-image storage overlaps, such as `%IX0.0` inside `%IW0`, or
+  `%IW0` and `%IW1`, which share byte 1 (an address is a byte offset): writing one changes the other. It is reported
+  on each of them, for `AT` declarations and `VAR_CONFIG` entries across a project's files, and names the others.
+  Two declarations of the same address and size, as two programs reading one input, are not reported.
+- A running runtime's fleet topology lists each service that holds a service token as a client of
+  the runtime, with the age of its last heartbeat by the runtime's own clock. The service shows as
+  connected while its last heartbeat is younger than twice its period, as degraded after that, and
+  as configured until its first heartbeat. Devices & Connections shows it as a `Rust service`
+  connection of its runtime, role `CLIENT`, with that age as its detail. `service.heartbeat` takes
+  the service's period, `period_ms`, which `trust-service` sends (specification 11 §6.8.1a,
+  "Service clients").
+- `trust-dev service install <name>` puts a service of the project under the computer's service
+  manager as `trust-service-<name>` and starts it: a systemd unit on Linux, a launchd daemon on
+  macOS, a Windows service. The service starts at every boot without a login and again 2 s after
+  it ends. It runs the release binary of its package as the user who owns the project folder, or on
+  Windows as its own virtual account, never as root or LocalSystem. The command refuses a service
+  that could not connect or has no built binary. Run without root or an administrator, it changes
+  nothing and prints the command to run with those rights. `trust-dev service uninstall <name>`
+  stops and removes the service (specification 48 RU-64).
+- A service's bindings: `trust-dev service bindings <name> --out <file>` writes a Rust module, from the
+  image the project's build wrote, that names each variable of the program holding one value with its
+  Rust type, so that a service writes `plant::P1::level` and the compiler checks its paths and types.
+  Only the variables the service's `writes` lists are writable handles, which `Service::set` alone
+  takes (specification 48 RU-62).
+- `trust-service`, the SDK of services: a Rust program beside a runtime connects by its name with
+  the settings of `[services.<name>]` in the project's `trust.toml` (the service token's file, the
+  heartbeat and, when the runtime is elsewhere, its endpoint; without one the service connects to
+  the endpoint its project's running runtime publishes, so the runtime keeps its default endpoint),
+  reads the program's variables one completed scan at a time as Rust values, writes the variables
+  its project allows, reads at a period it chooses, and sends its heartbeat on a connection and a
+  thread of its own. `trust-service` and `trust-runtime-client` are published on crates.io with each
+  release (specification 48 RU-62).
+- A service writes the program's variables that its project allows. `[services.<name>] writes = [...]`
+  in `trust.toml` lists them; the build checks each path and carries the list in the signed program
+  image, so a board holds the service to it as a computer does. The control request `variables.write`,
+  sent with the service's Engineer service token, writes a set of them together at the next cycle's
+  start, as the program's input and never as a force; a path outside the list, or a value its
+  variable's type does not take, writes nothing. `trust-runtime ctl write <path>=<value>...` sends it
+  (specification 11 §6.8.1, "Writing variables"; specification 44 §5.14; specification 48 RU-63).
+- A debug image times each call of a Rust POU against the budget its `#[budget]` declares for the
+  image's target, on a computer and on a board. A call over the budget is the event
+  `rust_budget_exceeded` with the POU's name, the call's time and the budget, recorded for the
+  POU's first call over its budget and then only for a longer one, so a POU over its budget in
+  every scan does not fill the event list; `tasks.stats` lists each Rust POU's budget, longest call
+  and calls over the budget (specification 48 RU-49).
+
+### Changed
+
+- A build in a `production` profile (`trust.toml` `[timing] profile = "production"`) now needs a
+  current measurement of each Rust POU its tasks run, for the build's target: it names the POUs
+  without one and the command that measures them, `trust-dev rust bench`, and counts the larger of
+  each budget and its measured time in the tasks' Rust work. A change to the project's Structured
+  Text or Rust files makes the measurements older than the image (specification 48 RU-48).
+- The build refuses a key in a `[services.<name>]` of `trust.toml` that is no service setting
+  (`package`, `heartbeat`, `writes`, `endpoint` and `credentials`), naming the service and the key,
+  as `runtime.toml` refuses an unknown key: a misspelt `heartbeat` was ignored, and the service ran
+  on the default it was meant to replace. The `timeout` that specification 48's sample `trust.toml`
+  showed was read by nothing and is gone.
+- The empty simulator starter is now "Your first program", a step-by-step walkthrough of the loop every program
+  uses: write a counter into `src/Main.st`, save it, press **Start**, and watch it count in Live Values. Then change
+  its step and start again. Its values come from a run of the packaged extension, which a new acceptance journey
+  repeats on every package.
+- The PLCopen Motion starter is now a step-by-step walkthrough. After the axis's first move to 25, a request on
+  `%IX0.0` moves it to the other end, and its position shows at `%MD4`. Writing the request in Live Values shows that
+  a motion command starts on a rising edge: writing TRUE again over TRUE starts nothing, while FALSE and then TRUE
+  moves the axis back. Its values come from a run of the packaged extension, which a new acceptance journey repeats
+  on every package.
+- The HMI equipment example is now a step-by-step walkthrough of its equipment panels. P-101 runs in Auto with Start
+  and Stop greyed. LIC-101 follows a new setpoint, drains the tank in Manual until LT-101's Low alarm comes in, and
+  refills it in Auto without a bump. Its values come from a run of the packaged extension, which a new acceptance
+  journey repeats on every package. The README no longer says the loop holds 1.5 m from the start: after a cold start
+  the level dips first, because the loop starts from a closed valve.
+- The HMI tank level example is now a step-by-step walkthrough of operating its screens. You run its runtime,
+  connect to it, open the Overview in the HMI Builder's Live mode, log in as `operator`, raise the setpoint until
+  the high-level alarm comes in, acknowledge it, and lower the setpoint until the alarm leaves the list. Its values
+  come from a run of the packaged extension, which a new acceptance journey repeats on every package.
+- The memory marker counter example is now a step-by-step walkthrough of how a scan reads and writes a variable
+  at an address. Its values come from a run of the packaged extension, which a new acceptance journey repeats on
+  every package. It no longer needs a source checkout or the command line.
+- The conveyor example (**Start from example** → **Conveyor demo**) is now a step-by-step walkthrough of the scan
+  cycle. You start it, watch the line in Live Values, force its stop input, release the force and write the input
+  back to FALSE. Its values come from a run of the packaged extension, and a new acceptance journey repeats that run
+  on every package. Its old notes said the Simulator runs `MainProgram`; Live Values shows the instance `P1`.
+- The examples catalog (`examples/README.md`) and the Examples page start with how to run an example,
+  from VS Code's **Start from example** or a terminal with the released `trust-runtime`, and say for each
+  category what it needs, beside what it teaches and how long it takes. Building from source moves to a
+  section for contributors.
+- A call that connects `EN` or `ENO` to a POU that does not declare it names the declaration that
+  gives a POU one, `EN : BOOL` among its inputs or `ENO : BOOL` among its outputs, where it said
+  only "unknown parameter 'EN'" (specification 04, "EN/ENO Mechanism").
+- A periodic task runs at its start, then at every interval: the first cycle after a program
+  starts, restarts or starts again after a stop runs every task with an `INTERVAL`, as the schedules
+  of IEC 61131-3 Ed.3 §6.8.2 do. Its first run came one interval later before, so that a task of
+  1 s first ran a second after the start. Computers and boards alike (specification 10 §4.3).
+- Compiled programs use kernel interface 8 and image format 6, which give a debug image the kernel's
+  monotonic clock and a table of its Rust POUs, so that it can time each call of its Rust POUs
+  against the POU's budget (specification 44 §5.13 and §8.2, specification 48 RU-49). A runtime or
+  board firmware of an earlier release refuses a program that this release builds, and this release
+  refuses one that an earlier release built, each with its reason: rebuild the project, and install
+  this release's firmware on a board with `trust-runtime firmware install`.
+
+### Fixed
+
+- `trust-dev test --device` takes the device's control token from `TRUST_CTL_TOKEN` when `--token`
+  is not given, as its help and specification 22 say. It sent no token then, and a device whose
+  settings set one refused the run with `missing auth token`.
+- A runtime that ends cleanly (Ctrl+C, SIGINT, SIGTERM or `ctl shutdown --exit`) now removes its Unix
+  control socket as well as its endpoint file, so no `control.sock` or fallback socket stays behind
+  (specification 11 §6.8.0a). A socket that another runtime has bound at the same path since is kept.
+- A formal call of a standard function of fixed inputs may leave inputs out, as IEC 61131-3
+  allows: `LIMIT(IN := b, MX := 5)` is `LIMIT(MN := 0, IN := b, MX := 5)`, `MID(IN := s, L := 2)`
+  starts at the first character, `CONCAT_TOD(HOUR := 12)` is `TOD#12:00:00`, and
+  `SPLIT_DATE(IN := d, YEAR => y)` writes only the year. An omitted input takes the default value
+  of its type: 0, `FALSE`, the empty text, `T#0s`, midnight or the 1970-01-01 epoch. A call that
+  leaves out every input that gives the function its type, such as `LIMIT()` or `LEFT(L := 2)`, is
+  refused with an error that names the inputs it needs. Before, every such call was refused with
+  "expected 3 arguments, found 2".
+- Creating a project or starting from an example in the open window now always opens the new project's main file or
+  lesson README. Before, it could stay on the previous file when the extension had saved another setting a moment
+  before, because VS Code shows a window the value from before its own write for a moment. The pending landing is now a
+  file in the extension's global storage.
+- Compile (`trust-runtime check`) checks the variables a project's services may write
+  (`[services.<name>] writes` in `trust.toml`) as the build does, without the toolchain: a path that
+  no write may reach, a constant, an instance, a structure or a variable two services write now
+  fails Compile with the build's words, instead of passing it and failing only when the project
+  starts.
+- A field of a Rust structure (`#[trust_struct]`) or a variant of a Rust enumeration
+  (`#[trust_enum]`) written as a raw identifier of a Rust keyword that Structured Text does not
+  reserve, such as `r#loop` or `r#match`, now builds: the enumeration was refused as no IEC
+  identifier, and the SDK's macros and the generated code wrote such a name as the keyword itself,
+  which did not compile. Structured Text names it `loop` or `match`, as any field or value.
+- The **Rust function block** starter's walkthrough works in Live Values: its program's setpoint is the
+  simulated input `%IL0` and its speed and at-speed flag are the outputs `%QL0` and `%QX8.0`, so Live
+  Values shows them and writes the setpoint. Its README told the user to watch and write variables
+  without an address, which Live Values does not list. An acceptance journey now runs the walkthrough
+  on the packaged extension, Start building the crate with truST's own toolchain.
+- On a computer that never ran truST, **Compile** of a project with a Rust crate installs the truST
+  toolchain, as **Start** does, and checks again. It failed with "the truST toolchain is not
+  installed", which Problems did not show, and the failed Compile held back the Start that would
+  have installed it: the Rust function block starter and the projects of Create Project's two Rust
+  starts could not start.
+- The example gallery's **Rust function block** card now says **Runs in simulator** and **No hardware needed**, like
+  the other starters. A list of example ids in the gallery decided these badges and had missed it. The language
+  server now decides them from the packaged example: **Runs in simulator** when its `io.toml` uses the simulated
+  driver. The HMI and Control Studio example cards gain the badge as well, since their I/O is simulated too. The
+  **Start from example** page shows the same labels.
+- The browser IDE's list of runtimes found on the network connects to each at the address, port and scheme it
+  announces: its preferred address (an IPv4 address before an IPv6 one, which goes in brackets), its announced web
+  port, and `https` for a runtime that announces TLS. It used the first address listed, which could be a link-local
+  IPv6 address no browser opens, always `http`, and port 18080 when none was announced. `/api/discovery` now gives
+  each runtime's `web_url`, and a runtime that announces no web port shows no Connect button.
+- The ADS and EtherCAT pages no longer tell you to build `trust-runtime` with a feature the release already has:
+  every released `trust-runtime` has the ADS client and server and the EtherCAT transport (`ads-wire`, `ads-server`
+  and `ethercat-wire` are on by default). The command reference, the `ads.toml` and `runtime.toml` references and the
+  ads_line1 and EtherCAT example READMEs say so, and what a build from source without them does.
+- Tutorial 11 (`examples/tutorials/11_unit_testing_102`) gives its level and pump-speed words bytes of their own,
+  `%IW2` and `%QW2`. On `%IW0` and `%QW0` they shared byte 0 with the start and stop commands and the valves,
+  so on the runtime writing the level 200 cleared the start command and the tank never filled.
+- The OpenOT database examples build and run as their READMEs say. `examples/openot_database` copied only the
+  workload and a backend's `runtime.toml`, so `trust-runtime build` failed (`'OotProducer' is not callable`, the
+  OpenOT ST library was missing) and `trust-runtime run` refused the copy (`missing io.toml`). Each README now
+  fetches the library once with `scripts/checkout_openot_ref.sh`, and the project copy gets `workload/io.toml`
+  and a `trust-lsp.toml` naming the library. `examples/openot_multi_program` says to fetch the library too, and
+  its copy for another database names the library by its absolute path, which the example's relative path did
+  not reach. The PostgreSQL and MySQL READMEs name the database and user the commands use, `trust_logging` and
+  `trust_logging_writer`, and the OpenOT authoring page lists the example's six producers and the tests that
+  build it.
+- `trust-runtime ctl set` with a target that lacks its `global:` or `retain:` prefix, such as
+  `ctl set Setpoint 12.5`, now says `unsupported target (use global:<name> or retain:<name>)`, as a
+  force does. It answered `unsupported value '12.5'` for a decimal value, which blamed the value.
+- The motion benchmark pack's README no longer promises a `vm_profile` section, which the bytecode
+  engine's removal on 24 October took away. Its spot check and the OSCAT smoke example use the
+  released `trust-runtime bench` and `trust-dev test` instead of contributor builds.
+- The ADS server example (`examples/communication/ads_server_basic`) keeps the `global.Setpoint` a
+  client writes: its program ramped that value every scan, so the write-and-read-back proofs its
+  README teaches (the pyads smoke, the TwinCAT program, the ADS.NET notification) all failed. The
+  README now uses the released `trust-runtime` commands, says that the UDP identify responder
+  listens on every interface, and shows what the Doctor prints.
+- A clone of the repository builds with `cargo build` alone: the repository no longer makes sccache
+  the compiler wrapper, which failed every build on a computer without it. sccache stays optional
+  (`CONTRIBUTING.md`). Found through the IEC 61131-3 conformance suite, whose CI had to switch the
+  wrapper off to build truST.
+- Tutorial 15 (multi-PLC mesh) shares a value between two runtimes as written: its configurations
+  held an empty mesh `auth_token`, which the runtime refuses, published a name the program does not
+  have, subscribed under the discovery name instead of the publisher's resource name, and sent the
+  reader to web pages that no longer exist. It now shares PLC-B's lamp into a variable of PLC-A and
+  finds PLC-B through discovery. The multi-PLC guide, the developer and operator guides and the mesh
+  page follow.
+- A mesh `connect` or `listen` entry in the URL form `tcp://host:port` or `tls://host:port`, the form
+  of a control endpoint, works: it was handed to Zenoh as it was, Zenoh refused it, and the runtime
+  ran on without a mesh and without saying so. A mesh that does not start now logs the warning
+  event `mesh_unavailable` with the reason.
+- Tutorial 16 (secure remote access) teaches what the runtime does: remote access goes through the
+  web interface, with a token, TLS and pairing for each device, while the control endpoint stays
+  local. The tutorial's former control endpoint on a network address is refused by the runtime.
+- Example projects no longer map their command bits into the bytes of their analog words: in the
+  OSCAT examples, `filling_line` and `plant_demo` the words move up two bytes, so writing a level or
+  a speed no longer rewrites the start and stop commands, and `filling_line`'s scenario table works
+  as written.
+- The OSCAT examples' integration maps list the I/O their code binds, and their MQTT inputs keep the
+  last value between messages instead of faulting the runtime at its first scan.
+- The MQTT communication example, and the MQTT driver of the multi-driver example, no longer fault
+  at their first scan: under the default `on_error = "fault"`, a scan that finds no new message on
+  `topic_in` faults the runtime, so they take `warn`, which keeps the last input. The MQTT example's
+  README shows how to publish an input and watch the output.
+- The Modbus/TCP communication example names a test server to start (diagslave) and says how the
+  registers carry the process image, high byte first.
+- The OPC UA example and the pages on OPC UA, ADS and the communication transports no longer say that
+  their servers need a special build: the released `trust-runtime` includes them.
+- `trust-runtime deploy` ends its change summaries, `deployments/<label>.txt` and
+  `deployments/last.txt`, with a newline, so `cat` no longer leaves the shell prompt on their last
+  line (specification 11 §6.8.2).
+- The historian records with debugging off (`runtime.control.debug_enabled = false`, the setting of
+  a new project and of production). It read only the debugger's snapshot, which does not exist then,
+  so it recorded nothing and `/metrics` reported no samples. It now reads the scan's published copy
+  of the program, as the OPC UA server does.
+- Tutorial 23's historian allowlist names the program's variables by their full paths,
+  `P1.StartCmd` and `P1.LampOut`; `StartCmd` and `RunLamp` named nothing.
+- Tutorial 13 ("Bootstrap a PLC Project from Zero to First Running App") builds and runs as written:
+  its `runtime.toml` no longer holds the empty `auth_token = ""`, which the runtime refuses, and it
+  takes the `simulated` I/O driver, which keeps each input as you set it, so step 9's inverted
+  output can be seen. Tutorials 14, 18 and 19 start from its project.
+- Tutorial 12's PID process dashboard takes the `simulated` driver: with `loopback`, its outputs
+  overwrote the commands it reads, and the bypass never opened.
+- Tutorial 18's `simulation.toml` and the example of the `simulation.toml` reference page load: their
+  coupling no longer sets `on_true` and `on_false` without a `threshold`, and the reference example's
+  coupling, physics joint and plant no longer write the same input bytes.
+- Tutorial 10's filter example selects its test (`--filter StartStop`).
+- Tutorials 21 and 22 build and validate a runnable project: tutorial 11 has a `runtime.toml` and an
+  `io.toml`, and tutorial 22 no longer passes a `--sources` folder that does not exist.
+- The vendor library stubs example no longer tells you to run `trust-runtime check`, which refuses a
+  project without `runtime.toml` and `io.toml`; its build with the stubs is the check.
+- The web UI complete project example listens on this computer only (`127.0.0.1:8080`), with discovery
+  and the mesh off: it shipped a settings session's leftovers, among them a mesh to hosts that do not
+  exist and a cloud write permission for `live.example.com`. Its simulation runs at real time.
+- A formal call of a standard function that names a parameter the function does not have, such as
+  `EN` in `LIMIT(EN := cond, MN := 0, IN := x, MX := 5)`, or names one twice, now reports that one
+  error. It no longer adds "expected 3 arguments, found 4", which counted the refused argument. The
+  standard functions and function blocks take no `EN` or `ENO` (specification 04).
+- `AND`, `OR`, `XOR` and `MOD` can be called by their names, `A := AND(B, C, D)` and
+  `MOD(A, B)`, as IEC 61131-3 Table 31 and Table 29 write them; such a call was refused as
+  "expected expression". An untyped literal among the inputs takes the type of the typed ones
+  (specification 07 §5).
+- A based literal such as `16#0001`, or a decimal one that is not negative, is accepted as a bit
+  string where no typed operand gives one, as IEC 61131-3 §6.3.2 makes it a bit string literal:
+  `SHL(16#0001, n)`, `NOT 16#00FF` and `16#0F AND 16#3C` were refused as no bit strings. The
+  expression takes the bit string type where it goes, so `w := SHL(16#0001, n)` for a `WORD`
+  `w` shifts 16 bits; a typed input such as `BYTE#16#01` keeps its own type (specification 05
+  §5.2.1).
+- A runtime that refuses a program image of another format version names the version it reads
+  (`image format version 5, this runtime reads 6: rebuild the project`); it said "is not 1",
+  whatever version it read.
+
 ## [0.43.0] - 2026-11-19
 
 ### Added
