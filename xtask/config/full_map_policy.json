@@ -793,6 +793,14 @@
       "status": "allowed",
       "owner": "services",
       "rationale": "the service of the example rust_service reads and writes its program through the service SDK, as a user's service does (specification 48 RU-62, RU-88)"
+    },
+    {
+      "from": "rust-barcode",
+      "to": "trust-plc",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "the crate of the example rust_barcode writes its function block with the SDK, as a project's crate does (specification 48 RU-08, RU-56)"
     }
   ],
   "forbidden_workspace_edges": [

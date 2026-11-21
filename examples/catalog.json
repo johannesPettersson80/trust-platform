@@ -44,6 +44,17 @@
     ]
   },
   {
+    "id": "rust-barcode",
+    "title": "Rust barcode reader",
+    "description": "A Rust function block reads GS1-128 labels into product, batch and expiry date, and the program accepts or rejects each box. Simulates with no hardware.",
+    "path": "rust_barcode",
+    "hardware": "none",
+    "tags": [
+      "rust",
+      "simulator"
+    ]
+  },
+  {
     "id": "rust-service",
     "title": "Rust service",
     "description": "A Rust service beside the runtime writes a heater's setpoint from the electricity price; the program falls back to a safe setpoint when the service stops.",
