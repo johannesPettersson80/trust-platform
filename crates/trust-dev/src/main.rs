@@ -17,6 +17,7 @@ mod prompt;
 mod run;
 mod rust;
 mod rust_audit;
+mod rust_bench;
 mod service;
 mod service_manager;
 mod style;
@@ -201,6 +202,28 @@ enum RustAction {
         #[arg(long = "db")]
         db: Option<PathBuf>,
     },
+    /// Measure the project's Rust functions, function blocks, methods and programs with their
+    /// `#[bench_case]` cases, on this computer or a device, and write each one's longest call into
+    /// trust.toml [timing.measured] (specification 48 RU-48).
+    Bench {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// The scans each case runs, one call of its POU a scan.
+        #[arg(long = "scans", default_value_t = rust_bench::DEFAULT_SCANS)]
+        scans: u32,
+        /// The serial port of a device that runs the bench compiled for its `--target`, or
+        /// `tcp://<host>:<port>` of a bridge to that port (specification 11 §6.8.1).
+        #[arg(long, requires = "target")]
+        device: Option<String>,
+        /// The device's target, as `trust-runtime build --target` names it: `esp32c6`.
+        #[arg(long, requires = "device")]
+        target: Option<String>,
+        /// The device's control token, when its settings set one; else `TRUST_CTL_TOKEN`, else
+        /// the project's `runtime.control.auth_token` (specification 11 §6.8.1).
+        #[arg(long, requires = "device", allow_hyphen_values = true)]
+        token: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -276,6 +299,23 @@ fn run() -> anyhow::Result<()> {
         Command::Rust { action } => match action {
             RustAction::Declarations { project } => rust::run_declarations(project),
             RustAction::Audit { project, db } => rust_audit::run_audit(project, db),
+            RustAction::Bench {
+                project,
+                scans,
+                device,
+                target,
+                token,
+            } => rust_bench::run_bench(
+                project,
+                scans,
+                device
+                    .zip(target)
+                    .map(|(port, target)| rust_bench::OnDevice {
+                        port,
+                        target,
+                        token,
+                    }),
+            ),
         },
         Command::Test {
             project,

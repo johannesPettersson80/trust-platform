@@ -9,8 +9,10 @@
 //! the reader the attributes check items with, so the declarations and the compiled code agree by
 //! construction (RU-24).
 
+pub mod bench;
 mod configuration;
 mod layout;
+pub mod measured;
 mod rules;
 mod services;
 mod structured_text;
@@ -643,3 +645,6 @@ mod tests;
 
 #[cfg(test)]
 mod sequence_tests;
+
+#[cfg(test)]
+mod bench_tests;
