@@ -16,7 +16,8 @@ component "projectLocations.ts\nretained lesson ID / project path registry" as l
 component "projectReopening.ts\nselect retained path / classify existence" as reopening
 component "projectOpening.ts\nshared openProjectFolder retry loop\ncreated / existing recovery wording" as opening
 component "projectLanding.ts\nstructured intent producers / scoped dispatcher" as landing
-database "VS Code global state\ncurrent landing intent + retained lesson locations" as state
+database "VS Code global state\nretained lesson locations\nearlier versions' landing keys" as state
+database "Extension global storage\nproject-landing.json: current landing intent\nreads back as last written in every window" as landing_file
 component "Destination workspace activation" as activation
 component "projectLandingActivation.ts\nrecovery notification / explicit Retry" as recovery
 component "Open source document" as main
@@ -27,7 +28,8 @@ copy --> copied_readme : check folder name /\nadapt destination README only
 copied_readme --> readme : gallery continuation guidance\nno assumed sibling project folders
 locations --> state : immutable retained records\nexact duplicates stored once
 copy --> landing : await copied project / file / example intent
-landing --> state : one current intent\nmatching legacy migration
+landing --> landing_file : one current intent\nreplaced whole
+landing --> state : earlier versions' keys\nmatching legacy migration
 gallery --> catalog : load entries / stored progress
 catalog --> gallery : entries with availability
 gallery --> view : render shell

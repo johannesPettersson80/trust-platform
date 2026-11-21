@@ -1,10 +1,14 @@
+import * as fs from "fs";
 import * as vscode from "vscode";
 import * as nodePath from "path";
 
 // Persist the intended destination across the folder-opening window reload.
 export const FOCUS_MAIN_KEY = "trust.newProject.focusMain";
 export const OPEN_LESSON_README_KEY = "trust.examples.openLessonReadme";
+/** Where an earlier version kept the structured intent; an intent found there moves to the file. */
 export const PROJECT_LANDING_KEY = "trust.projectLanding";
+/** The pending intent's one stored representation, in the extension's global storage (specification 25 §3.2). */
+export const PROJECT_LANDING_FILE = "project-landing.json";
 
 export interface ProjectLandingIntent {
   intentId: string;
@@ -21,6 +25,45 @@ export type ProjectLandingResult =
 
 let landingInFlight: Promise<ProjectLandingResult> | undefined;
 
+/** The pending intent, read from its file as any window last wrote it. The intent is not kept in `globalState`: VS Code
+ * sends a window its own earlier write back about 200 ms after it, so a value written in between disappears in that
+ * window for a moment, and is lost for good when a further write follows (VS Code 1.147, checklist W49). */
+export function readProjectLanding(context: vscode.ExtensionContext): ProjectLandingIntent | undefined {
+  let text: string;
+  try {
+    text = fs.readFileSync(projectLandingFile(context), "utf8");
+  } catch {
+    return undefined;
+  }
+  try {
+    return JSON.parse(text) as ProjectLandingIntent;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Replaces the pending intent for every window at once, or removes it: a reader sees the earlier file or this one. */
+function writeProjectLanding(context: vscode.ExtensionContext, intent: ProjectLandingIntent | undefined): void {
+  const file = projectLandingFile(context);
+  if (!intent) {
+    fs.rmSync(file, { force: true });
+    return;
+  }
+  fs.mkdirSync(nodePath.dirname(file), { recursive: true });
+  const written = `${file}.${process.pid}-${Date.now()}.tmp`;
+  fs.writeFileSync(written, JSON.stringify(intent), "utf8");
+  fs.renameSync(written, file);
+}
+
+function projectLandingFile(context: vscode.ExtensionContext): string {
+  return nodePath.join(context.globalStorageUri.fsPath, PROJECT_LANDING_FILE);
+}
+
+/** Clears a key an earlier version used, without a write when it holds nothing. */
+async function clearEarlierKey(context: vscode.ExtensionContext, key: string): Promise<void> {
+  if (context.globalState.get(key) !== undefined) await context.globalState.update(key, undefined);
+}
+
 /** Consume the one structured landing intent only in its destination workspace. */
 export function consumeProjectLanding(context: vscode.ExtensionContext): Promise<ProjectLandingResult> {
   if (landingInFlight) return landingInFlight;
@@ -29,12 +72,18 @@ export function consumeProjectLanding(context: vscode.ExtensionContext): Promise
 }
 
 async function consumeProjectLandingOnce(context: vscode.ExtensionContext): Promise<ProjectLandingResult> {
-  const storedIntent = context.globalState.get<ProjectLandingIntent>(PROJECT_LANDING_KEY);
+  // An intent an earlier version left in globalState moves to the file, unless this version has written one since.
+  const earlier = context.globalState.get<ProjectLandingIntent>(PROJECT_LANDING_KEY);
+  if (earlier) {
+    if (!readProjectLanding(context)) writeProjectLanding(context, earlier);
+    await context.globalState.update(PROJECT_LANDING_KEY, undefined);
+  }
+  const storedIntent = readProjectLanding(context);
   let intent = storedIntent;
   let legacyKey: string | undefined;
   if (!intent) {
     const legacy = await matchingLegacyLanding(context);
-    if (context.globalState.get<ProjectLandingIntent>(PROJECT_LANDING_KEY)) return { kind: "waiting" };
+    if (readProjectLanding(context)) return { kind: "waiting" };
     if (legacy.kind === "ambiguous") {
       await context.globalState.update(FOCUS_MAIN_KEY, undefined);
       await context.globalState.update(OPEN_LESSON_README_KEY, undefined);
@@ -59,7 +108,7 @@ async function consumeProjectLandingOnce(context: vscode.ExtensionContext): Prom
   try {
     await vscode.workspace.fs.stat(uri);
   } catch (error) {
-    const current = context.globalState.get<ProjectLandingIntent>(PROJECT_LANDING_KEY);
+    const current = readProjectLanding(context);
     if (current?.intentId !== storedIntent?.intentId) return { kind: "waiting" };
     if ((error as { code?: string }).code !== "FileNotFound") {
       return {
@@ -68,11 +117,11 @@ async function consumeProjectLandingOnce(context: vscode.ExtensionContext): Prom
         message: `Could not inspect the pending ${intent.kind} landing file ${intent.filePath}. Retry the activation.`,
       };
     }
-    if (storedIntent) await context.globalState.update(PROJECT_LANDING_KEY, undefined);
+    if (storedIntent) writeProjectLanding(context, undefined);
     if (legacyKey) await context.globalState.update(legacyKey, undefined);
     return { kind: "cleared", message: `The pending ${intent.kind} landing file ${intent.filePath} is missing. Recreate the project or copy the example again.` };
   }
-  const latestBeforeOpen = context.globalState.get<ProjectLandingIntent>(PROJECT_LANDING_KEY);
+  const latestBeforeOpen = readProjectLanding(context);
   if (latestBeforeOpen?.intentId !== storedIntent?.intentId) return { kind: "waiting" };
   try {
     if (intent.kind === "lesson") {
@@ -82,7 +131,7 @@ async function consumeProjectLandingOnce(context: vscode.ExtensionContext): Prom
       await vscode.window.showTextDocument(document, { preview: false });
     }
   } catch {
-    const current = context.globalState.get<ProjectLandingIntent>(PROJECT_LANDING_KEY);
+    const current = readProjectLanding(context);
     if (current?.intentId !== storedIntent?.intentId) return { kind: "waiting" };
     return {
       kind: "failed",
@@ -90,8 +139,8 @@ async function consumeProjectLandingOnce(context: vscode.ExtensionContext): Prom
       message: `Could not open the pending ${intent.kind} landing file ${intent.filePath}. Retry the activation to open it.`,
     };
   }
-  const current = context.globalState.get<ProjectLandingIntent>(PROJECT_LANDING_KEY);
-  if (storedIntent && current?.intentId === intent.intentId) await context.globalState.update(PROJECT_LANDING_KEY, undefined);
+  const current = readProjectLanding(context);
+  if (storedIntent && current?.intentId === intent.intentId) writeProjectLanding(context, undefined);
   if (legacyKey) await context.globalState.update(legacyKey, undefined);
   return { kind: "opened" };
 }
@@ -123,14 +172,15 @@ export async function prepareStarterProjectHandoff(
   mainPath: string,
   projectPath: string = nodePath.dirname(nodePath.dirname(mainPath))
 ): Promise<void> {
-  await context.globalState.update(PROJECT_LANDING_KEY, {
+  writeProjectLanding(context, {
     intentId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     projectPath,
     kind: "starter",
     filePath: mainPath,
-  } satisfies ProjectLandingIntent);
-  await context.globalState.update(FOCUS_MAIN_KEY, undefined);
-  await context.globalState.update(OPEN_LESSON_README_KEY, undefined);
+  });
+  await clearEarlierKey(context, PROJECT_LANDING_KEY);
+  await clearEarlierKey(context, FOCUS_MAIN_KEY);
+  await clearEarlierKey(context, OPEN_LESSON_README_KEY);
 }
 
 export async function prepareLessonProjectHandoff(
@@ -139,13 +189,14 @@ export async function prepareLessonProjectHandoff(
   readmePath: string,
   exampleId: string
 ): Promise<void> {
-  await context.globalState.update(PROJECT_LANDING_KEY, {
+  writeProjectLanding(context, {
     intentId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     projectPath,
     kind: "lesson",
     filePath: readmePath,
     exampleId,
-  } satisfies ProjectLandingIntent);
-  await context.globalState.update(FOCUS_MAIN_KEY, undefined);
-  await context.globalState.update(OPEN_LESSON_README_KEY, undefined);
+  });
+  await clearEarlierKey(context, PROJECT_LANDING_KEY);
+  await clearEarlierKey(context, FOCUS_MAIN_KEY);
+  await clearEarlierKey(context, OPEN_LESSON_README_KEY);
 }

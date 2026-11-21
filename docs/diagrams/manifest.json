@@ -5,7 +5,7 @@
   "docs/diagrams/architecture/control-pid-library.puml": "62eb0fd74f284b5b88fd95b2bfe78a99a8cb01b63263fab9f5f606282e6ea53b",
   "docs/diagrams/architecture/control-studio.puml": "962841bccd6bce6162b89da2072d3860503a28f8e485e069a2ac85dfdc13dcc2",
   "docs/diagrams/architecture/control-symbolic-acquisition.puml": "c8668665908369ffa0daebe66b9aabc635cef5d5c5d985ef38e244500eaf73bc",
-  "docs/diagrams/architecture/examples-project-landing.puml": "b8fa0f09f2d6a3ac9e4a72d5df64b4091d9f3746b4eb07b3e5b0ced9801c3bec",
+  "docs/diagrams/architecture/examples-project-landing.puml": "d994602b86d952d7ce91d6dd55bbda3349234522fe5c30e77b6b05c1017ef7f3",
   "docs/diagrams/architecture/full-software-map-generated.puml": "2125dbe9ab8fc0391bcef916c9c86fa8584f9285a430c4161ebf7cf064246e25",
   "docs/diagrams/architecture/hmi-agent-authoring.puml": "db0c4020f1926a8aee18de27a78d815a9e174216ad81fdadc88e9821d6c22b78",
   "docs/diagrams/architecture/hmi-editor-live.puml": "70d38e644bd6d1b0cd337319c501f379a376be27053920be1ba9c47ccf11847b",

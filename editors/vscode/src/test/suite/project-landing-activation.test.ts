@@ -1,10 +1,16 @@
 import * as assert from "assert";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import * as landing from "../../projectLanding";
 import { focusPendingMain } from "../../newProject";
 import { openPendingControlLessonReadme } from "../../examples/copy";
+
+/** A folder of the test's own for the context's global storage, which holds the landing intent's file. */
+function storageFolder(): vscode.Uri {
+  return vscode.Uri.file(fs.mkdtempSync(path.join(os.tmpdir(), "trust-landing-activation-")));
+}
 
 suite("Project landing activation", () => {
   test("legacy activation cannot open a stale destination or overwrite a newly published intent", async () => {
@@ -14,7 +20,8 @@ suite("Project landing activation", () => {
     const readme = vscode.Uri.joinPath(project, "README.md");
     await vscode.workspace.fs.writeFile(readme, Buffer.from("# Legacy lesson\n"));
     const state = new Map<string, unknown>([[landing.OPEN_LESSON_README_KEY, readme.fsPath]]);
-    const context = { globalState: {
+    const storage = storageFolder();
+    const context = { globalStorageUri: storage, globalState: {
       get: <T>(key: string) => state.get(key) as T,
       update: async (key: string, value: unknown) => { state.set(key, value); },
     } } as unknown as vscode.ExtensionContext;
@@ -27,13 +34,14 @@ suite("Project landing activation", () => {
     try {
       vscode.commands.executeCommand = (async (...args: unknown[]) => { opened.push(args); }) as typeof vscode.commands.executeCommand;
       const consuming = landing.consumeProjectLanding(context);
-      state.set(landing.PROJECT_LANDING_KEY, newer);
+      fs.writeFileSync(path.join(storage.fsPath, landing.PROJECT_LANDING_FILE), JSON.stringify(newer));
       await consuming;
-      assert.deepStrictEqual(state.get(landing.PROJECT_LANDING_KEY), newer, "legacy migration must not replace or clear a newly selected destination");
+      assert.deepStrictEqual(landing.readProjectLanding(context), newer, "legacy migration must not replace or clear a newly selected destination");
       assert.deepStrictEqual(opened, [], "superseded legacy landing must not open over the newly selected destination");
     } finally {
       vscode.commands.executeCommand = originalExecute;
       await vscode.workspace.fs.delete(project, { recursive: true, useTrash: false });
+      fs.rmSync(storage.fsPath, { recursive: true, force: true });
     }
   });
   for (const [name, key, file, open] of [
@@ -43,13 +51,18 @@ suite("Project landing activation", () => {
     test(`legacy ${name} entrypoint leaves an unrelated pending destination untouched`, async () => {
       assert.strictEqual(vscode.workspace.getWorkspaceFolder(vscode.Uri.file(file)), undefined);
       const state = new Map<string, unknown>([[key, file]]);
-      const context = { globalState: {
+      const storage = storageFolder();
+      const context = { globalStorageUri: storage, globalState: {
         get: <T>(key: string) => state.get(key) as T,
         update: async (key: string, value: unknown) => { state.set(key, value); },
       } } as unknown as vscode.ExtensionContext;
-      await open(context);
-      assert.strictEqual(state.get(key), file, "unrelated legacy intent must not be consumed during migration");
-      assert.strictEqual(state.get(landing.PROJECT_LANDING_KEY), undefined);
+      try {
+        await open(context);
+        assert.strictEqual(state.get(key), file, "unrelated legacy intent must not be consumed during migration");
+        assert.strictEqual(landing.readProjectLanding(context), undefined);
+      } finally {
+        fs.rmSync(storage.fsPath, { recursive: true, force: true });
+      }
     });
   }
   test("reports missing destination recovery without offering a futile retry", async () => {

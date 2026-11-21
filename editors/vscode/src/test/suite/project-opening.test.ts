@@ -3,7 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
 import { copyExample } from "../../examples/copy";
-import { PROJECT_LANDING_KEY } from "../../projectLanding";
+import { readProjectLanding } from "../../projectLanding";
 
 suite("Created project folder recovery", () => {
   test("retained lesson picker opens the explicitly selected copy", async () => {
@@ -119,9 +119,11 @@ suite("Created project folder recovery", () => {
   test("lesson copies persist two locations before a folder-opening failure", async () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
     const destination = vscode.Uri.file(await fs.mkdtemp(path.join(require("os").tmpdir(), "trust-cpex012-")));
+    const storage = vscode.Uri.file(await fs.mkdtemp(path.join(require("os").tmpdir(), "trust-cpex012-storage-")));
     const state = new Map<string, unknown>();
     const context = {
       extensionUri: vscode.Uri.file(extensionRoot),
+      globalStorageUri: storage,
       globalState: {
         get: <T>(key: string) => state.get(key) as T,
         update: async (key: string, value: unknown) => { state.set(key, value); },
@@ -168,6 +170,7 @@ suite("Created project folder recovery", () => {
       ));
       assert.strictEqual(opens, 1);
     } finally {
+      await fs.rm(storage.fsPath, { recursive: true, force: true });
       vscode.commands.executeCommand = previousExecute;
       vscode.window.showErrorMessage = previousError;
       if (previousDestination === undefined) delete process.env.TRUST_UX_EXAMPLE_DESTINATION; else process.env.TRUST_UX_EXAMPLE_DESTINATION = previousDestination;
@@ -226,6 +229,7 @@ suite("Created project folder recovery", () => {
     const notices: string[] = [];
     const context = {
       extensionUri: vscode.Uri.joinPath(fixture, "extension"),
+      globalStorageUri: vscode.Uri.joinPath(fixture, "global-storage"),
       globalState: {
         get: (key: string) => state.get(key),
         update: async (key: string, value: unknown) => { state.set(key, value); },
@@ -254,7 +258,7 @@ suite("Created project folder recovery", () => {
       assert.strictEqual(await copyExample(context, { id: "starter", title: "Starter", path: "starter", description: "Starter", tags: [], hardware: "none" }), true);
       assert.strictEqual(opens, 2);
       assert.strictEqual(notices.length, 1);
-      assert.ok(state.get(PROJECT_LANDING_KEY));
+      assert.ok(readProjectLanding(context));
       assert.strictEqual(Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(destination, "chosen-project", "marker.txt"))).toString(), "edited after copy");
     } finally {
       vscode.window.showOpenDialog = originalDialog;
