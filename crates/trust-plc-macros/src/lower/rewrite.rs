@@ -5,7 +5,7 @@ use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
 use syn::{Error, Expr};
 
-use super::{ending, Flattened, Lowering};
+use super::{Flattened, Lowering};
 
 /// Rewrites plain code for the dispatch: a `break` or `continue` of a flattened loop becomes a
 /// jump, a `return` ends the sequence as the body's result does, and `s.step(..)` names the step.
@@ -128,7 +128,7 @@ impl VisitMut for Rewrite<'_> {
                     .cloned()
                     .unwrap_or_else(|| syn::parse_quote!(::core::result::Result::Ok(())));
                 self.visit_expr_mut(&mut result);
-                *expression = ending(&result);
+                *expression = self.lowering.ending(&result);
                 return;
             }
             Expr::MethodCall(call)

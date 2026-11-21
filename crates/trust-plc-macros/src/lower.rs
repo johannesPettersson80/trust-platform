@@ -7,6 +7,10 @@
 //! that have completed in the state's `done`, one bit each, and an `s.race` gives the number of the
 //! first member in order that completed to the local of `let won: u16 = s.race(..).await;`.
 //!
+//! A child sequence lowers as the POU's sequence does, with its state in `_seq.<child>` and a result
+//! that says whether it has returned: the sequence that awaits it starts it at the activation that
+//! reaches the wait point, and resumes it until it has.
+//!
 //! The body's locals are the sequence's state: the function reads each from `_seq` when it begins,
 //! keeps it as an ordinary variable, and writes it back when it reaches a wait point. A local's
 //! `let` becomes an assignment where it stands, as the reader of `trust-plc-decl` finds the locals
@@ -90,6 +94,9 @@ enum Op {
     Code(Stmt),
     /// The wait point of this number begins: store the state and return.
     Begin(u16),
+    /// The child sequence that the wait point of this number awaits begins: start the child, and
+    /// store the state and return while it waits, or go on at the label when it has returned.
+    BeginChild(u16, usize),
     /// The check of the wait point of this number, where its resumption begins.
     Resume(u16),
     /// Go on at the label.
@@ -107,10 +114,22 @@ struct Flattened {
     end: usize,
 }
 
+/// Which sequence of its block a sequence is (RU-72).
+pub(crate) enum Role {
+    /// The POU's sequence, which the POU's activation runs: its state is `self._seq`.
+    Pou,
+    /// A child sequence, which the sequence that awaits it runs: its state is `self._seq.<child>`.
+    Child(Ident),
+}
+
 /// The lowering of one sequence.
 struct Lowering {
     /// The name of the wait points' context, `s`.
     context: Ident,
+    /// Where the sequence's state is: `self._seq`, or `self._seq.<child>` for a child.
+    state: TokenStream,
+    /// Whether it is a child, whose result says whether it has returned.
+    child: bool,
     ops: Vec<Op>,
     labels: usize,
     waits: Vec<WaitPoint>,
@@ -120,20 +139,27 @@ struct Lowering {
 
 /// Lowers the sequence `item`, an `async fn name(&mut self, s: &mut Seq) -> Result<(), Fault>` that
 /// `trust-plc-decl` has read without a refusal, to a plain method of the same name that runs one
-/// activation. `locals` are its locals, the fields of its state `self._seq`.
+/// activation: the POU's sequence returns `Result<(), Fault>`, a child `Result<bool, Fault>`, true
+/// once it has returned. `locals` are its locals, the fields of its state.
 ///
 /// # Errors
 ///
-/// A wait point the lowering does not take yet (a child sequence), an `if let` or `while let` that
-/// holds a wait point, whose binding would have to live across the wait, and a `break` with a value
-/// out of a loop that holds a wait point.
+/// An `if let` or `while let` that holds a wait point, whose binding would have to live across the
+/// wait, and a `break` with a value out of a loop that holds a wait point.
 pub(crate) fn lower(
     item: &ImplItemFn,
     context: &Ident,
     locals: &[Hoisted],
+    role: &Role,
 ) -> Result<TokenStream, Error> {
+    let (state, child) = match role {
+        Role::Pou => (quote! { self._seq }, false),
+        Role::Child(name) => (quote! { self._seq.#name }, true),
+    };
     let mut lowering = Lowering {
         context: context.clone(),
+        state: state.clone(),
+        child,
         ops: Vec::new(),
         labels: 1,
         waits: Vec::new(),
@@ -144,6 +170,9 @@ pub(crate) fn lower(
     let dispatch = lowering.dispatch(locals);
     let mut signature = item.sig.clone();
     signature.asyncness = None;
+    if child {
+        signature.output = syn::parse_quote!(-> ::core::result::Result<bool, ::trust_plc::Fault>);
+    }
     let attributes = &item.attrs;
     let visibility = &item.vis;
     let names: Vec<&Ident> = locals.iter().map(|local| &local.name).collect();
@@ -160,8 +189,8 @@ pub(crate) fn lower(
         #(#attributes)*
         #[allow(unused_mut, unused_assignments, unreachable_code, clippy::never_loop)]
         #visibility #signature {
-            #(let mut #names: #types = self._seq.#names;)*
-            let mut __trust_at: usize = match self._seq.point {
+            #(let mut #names: #types = #state.#names;)*
+            let mut __trust_at: usize = match #state.point {
                 #(#numbers => #resumes,)*
                 _ => 0,
             };
@@ -189,7 +218,7 @@ impl Lowering {
                 Stmt::Expr(expression, None) if index + 1 == count && !awaits(expression) => {
                     let mut ended = expression.clone();
                     self.rewrite(&mut ended)?;
-                    let ended = ending(&ended);
+                    let ended = self.ending(&ended);
                     self.ops.push(Op::Code(syn::parse_quote!(#ended;)));
                 }
                 other => self.statement(other)?,
@@ -340,14 +369,23 @@ impl Lowering {
 
     fn wait_point(&mut self, awaited: &ExprAwait) -> Result<(), Error> {
         let wait = self.wait_of(&awaited.base)?;
+        let child = matches!(wait.check, Check::Child(_));
         self.waits.push(wait);
         let number = u16::try_from(self.waits.len())
             .map_err(|_| Error::new(awaited.span(), "a sequence has at most 65535 wait points"))?;
         let resume = self.label();
         self.resumes.push(resume);
-        self.ops.push(Op::Begin(number));
-        self.ops.push(Op::Label(resume));
-        self.ops.push(Op::Resume(number));
+        if child {
+            let after = self.label();
+            self.ops.push(Op::BeginChild(number, after));
+            self.ops.push(Op::Label(resume));
+            self.ops.push(Op::Resume(number));
+            self.ops.push(Op::Label(after));
+        } else {
+            self.ops.push(Op::Begin(number));
+            self.ops.push(Op::Label(resume));
+            self.ops.push(Op::Resume(number));
+        }
         Ok(())
     }
 
@@ -445,22 +483,23 @@ impl Lowering {
             match op {
                 Op::Code(statement) => chunk.extend(quote! { #statement }),
                 Op::Begin(number) => {
-                    if self.is_all(*number) {
-                        // An `s.all` begins with none of its members complete (RU-72).
-                        chunk.extend(quote! { self._seq.done = ::trust_plc::Word(0); });
+                    chunk.extend(self.begin(*number, &names));
+                    ended = true;
+                }
+                Op::BeginChild(number, after) => {
+                    // The child runs from its top at this activation, as a call would, and the
+                    // sequence goes on at once when it returns without waiting (RU-72).
+                    let begin = self.begin(*number, &names);
+                    let jump = goto(*after);
+                    if let Some(child) = self.child_of(*number) {
+                        chunk.extend(quote! {
+                            self._seq.#child = ::trust_plc::declared_default();
+                            if !self.#child(#context)? {
+                                #begin
+                            }
+                            #jump
+                        });
                     }
-                    let number = Literal::u16_unsuffixed(*number);
-                    chunk.extend(quote! {
-                        let mut __trust_wait = ::trust_plc::seq::Waiting {
-                            point: self._seq.point,
-                            began: self._seq.began,
-                        };
-                        __trust_wait.begin(#context, #number);
-                        self._seq.point = __trust_wait.point;
-                        self._seq.began = __trust_wait.began;
-                        #(self._seq.#names = #names;)*
-                        return ::core::result::Result::Ok(());
-                    });
                     ended = true;
                 }
                 Op::Resume(number) => chunk.extend(self.resume(*number)),
@@ -475,21 +514,82 @@ impl Lowering {
                 Op::Label(_) => {}
             }
         }
+        let state = &self.state;
+        let returned = self.returned();
         if !ended {
             chunk.extend(quote! {
-                self._seq.point = 0;
-                return ::core::result::Result::Ok(());
+                #state.point = 0;
+                return #returned;
             });
         }
         let at = Literal::usize_unsuffixed(label);
         arms.extend(quote! { #at => { #chunk } });
         arms.extend(quote! {
             _ => {
-                self._seq.point = 0;
-                return ::core::result::Result::Ok(());
+                #state.point = 0;
+                return #returned;
             }
         });
         arms
+    }
+
+    /// The wait point `number` begins: an `s.all` with none of its members complete (RU-72), the
+    /// wait's point and time stored with the locals, and the activation returns.
+    fn begin(&self, number: u16, names: &[&Ident]) -> TokenStream {
+        let (context, state, waiting) = (&self.context, &self.state, self.waiting());
+        let all = self
+            .is_all(number)
+            .then(|| quote! { #state.done = ::trust_plc::Word(0); });
+        let number = Literal::u16_unsuffixed(number);
+        quote! {
+            #all
+            let mut __trust_wait = ::trust_plc::seq::Waiting {
+                point: #state.point,
+                began: #state.began,
+            };
+            __trust_wait.begin(#context, #number);
+            #state.point = __trust_wait.point;
+            #state.began = __trust_wait.began;
+            #(#state.#names = #names;)*
+            return #waiting;
+        }
+    }
+
+    /// The result of an activation that leaves the sequence waiting: a child's says it has not
+    /// returned.
+    fn waiting(&self) -> TokenStream {
+        if self.child {
+            quote! { ::core::result::Result::Ok(false) }
+        } else {
+            quote! { ::core::result::Result::Ok(()) }
+        }
+    }
+
+    /// The result of an activation at which the sequence returns: a child's says it has.
+    fn returned(&self) -> TokenStream {
+        if self.child {
+            quote! { ::core::result::Result::Ok(true) }
+        } else {
+            quote! { ::core::result::Result::Ok(()) }
+        }
+    }
+
+    /// The body's result, `result`, at its last expression or a `return`: a sequence that returns
+    /// starts again at its top at the next activation (RU-71), and a child says it has returned.
+    fn ending(&self, result: &Expr) -> Expr {
+        let state = &self.state;
+        let returned = if self.child {
+            quote! { __trust_end.map(|()| true) }
+        } else {
+            quote! { __trust_end }
+        };
+        syn::parse_quote! {{
+            let __trust_end: ::core::result::Result<(), ::trust_plc::Fault> = #result;
+            if __trust_end.is_ok() {
+                #state.point = 0;
+            }
+            return #returned;
+        }}
     }
 }
 
@@ -497,18 +597,6 @@ impl Lowering {
 /// statement of a loop's body or a branch has the type `()`.
 fn statement_of(expression: Expr) -> Stmt {
     Stmt::Expr(expression, Some(syn::token::Semi::default()))
-}
-
-/// The body's last expression, its result: a sequence whose body returns starts again at its top
-/// at the next activation (RU-71).
-fn ending(result: &Expr) -> Expr {
-    syn::parse_quote! {{
-        let __trust_end: ::core::result::Result<(), ::trust_plc::Fault> = #result;
-        if __trust_end.is_ok() {
-            self._seq.point = 0;
-        }
-        return __trust_end;
-    }}
 }
 
 fn binding_across_a_wait(span: proc_macro2::Span, construct: &str) -> Error {

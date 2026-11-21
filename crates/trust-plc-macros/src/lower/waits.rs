@@ -5,7 +5,7 @@
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 use syn::spanned::Spanned;
-use syn::{Error, Expr};
+use syn::{Error, Expr, Ident};
 
 use super::Lowering;
 
@@ -21,6 +21,8 @@ pub(super) enum Check {
     All(Vec<Check>),
     /// `s.race(..)`: over when one member completes, the first in order winning.
     Race(Vec<Check>),
+    /// `self.<child>(s)`: over when the child sequence has returned, which it runs.
+    Child(Ident),
 }
 
 /// A wait point: what it checks, and the limit of its `.within(t)`.
@@ -56,16 +58,23 @@ impl Lowering {
         }
         let is_context =
             matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident(&self.context));
-        let check = match call.method.to_string().as_str() {
-            "all" if is_context => Check::All(self.members(call)?),
-            "race" if is_context => Check::Race(self.members(call)?),
-            _ if is_context => self.member(base)?,
-            _ => return Err(Error::new(
-                base.span(),
-                "a child sequence is not lowered yet: wait with `next_cycle`, `until`, `wait`, \
-                     `all` or `race` (specification 48 RU-72)",
-            )),
-        };
+        let is_child = matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident("self"))
+            && call.args.len() == 1
+            && call.args.first().is_some_and(
+                |argument| matches!(argument, Expr::Path(path) if path.path.is_ident(&self.context)),
+            );
+        let check =
+            match call.method.to_string().as_str() {
+                "all" if is_context => Check::All(self.members(call)?),
+                "race" if is_context => Check::Race(self.members(call)?),
+                _ if is_context => self.member(base)?,
+                _ if is_child => Check::Child(call.method.clone()),
+                _ => return Err(Error::new(
+                    base.span(),
+                    "a wait point is `s.next_cycle()`, `s.until(..)`, `s.wait(..)`, `s.all(..)`, \
+                     `s.race(..)` or a child sequence `self.<child>(s)` (specification 48 RU-72)",
+                )),
+            };
         Ok(WaitPoint {
             check,
             within: None,
@@ -118,6 +127,17 @@ impl Lowering {
             .and_then(|index| self.waits.get(index))
     }
 
+    /// The child sequence the wait point of this number awaits, when it awaits one.
+    pub(super) fn child_of(&self, number: u16) -> Option<&Ident> {
+        match self.wait(number) {
+            Some(WaitPoint {
+                check: Check::Child(child),
+                ..
+            }) => Some(child),
+            _ => None,
+        }
+    }
+
     /// Whether the wait point of this number is an `s.all`.
     pub(super) fn is_all(&self, number: u16) -> bool {
         matches!(
@@ -132,7 +152,7 @@ impl Lowering {
     /// The check of the wait point `number` when an activation resumes it: `.within(t)` first,
     /// then whether the wait is over; a wait that is not over returns and waits on.
     pub(super) fn resume(&self, number: u16) -> TokenStream {
-        let context = &self.context;
+        let (context, state, waiting) = (&self.context, &self.state, self.waiting());
         let Some(wait) = self.wait(number) else {
             return TokenStream::new();
         };
@@ -167,13 +187,13 @@ impl Lowering {
                 });
                 let every = Literal::u32_unsuffixed((1_u32 << members.len()) - 1);
                 quote! {
-                    let mut __trust_done: ::trust_plc::Word = self._seq.done;
+                    let mut __trust_done: ::trust_plc::Word = #state.done;
                     #(#checks)*
                     if u32::from(__trust_done.0) != #every {
-                        self._seq.done = __trust_done;
-                        return ::core::result::Result::Ok(());
+                        #state.done = __trust_done;
+                        return #waiting;
                     }
-                    self._seq.done = ::trust_plc::Word(0);
+                    #state.done = ::trust_plc::Word(0);
                 }
             }
             Check::Race(members) => {
@@ -199,16 +219,22 @@ impl Lowering {
                 quote! {
                     let __trust_won: u16 = #won;
                     if __trust_won == 0 {
-                        return ::core::result::Result::Ok(());
+                        return #waiting;
                     }
                 }
             }
+            // The child runs on from where it waits; the sequence waits on until it has returned.
+            Check::Child(child) => quote! {
+                if !self.#child(#context)? {
+                    return #waiting;
+                }
+            },
             plain => self
                 .over(plain)
                 .map(|over| {
                     quote! {
                         if !(#over) {
-                            return ::core::result::Result::Ok(());
+                            return #waiting;
                         }
                     }
                 })
@@ -216,8 +242,8 @@ impl Lowering {
         };
         quote! {
             let __trust_wait = ::trust_plc::seq::Waiting {
-                point: self._seq.point,
-                began: self._seq.began,
+                point: #state.point,
+                began: #state.began,
             };
             #within
             #over
@@ -239,8 +265,9 @@ impl Lowering {
                 let __trust_time = #time;
                 __trust_wait.waited_for(#context, __trust_time)
             }}),
-            // A member is a plain wait: the reader refuses an `s.all` or `s.race` inside another.
-            Check::NextCycle | Check::All(_) | Check::Race(_) => None,
+            // A member is a plain wait: the reader refuses an `s.all`, an `s.race` or a child
+            // sequence inside another.
+            Check::NextCycle | Check::All(_) | Check::Race(_) | Check::Child(_) => None,
         }
     }
 }

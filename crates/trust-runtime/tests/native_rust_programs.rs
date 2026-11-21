@@ -483,3 +483,145 @@ fn a_configuration_runs_a_rust_sequences_all_and_race_scan_by_scan() {
     scan(&mut program, 50);
     assert_eq!(press(&program), state(1, 2, 1, false, 1), "at 50 ms");
 }
+
+/// A filler whose sequence fills each bottle in a child sequence, which lets the level settle in a
+/// child of its own.
+const FILLER: &str = "
+/// Fills a bottle when it comes and lets the level settle for two cycles.
+#[trust_program(name = \"FILLER\", sequence = \"run\")]
+#[budget(\"80us\")]
+pub struct Filler {
+    #[input]
+    pub bottle: bool,
+    #[input]
+    pub full: bool,
+    #[output]
+    pub valve: bool,
+    #[output]
+    pub filled: i16,
+}
+
+#[trust_sequence]
+impl Filler {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.until(|me: &Self| me.bottle).await;
+            self.fill(s).await?;
+            self.filled = checked::add(s, self.filled, 1)?;
+            s.next_cycle().await;
+        }
+    }
+
+    async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        self.valve = true;
+        s.until(|me: &Self| me.full).await;
+        self.valve = false;
+        self.settle(s).await?;
+        Ok(())
+    }
+
+    async fn settle(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        let mut ticks: i16 = 0;
+        while ticks < 2 {
+            ticks = checked::add(s, ticks, 1)?;
+            s.next_cycle().await;
+        }
+        Ok(())
+    }
+}
+";
+
+/// The configuration that runs FILLER every 10 ms, its inputs and outputs connected to globals.
+const BOTTLING: &str = "CONFIGURATION Line
+VAR_GLOBAL
+    bottle : BOOL;
+    full : BOOL;
+    valve : BOOL;
+    filled : INT;
+END_VAR
+RESOURCE Station ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Cell WITH Fast : FILLER(bottle := bottle, full := full, valve => valve, filled => filled);
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_configuration_runs_a_rust_sequences_children_scan_by_scan() {
+    // Specification 48 RU-71 and RU-72 in a project: the generated FILLER_SEQ holds the states of
+    // the children `fill` and `settle`, FILLER_SEQ_FILL and FILLER_SEQ_SETTLE, and the program's
+    // code passes them all. Activations every 10 ms: at 0 ms the filler waits for a bottle, point 1;
+    // the bottle comes before 10 ms, so at 10 ms the child `fill` starts at that activation, opens
+    // the valve and waits for the level, its point 1, while the filler waits at it, point 2; the
+    // bottle is full before 20 ms: `fill` closes the valve and starts `settle`, which counts 1 and
+    // waits, so `fill` waits at its point 2; at 30 ms `settle` counts 2; at 40 ms `settle` and `fill`
+    // return and the filler counts 1 and waits a cycle, point 3, its child at its top. Catches a
+    // child's state the declaration lays out apart from the macro's, a child that starts an
+    // activation late, and a parent that goes on an activation after its child returned.
+    let root = custom_project(
+        "rust-sequence-children",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &format!("{ROOT}{FILLER}")),
+        ],
+        BOTTLING,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let scan = |program: &mut trust_runtime::native::NativeProgram<
+        '_,
+        trust_runtime::native::HostCode,
+    >,
+                time: i64| {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    };
+    let write = |program: &mut trust_runtime::native::NativeProgram<
+        '_,
+        trust_runtime::native::HostCode,
+    >,
+                 name: &str| {
+        let (symbol, _) = program
+            .image()
+            .find_symbol(name)
+            .unwrap_or_else(|| panic!("the symbol of {name}"));
+        program
+            .write_symbol(symbol, &Value::Bool(true))
+            .unwrap_or_else(|error| panic!("{name} written: {error:?}"));
+    };
+    let filler =
+        |program: &trust_runtime::native::NativeProgram<'_, trust_runtime::native::HostCode>| {
+            (
+                program.value("CELL._SEQ.POINT"),
+                program.value("CELL._SEQ.FILL.POINT"),
+                program.value("CELL._SEQ.SETTLE.TICKS"),
+                program.value("VALVE"),
+                program.value("FILLED"),
+            )
+        };
+    let state = |point: u16, fill: u16, ticks: i16, valve: bool, filled: i16| {
+        (
+            Some(Value::UInt(point)),
+            Some(Value::UInt(fill)),
+            Some(Value::Int(ticks)),
+            Some(Value::Bool(valve)),
+            Some(Value::Int(filled)),
+        )
+    };
+    scan(&mut program, 0);
+    assert_eq!(filler(&program), state(1, 0, 0, false, 0), "at 0 ms");
+    write(&mut program, "BOTTLE");
+    scan(&mut program, 10);
+    assert_eq!(filler(&program), state(2, 1, 0, true, 0), "at 10 ms");
+    write(&mut program, "FULL");
+    scan(&mut program, 20);
+    assert_eq!(filler(&program), state(2, 2, 1, false, 0), "at 20 ms");
+    scan(&mut program, 30);
+    assert_eq!(filler(&program), state(2, 2, 2, false, 0), "at 30 ms");
+    scan(&mut program, 40);
+    assert_eq!(filler(&program), state(3, 0, 2, false, 1), "at 40 ms");
+}
