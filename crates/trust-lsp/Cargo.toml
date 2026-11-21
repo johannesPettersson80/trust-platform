@@ -31,8 +31,6 @@ toml.workspace = true
 toml_edit.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-anyhow.workspace = true
-glob.workspace = true
 parking_lot.workspace = true
 rustc-hash = { workspace = true, features = ["std"] }
 text-size.workspace = true
@@ -42,7 +40,6 @@ trust-devices.workspace = true
 trust-visual.workspace = true
 trust-runtime.workspace = true
 trust-runtime-client.workspace = true
-thiserror.workspace = true
 getrandom = "0.4"
 # HMI Deploy sends the bundle to the runtime's web server (specification 39 §16.2 item 8); the same
 # HTTP client as trust-runtime's.

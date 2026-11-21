@@ -124,17 +124,6 @@ pub struct DependencyHygieneSummary {
     pub deny_policy_present: bool,
     pub workspace_excludes: Vec<String>,
     pub third_party_tiverse_mmap_status: String,
-    pub machete_allowlist: Vec<DependencyPolicyEntry>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DependencyPolicyEntry {
-    pub id: String,
-    pub package: String,
-    pub owner: String,
-    pub rationale: String,
-    pub review_date: String,
-    pub removal_condition: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -344,10 +333,6 @@ impl SoftwareMap {
         self.parser_recovery.property_tests.dedup();
         self.dependency_hygiene.workspace_excludes.sort();
         self.dependency_hygiene.workspace_excludes.dedup();
-        self.dependency_hygiene
-            .machete_allowlist
-            .sort_by(|left, right| left.id.cmp(&right.id));
-        self.dependency_hygiene.machete_allowlist.dedup();
         self.diagram_facts
             .sort_by(|left, right| left.path.cmp(&right.path));
         for diagram in &mut self.diagram_facts {

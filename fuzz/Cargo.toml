@@ -18,7 +18,6 @@ trust-runtime = { path = "../crates/trust-runtime" }
 trust-plc-abi = { path = "../crates/trust-plc-abi" }
 trust-runtime-core = { path = "../crates/trust-runtime-core" }
 trust-syntax = { path = "../crates/trust-syntax" }
-serde_json = "1.0.152"
 
 [[bin]]
 name = "syntax_parse"

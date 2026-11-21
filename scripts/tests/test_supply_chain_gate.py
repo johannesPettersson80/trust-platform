@@ -16,6 +16,27 @@ ROOT = Path(__file__).resolve().parents[2]
 GATE = ROOT / "scripts" / "supply_chain_gate.sh"
 # Build output and installed packages, never a workspace of the repository.
 SKIPPED = {"target", "node_modules"}
+# The extension's packaged copies of examples/, which its build writes and git ignores (.gitignore:
+# /editors/vscode/media/*): their manifests are the examples' own, read where they are.
+PACKAGED_COPIES = Path("editors/vscode/media")
+
+
+def crate_folders() -> list[str]:
+    """The top-level folders that hold a manifest of the repository's own crates: every one but the vendored crates
+    of third_party/, which keep their upstream manifests (specification 24, "Unused Dependencies"). The root
+    manifest is the workspace's and lists no dependencies of a crate."""
+    folders = set()
+    for folder, subfolders, files in os.walk(ROOT):
+        subfolders[:] = sorted(
+            name for name in subfolders if name not in SKIPPED and not name.startswith(".")
+        )
+        relative = Path(folder).relative_to(ROOT)
+        if relative == PACKAGED_COPIES:
+            subfolders[:] = []
+            continue
+        if "Cargo.toml" in files and relative.parts and relative.parts[0] != "third_party":
+            folders.add(relative.parts[0])
+    return sorted(folders)
 
 
 def cargo_locks() -> list[str]:
@@ -44,6 +65,15 @@ class SupplyChainGateGraphTests(unittest.TestCase):
             for command in (deny, f"run_cargo_audit {lock} "):
                 with self.subTest(lock=lock, command=command.strip()):
                     self.assertTrue(command in gate, f"the gate does not run `{command.strip()}`")
+
+    def test_cargo_machete_reads_every_folder_of_the_repositorys_own_crates(self) -> None:
+        """Catches a folder of crates that cargo machete does not read, whose unused dependencies would pass unseen,
+        and a vendored crate read, whose manifest is upstream's."""
+        gate = GATE.read_text(encoding="utf-8")
+        commands = [line for line in gate.splitlines() if line.startswith("cargo machete ")]
+        self.assertEqual(len(commands), 1, "the gate runs cargo machete once")
+        words = commands[0].split("||")[0].split()
+        self.assertEqual([word for word in words[2:] if not word.startswith("-")], crate_folders())
 
     def test_the_version_bump_moves_every_cargo_lock(self) -> None:
         """Catches a lock that the bump leaves behind. Each lock lists the workspace crates it builds at the

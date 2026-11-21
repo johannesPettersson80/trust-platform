@@ -66,4 +66,7 @@ run_cargo_audit fuzz/Cargo.lock "$@" | python3 scripts/check_cargo_audit_policy.
 run_cargo_audit crates/trust-ads-server/fuzz/Cargo.lock "$@" | \
   python3 scripts/check_cargo_audit_policy.py \
     --allowlist scripts/cargo-audit-yanked-allowlist.json || status=1
+# Every direct dependency of the repository's own crates is named by a source of its crate (specification 24, "Unused
+# Dependencies"). The vendored crates of third_party/ keep their upstream manifests and are not read.
+cargo machete --skip-target-dir crates examples firmware fuzz xtask || status=1
 exit "$status"
