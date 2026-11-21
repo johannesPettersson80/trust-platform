@@ -1066,8 +1066,8 @@ omitted input of an enumerated or a subrange type, which declares its own defaul
 compiled (specification 44 NX-09).
 
 The functions of fixed inputs whose formal call may be incomplete are `ATAN2`, `SUB`, `DIV`,
-`MOD`, `EXPT`, `SHL`, `SHR`, `ROL`, `ROR`, `NE`, `SEL` and `LIMIT`; the string functions (§7) and
-the date and time functions (§8) take every input. An extensible function (`ADD`, `MUX`, ...)
+`MOD`, `EXPT`, `SHL`, `SHR`, `ROL`, `ROR`, `NE`, `SEL` and `LIMIT`; the string functions (§8) and
+the date and time functions (§9) take every input. An extensible function (`ADD`, `MUX`, ...)
 numbers its inputs by their places, so a formal call names `IN1` to `INn` without a gap
 (`docs/IEC_DECISIONS.md`, 2026-11-21).
 
