@@ -2711,48 +2711,6 @@
       "rationale": "vendored tiverse-mmap is a crates.io patch source and must not be an implicit workspace member",
       "review_date": "2026-04-29"
     },
-    "audit_allowlist": [
-      {
-        "id": "RUSTSEC-2024-0421",
-        "package": "idna",
-        "owner": "runtime/opcua",
-        "rationale": "optional opcua 0.12 pulls url 1.7/idna 0.1 and no newer opcua crate is available",
-        "review_date": "2026-04-29",
-        "removal_condition": "remove when opcua upgrades url/idna or the opcua-wire feature is replaced"
-      },
-      {
-        "id": "RUSTSEC-2024-0388",
-        "package": "derivative",
-        "owner": "runtime/opcua",
-        "rationale": "optional opcua 0.12 pulls derivative 2.2.0 and no newer opcua crate is available",
-        "review_date": "2026-04-29",
-        "removal_condition": "remove when opcua removes derivative or the opcua-wire feature is replaced"
-      },
-      {
-        "id": "RUSTSEC-2023-0071",
-        "package": "rsa",
-        "owner": "runtime/mesh",
-        "rationale": "zenoh 1.7.2 transport stack pulls rsa 0.9 and the pinned baseline is governed by the runtime mesh compatibility gate",
-        "review_date": "2026-04-29",
-        "removal_condition": "remove when the Zenoh baseline gate moves to a patched transport stack"
-      },
-      {
-        "id": "RUSTSEC-2025-0134",
-        "package": "rustls-pemfile",
-        "owner": "runtime/persistence+mesh",
-        "rationale": "rustls-pemfile 2.2.0 is reached only through mysql 28.0.3 and zenoh-link-tls 1.7.2; truST's own PEM parsing and the vendored tiny_http use rustls pki_types PemObject",
-        "review_date": "2026-11-12",
-        "removal_condition": "remove when mysql and zenoh-link-tls stop pulling rustls-pemfile"
-      },
-      {
-        "id": "RUSTSEC-2024-0436",
-        "package": "paste",
-        "owner": "runtime/ui+mesh",
-        "rationale": "paste is transitive through ratatui and zenoh token-cell",
-        "review_date": "2026-04-29",
-        "removal_condition": "remove when ratatui/zenoh transitive paths stop pulling paste"
-      }
-    ],
     "machete_allowlist": []
   },
   "unsafe_concurrency": {
