@@ -124,7 +124,9 @@ pub(crate) fn enumeration(args: TokenStream, item: TokenStream) -> TokenStream {
     let variants: Vec<proc_macro2::Ident> = enumeration
         .variants
         .iter()
-        .map(|(variant, _)| format_ident!("{variant}"))
+        // A raw identifier, which names a variant that a Rust keyword spells (`r#loop`) as it
+        // names any other.
+        .map(|(variant, _)| format_ident!("r#{variant}"))
         .collect();
     let values: Vec<TokenStream> = enumeration
         .variants
@@ -216,7 +218,9 @@ pub(crate) fn structure(args: TokenStream, item: TokenStream) -> TokenStream {
     let fields: Vec<proc_macro2::Ident> = structure
         .fields
         .iter()
-        .map(|field| format_ident!("{}", field.name))
+        // A raw identifier, which names a field that a Rust keyword spells (`r#loop`) as it names
+        // any other: a struct's field is never `self`, `Self`, `super` or `crate`.
+        .map(|field| format_ident!("r#{}", field.name))
         .collect();
     let starts: Vec<TokenStream> = structure
         .fields

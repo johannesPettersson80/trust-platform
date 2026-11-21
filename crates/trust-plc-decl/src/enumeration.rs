@@ -6,6 +6,7 @@
 use std::fmt::Write as _;
 
 use proc_macro2::TokenStream;
+use syn::ext::IdentExt as _;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Attribute, Error, Expr, ExprLit, ExprUnary, Fields, ItemEnum, Lit, Path, Token, UnOp};
@@ -131,7 +132,8 @@ pub fn enumeration(args: TokenStream, item: &ItemEnum) -> Result<Enumeration, Er
                      base of Structured Text's enumerations (specification 02 §3.1)",
                 )
             })?;
-        let variant_name = variant.ident.to_string();
+        // A raw identifier names the value without its `r#`, as a variable's name does.
+        let variant_name = variant.ident.unraw().to_string();
         if !crate::is_identifier(&variant_name) {
             return Err(Error::new(
                 variant.ident.span(),
