@@ -333,6 +333,9 @@ pub struct Build {
     /// The program instances by their number in the image, which
     /// [`NativeProgram::run_instance`] takes.
     pub instances: Vec<String>,
+    /// The program type of each instance, in the order of [`Build::instances`]: a bench finds a
+    /// Rust program's instances by it (specification 48 RU-48).
+    pub instance_types: Vec<String>,
     /// The generated crate.
     pub source: String,
     /// The memory figure the image carries.
@@ -868,9 +871,15 @@ fn build_sources(
         .iter()
         .map(|instance| instance.name.to_string())
         .collect();
+    let instance_types = model
+        .instances
+        .iter()
+        .map(|instance| model.program_types[instance.program].def.name.to_string())
+        .collect();
     Ok(Build {
         image,
         instances,
+        instance_types,
         source: generated.source,
         figure,
         resource: front

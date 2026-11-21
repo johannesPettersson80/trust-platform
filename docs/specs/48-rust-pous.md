@@ -925,9 +925,10 @@ In detail:
   (specification 22). Each case calls its POU once a scan for 1,000 scans, or `--scans <n>`, on one
   instance, so that a function block keeps its state from one call to the next as on the PLC: a
   function's or a function block's case from a test program the bench generates, a method's on an
-  instance of its block at its declared initial values, and a program's on each instance that the
-  project's configuration declares, with the case's inputs written into the instance before each
-  scan of its task. The bench measures the methods that Structured Text can call, `PUBLIC` and
+  instance of its block at its declared initial values, and a program's on each of its instances,
+  those the project's configuration declares or, in a project without one, its one instance
+  (specification 04), with the case's inputs written into the instance before each scan of its
+  task. The bench measures the methods that Structured Text can call, `PUBLIC` and
   `INTERNAL` ones; a `PRIVATE` or `PROTECTED` method of a Rust function block is called only by
   its block's Rust code, since no Structured Text extends a Rust block (RU-34), so its time is
   part of its caller's and it has no measurement of its own. A POU's measured time is its longest

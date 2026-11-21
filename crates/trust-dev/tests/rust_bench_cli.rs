@@ -23,8 +23,8 @@ fn write(path: &Path, text: &str) {
     std::fs::write(path, text).expect("the file");
 }
 
-/// A filter block with a public method and two cases, a function with a case, and a function whose
-/// case divides by zero.
+/// A filter block with a public method and two cases, a function with a case, a function whose
+/// case divides by zero, and a program with a case that the configuration runs.
 const LIB: &str = "#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
@@ -83,17 +83,47 @@ pub fn max_limited(_cx: &mut Cx, a: i32, b: i32, limit: i32) -> Result<i32, Faul
 pub fn quotient(cx: &mut Cx, a: i32, b: i32) -> Result<i32, Fault> {
     trust_plc::checked::div(cx, a, b)
 }
+
+/// Counts the scans its start input is set in.
+#[trust_program(name = \"CELL\")]
+#[budget(\"50us\")]
+#[bench_case(start = true)]
+pub struct Cell {
+    #[input]
+    pub start: bool,
+    #[output]
+    pub count: i32,
+}
+
+impl Body for Cell {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        if self.start {
+            self.count = trust_plc::checked::add(cx, self.count, 1)?;
+        }
+        Ok(())
+    }
+}
+";
+
+/// The configuration that runs one instance of CELL.
+const CONFIGURATION: &str = "CONFIGURATION Line
+RESOURCE Cells ON PLC
+TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Cell1 WITH Fast : CELL;
+END_RESOURCE
+END_CONFIGURATION
 ";
 
 #[test]
 fn the_bench_records_each_measured_pou_with_the_code_of_the_image_and_names_a_faulted_case() {
     // RU-48: the bench runs each case 50 scans on this computer and records, for its target, the
     // longest call of FILTER_EMA (two cases), its public method reset (its declared initial
-    // values) and MAX_LIMITED, each with the code of the files the program is built from and the
+    // values), MAX_LIMITED and CELL, whose case sets the input of the configuration's instance
+    // Cell1 before each scan, each with the code of the files the program is built from and the
     // device `computer`. QUOTIENT's case divides by zero: the command names the case and the
-    // fault, records no time for it, and fails. Catches a POU measured by nothing (a longest of 0),
-    // a record of another code than a build computes, a faulted POU that gets a time, and a
-    // command that passes over a fault.
+    // fault, records no time for it, and fails. Catches a POU measured by nothing (a longest of
+    // 0), a program the bench cannot reach, a record of another code than a build computes, a
+    // faulted POU that gets a time, and a command that passes over a fault.
     let toolchain = Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain");
     if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
         return;
@@ -108,6 +138,7 @@ fn the_bench_records_each_measured_pou_with_the_code_of_the_image_and_names_a_fa
         ),
     );
     write(&root.join("rust/src/lib.rs"), LIB);
+    write(&root.join("src/configuration.st"), CONFIGURATION);
     let declarations = trust_dev()
         .args(["rust", "declarations", "--project"])
         .arg(&root)
@@ -144,7 +175,7 @@ fn the_bench_records_each_measured_pou_with_the_code_of_the_image_and_names_a_fa
     names.sort_unstable();
     assert_eq!(
         names,
-        ["FILTER_EMA", "FILTER_EMA.reset", "MAX_LIMITED"],
+        ["CELL", "FILTER_EMA", "FILTER_EMA.reset", "MAX_LIMITED"],
         "{text}"
     );
     for (pou, targets) in measured {
