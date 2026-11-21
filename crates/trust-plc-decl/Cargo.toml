@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 proc-macro2 = "1.0.107"
-syn = { version = "3.0.7", features = ["full"] }
+syn = { version = "3.0.7", features = ["full", "visit"] }
 trust-plc-lib = { workspace = true }
 
 [lints.rust]
