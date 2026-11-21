@@ -214,8 +214,8 @@ nothing.
 
 ### Measure a Rust POU
 
-`trust-dev rust bench` measures how long each Rust function, function block and method takes on this
-computer, and writes the longest call of each into `trust.toml`:
+`trust-dev rust bench` measures how long each Rust function, function block, method and program takes
+on this computer, and writes the longest call of each into `trust.toml`:
 
 ```bash
 trust-dev rust bench --project .
@@ -223,9 +223,10 @@ trust-dev rust bench --project .
 
 The bench builds the program with a test program for each case, and calls each case once a scan for
 1,000 scans (`--scans` sets another count) on one instance, so that a function block keeps its state
-from one call to the next as it does on the PLC. A case gives the inputs that make the POU work
-hardest; inputs it does not name keep their declared initial values, and a POU without a case is
-measured at its initial values:
+from one call to the next as it does on the PLC. A Rust program runs on its instances, those your
+configuration declares, its case's inputs written into each before every scan. A case gives the
+inputs that make the POU work hardest; inputs it does not name keep their declared initial values,
+and a POU without a case is measured at its initial values:
 
 ```rust
 #[trust_fb(name = "FILTER_EMA")]

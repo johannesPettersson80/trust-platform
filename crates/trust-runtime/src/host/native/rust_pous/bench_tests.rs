@@ -2,13 +2,13 @@
 //! hash of what the image is built from, and the record in `trust.toml` `[timing.measured]`. Every
 //! expected text is worked out by hand from RU-48 and specification 04.
 
-use super::bench::{programs, BenchProgram};
+use super::bench::{programs, BenchProgram, ProgramCase};
 use super::measured::{code, write, Measured};
 use super::read;
 use super::tests::{project, MANIFEST};
 
 /// A function with an in-out and a case, a block in a namespace with two cases and a public
-/// method with one, a private method and a program.
+/// method with one, a private method, and a program with a case.
 const LIB: &str = "use trust_plc::prelude::*;
 
 #[trust_function(name = \"SCALE\")]
@@ -44,6 +44,7 @@ impl Axis {
 
 #[trust_program(name = \"CELL\")]
 #[budget(\"5us\")]
+#[bench_case(start = true)]
 pub struct Cell {
     #[input] pub start: bool,
 }
@@ -93,6 +94,16 @@ fn a_bench_calls_each_case_of_each_function_block_and_callable_method_from_a_tes
             program("Motion.TRUST_BENCH_3", "Motion.AXIS", ""),
             program("Motion.TRUST_BENCH_4", "Motion.AXIS.jog", "distance = 0.5"),
         ]
+    );
+    // A program's case gives the inputs the bench writes into its configured instances, each as
+    // a Structured Text literal of its type (RU-48).
+    assert_eq!(
+        bench.program_cases,
+        vec![ProgramCase {
+            pou: "CELL".to_string(),
+            inputs: vec![("start".to_string(), "TRUE".to_string())],
+            case: "start = TRUE".to_string(),
+        }]
     );
 }
 

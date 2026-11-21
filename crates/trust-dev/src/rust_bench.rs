@@ -4,9 +4,10 @@
 //! The bench builds the program with its crate and a test program for each case of each Rust
 //! function, function block and method (`trust_runtime::native::rust_pous::bench`) into a debug
 //! image, in which the kernel keeps each Rust POU's longest call (RU-49), and runs each case once a
-//! scan on this computer.
+//! scan on this computer; a Rust program's case writes its inputs into each of the program's
+//! configured instances before each scan of it.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use anyhow::{bail, Context};
@@ -16,8 +17,8 @@ use trust_runtime::bundle_builder::collect_project_sources_labelled;
 use trust_runtime::harness::SourceFile;
 use trust_runtime::native::rust_pous::{bench, measured, read};
 use trust_runtime::native::{
-    build_project, conversion_profile, load, this_computer, triple, Device, Options, Target,
-    Toolchain,
+    build_project, conversion_profile, load, this_computer, triple, Device, HostCode,
+    NativeProgram, Options, Target, Toolchain,
 };
 use trust_runtime::value::Duration;
 
@@ -55,10 +56,6 @@ pub fn run_bench(project: Option<PathBuf>, scans: u32) -> anyhow::Result<()> {
         return Ok(());
     };
     let plan = bench::programs(&krate);
-    if plan.programs.is_empty() {
-        println!("The project declares no Rust function, function block or method to measure.");
-        return Ok(());
-    }
     let toolchain = Toolchain::find()
         .map_err(|error| anyhow::anyhow!("the bench needs the toolchain: {error}"))?;
     let host = Target::this_cpu().context("this computer's CPU has no native target")?;
@@ -91,8 +88,7 @@ pub fn run_bench(project: Option<PathBuf>, scans: u32) -> anyhow::Result<()> {
     };
     let mut program = load(&built.image, &device)
         .map_err(|error| anyhow::anyhow!("the program image does not load: {error}"))?;
-    let mut longest: BTreeMap<String, (i64, i64)> = BTreeMap::new();
-    let mut faulted: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut found = Found::default();
     for case in &plan.programs {
         let instance = built
             .instances
@@ -100,52 +96,123 @@ pub fn run_bench(project: Option<PathBuf>, scans: u32) -> anyhow::Result<()> {
             .position(|instance| instance.eq_ignore_ascii_case(case.program.as_str()))
             .and_then(|index| u32::try_from(index).ok())
             .with_context(|| format!("the bench's test program {} was not built", case.program))?;
-        let mut run = program.cold_start(Duration::ZERO);
-        for scan in 0..i64::from(scans) {
-            if run.is_err() {
-                break;
-            }
-            run = program.run_instance(instance, Duration::from_nanos(scan * SCAN_NS));
+        if let Err(error) = scan(&mut program, &[(instance, "")], &[], scans) {
+            found.fault(&case.pou, &case.case, &error);
         }
-        if let Err(error) = run {
-            let shown = if case.case.is_empty() {
-                "its declared initial values".to_string()
-            } else {
-                case.case.clone()
-            };
-            faulted
-                .entry(case.pou.clone())
-                .or_default()
-                .push(format!("{shown}: {error}"));
+        found.take(&program);
+        found.measured.insert(case.pou.clone());
+    }
+    for case in &plan.program_cases {
+        let instances: Vec<(u32, &str)> = built
+            .instances
+            .iter()
+            .zip(&built.instance_types)
+            .zip(0u32..)
+            .filter(|((_, ty), _)| ty.eq_ignore_ascii_case(&case.pou))
+            .map(|((name, _), index)| (index, name.as_str()))
+            .collect();
+        if instances.is_empty() {
+            found.unconfigured.insert(case.pou.clone());
+            continue;
         }
+        if let Err(error) = scan(&mut program, &instances, &case.inputs, scans) {
+            found.fault(&case.pou, &case.case, &error);
+        }
+        found.take(&program);
+        found.measured.insert(case.pou.clone());
+    }
+    let code =
+        measured::code(&project, triple(host)).map_err(|message| anyhow::anyhow!(message))?;
+    report(&project, host, scans, &found, &code)
+}
+
+/// What a bench's runs found.
+#[derive(Default)]
+struct Found {
+    /// Each Rust POU's longest call and its budget for the target, by its name in the Rust POU
+    /// table.
+    longest: BTreeMap<String, (i64, i64)>,
+    /// The cases that faulted, by their POU: the case and the fault.
+    faulted: BTreeMap<String, Vec<String>>,
+    /// The POUs a case ran: a `PRIVATE` or `PROTECTED` method has none, and so no entry (RU-48).
+    measured: BTreeSet<String>,
+    /// The Rust programs the image has no instance of. The build gives every program an instance,
+    /// one the configuration declares or, without a configuration, its own, so none is expected.
+    unconfigured: BTreeSet<String>,
+}
+
+impl Found {
+    /// Takes each Rust POU's record after a case's run: the kernel keeps each one's longest call.
+    fn take(&mut self, program: &NativeProgram<'_, HostCode>) {
         for (pou, time) in (0u32..).zip(program.rust_times().iter()) {
             let Some(name) = program.rust_pou_name(pou) else {
                 continue;
             };
-            let entry = longest
+            let entry = self
+                .longest
                 .entry(name.to_string())
                 .or_insert((0, time.budget_ns));
             entry.0 = entry.0.max(time.longest_ns);
         }
     }
-    // Only the POUs the bench calls are measured: a PRIVATE or PROTECTED method has no entry (RU-48).
-    let measured_pous: std::collections::BTreeSet<&str> = plan
-        .programs
-        .iter()
-        .map(|program| program.pou.as_str())
-        .collect();
-    let code =
-        measured::code(&project, triple(host)).map_err(|message| anyhow::anyhow!(message))?;
+
+    /// Records that `pou`'s case `case` ended with `error`.
+    fn fault(&mut self, pou: &str, case: &str, error: &str) {
+        let shown = if case.is_empty() {
+            "of its declared initial values"
+        } else {
+            case
+        };
+        self.faulted
+            .entry(pou.to_string())
+            .or_default()
+            .push(format!("{shown}: {error}"));
+    }
+}
+
+/// Runs `scans` scans after a cold start: each scan writes `inputs` into each of `instances`, each
+/// a program instance's number and name, and runs the instance's body once. A test program takes
+/// no input.
+fn scan(
+    program: &mut NativeProgram<'_, HostCode>,
+    instances: &[(u32, &str)],
+    inputs: &[(String, String)],
+    scans: u32,
+) -> Result<(), String> {
+    program
+        .cold_start(Duration::ZERO)
+        .map_err(|error| error.to_string())?;
+    for scan in 0..i64::from(scans) {
+        let now = Duration::from_nanos(scan * SCAN_NS);
+        for (index, name) in instances {
+            bench::write_inputs(program, name, inputs)?;
+            program
+                .run_instance(*index, now)
+                .map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+/// Prints what the bench found and writes the measurements of this computer's target, each with
+/// `code`, into `trust.toml`; fails when a case faulted.
+fn report(
+    project: &std::path::Path,
+    host: Target,
+    scans: u32,
+    found: &Found,
+    code: &str,
+) -> anyhow::Result<()> {
     let mut records = Vec::new();
     println!(
         "Measured on this computer ({}), {scans} scan(s) a case:",
         triple(host)
     );
-    for (pou, (time, budget)) in &longest {
-        if !measured_pous.contains(pou.as_str()) {
+    for (pou, (time, budget)) in &found.longest {
+        if !found.measured.contains(pou) {
             continue;
         }
-        if let Some(faults) = faulted.get(pou) {
+        if let Some(faults) = found.faulted.get(pou) {
             for fault in faults {
                 println!("  {pou}: the case {fault}; no time recorded");
             }
@@ -160,20 +227,22 @@ pub fn run_bench(project: Option<PathBuf>, scans: u32) -> anyhow::Result<()> {
         records.push(measured::Measured {
             pou: pou.clone(),
             longest_ns: u64::try_from(*time).unwrap_or(0),
-            code: code.clone(),
+            code: code.to_string(),
             device: "computer".to_string(),
         });
     }
-    measured::write(&project, triple(host), &records)
-        .map_err(|message| anyhow::anyhow!(message))?;
+    for pou in &found.unconfigured {
+        println!("  {pou}: the program image has no instance of it; not measured");
+    }
+    measured::write(project, triple(host), &records).map_err(|message| anyhow::anyhow!(message))?;
     println!(
         "Wrote {} measurement(s) into trust.toml [timing.measured].",
         records.len()
     );
-    if !faulted.is_empty() {
+    if !found.faulted.is_empty() {
         bail!(
             "{} Rust POU(s) faulted in a case and are not measured",
-            faulted.len()
+            found.faulted.len()
         );
     }
     Ok(())

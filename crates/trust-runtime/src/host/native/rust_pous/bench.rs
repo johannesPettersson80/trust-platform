@@ -1,6 +1,7 @@
 //! The bench of a project's Rust POUs (specification 48 RU-48): the test programs that call each
 //! case of each Rust function, function block and method, which `trust-dev rust bench` builds into
-//! a debug image with the program and runs once a scan.
+//! a debug image with the program and runs once a scan, and the cases of each Rust program, whose
+//! inputs it writes into the program's configured instances before each scan of them.
 
 use std::fmt::Write as _;
 
@@ -8,6 +9,7 @@ use smol_str::SmolStr;
 use trust_plc_decl::{Access, Case, DataType, Kind, Section, Value, Variable};
 
 use super::RustCrate;
+use crate::native::{HostCode, NativeProgram};
 
 /// One generated test program: the Rust POU it measures and its case.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,20 +24,38 @@ pub struct BenchProgram {
     pub case: String,
 }
 
-/// The test programs of a bench, with their Structured Text.
+/// One case of a Rust program: the inputs the bench writes into each instance of the program that
+/// the project's configuration declares before each scan of it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramCase {
+    /// The program's name, which its instances name as their type, and its name in the image's
+    /// Rust POU table: `CELL`.
+    pub pou: String,
+    /// The inputs the case gives, each by its name with its value as a Structured Text literal of
+    /// its type.
+    pub inputs: Vec<(String, String)>,
+    /// The case as it gives its values, for the command's report; empty for the declared initial
+    /// values.
+    pub case: String,
+}
+
+/// The test programs of a bench, with their Structured Text, and the cases of its Rust programs.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Bench {
     /// The test programs' source, one file.
     pub source: String,
     /// The test programs, in the order of the crate's POUs and their cases.
     pub programs: Vec<BenchProgram>,
+    /// The cases of the Rust programs, in the order of the crate's programs and their cases.
+    pub program_cases: Vec<ProgramCase>,
 }
 
 /// The bench of `krate`: a test program for each case of each function, function block and method
 /// that Structured Text can call, `PUBLIC` or `INTERNAL`, inside the POU's namespace so that an
 /// `INTERNAL` method can be called (specification 04). A POU without a case has the case of its
-/// declared initial values. A program is measured on its configured instances, not here, and a
-/// `PRIVATE` or `PROTECTED` method has no measurement of its own (RU-48).
+/// declared initial values. A program's cases give the inputs the bench writes into its
+/// configured instances, since no Structured Text calls a program; a `PRIVATE` or `PROTECTED`
+/// method has no measurement of its own (RU-48).
 #[must_use]
 pub fn programs(krate: &RustCrate) -> Bench {
     let mut bench = Bench::default();
@@ -60,7 +80,19 @@ pub fn programs(krate: &RustCrate) -> Bench {
                     );
                 }
             }
-            Kind::Program => {}
+            Kind::Program => {
+                for case in cases(&pou.bench) {
+                    bench.program_cases.push(ProgramCase {
+                        pou: pou.name.clone(),
+                        inputs: case
+                            .values
+                            .iter()
+                            .map(|(name, value)| (name.clone(), value.structured_text()))
+                            .collect(),
+                        case: described(&case),
+                    });
+                }
+            }
         }
         for method in &pou.methods {
             if !matches!(method.access, Access::Public | Access::Internal) {
@@ -193,11 +225,52 @@ fn add(
     bench.programs.push(BenchProgram {
         program: qualified,
         pou: pou.to_string(),
-        case: case
-            .values
-            .iter()
-            .map(|(name, value)| format!("{name} = {}", value.structured_text()))
-            .collect::<Vec<_>>()
-            .join(", "),
+        case: described(&case),
     });
+}
+
+/// `case` as it gives its values, `x = 1.0E6, alpha = 0.001`; empty for the declared initial
+/// values.
+fn described(case: &Case) -> String {
+    case.values
+        .iter()
+        .map(|(name, value)| format!("{name} = {}", value.structured_text()))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Writes `inputs`, each a Structured Text literal of its variable's type, into the program
+/// instance `instance` of `program`, as the Live Values grammar admits a literal for the variable's
+/// declared type (specification 11, "Live Values"): a Rust program's case before each scan
+/// (RU-48).
+///
+/// # Errors
+///
+/// The text of an input the instance has no variable of, of a literal its type refuses, and of a
+/// write the program refuses.
+pub fn write_inputs(
+    program: &mut NativeProgram<'_, HostCode>,
+    instance: &str,
+    inputs: &[(String, String)],
+) -> Result<(), String> {
+    for (input, text) in inputs {
+        let path = format!("{instance}.{input}");
+        let (index, value) = {
+            let image = program.image();
+            let (index, symbol) = image
+                .find_symbol(&path.to_ascii_uppercase())
+                .ok_or_else(|| format!("{path} is no variable of the program"))?;
+            let value = trust_runtime_services::live_values::value_grammar::typed_value(
+                &image,
+                symbol.type_index,
+                text,
+            )
+            .map_err(|error| format!("{path} := {text}: {error}"))?;
+            (index, value)
+        };
+        program
+            .write_symbol(index, &value)
+            .map_err(|error| format!("{path} := {text}: {error}"))?;
+    }
+    Ok(())
 }
