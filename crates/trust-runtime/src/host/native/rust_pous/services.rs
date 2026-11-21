@@ -11,14 +11,18 @@ use toml_edit::DocumentMut;
 
 use super::configuration::is_name;
 
+/// The settings of a `[services.<name>]` (specification 48 Appendix B), in its order.
+const SETTINGS: [&str; 5] = ["package", "heartbeat", "writes", "endpoint", "credentials"];
+
 /// The text of the generated file of the services the `trust.toml` of the project in `project`
 /// declares, and their number; `None` for a project without `trust.toml` or whose `trust.toml`
 /// declares no service.
 ///
 /// # Errors
 ///
-/// A `trust.toml` that does not read, a `[services]` that is no table of the services' tables,
-/// and a service whose name is no identifier.
+/// A `trust.toml` that does not read, a `[services]` that is no table of the services' tables, a
+/// service whose name is no identifier, and a setting that Appendix B does not list, which a
+/// misspelt one would otherwise be lost as.
 pub(super) fn services_text(project: &Path) -> Result<Option<(String, usize)>, String> {
     let Ok(text) = std::fs::read_to_string(project.join("trust.toml")) else {
         return Ok(None);
@@ -45,10 +49,17 @@ pub(super) fn services_text(project: &Path) -> Result<Option<(String, usize)>, S
                  `<name>_heartbeat` is named after (specification 48 RU-63)"
             ));
         }
-        if service.as_table_like().is_none() {
+        let Some(settings) = service.as_table_like() else {
             return Err(format!(
                 "[services.{name}] is the table of the service's settings (specification 48 \
                  Appendix B)"
+            ));
+        };
+        if let Some((key, _)) = settings.iter().find(|(key, _)| !SETTINGS.contains(key)) {
+            return Err(format!(
+                "[services.{name}] has no setting `{key}`: a service's settings are {} \
+                 (specification 48 Appendix B)",
+                SETTINGS.join(", ")
             ));
         }
         let _ = writeln!(out, "    {name}_heartbeat : UDINT;");

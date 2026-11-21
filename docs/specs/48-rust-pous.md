@@ -1033,7 +1033,17 @@ A service connects by its name, `Service::connect("recipe")`: the SDK reads `[se
 the project's `trust.toml`, in the folder `TRUST_PROJECT` names or else the current folder, and takes
 its `endpoint`, the service token in its `credentials` file (a path relative to the project,
 specification 11 §6.9.6) and its `heartbeat`; `Service::connect_with` takes the same settings from
-the service's own code. A connection answers one request at a time. `Service::read` gives one
+the service's own code. `endpoint` is optional. Without it the service connects to the endpoint that
+the project's running runtime published in its endpoint file (specification 11 §6.8.0a), as every
+client finds it there: every running runtime publishes the endpoint it bound, its platform's default
+with the free port chosen at its start included, so a project's service needs no endpoint of its
+own, and its runtime needs no TCP endpoint and no token in the project's files. The service still
+presents its own service token, never the token its runtime generated. Without `endpoint`, a project
+whose runtime has published no endpoint file, as when it is not running or could not write the file
+(specification 11 §6.8.0a, `control_endpoint_file_unavailable`), is refused with `[services.<name>]
+names no endpoint, and no runtime of the project has published one: no endpoint file at <file>`, and
+one whose endpoint file does not read with the reason; a service that names its runtime's endpoint
+is never sent elsewhere. A connection answers one request at a time. `Service::read` gives one
 completed scan's values with the scan's number, its logical time, the resource's state and the
 quality, each value read as a Rust value of its declared type (`bool`, the integers, `f32` and
 `f64`, `String` and, from a `TIME` or an `LTIME`, `Duration`); `Service::write` writes a set of
@@ -1079,7 +1089,10 @@ the program's own. The build refuses a path that names nothing, a constant, an i
 that is not elementary, and a variable that a service gives twice or that two services give, as a
 variable has one service that writes it, naming the service and the path, and the signed
 image carries each service's `writes` (specification 44 §5.14), so that a chip holds a service to
-them as a computer does. A service without `writes` writes no variable but its heartbeat. The program library's function block `SERVICE_FRESH` (its
+them as a computer does. A service without `writes` writes no variable but its heartbeat. A
+`[services.<name>]` holds only the settings Appendix B lists, `package`, `heartbeat`, `writes`,
+`endpoint` and `credentials`: the build refuses another key, naming the service and the key, as
+runtime.toml refuses an unknown key, so that a misspelt setting is never lost. The program library's function block `SERVICE_FRESH` (its
 inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
 §5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
@@ -1106,11 +1119,15 @@ stops it and removes it. On every computer the service is called `trust-service-
   and its target folder, `<target>/release/<binary>`. It refuses a package the project does not
   hold or holds twice, a package without exactly one binary, and a binary that does not exist,
   naming the build: `cargo build --release --manifest-path <manifest>`.
-- **Its settings.** `install` refuses a service without an `endpoint`, or whose `credentials` file
-  does not exist, naming `trust-runtime ctl service-token <name> --out <file>` (RU-81): it could
-  not connect. The service reads them itself when it starts: its working folder is the project
-  folder, and its environment's `TRUST_PROJECT` names that folder, so that `Service::connect`
-  reads the project's `trust.toml` and token (RU-62), and a new token needs no new install.
+- **Its settings.** `install` refuses a service whose `credentials` file does not exist, naming
+  `trust-runtime ctl service-token <name> --out <file>` (RU-81): it could not connect. The service
+  reads its settings itself when it starts: its working folder is the project folder, and its
+  environment's `TRUST_PROJECT` names that folder, so that `Service::connect` reads the project's
+  `trust.toml`, token and, without `endpoint`, its runtime's endpoint file (RU-62), and a new token
+  needs no new install. A service without `endpoint` that starts before its runtime has published
+  its endpoint, as at a boot, ends with RU-62's refusal and is started again 2 s later, until its
+  runtime runs; a runtime that starts again on another port ends the service's connection, and the
+  service finds the new port the same way.
 - **Its account.** A service never runs as root or as Windows' LocalSystem. On Linux and macOS it
   runs as the user who owns the project folder, and `install` refuses a project folder of root; on
   Windows it runs as its own virtual account (below).
@@ -1251,19 +1268,36 @@ impl Palletizer {
 ```
 
 **RU-71. What it is.** `#[trust_sequence]` is a restricted sequence language with Rust's syntax, not
-Rust's `async`: the attribute validates the body and lowers it to a state machine whose state, the
-wait point it stands at and the locals that live across a wait point, are variables of the instance
-(in the area, in the symbol table, shown by Live Values as `<instance>.__seq.point` and its locals).
-No Rust future is stored, no executor runs, and nothing waits inside a scan: each activation runs the
-sequence from its wait point to its next one and returns.
+Rust's `async`: the attribute validates the body and lowers it to a state machine. No Rust future is
+stored, no executor runs, and nothing waits inside a scan: each activation runs the sequence from its
+wait point to its next one and returns. The sequence's state is a variable of the instance, `_seq`,
+after the POU's own variables: its wait point `point` (0 at the top, then the wait point's number,
+RU-72), the logical time `began` of the activation that began the wait, and each local of the body,
+a variable of the same name and type, so that a local keeps its value from one activation to the
+next. A local names its type (`let count: i16 = 0;`), which the attribute cannot infer. The name
+`_seq` takes the one leading underscore that an IEC identifier may have (IEC §6.1.2; two in a row
+are not allowed, so `__seq` could not be declared). The state is in the symbol table: the debugger's
+Variables view shows it, and `variables.read` and the HMI read it by its path,
+`<instance>._seq.point` (Live Values lists only variables with an address, specification 25 §4.3).
 
 **RU-72. Wait points.** The body awaits only the SDK's wait points: `s.next_cycle()`, `s.until(pred)`
 (true at the start of a later cycle), `s.wait(t)` (the task's logical time advanced by `t`),
 `s.all(...)` and `s.race(...)` of these, a child sequence of the same instance, and `.within(t)`
-on any of them, which faults with `RustFault` when the wait outlasts `t` in logical time. A
-predicate is a plain function of the instance, without a wait point. The attribute refuses any other
-`.await`, an `async` block or closure, a future of another crate and a loop that can run without
-reaching a wait point, each with its place in the body.
+on any of them, which faults with `RustFault` when the wait outlasts `t` in logical time. A wait
+begins at the activation that reaches its wait point, which then returns, and completes at a later
+activation, never at the one that began it: `s.next_cycle()` at the next activation, `s.until(pred)`
+at the first later activation at whose start `pred` holds, and `s.wait(t)` at the first activation
+whose logical time is at least `t` after the one that began it. A wait point's number is its place
+among the body's wait points, from 1. `.within(t)` faults at the first activation whose logical time
+is more than `t` after the one that began the wait, a wait of exactly `t` being still in time, with
+the wait point's number as the fault's number and `t` and the time waited, in milliseconds, as its
+two numbers (Appendix A), as an SFC names the step that overran its time. A
+predicate is a plain function of the instance, without a wait point. A wait point stands as a
+statement of its own (`s.wait(t).await;`, `....within(t).await?;`). The attribute refuses any other
+`.await`, an `.await` inside another expression, an `async` block or closure, a future of another
+crate, a loop that can run without reaching a wait point, a `for` loop with a wait point in it (its
+iterator would have to survive the wait), a local without its type, two locals of one name in one
+sequence, and a variable of the POU named `_seq` in any case, each with its place in the body.
 
 **RU-73. Restarts and changes.** A cold or warm restart starts every sequence at its top, as an SFC
 starts at its initial step (IEC §6.7); a sequence that must resume keeps its progress in retained
@@ -1493,7 +1527,7 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
 
 | Name | Code | Detail |
 |---|---|---|
-| `RustFault` | 20 in `trust-plc-abi` (specification 44 Appendix A, kernel interface version 6), stable code `runtime_rust_fault` (specification 10 §10.2), `RTSEXCPT_UNKNOWN` in `__TRY` (specification 06 §15) | the POU's number, then two numbers of its choice; the calling statement names the Rust POU |
+| `RustFault` | 20 in `trust-plc-abi` (specification 44 Appendix A, kernel interface version 6), stable code `runtime_rust_fault` (specification 10 §10.2), `RTSEXCPT_UNKNOWN` in `__TRY` (specification 06 §15) | the POU's number, then two numbers of its choice; a sequence's `.within` gives the wait point's number, then its limit and the time waited in milliseconds (RU-72); the calling statement names the Rust POU |
 | event `rust_budget_exceeded` | specification 11's events | the POU's name, the measured time, the budget |
 
 ## Appendix B — `trust.toml`
@@ -1511,9 +1545,8 @@ profile = "development"         # or "production" (RU-47)
 [services.recipe]               # tier 3 (§13): the global recipe_heartbeat (RU-63)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
-timeout = "2s"
 writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
-endpoint = "tcp://127.0.0.1:47800"
+endpoint = "tcp://127.0.0.1:47800"  # optional: without it, the endpoint the project's runtime publishes (RU-62)
 credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
                                        # service-token recipe --out secrets/recipe.token` (RU-81)
 

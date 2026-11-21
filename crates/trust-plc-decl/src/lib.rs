@@ -18,6 +18,7 @@ mod literal;
 mod method;
 pub mod names;
 mod render;
+pub mod sequence;
 mod structure;
 mod types;
 
@@ -689,3 +690,7 @@ mod references_tests;
 #[cfg(test)]
 #[path = "interface_tests.rs"]
 mod interface_tests;
+
+#[cfg(test)]
+#[path = "sequence_tests.rs"]
+mod sequence_tests;

@@ -101,7 +101,7 @@ sudo /home/ada/.cargo/bin/trust-dev service install recipe --project /home/ada/p
 
 It refuses:
 
-- a service without its `package` or `endpoint`, or without its token file;
+- a service without its `package`, or without its token file;
 - a project folder that belongs to root;
 - a `trust-service-recipe` installed for another project folder.
 

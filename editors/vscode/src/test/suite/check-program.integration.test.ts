@@ -200,4 +200,84 @@ suite("Compile diagnostics integration (VS Code)", function () {
       fs.rmSync(fakeRuntime, { force: true });
     }
   });
+
+  /**
+   * A stand-in trust-runtime in `folder`: `check` names the toolchain missing with the code `toolchain` until
+   * `toolchain install` has run, and then passes; `toolchain status` answers whether it ran. Every call is logged.
+   */
+  function toolchainStandIn(folder: string, code = "toolchain"): string {
+    const script = path.join(folder, "trust-runtime");
+    const log = path.join(folder, "calls.log");
+    const mark = path.join(folder, "installed");
+    const failed = JSON.stringify({
+      version: 1, command: "check", ok: false, status: "failed", errors: 1, warnings: 0, source_count: 1,
+      issues: [{ severity: "error", code, message: "the truST toolchain 0.24.75 is not installed" }],
+    });
+    const passed = JSON.stringify({
+      version: 1, command: "check", ok: true, status: "ok", errors: 0, warnings: 0, source_count: 1, issues: [],
+    });
+    fs.writeFileSync(
+      script,
+      [
+        "#!/bin/sh",
+        `echo "$1 $2" >> '${log}'`,
+        'if [ "$1" = toolchain ] && [ "$2" = status ]; then',
+        `  if [ -f '${mark}' ]; then echo '{"installed": true, "folder": "/t", "source": "installed", "trust": "0.24.75"}';`,
+        `  else echo '{"installed": false, "folder": null, "source": null, "trust": null}'; fi`,
+        'elif [ "$1" = toolchain ]; then',
+        `  touch '${mark}'; echo '{"event": "installed", "folder": "/t"}'`,
+        `elif [ -f '${mark}' ]; then echo '${passed}'`,
+        `else echo '${failed}'; exit 11; fi`,
+        "",
+      ].join("\n"),
+      { mode: 0o755 }
+    );
+    return script;
+  }
+
+  async function withStandIn<T>(script: string, run: () => Promise<T>): Promise<T> {
+    const config = getTrustConfiguration();
+    const previous = config.get<string>("runtime.executablePath") ?? "";
+    await config.update("runtime.executablePath", script, vscode.ConfigurationTarget.Workspace);
+    try {
+      return await run();
+    } finally {
+      await config.update("runtime.executablePath", previous || undefined, vscode.ConfigurationTarget.Workspace);
+    }
+  }
+
+  test("Compile installs a missing toolchain and checks again", async function () {
+    // Specification 44 §4.6 and specification 11 §6.8.1c: a project's crate is checked with the toolchain's cargo,
+    // and a check that names the toolchain missing (code `toolchain`) makes the extension install it, as a launch
+    // does, and check again. Catches a Compile that fails on a computer that never ran truST and so holds back the
+    // Start whose launch would install the toolchain.
+    if (process.platform === "win32") this.skip();
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), "trust-compile-toolchain-"));
+    try {
+      const report = await withStandIn(toolchainStandIn(folder), () =>
+        Promise.resolve(vscode.commands.executeCommand<{ ok: boolean } | undefined>(CHECK_PROGRAM_COMMAND))
+      );
+      assert.strictEqual(report?.ok, true, "the second check passes");
+      const calls = fs.readFileSync(path.join(folder, "calls.log"), "utf8").trim().split("\n");
+      assert.deepStrictEqual(calls, ["check --project", "toolchain status", "toolchain install", "check --project"]);
+    } finally {
+      fs.rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  test("Compile installs nothing for a failure that is not the toolchain's", async function () {
+    // Catches a Compile that installs the toolchain, or checks twice, for any failed check.
+    if (process.platform === "win32") this.skip();
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), "trust-compile-no-toolchain-"));
+    try {
+      const { result } = await withStandIn(toolchainStandIn(folder, "compile"), () =>
+        captureWarningMessages(() => vscode.commands.executeCommand<{ ok: boolean } | undefined>(CHECK_PROGRAM_COMMAND))
+      );
+      assert.strictEqual(result?.ok, false, "the check fails as it said");
+      const calls = fs.readFileSync(path.join(folder, "calls.log"), "utf8").trim().split("\n");
+      assert.deepStrictEqual(calls, ["check --project"]);
+    } finally {
+      fs.rmSync(folder, { recursive: true, force: true });
+    }
+  });
 });

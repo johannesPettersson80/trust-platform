@@ -511,19 +511,16 @@ export function renderExamplesGalleryHtml(panel: vscode.WebviewPanel, context: v
 
       const badges = document.createElement("div");
       badges.className = "badges";
-      const simulatorStarter = ["empty-simulator", "conveyor", "twincat-ads", "raspberry-pi", "plcopen-motion-single-axis"].includes(example.id);
-      if (simulatorStarter) {
+      // The language server says what the card shows of the packaged default (specification 25 §3.1).
+      if (example.execution) {
         const execution = document.createElement("span");
         execution.className = "badge ok";
-        execution.textContent = "Runs in simulator";
+        execution.textContent = example.execution;
         badges.appendChild(execution);
       }
       const hw = document.createElement("span");
-      hw.className = "badge hardware " + (simulatorStarter || example.hardware === "none" ? "ok" : "requires");
-      hw.textContent = simulatorStarter
-        ? (example.id === "twincat-ads" ? "Hardware optional: TwinCAT"
-          : example.id === "raspberry-pi" ? "Hardware optional: Raspberry Pi" : "No hardware needed")
-        : example.hardwareLabel;
+      hw.className = "badge hardware " + (example.hardwareRequired ? "requires" : "ok");
+      hw.textContent = example.hardwareLabel || "";
       badges.appendChild(hw);
       for (const tag of example.tags || []) {
         const badge = document.createElement("span");

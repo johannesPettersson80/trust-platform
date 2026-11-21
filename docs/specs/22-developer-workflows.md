@@ -529,8 +529,9 @@ folder, so it runs after such a session, as in the list's order:
   run of the 100 ms task to 50.0 in about 4.9 s, and a Write of 20.0 bringing
   it down to 20.0 in about 2.9 s (specification 48, RU-88);
 - `rust-service`: the walkthrough of `rust_service`, its runtime started in the
-  same way on the example's own TCP endpoint and token, without a web server:
-  the service's token created with `trust-runtime ctl service-token`, Connect
+  same way on its platform's default endpoint, without a web server, and the
+  service connecting to the endpoint the runtime published (specification 48
+  RU-62): the service's token created with `trust-runtime ctl service-token`, Connect
   from the Target picker, which attaches since the runtime allows debugging,
   60.0 written to the tank's temperature in Live Values and the safe setpoint
   of 55.0 without the service, the stand-in at 38.2 EUR/MWh and the service

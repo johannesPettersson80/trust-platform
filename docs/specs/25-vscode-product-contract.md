@@ -409,11 +409,17 @@ package, or end-to-end evidence.
   that filter. The empty-result reset shall clear all criteria and return focus
   to search so keyboard users can immediately try another query.
 - Gallery cards MUST distinguish default execution mode from optional physical
-  integration. The six bundled non-control starters ship simulated I/O defaults
-  and MUST display `Runs in simulator`. ADS and Raspberry Pi additionally show
-  `Hardware optional: TwinCAT` and `Hardware optional: Raspberry Pi` respectively;
-  the other four show `No hardware needed`. These labels describe the packaged
-  default and MUST NOT imply physical commissioning or a connected device.
+  integration. A card of an example that is not a course lesson MUST display
+  `Runs in simulator` when the packaged example's `io.toml` uses the simulated
+  driver, as every bundled starter's does; its hardware badge then reads
+  `Hardware optional: TwinCAT`, `Hardware optional: Raspberry Pi` (or the
+  catalog's other hardware name) or, without hardware, `No hardware needed`. A
+  card whose packaged default needs its hardware reads `Requires <hardware>` in
+  the warning role, and a course lesson's card reads `No hardware`. The language
+  server decides these labels from the packaged example
+  (`trust-lsp.examplesCatalog`: `execution`, `hardwareLabel`, `hardwareRequired`),
+  and the gallery shows them. These labels describe the packaged default and
+  MUST NOT imply physical commissioning or a connected device.
   Existing hardware filter IDs remain stable; optional integration MUST NOT be
   labelled as a prerequisite for starting the simulated example.
 - Actual hardware-required badges use the shared warning role. Category identity uses
