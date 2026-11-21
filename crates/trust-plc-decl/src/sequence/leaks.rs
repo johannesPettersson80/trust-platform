@@ -124,14 +124,17 @@ fn block(block: &Block, waits: Waits<'_>) -> Leaks {
 fn statement_leaks(statement: &Stmt, waits: Waits<'_>) -> Leaks {
     match statement {
         Stmt::Local(local) => match &local.init {
-            // `let won: u16 = s.race(..).await;`, the only wait point that gives a value.
-            Some(init) if awaited(&init.expr).is_some() => Leaks::default(),
             Some(init) => {
-                let mut leaks = plain(&init.expr);
-                if let Some((_, otherwise)) = &init.diverge {
-                    leaks.join(plain(otherwise));
+                // `let won: u16 = s.race(..).await;`, the only wait point that gives a value.
+                if let Some(waited) = awaited(&init.expr) {
+                    wait_point(waited, waits)
+                } else {
+                    let mut leaks = plain(&init.expr);
+                    if let Some((_, otherwise)) = &init.diverge {
+                        leaks.join(plain(otherwise));
+                    }
+                    leaks
                 }
-                leaks
             }
             None => Leaks::through(),
         },
@@ -148,10 +151,7 @@ fn statement_leaks(statement: &Stmt, waits: Waits<'_>) -> Leaks {
 
 fn expression_leaks(expression: &Expr, waits: Waits<'_>) -> Leaks {
     if let Some(waited) = awaited(expression) {
-        return match child_called(&waited.base) {
-            Some((child, _)) if !waits(&child.unraw().to_string()) => Leaks::through(),
-            _ => Leaks::default(),
-        };
+        return wait_point(waited, waits);
     }
     match expression {
         Expr::Block(inner) if inner.label.is_none() => block(&inner.block, waits),
@@ -171,6 +171,46 @@ fn expression_leaks(expression: &Expr, waits: Waits<'_>) -> Leaks {
             leaks
         }
         other => plain(other),
+    }
+}
+
+/// The ways out of the wait point `waited` that pass no wait: on, when it can complete at the
+/// activation that reaches it. A child sequence can when it can return without waiting, an
+/// `s.race` when one of its child members can, and an `s.all` when all its members are children that
+/// can (RU-72); a plain wait never does.
+fn wait_point(waited: &syn::ExprAwait, waits: Waits<'_>) -> Leaks {
+    let at_once = |child: &syn::Ident| !waits(&child.unraw().to_string());
+    if let Some((child, _)) = child_called(&waited.base) {
+        return if at_once(child) {
+            Leaks::through()
+        } else {
+            Leaks::default()
+        };
+    }
+    let mut base = &*waited.base;
+    while let Expr::MethodCall(within) = base
+        && within.method == "within"
+    {
+        base = &within.receiver;
+    }
+    let Expr::MethodCall(call) = base else {
+        return Leaks::default();
+    };
+    let member_at_once = |member: &Expr| match child_called(member) {
+        Some((child, _)) => at_once(child),
+        None => false,
+    };
+    let through = if call.method == "race" {
+        call.args.iter().any(member_at_once)
+    } else if call.method == "all" {
+        call.args.iter().all(member_at_once)
+    } else {
+        false
+    };
+    if through {
+        Leaks::through()
+    } else {
+        Leaks::default()
     }
 }
 

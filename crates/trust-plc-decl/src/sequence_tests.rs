@@ -451,11 +451,11 @@ fn an_all_or_a_race_with_members_or_values_it_cannot_take_is_refused() {
                 s.all(s.race(s.next_cycle(), s.next_cycle()), s.next_cycle()).await;
                 Ok(())
             } },
-            "a member of `s.all` is `s.next_cycle()`, `s.until(..)` or `s.wait(..)`",
+            "a member of `s.all` is `s.next_cycle()`, `s.until(..)`, `s.wait(..)` or a child sequence",
         ),
         (
             parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
-                s.race(self.homing(s), s.next_cycle()).await;
+                s.race(homing(s), s.next_cycle()).await;
                 Ok(())
             } },
             "a member of `s.race` is `s.next_cycle()`",
@@ -1031,4 +1031,78 @@ fn a_parameter_or_an_argument_the_child_cannot_take_is_refused() {
         ),
     ];
     refused_blocks(cases);
+}
+
+#[test]
+fn an_all_or_a_race_takes_child_sequences_as_members() {
+    // RU-72: `s.all(self.left(s), self.right(s))` awaits both children, which the block reads as
+    // children of the POU's sequence, one state each; a child twice in one s.race is refused, as it
+    // has one state. Catches a child member the block would not declare a state for, and two members
+    // that would share one.
+    let block = crate::sequence::block(&parse_quote! { impl Twin {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            loop {
+                s.all(self.left(s), self.right(s)).await;
+                s.next_cycle().await;
+            }
+        }
+        async fn left(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+        async fn right(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+    } })
+    .expect("the block reads");
+    assert_eq!(block.sequence.awaits, ["left", "right"]);
+    let names: Vec<&str> = block
+        .children
+        .iter()
+        .map(|child| child.name.as_str())
+        .collect();
+    assert_eq!(names, ["left", "right"]);
+    refused_blocks(vec![(
+        parse_quote! { impl Cell {
+            async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                s.race(self.fill(s), self.fill(s)).await;
+                Ok(())
+            }
+            async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+        } },
+        "the child sequence `fill` is a member of this `s.race` twice",
+    )]);
+}
+
+#[test]
+fn a_loop_counts_an_all_or_a_race_of_children_as_a_wait_only_when_it_waits() {
+    // RU-72's loop rule with child members: an s.race completes at once when one child member
+    // returns at once, and an s.all when all its members do, so a loop whose only wait is such a
+    // wait point could spin a scan; an s.all with a plain member always waits. `quick` and `brief`
+    // return at once when the cell is ready, `slow` always waits. Catches a loop that spins behind a
+    // race or an all of children, and a rule that refuses an s.all that does wait.
+    let quick = "async fn quick(&mut self, s: &mut Seq) -> Result<(), Fault> { \
+                 if self.ready { return Ok(()); } s.next_cycle().await; Ok(()) }";
+    let brief = "async fn brief(&mut self, s: &mut Seq) -> Result<(), Fault> { \
+                 if self.ready { return Ok(()); } s.next_cycle().await; Ok(()) }";
+    let slow = "async fn slow(&mut self, s: &mut Seq) -> Result<(), Fault> { \
+                s.next_cycle().await; Ok(()) }";
+    let block = |run: &str, children: &[&str]| -> syn::ItemImpl {
+        syn::parse_str(&format!("impl Cell {{ {run} {} }}", children.join(" "))).expect("a block")
+    };
+    for (run, children) in [
+        (
+            "async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { \
+             loop { s.race(self.slow(s), self.quick(s)).await; } }",
+            [slow, quick],
+        ),
+        (
+            "async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { \
+             loop { s.all(self.quick(s), self.brief(s)).await; } }",
+            [quick, brief],
+        ),
+    ] {
+        let message = crate::sequence::block(&block(run, &children))
+            .expect_err("the wait point could complete at once")
+            .to_string();
+        assert!(message.contains("can return without waiting"), "{message}");
+    }
+    let waits = "async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { \
+                 loop { s.all(self.quick(s), s.next_cycle()).await; } }";
+    crate::sequence::block(&block(waits, &[quick])).expect("the s.all waits on its plain member");
 }

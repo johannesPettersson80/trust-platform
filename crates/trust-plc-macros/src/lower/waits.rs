@@ -59,28 +59,18 @@ impl Lowering {
         }
         let is_context =
             matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident(&self.context));
-        let is_child = matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident("self"))
-            && call.args.first().is_some_and(
-                |argument| matches!(argument, Expr::Path(path) if path.path.is_ident(&self.context)),
-            );
-        let check =
-            match call.method.to_string().as_str() {
-                "all" if is_context => Check::All(self.members(call)?),
-                "race" if is_context => Check::Race(self.members(call)?),
-                _ if is_context => self.member(base)?,
-                _ if is_child => {
-                    let mut arguments: Vec<Expr> = call.args.iter().skip(1).cloned().collect();
-                    for argument in &mut arguments {
-                        self.rewrite(argument)?;
-                    }
-                    Check::Child(call.method.clone(), arguments)
-                }
-                _ => return Err(Error::new(
+        let check = match call.method.to_string().as_str() {
+            "all" if is_context => Check::All(self.members(call)?),
+            "race" if is_context => Check::Race(self.members(call)?),
+            _ if is_context => self.member(base)?,
+            _ => self.child_check(call)?.ok_or_else(|| {
+                Error::new(
                     base.span(),
                     "a wait point is `s.next_cycle()`, `s.until(..)`, `s.wait(..)`, `s.all(..)`, \
                      `s.race(..)` or a child sequence `self.<child>(s)` (specification 48 RU-72)",
-                )),
-            };
+                )
+            })?,
+        };
         Ok(WaitPoint {
             check,
             within: None,
@@ -92,17 +82,38 @@ impl Lowering {
         call.args.iter().map(|member| self.member(member)).collect()
     }
 
-    /// A plain wait: `s.next_cycle()`, `s.until(pred)` or `s.wait(t)`.
+    /// The child sequence `call` awaits, `self.fill(s, ..)`, with the arguments of its parameters;
+    /// `None` for any other call.
+    fn child_check(&self, call: &syn::ExprMethodCall) -> Result<Option<Check>, Error> {
+        let is_child = matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident("self"))
+            && call.args.first().is_some_and(
+                |argument| matches!(argument, Expr::Path(path) if path.path.is_ident(&self.context)),
+            );
+        if !is_child {
+            return Ok(None);
+        }
+        let mut arguments: Vec<Expr> = call.args.iter().skip(1).cloned().collect();
+        for argument in &mut arguments {
+            self.rewrite(argument)?;
+        }
+        Ok(Some(Check::Child(call.method.clone(), arguments)))
+    }
+
+    /// A member: `s.next_cycle()`, `s.until(pred)`, `s.wait(t)` or a child sequence.
     fn member(&self, wait: &Expr) -> Result<Check, Error> {
         let not_a_wait = || {
             Error::new(
                 wait.span(),
-                "a wait is `s.next_cycle()`, `s.until(..)` or `s.wait(..)` (specification 48 RU-72)",
+                "a wait is `s.next_cycle()`, `s.until(..)`, `s.wait(..)` or a child sequence \
+                 (specification 48 RU-72)",
             )
         };
         let Expr::MethodCall(call) = wait else {
             return Err(not_a_wait());
         };
+        if let Some(child) = self.child_check(call)? {
+            return Ok(child);
+        }
         if !matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident(&self.context)) {
             return Err(not_a_wait());
         }
@@ -131,6 +142,63 @@ impl Lowering {
         usize::from(number)
             .checked_sub(1)
             .and_then(|index| self.waits.get(index))
+    }
+
+    /// The `s.all` or `s.race` of the number `number` with child members begins (RU-72): each child
+    /// member starts in the members' order, as a child awaited alone starts. An `s.all` keeps the
+    /// children that returned at once in `done` and goes on at `after` when all its members did; an
+    /// `s.race` goes on at `after` with the first child that returned, starting no member after it.
+    /// Otherwise the wait point begins as any other.
+    pub(super) fn begin_members(&self, number: u16, after: usize, names: &[&Ident]) -> TokenStream {
+        let context = &self.context;
+        let after = Literal::usize_unsuffixed(after);
+        let jump = quote! { __trust_at = #after; continue '__trust_dispatch; };
+        match self.wait(number).map(|wait| &wait.check) {
+            Some(Check::All(members)) => {
+                let starts = members.iter().zip(0_u32..).filter_map(|(member, bit)| {
+                    let Check::Child(child, arguments) = member else {
+                        return None;
+                    };
+                    let start = self.start_child(child, arguments);
+                    let bit = Literal::u32_unsuffixed(bit);
+                    Some(quote! {{
+                        #start
+                        if self.#child(#context)? {
+                            __trust_done = __trust_done.with_bit(#bit, true);
+                        }
+                    }})
+                });
+                let every = Literal::u32_unsuffixed((1_u32 << members.len()) - 1);
+                let begin = self.begin_with(number, names, &quote! { __trust_done });
+                quote! {
+                    let mut __trust_done = ::trust_plc::Word(0);
+                    #(#starts)*
+                    if u32::from(__trust_done.0) == #every {
+                        #jump
+                    }
+                    #begin
+                }
+            }
+            Some(Check::Race(members)) => {
+                let starts = members.iter().zip(1_u16..).filter_map(|(member, number)| {
+                    let Check::Child(child, arguments) = member else {
+                        return None;
+                    };
+                    let start = self.start_child(child, arguments);
+                    let number = Literal::u16_unsuffixed(number);
+                    Some(quote! {{
+                        #start
+                        if self.#child(#context)? {
+                            __trust_won = #number;
+                            #jump
+                        }
+                    }})
+                });
+                let begin = self.begin(number, names);
+                quote! { #(#starts)* #begin }
+            }
+            _ => self.begin(number, names),
+        }
     }
 
     /// The child sequence the wait point of this number awaits, with the arguments of its
@@ -223,8 +291,10 @@ impl Lowering {
                 } else {
                     quote! { #(if #tests { #numbers } else)* { #last } }
                 };
+                // The winner lies in the method's scope, so that a race completed at the activation
+                // that began it gives its number too (see `begin_members`).
                 quote! {
-                    let __trust_won: u16 = #won;
+                    __trust_won = #won;
                     if __trust_won == 0 {
                         return #waiting;
                     }
@@ -272,9 +342,10 @@ impl Lowering {
                 let __trust_time = #time;
                 __trust_wait.waited_for(#context, __trust_time)
             }}),
-            // A member is a plain wait: the reader refuses an `s.all`, an `s.race` or a child
-            // sequence inside another.
-            Check::NextCycle | Check::All(_) | Check::Race(_) | Check::Child(..) => None,
+            // A child member runs on from where it waits and is over once it has returned.
+            Check::Child(child, _) => Some(quote! { self.#child(#context)? }),
+            // The reader refuses an `s.all` or an `s.race` as a member of another.
+            Check::NextCycle | Check::All(_) | Check::Race(_) => None,
         }
     }
 }
