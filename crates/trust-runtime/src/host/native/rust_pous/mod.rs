@@ -640,3 +640,6 @@ pub(super) fn check_services(project: &Path, layout: &Layout) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod sequence_tests;

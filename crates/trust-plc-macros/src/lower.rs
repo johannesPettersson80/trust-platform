@@ -3,7 +3,9 @@
 //! `loop` over a `match` dispatches, a statement-level `loop`, `while` or `if` that holds a wait
 //! point becomes jumps between them, and a wait point stores where the sequence waits and returns.
 //! The next activation resumes at the wait point: it checks `.within(t)` first, then whether the
-//! wait is over, and either stays or runs on to the next wait point.
+//! wait is over, and either stays or runs on to the next wait point. An `s.all` keeps the members
+//! that have completed in the state's `done`, one bit each, and an `s.race` gives the number of the
+//! first member in order that completed to the local of `let won: u16 = s.race(..).await;`.
 //!
 //! The body's locals are the sequence's state: the function reads each from `_seq` when it begins,
 //! keeps it as an ordinary variable, and writes it back when it reaches a wait point. A local's
@@ -84,6 +86,10 @@ enum Check {
     Until(Expr),
     /// `s.wait(t)`: over when `t` has passed.
     Wait(Expr),
+    /// `s.all(..)`: over when each member has completed, at the same activation or before.
+    All(Vec<Check>),
+    /// `s.race(..)`: over when one member completes, the first in order winning.
+    Race(Vec<Check>),
 }
 
 /// A wait point: what it checks, and the limit of its `.within(t)`.
@@ -132,9 +138,9 @@ struct Lowering {
 ///
 /// # Errors
 ///
-/// A wait point the lowering does not take yet (`s.all`, `s.race`, a child sequence), an `if let`
-/// or `while let` that holds a wait point, whose binding would have to live across the wait, and
-/// a `break` with a value out of a loop that holds a wait point.
+/// A wait point the lowering does not take yet (a child sequence), an `if let` or `while let` that
+/// holds a wait point, whose binding would have to live across the wait, and a `break` with a value
+/// out of a loop that holds a wait point.
 pub(crate) fn lower(
     item: &ImplItemFn,
     context: &Ident,
@@ -225,6 +231,9 @@ impl Lowering {
                 Ok(())
             }
             Stmt::Local(local) => {
+                if let Some(awaited) = local.init.as_ref().and_then(|init| awaited_in(&init.expr)) {
+                    return self.race_into(local, awaited);
+                }
                 if let Some(assignment) = self.assignment(local)? {
                     self.ops.push(Op::Code(assignment));
                 }
@@ -239,6 +248,28 @@ impl Lowering {
                 Ok(())
             }
         }
+    }
+
+    /// `let won: u16 = s.race(..).await;`: the wait point, then the number of the member that
+    /// completed into the local, where the resumption goes on.
+    fn race_into(&mut self, local: &syn::Local, awaited: &ExprAwait) -> Result<(), Error> {
+        let Some((name, _)) = typed_name(&local.pat) else {
+            return Err(Error::new(local.pat.span(), "a local names its type"));
+        };
+        self.wait_point(awaited)?;
+        if !matches!(
+            self.waits.last(),
+            Some(WaitPoint {
+                check: Check::Race(_),
+                ..
+            })
+        ) {
+            // The reader refuses a value from any other wait point before the lowering.
+            return Err(Error::new(awaited.span(), "only `s.race` gives a value"));
+        }
+        self.ops
+            .push(Op::Code(syn::parse_quote!(#name = __trust_won;)));
+        Ok(())
     }
 
     /// Flattens `expression` when it is a wait point or a construct that holds one; `false` for
@@ -361,25 +392,58 @@ impl Lowering {
         let is_context =
             matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident(&self.context));
         let check = match call.method.to_string().as_str() {
-            "next_cycle" if is_context => Check::NextCycle,
-            "until" if is_context => {
-                Check::Until(argument("the predicate: `s.until(|me: &Self| me.ready)`")?)
-            }
-            "wait" if is_context => Check::Wait(argument(
-                "the time to wait: `s.wait(Time::from_millis(s, 500)?)`",
-            )?),
-            _ => {
-                return Err(Error::new(
-                    base.span(),
-                    "`s.all`, `s.race` and a child sequence are not lowered yet: wait with \
-                     `next_cycle`, `until` or `wait` (specification 48 RU-72)",
-                ))
-            }
+            "all" if is_context => Check::All(self.members(call)?),
+            "race" if is_context => Check::Race(self.members(call)?),
+            _ if is_context => self.member(base)?,
+            _ => return Err(Error::new(
+                base.span(),
+                "a child sequence is not lowered yet: wait with `next_cycle`, `until`, `wait`, \
+                     `all` or `race` (specification 48 RU-72)",
+            )),
         };
         Ok(WaitPoint {
             check,
             within: None,
         })
+    }
+
+    /// The members of `s.all(..)` or `s.race(..)`, which the reader has checked.
+    fn members(&self, call: &syn::ExprMethodCall) -> Result<Vec<Check>, Error> {
+        call.args.iter().map(|member| self.member(member)).collect()
+    }
+
+    /// A plain wait: `s.next_cycle()`, `s.until(pred)` or `s.wait(t)`.
+    fn member(&self, wait: &Expr) -> Result<Check, Error> {
+        let not_a_wait = || {
+            Error::new(
+                wait.span(),
+                "a wait is `s.next_cycle()`, `s.until(..)` or `s.wait(..)` (specification 48 RU-72)",
+            )
+        };
+        let Expr::MethodCall(call) = wait else {
+            return Err(not_a_wait());
+        };
+        if !matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident(&self.context)) {
+            return Err(not_a_wait());
+        }
+        let argument = |what: &str| {
+            call.args.first().cloned().ok_or_else(|| {
+                Error::new(
+                    call.method.span(),
+                    format!("`{}` takes {what}", call.method),
+                )
+            })
+        };
+        match call.method.to_string().as_str() {
+            "next_cycle" => Ok(Check::NextCycle),
+            "until" => Ok(Check::Until(argument(
+                "the predicate: `s.until(|me: &Self| me.ready)`",
+            )?)),
+            "wait" => Ok(Check::Wait(argument(
+                "the time to wait: `s.wait(Time::from_millis(s, 500)?)`",
+            )?)),
+            _ => Err(not_a_wait()),
+        }
     }
 
     /// A local's `let` as the assignment where it stands; `None` for a `let` without a value.
@@ -476,6 +540,10 @@ impl Lowering {
             match op {
                 Op::Code(statement) => chunk.extend(quote! { #statement }),
                 Op::Begin(number) => {
+                    if self.is_all(*number) {
+                        // An `s.all` begins with none of its members complete (RU-72).
+                        chunk.extend(quote! { self._seq.done = ::trust_plc::Word(0); });
+                    }
                     let number = Literal::u16_unsuffixed(*number);
                     chunk.extend(quote! {
                         let mut __trust_wait = ::trust_plc::seq::Waiting {
@@ -519,14 +587,29 @@ impl Lowering {
         arms
     }
 
+    /// The wait point of this number.
+    fn wait(&self, number: u16) -> Option<&WaitPoint> {
+        usize::from(number)
+            .checked_sub(1)
+            .and_then(|index| self.waits.get(index))
+    }
+
+    /// Whether the wait point of this number is an `s.all`.
+    fn is_all(&self, number: u16) -> bool {
+        matches!(
+            self.wait(number),
+            Some(WaitPoint {
+                check: Check::All(_),
+                ..
+            })
+        )
+    }
+
     /// The check of the wait point `number` when an activation resumes it: `.within(t)` first,
     /// then whether the wait is over; a wait that is not over returns and waits on.
     fn resume(&self, number: u16) -> TokenStream {
         let context = &self.context;
-        let Some(wait) = usize::from(number)
-            .checked_sub(1)
-            .and_then(|index| self.waits.get(index))
-        else {
+        let Some(wait) = self.wait(number) else {
             return TokenStream::new();
         };
         // An argument may use the context itself (`Time::from_millis(s, 500)?`), so it is evaluated
@@ -542,7 +625,88 @@ impl Lowering {
             }
         });
         let over = match &wait.check {
-            Check::NextCycle => None,
+            Check::All(members) => {
+                // Each member not yet complete is checked in order and, once complete, stays so in
+                // its bit of `done` (RU-72).
+                let checks = members.iter().zip(0_u32..).map(|(member, bit)| {
+                    let bit = Literal::u32_unsuffixed(bit);
+                    let condition = if let Some(over) = self.over(member) {
+                        quote! { !__trust_done.bit(#bit) && (#over) }
+                    } else {
+                        quote! { !__trust_done.bit(#bit) }
+                    };
+                    quote! {
+                        if #condition {
+                            __trust_done = __trust_done.with_bit(#bit, true);
+                        }
+                    }
+                });
+                let every = Literal::u32_unsuffixed((1_u32 << members.len()) - 1);
+                quote! {
+                    let mut __trust_done: ::trust_plc::Word = self._seq.done;
+                    #(#checks)*
+                    if u32::from(__trust_done.0) != #every {
+                        self._seq.done = __trust_done;
+                        return ::core::result::Result::Ok(());
+                    }
+                    self._seq.done = ::trust_plc::Word(0);
+                }
+            }
+            Check::Race(members) => {
+                // The members are checked in order until one completes, whose number from 1 is
+                // the race's value (RU-72, IEC Table 61 feature 2a); an `s.next_cycle()` always
+                // completes, so the members after it are never reached.
+                let mut tests = Vec::new();
+                let mut numbers = Vec::new();
+                let mut last = Literal::u16_unsuffixed(0);
+                for (member, number) in members.iter().zip(1_u16..) {
+                    let Some(over) = self.over(member) else {
+                        last = Literal::u16_unsuffixed(number);
+                        break;
+                    };
+                    tests.push(over);
+                    numbers.push(Literal::u16_unsuffixed(number));
+                }
+                let won = if tests.is_empty() {
+                    quote! { #last }
+                } else {
+                    quote! { #(if #tests { #numbers } else)* { #last } }
+                };
+                quote! {
+                    let __trust_won: u16 = #won;
+                    if __trust_won == 0 {
+                        return ::core::result::Result::Ok(());
+                    }
+                }
+            }
+            plain => self
+                .over(plain)
+                .map(|over| {
+                    quote! {
+                        if !(#over) {
+                            return ::core::result::Result::Ok(());
+                        }
+                    }
+                })
+                .unwrap_or_default(),
+        };
+        quote! {
+            let __trust_wait = ::trust_plc::seq::Waiting {
+                point: self._seq.point,
+                began: self._seq.began,
+            };
+            #within
+            #over
+        }
+    }
+
+    /// Whether the plain wait `check` is over at this activation, one that resumes its wait; `None`
+    /// for `s.next_cycle()`, which every such activation completes. An argument may use the
+    /// context itself (`Time::from_millis(s, 500)?`), so it is evaluated before the check borrows
+    /// the context.
+    fn over(&self, check: &Check) -> Option<TokenStream> {
+        let context = &self.context;
+        match check {
             Check::Until(predicate) => Some(quote! {{
                 let __trust_until = #predicate;
                 __trust_until(&*self)
@@ -551,21 +715,8 @@ impl Lowering {
                 let __trust_time = #time;
                 __trust_wait.waited_for(#context, __trust_time)
             }}),
-        };
-        let over = over.map(|over| {
-            quote! {
-                if !(#over) {
-                    return ::core::result::Result::Ok(());
-                }
-            }
-        });
-        quote! {
-            let __trust_wait = ::trust_plc::seq::Waiting {
-                point: self._seq.point,
-                began: self._seq.began,
-            };
-            #within
-            #over
+            // A member is a plain wait: the reader refuses an `s.all` or `s.race` inside another.
+            Check::NextCycle | Check::All(_) | Check::Race(_) => None,
         }
     }
 }
@@ -597,6 +748,18 @@ fn binding_across_a_wait(span: proc_macro2::Span, construct: &str) -> Error {
              RU-72)"
         ),
     )
+}
+
+/// The wait point of `expression`, `w.await` or `w.await?`, when it is one.
+fn awaited_in(expression: &Expr) -> Option<&ExprAwait> {
+    match expression {
+        Expr::Await(awaited) => Some(awaited),
+        Expr::Try(tried) => match &*tried.expr {
+            Expr::Await(awaited) => Some(awaited),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 /// Whether `expression` awaits anywhere outside its closures.

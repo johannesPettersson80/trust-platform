@@ -9,7 +9,10 @@
   the Windows service's program, a copy of trust-dev in the service's own folder, its log, its
   `service.toml` and its virtual account's access (RU-64). 0.5, 20 November 2026: a service is built
   with the user's own Rust, and the bundle carries only the SDK a program is built with (RU-12,
-  RU-61, RU-62, RU-76), as the owner decided that day.
+  RU-61, RU-62, RU-76), as the owner decided that day. 0.6, 21 November 2026: what a sequence's
+  `s.all` and `s.race` wait for, by IEC §6.7.5, and the state an `s.all` keeps (RU-71, RU-72),
+  decided under the owner's standing delegation ("do whats most professional and best for the user
+  and us").
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1272,9 +1275,11 @@ Rust's `async`: the attribute validates the body and lowers it to a state machin
 stored, no executor runs, and nothing waits inside a scan: each activation runs the sequence from its
 wait point to its next one and returns. The sequence's state is a variable of the instance, `_seq`,
 after the POU's own variables: its wait point `point` (0 at the top, then the wait point's number,
-RU-72), the logical time `began` of the activation that began the wait, and each local of the body,
-a variable of the same name and type, so that a local keeps its value from one activation to the
-next. A local names its type (`let count: i16 = 0;`), which the attribute cannot infer. The name
+RU-72), the logical time `began` of the activation that began the wait, `done` when the body holds
+an `s.all` (RU-72), and each local of the body, a variable of the same name and type, so that a local
+keeps its value from one activation to the next. A local names its type (`let count: i16 = 0;`),
+which the attribute cannot infer, and takes no name of the state's own fields in any case: `point`,
+`began`, and `done` in a body that holds an `s.all`. The name
 `_seq` takes the one leading underscore that an IEC identifier may have (IEC §6.1.2; two in a row
 are not allowed, so `__seq` could not be declared). The state is in the symbol table: the debugger's
 Variables view shows it, and `variables.read` and the HMI read it by its path,
@@ -1297,8 +1302,8 @@ runs at each activation; a sequence that must stop waits at its end (`loop { s.n
 }`).
 
 The generated declarations (RU-23) declare `_seq` as the POU's last variable, an internal one of
-the structure `<POU>_SEQ` in the POU's namespace, whose fields are `point : UINT`, `began : TIME`
-and the locals with their types; the program's code builds the state from `<struct>Sequence` and
+the structure `<POU>_SEQ` in the POU's namespace, whose fields are `point : UINT`, `began : TIME`,
+`done : WORD` when the body holds an `s.all`, and the locals with their types; the program's code builds the state from `<struct>Sequence` and
 writes it back as it does any structure of the crate (RU-25), so that type must be reachable as
 the POU is: a POU re-exported from a private module re-exports its state's type beside it. The
 declarations' writer refuses a POU whose `sequence` no `#[trust_sequence]` block of its struct
@@ -1312,20 +1317,42 @@ begins at the activation that reaches its wait point, which then returns, and co
 activation, never at the one that began it: `s.next_cycle()` at the next activation, `s.until(pred)`
 at the first later activation at whose start `pred` holds, and `s.wait(t)` at the first activation
 whose logical time is at least `t` after the one that began it. A wait point's number is its place
-among the body's wait points, from 1. `.within(t)` faults at the first activation whose logical time
-is more than `t` after the one that began the wait, a wait of exactly `t` being still in time, with
-the wait point's number as the fault's number and `t` and the time waited, in milliseconds, as its
-two numbers (Appendix A), as an SFC names the step that overran its time. An activation that resumes
-a wait checks `.within(t)` first: a wait that would complete more than `t` after it began faults, as
-it came too late. A wait point's arguments, `t` and the predicate, are evaluated at each activation
-that checks the wait. A predicate is a plain function of the instance, without a wait point. A wait point stands as a
-statement of its own (`s.wait(t).await;`, `....within(t).await?;`). The attribute refuses any other
-`.await`, an `.await` inside another expression, an `async` block or closure, a future of another
-crate, a loop that can run without reaching a wait point, a `for` loop with a wait point in it (its
-iterator would have to survive the wait), an `if let` or a `while let` with a wait point in it (its
-binding would have to live across the wait), a `break` with a value out of a loop that holds a wait
-point, a local without its type, two locals of one name in one sequence, and a variable of the POU
-named `_seq` in any case, each with its place in the body.
+among the body's wait points, from 1.
+
+`s.all(..)` and `s.race(..)` take two to sixteen members, each `s.next_cycle()`, `s.until(pred)` or
+`s.wait(t)`, which all begin with the wait point, and each member completes as it would alone.
+`s.all` completes at the activation at which the last of its members completes, a member that has
+completed staying complete, as simultaneous sequences evolve each on its own and converge once each
+has reached its end (IEC §6.7.5, Table 61, features 4a and 4b): `s.all(s.until(a), s.until(b))`
+waits for `a` and for `b`, each at an activation of its own, where `s.until(|me| me.a && me.b)` waits
+for one activation at whose start both hold. `s.race` completes at the first activation at which one
+of its members completes, the first of them in the members' order when several do, as a selection of
+sequences takes the first of its transitions that holds from left to right (IEC §6.7.5, Table 61,
+feature 2a). `let won: u16 = s.race(..).await;` keeps that member's number, from 1, in the local
+`won`. The state of a sequence whose body holds an `s.all` has `done : WORD` after `began` (RU-71):
+the members of the `s.all` that the sequence waits at that have completed, bit 0 for the first, and 0
+at every other wait point.
+
+`.within(t)` faults at the first activation whose logical time is more than `t` after the one that
+began the wait, a wait of exactly `t` being still in time, with the wait point's number as the
+fault's number and `t` and the time waited, in milliseconds, as its two numbers (Appendix A), as an
+SFC names the step that overran its time. It stands last before `.await` and limits the whole wait
+point, the members of an `s.all` or an `s.race` together. An activation that resumes a wait checks
+`.within(t)` first: a wait that would complete more than `t` after it began faults, as it came too
+late. It then checks the wait, an `s.all`'s members that have not completed and an `s.race`'s until
+one completes, in the members' order. A wait point's arguments, `t` and the predicate, are evaluated
+at each activation that checks them. A predicate is a plain function of the instance, without a wait
+point. A wait point stands as a statement of its own (`s.wait(t).await;`, `....within(t).await?;`,
+`let won: u16 = s.race(..).await;`). The attribute refuses any other `.await`, an `.await` inside
+another expression, an `async` block or closure, a future of another crate, a loop that can run
+without reaching a wait point, a `for` loop with a wait point in it (its iterator would have to
+survive the wait), an `if let` or a `while let` with a wait point in it (its binding would have to
+live across the wait), a `break` with a value out of a loop that holds a wait point, an `s.all` or an
+`s.race` with fewer than two members or more than sixteen, a member that is not `s.next_cycle()`,
+`s.until(..)` or `s.wait(..)` or that has a `.within` of its own, a value from a wait point other than
+`s.race`, a local of `s.race`'s member number whose type is not `u16`, a local without its type, two
+locals of one name in one sequence, a local that takes a name of the state's own fields (RU-71), and
+a variable of the POU named `_seq` in any case, each with its place in the body.
 
 **RU-73. Restarts and changes.** A cold or warm restart starts every sequence at its top, as an SFC
 starts at its initial step (IEC §6.7); a sequence that must resume keeps its progress in retained

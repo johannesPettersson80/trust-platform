@@ -2,16 +2,17 @@
 //! attribute lowers a sequence to runs them. A wait begins at the activation that reaches it, which
 //! then returns, and completes at a later activation, never the one that began it: `next_cycle` at
 //! the next, `until` at the first at whose start its predicate holds, `wait(t)` at the first whose
-//! logical time is at least `t` after the one that began it. `.within(t)` ends a wait that lasts
-//! longer than `t` with the fault `RustFault`, its number the wait point's and its two numbers `t`
-//! and the time waited, in milliseconds.
+//! logical time is at least `t` after the one that began it. `s.all(..)` completes when each of its
+//! waits has, at the same activation or before, and `s.race(..)` when the first of them in order
+//! does. `.within(t)` ends a wait that lasts longer than `t` with the fault `RustFault`, its number
+//! the wait point's and its two numbers `t` and the time waited, in milliseconds.
 
 use crate::{rust_fault, Cx, Fault, Str, Time};
 
 /// The context of a sequence's wait points, `s: &mut Seq` (RU-70): the POU's own context, so that
 /// the sequence's plain code passes `s` where a function or a block call needs the context, and
-/// `#[trust_sequence]` turns `s.next_cycle()`, `s.until(..)`, `s.wait(..)` and `.within(..)` into
-/// the state machine's steps.
+/// `#[trust_sequence]` turns `s.next_cycle()`, `s.until(..)`, `s.wait(..)`, `s.all(..)`,
+/// `s.race(..)` and `.within(..)` into the state machine's steps.
 pub type Seq = Cx;
 
 /// Where a sequence stands: the wait point it waits at, numbered from 1 in the order of the

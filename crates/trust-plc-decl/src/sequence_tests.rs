@@ -330,3 +330,217 @@ fn a_pou_that_runs_a_sequence_has_its_state_last_with_the_sequences_locals() {
         ]
     );
 }
+
+#[test]
+fn an_all_and_a_race_read_as_wait_points_and_the_race_gives_its_local() {
+    // RU-72: an s.all limited by .within and an s.race whose member number goes into the u16 local
+    // `won` are wait points 1 and 2; `won` is a local of the state; and since the body holds an
+    // s.all, the state has `done : WORD` after `began`, before the locals (RU-71). Catches a race's
+    // value taken for a plain local, a lost .within, and a state laid out apart from the macro's.
+    let read = sequence(&parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            loop {
+                s.all(s.until(|me: &Self| me.left), s.wait(Time::from_millis(s, 30)?))
+                    .within(Time::from_millis(s, 100)?)
+                    .await?;
+                let won: u16 = s.race(s.until(|me: &Self| me.part), s.next_cycle()).await;
+                self.ended = won;
+            }
+        }
+    })
+    .expect("the sequence reads");
+    assert_eq!(
+        read.wait_points,
+        vec![
+            point(1, Wait::All, true, None),
+            point(2, Wait::Race, false, None),
+        ]
+    );
+    assert_eq!(
+        read.locals,
+        vec![Local {
+            name: "won".into(),
+            ty: DataType::Elementary(Elementary::Uint),
+        }]
+    );
+    assert!(read.holds_all());
+    let state = crate::sequence::state("PRESS", "Press", &read);
+    let fields: Vec<(&str, &DataType)> = state
+        .fields
+        .iter()
+        .map(|field| (field.name.as_str(), &field.ty))
+        .collect();
+    assert_eq!(
+        fields,
+        [
+            ("point", &DataType::Elementary(Elementary::Uint)),
+            ("began", &DataType::Elementary(Elementary::Time)),
+            ("done", &DataType::Elementary(Elementary::Word)),
+            ("won", &DataType::Elementary(Elementary::Uint)),
+        ]
+    );
+}
+
+#[test]
+fn a_sequence_without_an_all_has_no_done_and_may_name_a_local_so() {
+    // RU-71: `done` is a field of the state only when the body holds an s.all, so a sequence
+    // without one may have a local `done`, and a loop whose only wait point is a race into a local
+    // waits on every way through it. Catches a field every state would carry, and a loop refused
+    // although its `let` waits.
+    let read = sequence(&parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let mut done: bool = false;
+            loop {
+                let won: u16 = s.race(s.until(|me: &Self| me.a), s.until(|me: &Self| me.b)).await;
+                done = won == 1;
+            }
+        }
+    })
+    .expect("the sequence reads");
+    assert!(!read.holds_all());
+    let state = crate::sequence::state("CELL", "Cell", &read);
+    let names: Vec<&str> = state
+        .fields
+        .iter()
+        .map(|field| field.name.as_str())
+        .collect();
+    assert_eq!(names, ["point", "began", "done", "won"]);
+    assert_eq!(state.fields[2].ty, DataType::Elementary(Elementary::Bool));
+}
+
+#[test]
+fn an_all_or_a_race_with_members_or_values_it_cannot_take_is_refused() {
+    // RU-71 and RU-72's refusals for s.all and s.race, each with the words of its message. Catches
+    // a mask with more members than bits, a member whose own limit would be lost, a wait inside a
+    // wait, a value read from a wait point that gives none, a member number in a type that does not
+    // hold it, and locals the state's own fields would hide.
+    let many: String = (0..17)
+        .map(|_| "s.next_cycle()")
+        .collect::<Vec<_>>()
+        .join(", ");
+    let seventeen: syn::ImplItemFn = syn::parse_str(&format!(
+        "async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {{ s.all({many}).await; Ok(()) }}"
+    ))
+    .expect("a sequence");
+    let cases: Vec<(syn::ImplItemFn, &str)> = vec![
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                s.all(s.until(|me: &Self| me.left)).await;
+                Ok(())
+            } },
+            "`s.all` takes two to sixteen waits",
+        ),
+        (seventeen, "`s.all` takes two to sixteen waits"),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                s.race(
+                    s.until(|me: &Self| me.left).within(Time::from_millis(s, 10)?),
+                    s.next_cycle(),
+                ).await;
+                Ok(())
+            } },
+            "a member of `s.race` takes no `.within` of its own",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                s.all(s.race(s.next_cycle(), s.next_cycle()), s.next_cycle()).await;
+                Ok(())
+            } },
+            "a member of `s.all` is `s.next_cycle()`, `s.until(..)` or `s.wait(..)`",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                s.race(self.homing(s), s.next_cycle()).await;
+                Ok(())
+            } },
+            "a member of `s.race` is `s.next_cycle()`",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let waited: u16 = s.wait(Time::from_millis(s, 10)?).await;
+                Ok(())
+            } },
+            "only `s.race` gives a value",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let won: i32 = s.race(s.next_cycle(), s.next_cycle()).await;
+                Ok(())
+            } },
+            "is a `u16`",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let point: i16 = 0;
+                s.next_cycle().await;
+                Ok(())
+            } },
+            "cannot be named `point`",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let Began: i16 = 0;
+                s.next_cycle().await;
+                Ok(())
+            } },
+            "cannot be named `began`",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let Done: bool = false;
+                s.all(s.next_cycle(), s.next_cycle()).await;
+                Ok(())
+            } },
+            "cannot be named `done`",
+        ),
+    ];
+    for (item, reason) in cases {
+        let message = refused(&item);
+        assert!(
+            message.contains(reason),
+            "expected `{reason}` in: {message}"
+        );
+    }
+}
+
+#[test]
+fn a_local_is_named_as_a_variable_of_structured_text_is() {
+    // RU-71: a local is a field of the state in Structured Text, so it takes an IEC identifier and
+    // no reserved word, as a POU's variable does (IEC §6.1.2, specification 01 §3), and a raw
+    // identifier is read without its `r#`. Catches a declaration the generated Structured Text
+    // could not compile, with the error far from the local.
+    let cases: Vec<(syn::ImplItemFn, &str)> = vec![
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let step: i16 = 0;
+                s.next_cycle().await;
+                Ok(())
+            } },
+            "`step` is a reserved word of Structured Text",
+        ),
+        (
+            parse_quote! { async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let count_: i16 = 0;
+                s.next_cycle().await;
+                Ok(())
+            } },
+            "`count_` is not an IEC identifier",
+        ),
+    ];
+    for (item, reason) in cases {
+        let message = refused(&item);
+        assert!(
+            message.contains(reason),
+            "expected `{reason}` in: {message}"
+        );
+    }
+    let read = sequence(&parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let r#ready: bool = false;
+            s.next_cycle().await;
+            Ok(())
+        }
+    })
+    .expect("the sequence reads");
+    assert_eq!(read.locals[0].name, "ready");
+}
