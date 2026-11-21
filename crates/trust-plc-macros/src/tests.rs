@@ -1,5 +1,5 @@
-//! The attributes expand as specification 48 §6.1 gives (RU-22, RU-26, RU-28, RU-46). What the
-//! expansion computes is proven by `trust-plc`'s tests, which compile and run it.
+//! The attributes expand as specification 48 §6.1 gives (RU-22, RU-26, RU-28, RU-46, RU-48). What
+//! the expansion computes is proven by `trust-plc`'s tests, which compile and run it.
 
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -142,6 +142,90 @@ fn a_budget_without_a_pou_is_refused() {
     let text = expand::budget(&quote!("2us"), quote! { pub fn helper() {} }).to_string();
     assert!(
         text.contains("compile_error") && text.contains("RU-46"),
+        "{text}"
+    );
+}
+
+#[test]
+fn bench_cases_above_the_pous_attribute_move_below_it_in_their_order() {
+    // RU-48: `#[bench_case]` written above the POU's attribute expands first and must reach the
+    // attribute, which reads it; two cases written above expand one after the other, the upper
+    // first, so each must go after the cases already below, or their order would turn round.
+    let first = expand::bench_case(
+        &quote!(x = 1.0),
+        quote! {
+            #[bench_case(x = 2.0)]
+            #[trust_function(name = "F")]
+            #[budget("1us")]
+            pub fn f(cx: &mut Cx, x: f64) -> Result<(), Fault> { Ok(()) }
+        },
+    );
+    // The lower case expands next, on the item the upper one left.
+    let after_first = file(first);
+    let [Item::Fn(after_first)] = after_first.items.as_slice() else {
+        panic!("one function");
+    };
+    let mut item = after_first.clone();
+    let lower = item.attrs.remove(0);
+    let args = match &lower.meta {
+        syn::Meta::List(list) => list.tokens.clone(),
+        other => panic!("a case with values: {}", other.to_token_stream()),
+    };
+    let expanded = file(expand::bench_case(&args, item.to_token_stream()));
+    let [Item::Fn(function)] = expanded.items.as_slice() else {
+        panic!("one function: {}", expanded.to_token_stream());
+    };
+    assert_eq!(
+        attribute_names(&function.attrs),
+        ["trust_function", "budget", "bench_case", "bench_case"]
+    );
+    let cases: Vec<String> = function
+        .attrs
+        .iter()
+        .filter(|attribute| trust_plc_decl::is_bench_case(attribute))
+        .map(|attribute| attribute.to_token_stream().to_string())
+        .collect();
+    assert_eq!(
+        cases,
+        ["# [bench_case (x = 1.0)]", "# [bench_case (x = 2.0)]"]
+    );
+}
+
+#[test]
+fn a_pous_expansion_drops_its_bench_cases() {
+    // RU-48: only the reader reads a case; an expansion that kept `#[bench_case]` on the function
+    // would expand it again after the POU's attribute is gone, and refuse it.
+    let expanded = file(expand::function(
+        quote!(name = "F"),
+        quote! {
+            #[budget("1us")]
+            #[bench_case(x = 1.0)]
+            #[bench_case]
+            pub fn f(cx: &mut Cx, x: f64) -> Result<(), Fault> { Ok(()) }
+        },
+    ));
+    let function = expanded
+        .items
+        .iter()
+        .find_map(|item| match item {
+            Item::Fn(function) => Some(function),
+            _ => None,
+        })
+        .expect("the function");
+    assert!(
+        attribute_names(&function.attrs).is_empty(),
+        "{:?}",
+        attribute_names(&function.attrs)
+    );
+}
+
+#[test]
+fn a_bench_case_without_a_pou_is_refused() {
+    // RU-48: a case belongs to a Rust POU or method; on another item it would measure nothing.
+    let text =
+        expand::bench_case(&quote!(x = 1.0), quote! { pub fn helper(x: f64) {} }).to_string();
+    assert!(
+        text.contains("compile_error") && text.contains("RU-48"),
         "{text}"
     );
 }

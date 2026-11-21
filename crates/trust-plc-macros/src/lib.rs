@@ -172,5 +172,23 @@ pub fn budget(args: TokenStream, item: TokenStream) -> TokenStream {
     expand::budget(&args.into(), item.into()).into()
 }
 
+/// A case with which `trust-dev rust bench` measures a Rust POU or method (specification 48
+/// RU-48): values for its inputs and in-outs, each written as `#[init(...)]` writes it, the others
+/// at their declared initial values; one attribute for each case. The POU's attribute reads it,
+/// below or above that attribute. It is not called `bench`: that is Rust's own benchmark attribute,
+/// which an attribute of the prelude's glob import cannot shadow.
+///
+/// ```ignore
+/// #[trust_fb(name = "FILTER_EMA")]
+/// #[budget("20us")]
+/// #[bench_case(x = 1.0e6, alpha = 0.001)]
+/// #[bench_case(x = -1.0e6)]
+/// pub struct FilterEma { /* ... */ }
+/// ```
+#[proc_macro_attribute]
+pub fn bench_case(args: TokenStream, item: TokenStream) -> TokenStream {
+    expand::bench_case(&args.into(), item.into()).into()
+}
+
 #[cfg(test)]
 mod tests;

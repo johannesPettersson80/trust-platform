@@ -46,6 +46,9 @@ pub struct Method {
     pub access: Access,
     /// The longest one call may take, in nanoseconds (`#[budget]`, RU-46).
     pub budget_ns: u64,
+    /// The cases with which `trust-dev rust bench` measures it (`#[bench_case]`, RU-48), each on
+    /// an instance of its block at its declared initial values.
+    pub bench: Vec<crate::Case>,
     /// Its inputs, in-outs and outputs in the order of its parameters after the context.
     pub variables: Vec<Variable>,
     /// Its result; `None` for a method that returns `()`.
@@ -140,11 +143,13 @@ pub fn method(args: TokenStream, item: &ImplItemFn) -> Result<Method, Error> {
         };
         crate::add(&mut variables, variable, ident.span())?;
     }
+    let bench = crate::bench::cases(&item.attrs, &variables, true)?;
     Ok(Method {
         name: item_name.clone(),
         item: item_name,
         access,
         budget_ns: crate::budget::of(&item.attrs, signature.ident.span())?,
+        bench,
         variables,
         result: crate::result(&signature.output, signature.ident.span())?,
     })

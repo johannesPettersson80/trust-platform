@@ -238,6 +238,36 @@ fn what_keeps_the_declarations_from_being_written_is_named_where_it_is() {
 }
 
 #[test]
+fn a_bench_case_is_read_with_its_pou_and_a_refused_one_is_named_where_it_is() {
+    // Specification 48 RU-48: the build reads a POU's `#[bench_case]` cases with the POU, and
+    // refuses a case that gives a value to anything but an input or in-out at the case's file, line
+    // and column (`y` starts at column 14 of line 6). Catches cases lost between the reader and the
+    // build, and a refused case reported without its place.
+    let lib = "use trust_plc::prelude::*;\n\n#[trust_fb(name = \"FILTER_EMA\")]\n#[budget(\"15us\")]\n#[bench_case(x = 1.0e6)]\n#[bench_case(y = 1.0)]\npub struct FilterEma {\n    #[input] pub x: f64,\n    #[output] pub y: f64,\n}\n";
+    let refused = project(&[("rust/Cargo.toml", MANIFEST), ("rust/src/lib.rs", lib)]);
+    let found = errors(&refused);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0].starts_with("rust/src/lib.rs:6:14: `y` is no input or in-out of the POU"),
+        "{found:#?}"
+    );
+    let accepted = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        (
+            "rust/src/lib.rs",
+            lib.replace("#[bench_case(y = 1.0)]\n", "").as_str(),
+        ),
+    ]);
+    let krate = read(&accepted).expect("the crate reads").expect("a crate");
+    assert_eq!(
+        krate.pous[0].pou.bench,
+        vec![trust_plc_decl::Case {
+            values: vec![("x".to_string(), trust_plc_decl::Value::Lreal(1.0e6))],
+        }]
+    );
+}
+
+#[test]
 fn writing_the_declarations_writes_keeps_and_removes_the_file() {
     // RU-24: `trust-dev rust declarations` writes the crate's declarations, leaves a file that holds
     // them, and removes the file of a project that has no POU left; a project without a crate has

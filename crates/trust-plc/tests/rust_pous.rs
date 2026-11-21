@@ -889,3 +889,30 @@ fn a_race_completes_with_its_first_member_in_order_that_completes() -> Result<()
     assert_eq!(feeder(&f), (1, 1, 2, 2, 100, 2), "at 100 ms, the stop");
     Ok(())
 }
+
+/// A function with bench cases above and below its attribute (specification 48 RU-48), through the
+/// prelude: the attribute is `bench_case`, since `bench` is Rust's own benchmark attribute, which
+/// a glob import cannot shadow (E0659).
+///
+/// # Errors
+///
+/// None: the product saturates.
+#[bench_case(gain = 3)]
+#[trust_function(name = "SCALED")]
+#[budget("1us")]
+#[bench_case(gain = -3, value = 7)]
+#[bench_case]
+pub fn scaled(_cx: &mut Cx, value: i32, gain: i32) -> Result<i32, Fault> {
+    Ok(value.saturating_mul(gain))
+}
+
+#[test]
+fn bench_cases_leave_the_pou_as_it_is_declared() -> Result<(), Fault> {
+    // RU-48: only the build reads a case. Catches a case attribute the prelude does not give or that
+    // clashes with one of Rust's own, which this file would not compile with, and an expansion that
+    // keeps a case on the function or changes it: 7 × 3 = 21 and 7 × −3 = −21.
+    let mut cx = trust_plc::test::cx();
+    assert_eq!(scaled(&mut cx, 7, 3)?, 21);
+    assert_eq!(scaled(&mut cx, 7, -3)?, -21);
+    Ok(())
+}

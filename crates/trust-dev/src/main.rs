@@ -17,6 +17,7 @@ mod prompt;
 mod run;
 mod rust;
 mod rust_audit;
+mod rust_bench;
 mod service;
 mod service_manager;
 mod style;
@@ -201,6 +202,17 @@ enum RustAction {
         #[arg(long = "db")]
         db: Option<PathBuf>,
     },
+    /// Measure the project's Rust functions, function blocks and methods on this computer with
+    /// their `#[bench_case]` cases and write each one's longest call into trust.toml
+    /// [timing.measured] (specification 48 RU-48).
+    Bench {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// The scans each case runs, one call of its POU a scan.
+        #[arg(long = "scans", default_value_t = rust_bench::DEFAULT_SCANS)]
+        scans: u32,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -276,6 +288,7 @@ fn run() -> anyhow::Result<()> {
         Command::Rust { action } => match action {
             RustAction::Declarations { project } => rust::run_declarations(project),
             RustAction::Audit { project, db } => rust_audit::run_audit(project, db),
+            RustAction::Bench { project, scans } => rust_bench::run_bench(project, scans),
         },
         Command::Test {
             project,
