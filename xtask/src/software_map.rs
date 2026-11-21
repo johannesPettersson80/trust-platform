@@ -124,7 +124,6 @@ pub struct DependencyHygieneSummary {
     pub deny_policy_present: bool,
     pub workspace_excludes: Vec<String>,
     pub third_party_tiverse_mmap_status: String,
-    pub audit_allowlist: Vec<DependencyPolicyEntry>,
     pub machete_allowlist: Vec<DependencyPolicyEntry>,
 }
 
@@ -345,10 +344,6 @@ impl SoftwareMap {
         self.parser_recovery.property_tests.dedup();
         self.dependency_hygiene.workspace_excludes.sort();
         self.dependency_hygiene.workspace_excludes.dedup();
-        self.dependency_hygiene
-            .audit_allowlist
-            .sort_by(|left, right| left.id.cmp(&right.id));
-        self.dependency_hygiene.audit_allowlist.dedup();
         self.dependency_hygiene
             .machete_allowlist
             .sort_by(|left, right| left.id.cmp(&right.id));

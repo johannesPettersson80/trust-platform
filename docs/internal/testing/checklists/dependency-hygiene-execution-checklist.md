@@ -43,6 +43,9 @@ Completion evidence (2026-04-29):
 
 - [x] `DEPHYG-P2-001` Add or update `deny.toml`.
 - [x] `DEPHYG-P2-002` Add audit allowlist with advisory ID, owner, rationale, review date, and removal condition.
+  Superseded 21 November 2026: the advisory exceptions are owned in `deny.toml` alone (specification 24,
+  "Dependency Exceptions"), which `cargo deny` and `cargo audit` both read in `scripts/supply_chain_gate.sh`.
+  The full map's copy, with `DEPHYG-P4-001`'s canned-report test and `DEPHYG-P4-002`'s audit fixture, was removed.
 - [x] `DEPHYG-P2-003` Add machete allowlist for false positives only; none were needed after removing real unused workspace dependencies.
 - [x] `DEPHYG-P2-004` Decide `third_party/tiverse-mmap` ownership: workspace member, workspace exclude, or standalone workspace.
 - [x] `DEPHYG-P2-005` Add architecture-doctor summary of dependency hygiene status.

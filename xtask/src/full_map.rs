@@ -16,6 +16,8 @@ use crate::software_map::{
     WorkspaceEdge,
 };
 
+#[cfg(test)]
+mod dependency_hygiene_tests;
 mod external_safety;
 mod unbuilt_sources;
 pub use external_safety::external_safety_gate;
@@ -272,10 +274,13 @@ struct PolicyToolStatus {
     evidence: String,
 }
 
+/// The full map's dependency hygiene policy. It keeps no advisory exceptions: specification 24
+/// ("Dependency Exceptions") owns them in `deny.toml` alone, so an unknown field, such as a list of
+/// its own, is refused rather than kept unread.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DependencyHygienePolicy {
     third_party_tiverse_mmap: ThirdPartyWorkspacePolicy,
-    audit_allowlist: Vec<DependencyAllowlistEntry>,
     machete_allowlist: Vec<DependencyAllowlistEntry>,
 }
 
@@ -687,12 +692,6 @@ fn collect_dependency_hygiene_summary(
         deny_policy_present: root.join("deny.toml").is_file(),
         workspace_excludes,
         third_party_tiverse_mmap_status: third_party_status,
-        audit_allowlist: policy
-            .dependency_hygiene
-            .audit_allowlist
-            .iter()
-            .map(dependency_policy_entry)
-            .collect(),
         machete_allowlist: policy
             .dependency_hygiene
             .machete_allowlist
@@ -987,10 +986,6 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
                 .to_string(),
         );
     }
-    failures.extend(dependency_allowlist_metadata_failures(
-        "audit",
-        &policy.dependency_hygiene.audit_allowlist,
-    ));
     failures.extend(dependency_allowlist_metadata_failures(
         "machete",
         &policy.dependency_hygiene.machete_allowlist,
@@ -1751,10 +1746,6 @@ fn check_dependency_hygiene_status(map: &SoftwareMap, policy: &FullMapPolicy) ->
     details.push(format!(
         "deny.toml present={}",
         map.dependency_hygiene.deny_policy_present
-    ));
-    details.push(format!(
-        "audit allowlist entries={}",
-        map.dependency_hygiene.audit_allowlist.len()
     ));
     details.push(format!(
         "machete allowlist entries={}",
@@ -3957,41 +3948,6 @@ mod tests {
         )));
     }
 
-    fn audit_report_policy_failures(
-        report_json: &str,
-        allowlist: &[DependencyAllowlistEntry],
-    ) -> Result<Vec<String>> {
-        let report: serde_json::Value =
-            serde_json::from_str(report_json).context("parse canned cargo audit report")?;
-        let allowed = allowlist
-            .iter()
-            .map(|entry| (entry.id.clone(), entry.package.clone()))
-            .collect::<BTreeSet<_>>();
-        let mut failures = Vec::new();
-        let vulnerabilities = report
-            .pointer("/vulnerabilities/list")
-            .and_then(serde_json::Value::as_array)
-            .into_iter()
-            .flatten();
-        for vulnerability in vulnerabilities {
-            let id = vulnerability
-                .pointer("/advisory/id")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("<missing-id>");
-            let package = vulnerability
-                .pointer("/package/name")
-                .or_else(|| vulnerability.pointer("/advisory/package"))
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("<missing-package>");
-            if !allowed.contains(&(id.to_string(), package.to_string())) {
-                failures.push(format!(
-                    "cargo audit advisory {id} for {package} is not in audit_allowlist"
-                ));
-            }
-        }
-        Ok(failures)
-    }
-
     fn machete_report_policy_failures(
         report: &str,
         allowlist: &[DependencyAllowlistEntry],
@@ -4762,51 +4718,19 @@ mod tests {
     #[test]
     fn known_bad_dependency_allowlist_without_metadata_fails() {
         let mut policy = base_policy();
-        policy.dependency_hygiene.audit_allowlist[0].owner.clear();
+        policy
+            .dependency_hygiene
+            .machete_allowlist
+            .push(DependencyAllowlistEntry {
+                id: "trust-runtime".to_string(),
+                package: "unused-demo".to_string(),
+                owner: String::new(),
+                rationale: "test fixture".to_string(),
+                review_date: "2026-04-29".to_string(),
+                removal_condition: "remove after fixture".to_string(),
+            });
 
         assert!(check_policy_metadata(&policy).is_fail());
-    }
-
-    #[test]
-    fn known_bad_unallowlisted_audit_report_fails() -> Result<()> {
-        let report = r#"{
-            "vulnerabilities": {
-                "list": [
-                    {
-                        "advisory": {"id": "RUSTSEC-2099-0001", "package": "demo-vulnerable"},
-                        "package": {"name": "demo-vulnerable"}
-                    }
-                ]
-            }
-        }"#;
-
-        assert!(!audit_report_policy_failures(
-            report,
-            &base_policy().dependency_hygiene.audit_allowlist,
-        )?
-        .is_empty());
-        Ok(())
-    }
-
-    #[test]
-    fn audit_report_allowlist_accepts_documented_advisory() -> Result<()> {
-        let report = r#"{
-            "vulnerabilities": {
-                "list": [
-                    {
-                        "advisory": {"id": "RUSTSEC-0000-0000", "package": "example"},
-                        "package": {"name": "example"}
-                    }
-                ]
-            }
-        }"#;
-
-        assert!(audit_report_policy_failures(
-            report,
-            &base_policy().dependency_hygiene.audit_allowlist,
-        )?
-        .is_empty());
-        Ok(())
     }
 
     #[test]
@@ -5368,7 +5292,6 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             deny_policy_present: true,
             workspace_excludes: vec!["third_party/tiverse-mmap".to_string()],
             third_party_tiverse_mmap_status: "workspace_exclude".to_string(),
-            audit_allowlist: Vec::new(),
             machete_allowlist: Vec::new(),
         };
         map
@@ -5567,14 +5490,6 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                     rationale: "vendored patch crate is not a workspace member".to_string(),
                     review_date: "2026-04-29".to_string(),
                 },
-                audit_allowlist: vec![DependencyAllowlistEntry {
-                    id: "RUSTSEC-0000-0000".to_string(),
-                    package: "example".to_string(),
-                    owner: "release".to_string(),
-                    rationale: "test fixture".to_string(),
-                    review_date: "2026-04-29".to_string(),
-                    removal_condition: "remove after fixture".to_string(),
-                }],
                 machete_allowlist: Vec::new(),
             },
             unsafe_concurrency: UnsafeConcurrencyPolicy {

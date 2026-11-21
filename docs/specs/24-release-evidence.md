@@ -74,8 +74,11 @@ days after review. Missing, expired, or overlong exceptions fail the supply
 chain check. The Rust workspace runs the owned-exception policy with
 `cargo-deny` and `cargo-audit`, and so does every standalone Cargo workspace
 of the repository: the two firmware images (`firmware/*`) and the two fuzz
-harnesses (`fuzz`, `crates/trust-ads-server/fuzz`). Each committed
-`Cargo.lock` is a graph of its own and is read `--locked`, so a lock that its
+harnesses (`fuzz`, `crates/trust-ads-server/fuzz`). Their advisory exceptions
+are owned in `deny.toml` alone: the supply chain gate passes its
+`[advisories] ignore` list to both tools, and the full map's policy
+(`xtask/config/full_map_policy.json`) refuses an advisory list of its own.
+Each committed `Cargo.lock` is a graph of its own and is read `--locked`, so a lock that its
 manifests have left behind fails the supply chain check, as an advisory does.
 A new standalone workspace joins `scripts/supply_chain_gate.sh`; the gate's
 test fails on a lock that the gate does not read. Each lock lists the workspace
