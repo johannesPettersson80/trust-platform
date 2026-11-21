@@ -258,7 +258,7 @@ sequence. The wait points:
 | `s.wait(t).await;` | at the first activation whose logical time is at least `t` after the one that began the wait |
 | `s.all(w1, w2, ..).await;` | when each of its waits has completed, each at an activation of its own, as an SFC's parallel branches converge |
 | `let won: u16 = s.race(w1, w2, ..).await;` | when the first of its waits completes; `won` is that wait's number, from 1, and the earlier one in the list wins a tie |
-| `self.fill(s).await?;` | when the child sequence `fill` has returned |
+| `self.fill(s, ..).await?;` | when the child sequence `fill` has returned |
 
 A wait never completes at the activation that began it. `.within(t)`, last before `.await`, faults
 with `RustFault` when the wait lasts longer than `t`: the fault's number is the wait point's, its
@@ -273,10 +273,13 @@ attribute refuses anything else at its place and says what to write instead: a `
 `if let` around a wait point, an `.await` inside an expression, a loop that can go round without
 waiting.
 
-**Child sequences.** Another `async fn` of the same block, with no parameter but `s`, is a child
-sequence. Awaited with `self.fill(s).await?`, it runs as a call would, from the activation that
+**Child sequences.** Another `async fn` of the same block is a child sequence. It takes `s` and,
+after it, parameters of the types a local takes, `async fn move_to(&mut self, s: &mut Seq, target:
+f64)`. Awaited with `self.move_to(s, 25.0).await?`, it runs as a call would, from the activation that
 reaches it, so moving part of a sequence into a child changes nothing about when anything happens.
-The POU's sequence is the one `async fn` of the block that no other awaits.
+Its parameters are variables of its state: the arguments set them when it starts, and they keep
+their values across its waits. The POU's sequence is the one `async fn` of the block that no other
+awaits, and it takes no parameter.
 
 **The state.** The POU keeps where its sequence waits in its last variable, `_seq`: `point`, 0 at
 the top and then the wait point's number, `began`, the time its wait began, the locals, and each
@@ -285,8 +288,9 @@ child's state in a field named as the child. The debugger's Variables view shows
 
 **Restarts and online changes.** A cold or warm restart starts every sequence at its top. An online
 change keeps a sequence where it waits when its wait points, named by their steps or by their order,
-and its locals are the same. Otherwise the sequence starts at its top at its next activation, and the
-change's report lists the state's new member `shape_<signature>`.
+its parameters and its locals are the same, its children's included. Otherwise the sequence starts at
+its top at its next activation, its children with it, and the change's report lists the state's new
+member `shape_<signature>`.
 
 A crate's own tests run a sequence activation by activation: `trust_plc::test::task(interval)` gives
 a context, `trust_plc::test::advance(&mut cx)` moves it on by one interval, and each `call` is one

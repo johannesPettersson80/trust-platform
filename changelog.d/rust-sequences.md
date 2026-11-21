@@ -22,5 +22,10 @@
 - An online change keeps a Rust sequence where it waits when the changed code has the same wait
   points, each named by its step or its order, and the same locals, and otherwise starts the
   sequence at its top at its next activation (specification 48 RU-73). The change's report then
-  lists the sequence state's new member `shape_<signature>`, whose name changes with the wait points
-  and the locals. A child sequence that changed starts at its top the next time it runs.
+  lists the sequence state's new member `shape_<signature>`, whose name changes with the wait points,
+  the parameters and the locals of the sequence and its children: a child that changed starts the
+  whole sequence at its top.
+- A child sequence takes parameters after its context, `async fn move_to(&mut self, s: &mut Seq,
+  target: f64)`, which the sequence that awaits it passes, `self.move_to(s, 25.0).await?`
+  (specification 48 RU-72): they are variables of the child's state, set when it starts and kept
+  across its waits.

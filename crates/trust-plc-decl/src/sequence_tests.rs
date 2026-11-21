@@ -53,6 +53,7 @@ fn the_palletizer_has_three_wait_points_named_by_their_steps() {
                 point(2, Wait::Until, true, Some("GRIP")),
                 point(3, Wait::Wait, false, None),
             ],
+            parameters: Vec::new(),
             locals: Vec::new(),
             awaits: Vec::new(),
         }
@@ -588,11 +589,13 @@ type LaidOut<'a> = (&'a str, &'a str, Vec<(&'a str, &'a DataType)>);
 
 #[test]
 fn a_block_holds_the_pous_sequence_and_its_children_in_the_blocks_order() {
-    // RU-71 and RU-72: the POU's sequence is the one no other awaits, `run`; the children follow in
-    // the block's order, `settle` before `fill`. The POU's state holds a field for each child after
-    // its locals, of the child's own state, `FILLER_SEQ_SETTLE` and `FILLER_SEQ_FILL`, each laid out
-    // as a sequence's state. Catches a child taken for the POU's sequence, children in the order of
-    // their awaits, and a child's state the POU's state would not hold.
+    // RU-71 to RU-73: the POU's sequence is the one no other awaits, `run`; the children follow in
+    // the block's order, `settle` before `fill`. The POU's state holds the block's shape,
+    // shape_eb6a7681, computed independently from run's lines, `child settle` and settle's lines,
+    // `child fill` and fill's lines, and a field for each child after its locals, of the child's own
+    // state, `FILLER_SEQ_SETTLE` and `FILLER_SEQ_FILL`, laid out as a sequence's state without a
+    // shape. Catches a child taken for the POU's sequence, children in the order of their awaits, a
+    // child's state the POU's state would not hold, and a shape that a child's change would keep.
     let block = crate::sequence::block(&filler()).expect("the block reads");
     assert_eq!(block.owner, "Filler");
     assert_eq!(block.sequence.name, "run");
@@ -636,7 +639,7 @@ fn a_block_holds_the_pous_sequence_and_its_children_in_the_blocks_order() {
                 vec![
                     ("point", &uint),
                     ("began", &time),
-                    ("shape_f0f8592b", &boolean),
+                    ("shape_eb6a7681", &boolean),
                     ("settle", &settle),
                     ("fill", &fill)
                 ]
@@ -644,21 +647,12 @@ fn a_block_holds_the_pous_sequence_and_its_children_in_the_blocks_order() {
             (
                 "FILLER_SEQ_SETTLE",
                 "FillerSequenceSettle",
-                vec![
-                    ("point", &uint),
-                    ("began", &time),
-                    ("shape_f2f1bb94", &boolean),
-                    ("ticks", &int)
-                ]
+                vec![("point", &uint), ("began", &time), ("ticks", &int)]
             ),
             (
                 "FILLER_SEQ_FILL",
                 "FillerSequenceFill",
-                vec![
-                    ("point", &uint),
-                    ("began", &time),
-                    ("shape_2850a962", &boolean)
-                ]
+                vec![("point", &uint), ("began", &time)]
             ),
         ]
     );
@@ -712,7 +706,7 @@ fn a_block_whose_sequences_cannot_run_as_one_is_refused() {
                 async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.fill(s).await?; Ok(()) }
                 async fn fill(&mut self, s: &mut Seq, n: i16) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
             } },
-            "takes no parameter but its context",
+            "passes 0 argument(s) after the context to the child sequence `fill`, which takes 1",
         ),
         (
             parse_quote! { impl Cell {
@@ -950,4 +944,91 @@ fn a_sequences_shape_changes_with_its_wait_points_and_locals_and_with_nothing_el
     for changed in [added, renamed, retyped] {
         assert_ne!(changed, running);
     }
+}
+
+#[test]
+fn a_childs_parameters_are_variables_of_its_state_before_its_locals() {
+    // RU-71 and RU-72: the child `go` takes `goal: f64` after its context; the parameter is a
+    // variable of its state before the local `tries`, and the child's state has no shape, the POU's
+    // state's alone (RU-73). The POU's sequence passes the one argument. Catches a parameter left out
+    // of the state, which the wait would lose.
+    let block = crate::sequence::block(&parse_quote! { impl Shuttle {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            loop {
+                self.go(s, 10.0).await?;
+                self.go(s, 0.0).await?;
+            }
+        }
+        async fn go(&mut self, s: &mut Seq, goal: f64) -> Result<(), Fault> {
+            let mut tries: i16 = 0;
+            self.target = goal;
+            s.until(|me: &Self| me.arrived).await;
+            tries = 1;
+            Ok(())
+        }
+    } })
+    .expect("the block reads");
+    let go = &block.children[0];
+    assert_eq!(
+        go.parameters,
+        [Local {
+            name: "goal".into(),
+            ty: DataType::Elementary(Elementary::Lreal),
+        }]
+    );
+    let states = crate::sequence::states("SHUTTLE", "Shuttle", &block);
+    let names: Vec<&str> = states[1]
+        .fields
+        .iter()
+        .map(|field| field.name.as_str())
+        .collect();
+    assert_eq!(names, ["point", "began", "goal", "tries"]);
+}
+
+#[test]
+fn a_parameter_or_an_argument_the_child_cannot_take_is_refused() {
+    // RU-72's refusals for a child's parameters, each with the words of its message. Catches a POU
+    // sequence its activation could not call, an argument with no parameter to set, a parameter no
+    // state field can hold, and a local the parameter would hide.
+    let cases: Vec<(syn::ItemImpl, &str)> = vec![
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq, speed: f64) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "the POU's sequence `run` takes no parameter but its context",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.go(s).await?; Ok(()) }
+                async fn go(&mut self, s: &mut Seq, goal: f64) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "passes 0 argument(s) after the context to the child sequence `go`, which takes 1",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.go(s, 1.0).await?; Ok(()) }
+                async fn go(&mut self, s: &mut Seq, (a, b): (f64, f64)) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "a child sequence's parameter is one name with its type",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.go(s, 1).await?; Ok(()) }
+                async fn go(&mut self, s: &mut Seq, Point: u16) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "cannot be named `point`",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.go(s, 1.0).await?; Ok(()) }
+                async fn go(&mut self, s: &mut Seq, goal: f64) -> Result<(), Fault> {
+                    let Goal: f64 = 0.0;
+                    s.next_cycle().await;
+                    Ok(())
+                }
+            } },
+            "a local `Goal` beside the parameter `goal`",
+        ),
+    ];
+    refused_blocks(cases);
 }

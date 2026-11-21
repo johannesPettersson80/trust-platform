@@ -2,6 +2,9 @@
 //! block, which runs as a call would and keeps a state of its own in `_seq`. Every expected value is
 //! worked out by hand from RU-72, activation by activation.
 
+// The expected values are exact, worked out by hand and compared bit for bit.
+#![allow(clippy::float_cmp)]
+
 use trust_plc::prelude::*;
 
 /// A filler that waits for a bottle, fills it in a child sequence within 100 ms, counts it and
@@ -234,6 +237,76 @@ fn a_child_that_returns_without_waiting_lets_its_parent_go_on_at_once() -> Resul
     assert_eq!(
         seen,
         [(1, 2, 0), (2, 2, 0), (2, 1, 1), (3, 2, 0), (3, 1, 1)]
+    );
+    Ok(())
+}
+
+/// A shuttle that drives to 10.0 and back to 0.0 for ever, each drive a child sequence that takes
+/// its target as a parameter, waits until the shuttle has arrived and names the target it reached.
+#[trust_program(name = "SHUTTLE", sequence = "run")]
+#[budget("60us")]
+pub struct Shuttle {
+    #[input]
+    pub arrived: bool,
+    #[output]
+    pub target: f64,
+    #[output]
+    pub reached: f64,
+    #[output]
+    pub trips: i16,
+}
+
+#[trust_sequence]
+impl Shuttle {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            self.go(s, 10.0).await?;
+            self.go(s, 0.0).await?;
+        }
+    }
+
+    async fn go(&mut self, s: &mut Seq, goal: f64) -> Result<(), Fault> {
+        self.target = goal;
+        s.until(|me: &Self| me.arrived).await;
+        self.reached = goal;
+        self.trips = checked::add(s, self.trips, 1)?;
+        Ok(())
+    }
+}
+
+#[test]
+fn a_childs_parameter_is_set_at_each_await_and_kept_across_its_wait() -> Result<(), Fault> {
+    // RU-72: activation 1 awaits go(s, 10.0): the argument sets the child's parameter, `_seq.go.goal`
+    // 10.0, the child names the target and waits, its point 1, while the shuttle waits at it,
+    // point 1. With `arrived` at activation 3 the child reads `goal` after its wait, 10.0, counts the
+    // trip and returns; the same activation awaits go(s, 0.0), which starts the child anew with
+    // `goal` 0.0, point 2. At 4, still arrived, it reaches 0.0, and the loop awaits go(s, 10.0) again.
+    // Catches an argument evaluated at every activation, a parameter lost across the wait, and a
+    // child that keeps the last await's parameter.
+    let mut cx = trust_plc::test::cx();
+    let mut shuttle = Shuttle::new();
+    let mut seen = Vec::new();
+    for activation in 1..=5 {
+        shuttle.arrived = matches!(activation, 3 | 4);
+        shuttle.call(&mut cx)?;
+        seen.push((
+            shuttle.target,
+            shuttle.reached,
+            shuttle.trips,
+            shuttle._seq.point,
+            shuttle._seq.go.goal,
+            shuttle._seq.go.point,
+        ));
+    }
+    assert_eq!(
+        seen,
+        [
+            (10.0, 0.0, 0, 1, 10.0, 1),
+            (10.0, 0.0, 0, 1, 10.0, 1),
+            (0.0, 10.0, 1, 2, 0.0, 1),
+            (10.0, 0.0, 2, 1, 10.0, 1),
+            (10.0, 0.0, 2, 1, 10.0, 1),
+        ]
     );
     Ok(())
 }

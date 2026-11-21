@@ -15,7 +15,8 @@
   and us"). 0.7, 21 November 2026: child sequences, when one runs and where its state is (RU-71,
   RU-72), decided under the same delegation. 0.8, 21 November 2026: how an online change tells that
   a sequence's wait points or locals changed, through its state's `shape_<signature>` (RU-71,
-  RU-73).
+  RU-73). 0.9, 21 November 2026: a child sequence's parameters (RU-71, RU-72, RU-73), decided under
+  the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1265,8 +1266,8 @@ stored, no executor runs, and nothing waits inside a scan: each activation runs 
 wait point to its next one and returns. The sequence's state is a variable of the instance, `_seq`,
 after the POU's own variables: its wait point `point` (0 at the top, then the wait point's number,
 RU-72), the logical time `began` of the activation that began the wait, `done` when the body holds
-an `s.all` (RU-72), `shape_<signature>`, which tells an online change whether the sequence changed
-(RU-73), and each local of the body, a variable of the same name and type, so that a local keeps its
+an `s.all` (RU-72), `shape_<signature>` in the POU's state, which tells an online change whether the
+sequence or one of its children changed (RU-73), and each local of the body, a variable of the same name and type, so that a local keeps its
 value from one activation to the next. A local names its type (`let count: i16 = 0;`),
 which the attribute cannot infer, and takes no name of the state's own fields in any case: `point`,
 `began`, and `done` in a body that holds an `s.all`. The name
@@ -1293,14 +1294,15 @@ runs at each activation; a sequence that must stop waits at its end (`loop { s.n
 
 The generated declarations (RU-23) declare `_seq` as the POU's last variable, an internal one of
 the structure `<POU>_SEQ` in the POU's namespace, whose fields are `point : UINT`, `began : TIME`,
-`done : WORD` when the body holds an `s.all`, `shape_<signature> : BOOL`, and the locals with their
+`done : WORD` when the body holds an `s.all`, `shape_<signature> : BOOL` in the POU's state, and the
+locals with their
 types; the program's code builds the state from `<struct>Sequence` and
 writes it back as it does any structure of the crate (RU-25), so that type must be reachable as
 the POU is: a POU re-exported from a private module re-exports its state's type beside it. Each
 child sequence (RU-72) has a state of its own, laid out as the POU's sequence's (`point`, `began`,
 `done` when its body holds an `s.all`, and its locals), in a field of `_seq` named as the child,
-after the POU's sequence's locals and in the order of the block's `async fn`s: the debugger shows
-`<instance>._seq.fill.point`. Its type is `<struct>Sequence<Child>` in Rust, the child's name in
+after the POU's sequence's locals and in the order of the block's `async fn`s, its parameters before
+its locals: the debugger shows `<instance>._seq.fill.point`. Its type is `<struct>Sequence<Child>` in Rust, the child's name in
 upper camel case (`PalletizerSequenceFill`), and the structure `<POU>_SEQ_<CHILD>` in the generated
 declarations, the child's name in capitals (`PALLETIZER_SEQ_FILL`). The declarations' writer
 refuses a POU whose `sequence` no `#[trust_sequence]` block of its struct holds or names a child
@@ -1330,18 +1332,22 @@ feature 2a). `let won: u16 = s.race(..).await;` keeps that member's number, from
 the members of the `s.all` that the sequence waits at that have completed, bit 0 for the first, and 0
 at every other wait point.
 
-A child sequence is another `async fn` of the same `#[trust_sequence]` block, with no parameter but
-the context (`async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault>`), which a sequence of the
-block awaits as a wait point of its own, `self.fill(s).await?;`: the child's fault is the fault of
-the sequence that awaits it. A child runs as a call would: the activation that reaches the wait
+A child sequence is another `async fn` of the same `#[trust_sequence]` block, which takes the context
+and, after it, parameters of the types a local takes (`async fn move_to(&mut self, s: &mut Seq,
+target: f64) -> Result<(), Fault>`), and which a sequence of the block awaits as a wait point of its
+own with an argument for each parameter, `self.move_to(s, 25.0).await?;`: the child's fault is the
+fault of the sequence that awaits it. A parameter is a variable of the child's state, as a local is:
+the activation that reaches the wait point evaluates the arguments once, before the child starts,
+and sets the parameters from them, which keep their values across the child's waits. A child runs as a call would: the activation that reaches the wait
 point runs the child from its top to its first wait point, and the sequence that awaits it goes on
 at the activation at which the child returns, at once when the child returns without waiting, so
 moving part of a sequence into a child changes nothing about when anything happens. While the child
 waits, the sequence that awaits it waits at that wait point, which began at the activation that
 reached it, for its `.within(t)` (`self.fill(s).within(t).await?`). Each time it is awaited, a child
-starts at its top with its state as a restart leaves it (RU-73). The POU's sequence, which its struct
-names (RU-71), is the one `async fn` of the block that no other awaits; every other is a child, and
-no sequence awaits itself, directly or through other children, as each sequence has one state.
+starts at its top with its state as a restart leaves it (RU-73), its parameters then set. The POU's
+sequence, which its struct names (RU-71), is the one `async fn` of the block that no other awaits,
+and takes no parameter, as its POU's activation runs it; every other is a child, and no sequence
+awaits itself, directly or through other children, as each sequence has one state.
 
 `.within(t)` faults at the first activation whose logical time is more than `t` after the one that
 began the wait, a wait of exactly `t` being still in time, with the wait point's number as the
@@ -1364,8 +1370,10 @@ the wait), a labelled block with a wait point in it (its `break` would leave the
 `s.until(..)` or `s.wait(..)` or that has a `.within` of its own, a value from a wait point other than
 `s.race`, a local of `s.race`'s member number whose type is not `u16`, a local without its type, two
 locals of one name in one sequence, a local that takes a name of the state's own fields (RU-71), a
-child sequence with a parameter besides the context, a child awaited without `?`, a call
-`self.name(s)` that names no `async fn` of the block, a sequence that awaits itself, directly or
+parameter of the POU's sequence, a child's parameter that is not one name with its type or that
+takes the name of a local or of the state's own fields, a child awaited with another number of
+arguments than it has parameters, a child awaited without `?`, a call `self.name(s, ..)` that names
+no `async fn` of the block, a sequence that awaits itself, directly or
 through other children, two `async fn`s of a block that no other awaits, a child whose name is no
 IEC identifier, is a reserved word, begins with an underscore or names a field of the state of the
 POU's sequence (`point`, `began`, `done`, a local, another child) in any case, and a variable of the
@@ -1379,17 +1387,20 @@ locals across them, and otherwise starts the sequence at its top and says so in 
 (specification 44 §12).
 
 The state's member `shape_<signature> : BOOL` carries this, with no rule of its own in the change:
-`<signature>` is eight hexadecimal digits of the 32-bit FNV-1a hash of a line per wait point, `wait
-<step>` with its step's name or `wait #<number>`, and a line per local, `local <name>: <type>` with
-its name in small letters and its IEC type, in the body's order, each line ending in a line feed.
+`<signature>` is eight hexadecimal digits of the 32-bit FNV-1a hash of the lines of the POU's
+sequence and then of each child sequence in the block's order, each child's after a line `child
+<name>`. A sequence's lines are a line per wait point, `wait <step>` with its step's name or `wait
+#<number>`, a line per parameter of a child, `parameter <name>: <type>`, and a line per local, `local
+<name>: <type>`, each name in small letters and each type its IEC type, in the body's order, each line
+ending in a line feed.
 The member starts `FALSE`, and an activation that finds it `FALSE` starts the sequence at its top,
 with the state as a restart leaves it, and sets it. A change carries it by its name, as any variable
 (specification 44 §12.2): when the wait points and the locals are the same, so is its name, and the
 state goes on as the change carried it; when they changed, the member is new, `FALSE`, which the
 change's report lists as a new variable, `<instance>._seq.shape_<signature>`, and the sequence's next
-activation starts it at its top. Each child sequence has a shape of its own in its state, so a change
-of a child starts that child at its top, the next time it runs, and a change of the POU's sequence
-starts the whole sequence, its children's states with it.
+activation starts it at its top, its children's states with it. Only the POU's state has the member:
+a change of a child starts the whole sequence at its top, as the sequence that awaits the child
+evaluated the child's arguments when it started it and would not evaluate them again.
 
 ## 16. The toolchain and the user's own Rust
 

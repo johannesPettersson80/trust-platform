@@ -4,16 +4,15 @@
 //! sequences that no other awaits, a child's name no field of `_seq` can take, and a loop that a
 //! child which can return without waiting would let run without a wait point.
 
-use proc_macro2::Span;
 use syn::ext::IdentExt as _;
 use syn::spanned::Spanned;
 use syn::{Error, ImplItem, ImplItemFn, ItemImpl, Type};
 
-use super::{leaks, Block, Sequence, DONE};
+use super::{leaks, Awaited, Block, Sequence, DONE};
 
-/// A sequence of the block as [`sequence`](super::sequence) reads it, with the place of each child
-/// sequence's name where it is awaited.
-type Read = (Sequence, Vec<(String, Span)>);
+/// A sequence of the block as [`sequence`](super::sequence) reads it, with the child sequences its
+/// wait points await.
+type Read = (Sequence, Vec<Awaited>);
 
 /// Reads the `#[trust_sequence]` block `item`: the POU's sequence, the one `async fn` that no other
 /// awaits, and the child sequences in the block's order (RU-71, RU-72).
@@ -88,14 +87,30 @@ fn owner(item: &ItemImpl) -> Result<String, Error> {
 /// directly or through other children: each sequence has one state.
 fn awaits_its_children(read: &[Read]) -> Result<(), Error> {
     for (sequence, children) in read {
-        for (child, place) in children {
-            if !read.iter().any(|(other, _)| other.name == *child) {
+        for Awaited {
+            child,
+            place,
+            arguments,
+        } in children
+        {
+            let Some((awaited, _)) = read.iter().find(|(other, _)| other.name == *child) else {
                 return Err(Error::new(
                     *place,
                     format!(
                         "`self.{child}(..)` awaits no sequence of this block: a child sequence is \
                          an `async fn` of the same `#[trust_sequence]` block (specification 48 \
                          RU-72)"
+                    ),
+                ));
+            };
+            if awaited.parameters.len() != *arguments {
+                return Err(Error::new(
+                    *place,
+                    format!(
+                        "`self.{child}(..)` passes {arguments} argument(s) after the context to the \
+                         child sequence `{child}`, which takes {} parameter(s) (specification 48 \
+                         RU-72)",
+                        awaited.parameters.len()
                     ),
                 ));
             }
@@ -144,6 +159,22 @@ fn pou_sequence(
                  the one `async fn` that no other awaits, and every other a child that a sequence of \
                  the block awaits (specification 48 RU-72)",
                 first.name, other.name
+            ),
+        ));
+    }
+    if !first.parameters.is_empty() {
+        let place = functions
+            .iter()
+            .zip(read)
+            .find(|(_, (sequence, _))| sequence.name == first.name)
+            .and_then(|(function, _)| function.sig.inputs.iter().nth(2))
+            .map_or(item.impl_token.span(), Spanned::span);
+        return Err(Error::new(
+            place,
+            format!(
+                "the POU's sequence `{}` takes no parameter but its context: the POU's activation \
+                 runs it (specification 48 RU-72)",
+                first.name
             ),
         ));
     }

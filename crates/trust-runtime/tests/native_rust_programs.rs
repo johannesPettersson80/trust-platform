@@ -801,3 +801,113 @@ fn an_online_change_keeps_a_sequence_with_its_wait_points_and_restarts_one_witho
         "at 240 ms, the added wait"
     );
 }
+
+/// A shuttle whose sequence drives to 10.0 and back, each drive a child sequence that takes its
+/// target as a parameter.
+const SHUTTLE: &str = "
+/// Drives to 10.0 and back, each drive a child that takes its target.
+#[trust_program(name = \"SHUTTLE\", sequence = \"run\")]
+#[budget(\"60us\")]
+pub struct Shuttle {
+    #[input]
+    pub arrived: bool,
+    #[output]
+    pub target: f64,
+    #[output]
+    pub trips: i16,
+}
+
+#[trust_sequence]
+impl Shuttle {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            self.go(s, 10.0).await?;
+            self.go(s, 0.0).await?;
+        }
+    }
+
+    async fn go(&mut self, s: &mut Seq, goal: f64) -> Result<(), Fault> {
+        self.target = goal;
+        s.until(|me: &Self| me.arrived).await;
+        self.trips = checked::add(s, self.trips, 1)?;
+        Ok(())
+    }
+}
+";
+
+/// The configuration that runs SHUTTLE every 10 ms, its input and outputs connected to globals.
+const SHUTTLING: &str = "CONFIGURATION Line
+VAR_GLOBAL
+    arrived : BOOL;
+    target : LREAL;
+    trips : INT;
+END_VAR
+RESOURCE Station ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Cell WITH Fast : SHUTTLE(arrived := arrived, target => target, trips => trips);
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_configuration_runs_a_child_sequence_with_its_parameter() {
+    // Specification 48 RU-71 and RU-72 in a project: the generated SHUTTLE_SEQ_GO holds the child's
+    // parameter `goal`, and the program's code passes it. At 0 ms the shuttle awaits go(s, 10.0): the
+    // child's `goal` is 10.0, it sets the target and waits, the shuttle at its point 1. Arrived before
+    // 10 ms: the child counts the trip and returns, and the same activation awaits go(s, 0.0), `goal`
+    // 0.0, point 2. At 20 ms, still arrived, the second trip, and go(s, 10.0) again, point 1.
+    // Catches a parameter the declaration lays out apart from the macro's, and an argument that does
+    // not reach the child.
+    let root = custom_project(
+        "rust-sequence-parameter",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &format!("{ROOT}{SHUTTLE}")),
+        ],
+        SHUTTLING,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let scan = |program: &mut trust_runtime::native::NativeProgram<
+        '_,
+        trust_runtime::native::HostCode,
+    >,
+                time: i64| {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    };
+    let shuttle =
+        |program: &trust_runtime::native::NativeProgram<'_, trust_runtime::native::HostCode>| {
+            (
+                program.value("CELL._SEQ.POINT"),
+                program.value("CELL._SEQ.GO.GOAL"),
+                program.value("TARGET"),
+                program.value("TRIPS"),
+            )
+        };
+    let state = |point: u16, goal: f64, target: f64, trips: i16| {
+        (
+            Some(Value::UInt(point)),
+            Some(Value::LReal(goal)),
+            Some(Value::LReal(target)),
+            Some(Value::Int(trips)),
+        )
+    };
+    scan(&mut program, 0);
+    assert_eq!(shuttle(&program), state(1, 10.0, 10.0, 0), "at 0 ms");
+    let (arrived, _) = program
+        .image()
+        .find_symbol("ARRIVED")
+        .expect("the symbol of arrived");
+    program
+        .write_symbol(arrived, &Value::Bool(true))
+        .expect("the shuttle arrives");
+    scan(&mut program, 10);
+    assert_eq!(shuttle(&program), state(2, 0.0, 0.0, 1), "at 10 ms");
+    scan(&mut program, 20);
+    assert_eq!(shuttle(&program), state(1, 10.0, 10.0, 2), "at 20 ms");
+}

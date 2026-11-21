@@ -149,7 +149,7 @@ fn statement_leaks(statement: &Stmt, waits: Waits<'_>) -> Leaks {
 fn expression_leaks(expression: &Expr, waits: Waits<'_>) -> Leaks {
     if let Some(waited) = awaited(expression) {
         return match child_called(&waited.base) {
-            Some(child) if !waits(&child.unraw().to_string()) => Leaks::through(),
+            Some((child, _)) if !waits(&child.unraw().to_string()) => Leaks::through(),
             _ => Leaks::default(),
         };
     }
