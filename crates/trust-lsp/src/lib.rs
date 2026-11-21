@@ -19,6 +19,7 @@ pub mod hmi_agent_mcp;
 mod index_cache;
 mod library_docs;
 mod library_graph;
+pub mod lifecycle;
 pub mod mcp;
 #[cfg(test)]
 #[allow(unsafe_code)]
