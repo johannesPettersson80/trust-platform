@@ -121,8 +121,8 @@ fn published_endpoint(project: &Path, name: &str) -> Result<String, ServiceError
     match read_endpoint_file(project) {
         Ok(Some(file)) => Ok(file.endpoint),
         Ok(None) => Err(settings(format!(
-            "[services.{name}] names no endpoint, and the project's runtime is not running: no \
-             endpoint file at {}",
+            "[services.{name}] names no endpoint, and no runtime of the project has published one: \
+             no endpoint file at {}",
             endpoint_file_path(project).display()
         ))),
         Err(error) => Err(settings(format!(

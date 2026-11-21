@@ -76,8 +76,8 @@ fn a_missing_setting_is_named_with_what_to_do() {
     assert_eq!(
         refusal(&no_endpoint, "recipe"),
         format!(
-            "[services.recipe] names no endpoint, and the project's runtime is not running: no \
-             endpoint file at {}",
+            "[services.recipe] names no endpoint, and no runtime of the project has published one: \
+             no endpoint file at {}",
             no_endpoint
                 .join(".trust-runtime")
                 .join("control.json")

@@ -1039,9 +1039,11 @@ client finds it there: every running runtime publishes the endpoint it bound, it
 with the free port chosen at its start included, so a project's service needs no endpoint of its
 own, and its runtime needs no TCP endpoint and no token in the project's files. The service still
 presents its own service token, never the token its runtime generated. Without `endpoint`, a project
-whose runtime has published no endpoint file is refused with `[services.<name>] names no endpoint,
-and the project's runtime is not running: no endpoint file at <file>`, and one whose endpoint file
-does not read with the reason; a service that names its runtime's endpoint is never sent elsewhere. A connection answers one request at a time. `Service::read` gives one
+whose runtime has published no endpoint file, as when it is not running or could not write the file
+(specification 11 §6.8.0a, `control_endpoint_file_unavailable`), is refused with `[services.<name>]
+names no endpoint, and no runtime of the project has published one: no endpoint file at <file>`, and
+one whose endpoint file does not read with the reason; a service that names its runtime's endpoint
+is never sent elsewhere. A connection answers one request at a time. `Service::read` gives one
 completed scan's values with the scan's number, its logical time, the resource's state and the
 quality, each value read as a Rust value of its declared type (`bool`, the integers, `f32` and
 `f64`, `String` and, from a `TIME` or an `LTIME`, `Duration`); `Service::write` writes a set of

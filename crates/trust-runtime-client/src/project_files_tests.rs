@@ -5,7 +5,9 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::project_files::{endpoint_file_path, read_endpoint_file, EndpointFile, EndpointFileError};
+use crate::project_files::{
+    endpoint_file_path, read_endpoint_file, EndpointFile, EndpointFileError,
+};
 
 /// A new, empty project folder.
 fn project() -> PathBuf {
