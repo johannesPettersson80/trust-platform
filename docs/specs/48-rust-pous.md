@@ -17,7 +17,9 @@
   a sequence's wait points or locals changed, through its state's `shape_<signature>` (RU-71,
   RU-73). 0.9, 21 November 2026: a child sequence's parameters (RU-71, RU-72, RU-73), decided under
   the same delegation. 0.10, 21 November 2026: child sequences as members of `s.all` and `s.race`
-  (RU-72), decided under the same delegation.
+  (RU-72), decided under the same delegation. 0.11, 21 November 2026: `trust-dev rust bench`'s
+  cases, its run and its record, what makes a measurement current and what a `production` build
+  does with it (RU-48, Appendix B), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -900,10 +902,58 @@ a caller fills) or through `SUPER^` runs that type's body. `trust-runtime build`
 warning.
 
 **RU-48. Evidence.** `trust-dev rust bench` runs each Rust POU of the project on a device or the
-simulator with the inputs of its `#[bench]` cases (or the declared initial values) and records the
-longest time of each into `trust.toml` `[timing.measured]`, with the device's identity and the
+simulator with the inputs of its `#[bench_case]` cases (or the declared initial values) and records
+the longest time of each into `trust.toml` `[timing.measured]`, with the device's identity and the
 image's hash. A `production` profile requires a measurement no older than the image for every Rust
 POU on the deployment's device type, and uses the larger of declared and measured in RU-47's sum.
+In detail:
+
+- **Cases.** A Rust function, function block, method or program takes `#[bench_case(...)]`, one
+  attribute for each case, below or above its POU's attribute as `#[budget]` is:
+  `#[bench_case(x = 1.0e6, alpha = 0.001)]`. The attribute is not called `bench`, as this
+  specification first had it: `bench` is Rust's own benchmark attribute, which the prelude's glob
+  import cannot shadow. A case gives values to inputs of the POU, a function's or a method's
+  parameters and a function block's or a program's `#[input]` fields, and, except for a program,
+  whose instances the configuration declares, to its in-outs, whose variable the bench provides;
+  each value is written as `#[init(...)]` writes it (RU-26). An input or in-out that the
+  case does not name takes its declared initial value, and a POU without a case is measured with
+  one case of its declared initial values. The build refuses a case that names anything else, a
+  name twice, or a value its type cannot take, at the case's line.
+- **The run.** `trust-dev rust bench` builds the project's program with its crate as a debug image,
+  in which each Rust POU's longest call is recorded (RU-49), and runs it in the simulator, on the
+  computer, or with `--device <endpoint>` on a device, as `trust-dev test` runs the project's tests
+  (specification 22). Each case calls its POU once a scan for 1,000 scans, or `--scans <n>`, on one
+  instance, so that a function block keeps its state from one call to the next as on the PLC: a
+  function's or a function block's case from a test program the bench generates, a method's on an
+  instance of its block at its declared initial values, and a program's on each instance that the
+  project's configuration declares, with the case's inputs written into the instance before each
+  scan of its task. The bench measures the methods that Structured Text can call, `PUBLIC` and
+  `INTERNAL` ones; a `PRIVATE` or `PROTECTED` method of a Rust function block is called only by
+  its block's Rust code, since no Structured Text extends a Rust block (RU-34), so its time is
+  part of its caller's and it has no measurement of its own. A POU's measured time is its longest
+  call over all its cases. A case whose call ends with a fault measures nothing: the command names
+  the case and the fault and records no time for its POU. The command also names each POU whose
+  longest call exceeds its budget for the target (RU-46).
+- **The record.** For each POU it measured, the command writes the entry of the target it ran on
+  into `[timing.measured]`, keyed as `[timing.budgets]` is (a method by its block's and its own
+  name, `"AXIS.JOG"`): `longest`, the measured time in nanoseconds; `code`, the hash of the code it
+  measured (below), which identifies the image; and `device`, where it ran: `computer` in the
+  simulator, and on a device the runtime ID that its `status` reports. The command keeps every other
+  entry and every comment of the file.
+- **A current measurement.** `code` is the SHA-256 of what the image is built from: the project's
+  Structured Text sources, the files of its crate that cargo reads (its `Cargo.toml`, its
+  `Cargo.lock` and the files below `src/`), the version of the bundle, which fixes the SDK, the
+  vendored crates and the pinned `rustc` (§16), and the target. The bench's generated test programs
+  and the choice of a debug or a release image are no part of it, so that the image the bench
+  measures and the image a deployment builds have the same `code`; a change to any of these files
+  makes the measurement older than the image. A build computes it from the same files. The
+  deployment's device type is the build's target.
+- **Production.** In a `production` profile (RU-47) the build refuses the image when a Rust POU of
+  the crate, or a method of one that Structured Text can call, has no current measurement for the
+  build's target, and names each such POU and the command that measures it,
+  `trust-dev rust bench`, with `--device` for a device's target. RU-47's sum then takes for each
+  Rust POU the larger of its budget for the target (RU-46) and its measured time. A `development`
+  profile neither requires measurements nor uses them.
 
 **RU-49. On the device.** The kernel measures each Rust POU's call time in a debug image and reports a call that exceeds its declared budget as the event
 `rust_budget_exceeded` with the POU's name, the time and the budget (specification 11's events),
@@ -1669,6 +1719,7 @@ profile = "development"         # or "production" (RU-47)
 [timing.budgets]                # lower a POU's budget for a target (RU-46)
 "FILTER_EMA" = { "riscv32imac-unknown-none-elf" = "40us" }
 [timing.measured]               # written by `trust-dev rust bench` (RU-48)
+"FILTER_EMA" = { "riscv32imac-unknown-none-elf" = { longest = 31250, code = "9c41…", device = "a3f0c2d9" } }
 
 [services.recipe]               # tier 3 (§13): the global recipe_heartbeat (RU-63)
 package = "recipe-service"      # the Cargo package of the service

@@ -42,7 +42,7 @@ fn instance_pou(
     };
     let pou = read(args, &parsed);
     let checked = values(&field_values(&parsed));
-    remove_budget(&mut parsed.attrs);
+    remove_read_only(&mut parsed.attrs);
     if let Fields::Named(fields) = &mut parsed.fields {
         for field in &mut fields.named {
             field
@@ -99,7 +99,8 @@ fn runs(item: &mut ItemStruct, sequence: &str) -> TokenStream {
     }
 }
 
-/// `#[trust_function]`: the function as written, without its budget, which only the reader reads.
+/// `#[trust_function]`: the function as written, without its budget and bench cases, which only the
+/// reader reads.
 pub(crate) fn function(args: TokenStream, item: TokenStream) -> TokenStream {
     let Ok(mut parsed) = syn::parse2::<ItemFn>(item.clone()) else {
         return refused(
@@ -109,7 +110,7 @@ pub(crate) fn function(args: TokenStream, item: TokenStream) -> TokenStream {
     };
     let pou = trust_plc_decl::function(args, &parsed);
     check_in_body(&mut parsed.block, &parsed.sig);
-    remove_budget(&mut parsed.attrs);
+    remove_read_only(&mut parsed.attrs);
     match pou {
         Ok(_) => quote! { #parsed },
         Err(error) => {
@@ -119,7 +120,8 @@ pub(crate) fn function(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-/// `#[trust_method]`: the method as written, without its budget, which only the reader reads.
+/// `#[trust_method]`: the method as written, without its budget and bench cases, which only the
+/// reader reads.
 pub(crate) fn method(args: TokenStream, item: TokenStream) -> TokenStream {
     let Ok(mut parsed) = syn::parse2::<ImplItemFn>(item.clone()) else {
         return refused(
@@ -131,7 +133,7 @@ pub(crate) fn method(args: TokenStream, item: TokenStream) -> TokenStream {
     let method = trust_plc_decl::method(args, &parsed);
     let sig = parsed.sig.clone();
     check_in_body(&mut parsed.block, &sig);
-    remove_budget(&mut parsed.attrs);
+    remove_read_only(&mut parsed.attrs);
     match method {
         Ok(_) => quote! { #parsed },
         Err(error) => {
@@ -307,6 +309,34 @@ pub(crate) fn budget(args: &TokenStream, item: TokenStream) -> TokenStream {
     parsed.into_token_stream()
 }
 
+/// `#[bench_case]` written above the POU's attribute expands first: it puts itself below that
+/// attribute, which reads it, after the cases already there, so that the cases keep their order.
+/// Without a POU's attribute it is refused.
+pub(crate) fn bench_case(args: &TokenStream, item: TokenStream) -> TokenStream {
+    const ALONE: &str = "`#[bench_case]` gives a Rust POU or method a case to measure it with: \
+                         write it with `#[trust_fb]`, `#[trust_function]`, `#[trust_program]` or \
+                         `#[trust_method]` (specification 48 RU-48)";
+    let Ok(mut parsed) = syn::parse2::<Item>(item.clone()) else {
+        return refused(ALONE, item);
+    };
+    let attributes = match &mut parsed {
+        Item::Struct(item) => &mut item.attrs,
+        Item::Fn(item) => &mut item.attrs,
+        _ => return refused(ALONE, item),
+    };
+    if !attributes.iter().any(|attribute| {
+        trust_plc_decl::declared_kind(attribute).is_some() || trust_plc_decl::is_method(attribute)
+    }) {
+        return refused(ALONE, item);
+    }
+    if args.is_empty() {
+        attributes.push(syn::parse_quote!(#[bench_case]));
+    } else {
+        attributes.push(syn::parse_quote!(#[bench_case(#args)]));
+    }
+    parsed.into_token_stream()
+}
+
 /// The paths `st::X` that `ty` names (specification 48 RU-39), through generic arguments,
 /// references, arrays and tuples: the types of the project's Structured Text it holds as values.
 /// The `st::X` that a `Ref<...>` names directly is left out, since a reference may name a function
@@ -430,8 +460,11 @@ fn refused(message: &str, item: TokenStream) -> TokenStream {
     expansion
 }
 
-fn remove_budget(attributes: &mut Vec<Attribute>) {
-    attributes.retain(|attribute| !trust_plc_decl::is_budget(attribute));
+/// Removes the attributes that only the reader reads: `#[budget]` and `#[bench_case]`.
+fn remove_read_only(attributes: &mut Vec<Attribute>) {
+    attributes.retain(|attribute| {
+        !trust_plc_decl::is_budget(attribute) && !trust_plc_decl::is_bench_case(attribute)
+    });
 }
 
 /// A function block's `new`, `call` and the call of the generated code.
