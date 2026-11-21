@@ -8,6 +8,12 @@
 
 use crate::{rust_fault, Cx, Fault, Str, Time};
 
+/// The context of a sequence's wait points, `s: &mut Seq` (RU-70): the POU's own context, so that
+/// the sequence's plain code passes `s` where a function or a block call needs the context, and
+/// `#[trust_sequence]` turns `s.next_cycle()`, `s.until(..)`, `s.wait(..)` and `.within(..)` into
+/// the state machine's steps.
+pub type Seq = Cx;
+
 /// Where a sequence stands: the wait point it waits at, numbered from 1 in the order of the
 /// sequence's body and 0 at its top, and the logical time of the activation that began the wait.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -51,7 +57,7 @@ impl Waiting {
     }
 }
 
-/// Names the step the sequence is in, in the step output `output`: `s.step(&mut self.step, "GRIP")`.
+/// Names the step the sequence is in, in the step output `output`: `s.step(&mut self.active_step, "GRIP")`.
 /// A name longer than the output keeps its longest prefix of whole characters.
 pub fn step<const N: usize>(output: &mut Str<N>, name: &str) {
     output.set(name);

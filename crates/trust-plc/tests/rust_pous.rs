@@ -420,3 +420,246 @@ fn a_programs_call_runs_its_body_as_a_blocks_does() -> Result<(), Fault> {
     assert_eq!((axis.command, axis.runs), (6.0, 2));
     Ok(())
 }
+
+/// RU-70's palletizer: a part arrives, the gripper closes within 2 s, it holds the part 500 ms
+/// and lets it go, and the sequence waits for the next part.
+#[trust_program(name = "PALLETIZER", sequence = "run")]
+#[budget("80us")]
+pub struct Palletizer {
+    #[input]
+    pub part_present: bool,
+    #[input]
+    pub gripper_closed: bool,
+    #[output]
+    pub close_gripper: bool,
+    #[output]
+    pub active_step: Str<16>,
+}
+
+#[trust_sequence]
+impl Palletizer {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.step(&mut self.active_step, "WAIT_PART");
+            s.until(|me: &Self| me.part_present).await;
+            s.step(&mut self.active_step, "GRIP");
+            self.close_gripper = true;
+            s.until(|me: &Self| me.gripper_closed)
+                .within(Time::from_millis(s, 2_000)?)
+                .await?;
+            s.wait(Time::from_millis(s, 500)?).await;
+            self.close_gripper = false;
+        }
+    }
+}
+
+/// The palletizer's step, its gripper output, and where its sequence waits since when.
+fn palletizer(p: &Palletizer) -> (Option<&str>, bool, u16, i64) {
+    (
+        p.active_step.as_str(),
+        p.close_gripper,
+        p._seq.point,
+        p._seq.began.as_nanos() / 1_000_000,
+    )
+}
+
+#[test]
+fn the_palletizer_runs_its_sequence_activation_by_activation() -> Result<(), Fault> {
+    // RU-70 to RU-72, every 10 ms. At 0 ms the top names WAIT_PART and begins the wait for a part,
+    // wait point 1. The part comes at 20 ms, a later activation: GRIP, the gripper commanded, and
+    // the wait for it, point 2, begun at 20 ms. It closes at 40 ms, 20 ms into its 2 s: the wait of
+    // 500 ms, point 3, begins at 40 ms and is over at 540 ms, when the gripper lets go and the
+    // sequence waits for a part again, point 1 begun at 540 ms. The part is still there, but a wait
+    // completes at a later activation, never at the one that began it: GRIP at 550 ms. Catches a
+    // wait that completes at once, a wait of 500 ms that ends a cycle early or late, and a loop that
+    // does not go round.
+    let mut cx = trust_plc::test::task(Time::from_nanos(10_000_000));
+    let mut p = Palletizer::new();
+    p.call(&mut cx)?;
+    assert_eq!(palletizer(&p), (Some("WAIT_PART"), false, 1, 0), "at 0 ms");
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        palletizer(&p),
+        (Some("WAIT_PART"), false, 1, 0),
+        "at 10 ms, no part"
+    );
+    p.part_present = true;
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        palletizer(&p),
+        (Some("GRIP"), true, 2, 20),
+        "at 20 ms, the part"
+    );
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        palletizer(&p),
+        (Some("GRIP"), true, 2, 20),
+        "at 30 ms, still open"
+    );
+    p.gripper_closed = true;
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        palletizer(&p),
+        (Some("GRIP"), true, 3, 40),
+        "at 40 ms, closed"
+    );
+    for _ in 0..49 {
+        trust_plc::test::advance(&mut cx);
+        p.call(&mut cx)?;
+    }
+    assert_eq!(
+        palletizer(&p),
+        (Some("GRIP"), true, 3, 40),
+        "at 530 ms, 490 ms held"
+    );
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        palletizer(&p),
+        (Some("WAIT_PART"), false, 1, 540),
+        "at 540 ms, 500 ms held"
+    );
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        palletizer(&p),
+        (Some("GRIP"), true, 2, 550),
+        "at 550 ms, the next part"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_wait_that_outlasts_its_within_faults_with_its_point_and_times() -> Result<(), Fault> {
+    // RU-72 and Appendix A: the wait for the gripper, point 2, begins at 10 ms. At 2010 ms it has
+    // lasted exactly its 2 s, still in time; at 2020 ms it has lasted 2010 ms, and the activation
+    // faults with RustFault and the numbers [2, 2000, 2010]. The faulted call leaves the instance
+    // as it was (RU-28): still waiting at point 2 since 10 ms, the gripper still commanded. Catches
+    // a limit that faults at the limit, numbers of another wait point or time, and a fault that
+    // keeps half of the activation's changes.
+    let mut raw = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    raw.interval_ns = 10_000_000;
+    let mut cx = trust_plc::__private::enter(&raw);
+    let mut p = Palletizer::new();
+    p.call(&mut cx)?;
+    p.part_present = true;
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(palletizer(&p), (Some("GRIP"), true, 2, 10), "at 10 ms");
+    for _ in 0..200 {
+        trust_plc::test::advance(&mut cx);
+        p.call(&mut cx)?;
+    }
+    assert_eq!(
+        palletizer(&p),
+        (Some("GRIP"), true, 2, 10),
+        "at 2010 ms, exactly 2 s"
+    );
+    trust_plc::test::advance(&mut cx);
+    let fault = p.call(&mut cx).expect_err("at 2020 ms, 2010 ms waited");
+    let _ = trust_plc::__private::leave(cx, &mut raw);
+    assert_eq!(fault.raw(), FaultCode::RustFault as u32);
+    assert_eq!(raw.fault.detail, [2, 2000, 2010]);
+    assert_eq!(
+        palletizer(&p),
+        (Some("GRIP"), true, 2, 10),
+        "after the fault"
+    );
+    Ok(())
+}
+
+/// A counter whose sequence counts up to `limit`, a cycle a step, telling even from odd with a
+/// wait in each branch, then counts `value` down a cycle a step, counts the round and ends.
+#[trust_fb(name = "COUNTER_SEQUENCE", sequence = "count")]
+#[budget("20us")]
+pub struct CounterSequence {
+    #[input]
+    pub limit: i16,
+    #[output]
+    pub value: i16,
+    #[output]
+    pub even: bool,
+    #[output]
+    pub rounds: i16,
+}
+
+#[trust_sequence]
+impl CounterSequence {
+    async fn count(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        if self.limit <= 0 {
+            return Ok(());
+        }
+        let mut n: i16 = 0;
+        loop {
+            n = checked::add(s, n, 1)?;
+            self.value = n;
+            if n >= self.limit {
+                break;
+            }
+            if n & 1 == 0 {
+                self.even = true;
+                s.next_cycle().await;
+            } else {
+                self.even = false;
+                s.next_cycle().await;
+            }
+        }
+        while self.value > 0 {
+            self.value = checked::sub(s, self.value, 1)?;
+            s.next_cycle().await;
+        }
+        self.rounds = checked::add(s, self.rounds, 1)?;
+        Ok(())
+    }
+}
+
+/// The counter's outputs, where its sequence waits, and its local `n`.
+fn counter(c: &CounterSequence) -> (i16, bool, i16, u16, i16) {
+    (c.value, c.even, c.rounds, c._seq.point, c._seq.n)
+}
+
+#[test]
+fn a_sequence_keeps_its_locals_and_runs_its_loops_branches_and_end() -> Result<(), Fault> {
+    // RU-71 and RU-72 with `limit` 3. The wait points are numbered in the body's order: 1 in the
+    // even branch, 2 in the odd one, 3 in the count down. Activation 1 counts n to 1, odd, and
+    // waits at 2; 2 counts to 2, even, at 1; 3 counts to 3 = limit and leaves the loop, then counts
+    // `value` down to 2 and waits at 3; 4 and 5 count it to 1 and 0; 6 leaves the `while`, counts
+    // the round and ends, so the sequence is at its top again (point 0); 7 starts again from n = 0.
+    // The local n keeps its value from one activation to the next in `_seq.n`. Catches a local
+    // that starts again at each activation, a `break` that does not leave its loop, a branch that
+    // resumes at the other branch's wait point, and a sequence that stays at its end.
+    let mut cx = trust_plc::test::cx();
+    let mut c = CounterSequence::new();
+    c.limit = 3;
+    let expected = [
+        (1, false, 0, 2, 1),
+        (2, true, 0, 1, 2),
+        (2, true, 0, 3, 3),
+        (1, true, 0, 3, 3),
+        (0, true, 0, 3, 3),
+        (0, true, 1, 0, 3),
+        (1, false, 1, 2, 1),
+    ];
+    for (activation, expected) in expected.into_iter().enumerate() {
+        c.call(&mut cx)?;
+        assert_eq!(counter(&c), expected, "activation {}", activation + 1);
+    }
+    Ok(())
+}
+
+#[test]
+fn a_sequence_that_returns_starts_again_at_its_top() -> Result<(), Fault> {
+    // RU-71: with `limit` 0 the body returns at its first statement, at every activation, and the
+    // sequence stays at its top without counting a round. Catches a `return` that leaves the
+    // sequence waiting where it last waited.
+    let mut cx = trust_plc::test::cx();
+    let mut c = CounterSequence::new();
+    c.call(&mut cx)?;
+    c.call(&mut cx)?;
+    assert_eq!(counter(&c), (0, false, 0, 0, 0));
+    Ok(())
+}

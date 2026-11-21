@@ -32,9 +32,9 @@ fn the_palletizer_has_three_wait_points_named_by_their_steps() {
         #[trust_sequence]
         async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
             loop {
-                s.step(&mut self.step, "WAIT_PART");
+                s.step(&mut self.active_step, "WAIT_PART");
                 s.until(|me: &Self| me.part_present).await;
-                s.step(&mut self.step, "GRIP");
+                s.step(&mut self.active_step, "GRIP");
                 self.close_gripper = true;
                 s.until(|me: &Self| me.gripper_closed)
                     .within(Time::from_secs(2))
@@ -223,4 +223,58 @@ fn a_loop_that_waits_on_every_way_through_is_taken() {
         sequence(&item).expect("the loop waits").wait_points.len(),
         3
     );
+}
+
+/// A POU's struct with `fields`, whose attribute has the arguments `args`.
+fn pou_struct(fields: &str) -> syn::ItemStruct {
+    syn::parse_str(&format!(
+        "#[budget(\"1us\")] pub struct Cell {{ {fields} }}"
+    ))
+    .expect("a struct")
+}
+
+fn arguments(text: &str) -> proc_macro2::TokenStream {
+    text.parse().expect("the arguments are tokens")
+}
+
+#[test]
+fn a_block_or_a_program_names_the_sequence_its_body_runs() {
+    // RU-71: `sequence = "run"` names the `async fn` of the POU's `#[trust_sequence]` block, by its
+    // Rust name, on a function block as on a program; a POU without it runs its own `impl Body`.
+    // Catches a reader that drops the name, so that the attribute would give the POU no state.
+    let item = pou_struct("#[input] pub start: bool");
+    let block = crate::function_block(arguments("name = \"CELL\", sequence = \"run\""), &item)
+        .expect("the block reads");
+    assert_eq!(block.sequence.as_deref(), Some("run"));
+    let program = crate::program(arguments("name = \"CELL\", sequence = \"cycle\""), &item)
+        .expect("the program reads");
+    assert_eq!(program.sequence.as_deref(), Some("cycle"));
+    let plain = crate::program(arguments("name = \"CELL\""), &item).expect("the program reads");
+    assert_eq!(plain.sequence, None);
+}
+
+#[test]
+fn a_sequence_that_is_no_rust_name_or_a_variable_named_as_the_state_is_refused() {
+    // RU-71 and RU-72: `sequence` takes a Rust name; a POU that runs a sequence may not have a
+    // variable `_seq` in any case, its state's name; a POU without one may. `implements` stays a
+    // block's. Catches a state that a variable of the user's would hide.
+    let item = pou_struct("#[input] pub start: bool");
+    let refusal = crate::program(arguments("name = \"CELL\", sequence = \"run it\""), &item)
+        .expect_err("not a name")
+        .to_string();
+    assert!(refusal.contains("`sequence = \"run\"`"), "{refusal}");
+    for field in ["_seq", "_SEQ"] {
+        let item = pou_struct(&format!("#[input] pub start: bool, {field}: i16"));
+        let refusal =
+            crate::function_block(arguments("name = \"CELL\", sequence = \"run\""), &item)
+                .expect_err("the state's name")
+                .to_string();
+        assert!(refusal.contains("its variable `_seq`"), "{refusal}");
+    }
+    let item = pou_struct("#[input] pub start: bool, _seq: i16");
+    assert!(crate::function_block(arguments("name = \"CELL\""), &item).is_ok());
+    let refusal = crate::program(arguments("name = \"CELL\", implements = \"I_RUN\""), &item)
+        .expect_err("a program's interfaces")
+        .to_string();
+    assert!(refusal.contains("belongs to `#[trust_fb]`"), "{refusal}");
 }

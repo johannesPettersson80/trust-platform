@@ -205,6 +205,27 @@ fn module_files_are_found_where_the_compiler_finds_them() {
 }
 
 #[test]
+fn a_pou_that_runs_a_sequence_is_refused_until_its_state_is_declared() {
+    // Specification 48 §15: a sequence's state `_seq` is the POU's last variable, which the
+    // generated declarations must declare for the program's code to call the POU with it (R6e).
+    // Until they do, the writer refuses the POU at its name. Catches a declaration without the
+    // state, whose program would pass the POU one variable too few.
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        (
+            "rust/src/lib.rs",
+            "use trust_plc::prelude::*;\n\n#[trust_program(name = \"CELL\", sequence = \"run\")]\n#[budget(\"10us\")]\npub struct Cell {\n    #[input] pub start: bool,\n}\n",
+        ),
+    ]);
+    let found = errors(&root);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].starts_with("rust/src/lib.rs:5:12: this POU runs a sequence"),
+        "{found:?}"
+    );
+}
+
+#[test]
 fn what_keeps_the_declarations_from_being_written_is_named_where_it_is() {
     // Catches a writer that skips a refused item or loses its place: each error names the file,
     // the line and the column, and says what to do.

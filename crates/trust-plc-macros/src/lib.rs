@@ -17,6 +17,8 @@
 #![forbid(unsafe_code)]
 
 mod expand;
+mod lower;
+mod sequence;
 
 use proc_macro::TokenStream;
 
@@ -57,6 +59,35 @@ pub fn trust_fb(args: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn trust_program(args: TokenStream, item: TokenStream) -> TokenStream {
     expand::program(args.into(), item.into()).into()
+}
+
+/// Declares the `impl` block of a POU's sequence (specification 48 §15): its `async fn`, written as
+/// straight-line Rust that awaits `s.next_cycle()`, `s.until(pred)` and `s.wait(t)`, each limited by
+/// `.within(t)` if it must be, becomes a state machine that each activation runs from its wait
+/// point to its next one (RU-71, RU-72). The POU names the sequence, `sequence = "run"`, and has no
+/// `impl Body` of its own; its last variable `_seq` holds where the sequence waits and its locals.
+/// ```ignore
+/// #[trust_program(name = "PALLETIZER", sequence = "run")]
+/// pub struct Palletizer {
+///     #[input] pub part_present: bool,
+///     #[output] pub close_gripper: bool,
+/// }
+///
+/// #[trust_sequence]
+/// impl Palletizer {
+///     async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+///         loop {
+///             s.until(|me: &Self| me.part_present).await;
+///             self.close_gripper = true;
+///             s.wait(Time::from_millis(s, 500)?).await;
+///             self.close_gripper = false;
+///         }
+///     }
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn trust_sequence(args: TokenStream, item: TokenStream) -> TokenStream {
+    sequence::expand(&args.into(), &item.into()).into()
 }
 
 /// Declares a function a Rust function (specification 48 §6.1): `pub fn`, its context first, its

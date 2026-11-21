@@ -103,6 +103,10 @@ pub struct Pou {
     /// The Structured Text interfaces a function block implements, `implements = "..."`, in their
     /// order (RU-33); none for a function.
     pub implements: Vec<String>,
+    /// The sequence a function block's or a program's body runs, `sequence = "run"` (RU-71): the
+    /// Rust name of the `async fn` its `#[trust_sequence]` block holds, whose state is the POU's
+    /// last variable, `_seq`; `None` for a POU with its own `impl Body` and for a function.
+    pub sequence: Option<String>,
 }
 
 impl Pou {
@@ -175,7 +179,7 @@ fn last_segment_is(attribute: &Attribute, name: &str) -> bool {
 ///
 /// An error at the part of the item that breaks a rule of specification 48 §6, naming the rule.
 pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
-    let (name, implements) = block_arguments(args, item.ident.span())?;
+    let (name, implements, sequence) = instance_arguments(args, item.ident.span(), true)?;
     public(&item.vis, &item.ident, "function block")?;
     if !item.generics.params.is_empty() || item.generics.where_clause.is_some() {
         return Err(Error::new(
@@ -197,6 +201,7 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
     let mut variables = Vec::with_capacity(fields.len());
     for field in fields {
         let Some(ident) = &field.ident else { continue };
+        not_the_state(ident, sequence.as_deref())?;
         let variable = field_variable(ident, &field.ty, &field.attrs)?;
         add(&mut variables, variable, ident.span())?;
     }
@@ -209,6 +214,7 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
         result: None,
         methods: Vec::new(),
         implements,
+        sequence,
     })
 }
 
@@ -220,7 +226,7 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
 ///
 /// An error at the part of the item that breaks a rule of specification 48 §7, naming the rule.
 pub fn program(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
-    let name = pou_name(args, item.ident.span())?;
+    let (name, _, sequence) = instance_arguments(args, item.ident.span(), false)?;
     public(&item.vis, &item.ident, "program")?;
     if !item.generics.params.is_empty() || item.generics.where_clause.is_some() {
         return Err(Error::new(
@@ -242,6 +248,7 @@ pub fn program(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
     let mut variables = Vec::with_capacity(fields.len());
     for field in fields {
         let Some(ident) = &field.ident else { continue };
+        not_the_state(ident, sequence.as_deref())?;
         let variable = field_variable(ident, &field.ty, &field.attrs)?;
         if variable.section == Section::InOut {
             return Err(Error::new(
@@ -262,6 +269,7 @@ pub fn program(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
         result: None,
         methods: Vec::new(),
         implements: Vec::new(),
+        sequence,
     })
 }
 
@@ -349,6 +357,7 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
         result: result(&signature.output, signature.ident.span())?,
         methods: Vec::new(),
         implements: Vec::new(),
+        sequence: None,
     })
 }
 
@@ -361,20 +370,39 @@ fn pou_name(args: TokenStream, item: Span) -> Result<String, Error> {
     declared_name(args, item, POU_NAME_MISSING)
 }
 
-/// The arguments `args` of `#[trust_fb(...)]`: the block's Structured Text name, `name = "..."`,
-/// and the interfaces it implements, `implements = "I_RUN, I_RESET"` (RU-33), none without it.
-fn block_arguments(args: TokenStream, item: Span) -> Result<(String, Vec<String>), Error> {
+/// The arguments `args` of `#[trust_fb(...)]` (`block`) or `#[trust_program(...)]`: the POU's
+/// Structured Text name, `name = "..."`; a block's interfaces, `implements = "I_RUN, I_RESET"`
+/// (RU-33), none without it; and the sequence its body runs, `sequence = "run"` (RU-71).
+fn instance_arguments(
+    args: TokenStream,
+    item: Span,
+    block: bool,
+) -> Result<(String, Vec<String>, Option<String>), Error> {
     let mut name: Option<LitStr> = None;
     let mut implements: Option<LitStr> = None;
+    let mut sequence: Option<LitStr> = None;
     let parser = syn::meta::parser(|meta| {
         let (slot, key) = if meta.path.is_ident("name") {
             (&mut name, "name")
-        } else if meta.path.is_ident("implements") {
+        } else if meta.path.is_ident("implements") && block {
             (&mut implements, "implements")
+        } else if meta.path.is_ident("sequence") {
+            (&mut sequence, "sequence")
+        } else if meta.path.is_ident("implements") {
+            return Err(meta.error(
+                "`implements` belongs to `#[trust_fb]`: a function block implements interfaces \
+                 (specification 48 RU-33)",
+            ));
+        } else if block {
+            return Err(meta.error(
+                "`#[trust_fb]` takes `name = \"...\"`, the block's Structured Text name, \
+                 `implements = \"...\"`, the interfaces it implements (specification 48 RU-33), \
+                 and `sequence = \"...\"`, the sequence its body runs (RU-71)",
+            ));
         } else {
             return Err(meta.error(
-                "`#[trust_fb]` takes `name = \"...\"`, the block's Structured Text name, and \
-                 `implements = \"...\"`, the interfaces it implements (specification 48 RU-33)",
+                "`#[trust_program]` takes `name = \"...\"`, the program's Structured Text name, \
+                 and `sequence = \"...\"`, the sequence its body runs (specification 48 RU-71)",
             ));
         };
         if slot.is_some() {
@@ -391,10 +419,42 @@ fn block_arguments(args: TokenStream, item: Span) -> Result<(String, Vec<String>
         Some(list) => interfaces(&list)?,
         None => Vec::new(),
     };
+    let sequence = match sequence {
+        Some(function) => {
+            if syn::parse_str::<syn::Ident>(&function.value()).is_err() {
+                return Err(Error::new(
+                    function.span(),
+                    "`sequence` names the `async fn` of the POU's `#[trust_sequence]` block by its \
+                     Rust name: `sequence = \"run\"` (specification 48 RU-71)",
+                ));
+            }
+            Some(function.value())
+        }
+        None => None,
+    };
     Ok((
         structured_text_name(&name.value(), name.span())?,
         implements,
+        sequence,
     ))
+}
+
+/// Refuses a variable named as a sequence's state, `_seq` in any case, of a POU whose body runs a
+/// sequence: the state is the POU's last variable of that name (specification 48 RU-71, RU-72).
+fn not_the_state(ident: &syn::Ident, sequence: Option<&str>) -> Result<(), Error> {
+    if sequence.is_some()
+        && ident
+            .unraw()
+            .to_string()
+            .eq_ignore_ascii_case(sequence::STATE)
+    {
+        return Err(Error::new(
+            ident.span(),
+            "a POU that runs a sequence keeps the sequence's state in its variable `_seq` \
+             (specification 48 RU-71): name this variable otherwise",
+        ));
+    }
+    Ok(())
 }
 
 /// The interfaces `implements = "..."` names: Structured Text names separated by commas, each

@@ -52,12 +52,49 @@ fn instance_pou(
     }
     match pou {
         Ok(pou) => {
+            let runs = pou
+                .sequence
+                .as_deref()
+                .map(|sequence| runs(&mut parsed, sequence));
             let calls = calls(&parsed, &pou);
-            quote! { #parsed #calls #checked }
+            quote! { #parsed #calls #runs #checked }
         }
         Err(error) => {
             let error = error.to_compile_error();
             quote! { #error #parsed }
+        }
+    }
+}
+
+/// A POU whose body runs the sequence `sequence` (specification 48 RU-71): the sequence's state
+/// as its last variable, `_seq`, of the type its `#[trust_sequence]` block declares, and its body,
+/// which runs the sequence from its wait point to its next one.
+fn runs(item: &mut ItemStruct, sequence: &str) -> TokenStream {
+    let ident = &item.ident;
+    let state = crate::sequence::state_type(ident);
+    // `_seq` is the state's name in Structured Text, `<instance>._seq.point`, whose one leading
+    // underscore keeps it from any name of the user's (RU-71).
+    let field: syn::Field = syn::parse_quote! {
+        /// The state of the sequence the POU's body runs (specification 48 RU-71).
+        #[allow(clippy::pub_underscore_fields)]
+        pub _seq: #state
+    };
+    match &mut item.fields {
+        Fields::Named(fields) => fields.named.push(field),
+        unit_or_tuple => {
+            *unit_or_tuple = Fields::Named(syn::parse_quote!({ #field }));
+        }
+    }
+    let sequence = format_ident!("{sequence}");
+    quote! {
+        impl ::trust_plc::Body for #ident {
+            /// Runs the POU's sequence from its wait point to its next one (specification 48 RU-71).
+            fn body(
+                &mut self,
+                cx: &mut ::trust_plc::Cx,
+            ) -> ::core::result::Result<(), ::trust_plc::Fault> {
+                self.#sequence(cx)
+            }
         }
     }
 }
@@ -404,7 +441,11 @@ fn calls(item: &ItemStruct, pou: &Pou) -> TokenStream {
             .unzip(),
         Fields::Unit | Fields::Unnamed(_) => (Vec::new(), Vec::new()),
     };
-    let starts: Vec<TokenStream> = pou.variables.iter().map(start).collect();
+    let mut starts: Vec<TokenStream> = pou.variables.iter().map(start).collect();
+    if pou.sequence.is_some() {
+        // The sequence's state starts at its top (specification 48 RU-71, RU-73).
+        starts.push(quote!(::trust_plc::declared_default()));
+    }
     let values: Vec<_> = (0..fields.len())
         .map(|index| format_ident!("v{index}"))
         .collect();
@@ -512,7 +553,7 @@ fn start(variable: &Variable) -> TokenStream {
 
 /// The value of type `ty` that `init` gives, else the type's default; an array's elements each so,
 /// those its list leaves out at their default.
-fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
+pub(crate) fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
     match ty {
         DataType::Elementary(elementary) => elementary_value(*elementary, init),
         // A type the crate or the project's Structured Text declares: the variant written, else
