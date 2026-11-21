@@ -1033,7 +1033,15 @@ A service connects by its name, `Service::connect("recipe")`: the SDK reads `[se
 the project's `trust.toml`, in the folder `TRUST_PROJECT` names or else the current folder, and takes
 its `endpoint`, the service token in its `credentials` file (a path relative to the project,
 specification 11 §6.9.6) and its `heartbeat`; `Service::connect_with` takes the same settings from
-the service's own code. A connection answers one request at a time. `Service::read` gives one
+the service's own code. `endpoint` is optional. Without it the service connects to the endpoint that
+the project's running runtime published in its endpoint file (specification 11 §6.8.0a), as every
+client finds it there: every running runtime publishes the endpoint it bound, its platform's default
+with the free port chosen at its start included, so a project's service needs no endpoint of its
+own, and its runtime needs no TCP endpoint and no token in the project's files. The service still
+presents its own service token, never the token its runtime generated. Without `endpoint`, a project
+whose runtime has published no endpoint file is refused with `[services.<name>] names no endpoint,
+and the project's runtime is not running: no endpoint file at <file>`, and one whose endpoint file
+does not read with the reason; a service that names its runtime's endpoint is never sent elsewhere. A connection answers one request at a time. `Service::read` gives one
 completed scan's values with the scan's number, its logical time, the resource's state and the
 quality, each value read as a Rust value of its declared type (`bool`, the integers, `f32` and
 `f64`, `String` and, from a `TIME` or an `LTIME`, `Duration`); `Service::write` writes a set of
@@ -1109,11 +1117,15 @@ stops it and removes it. On every computer the service is called `trust-service-
   and its target folder, `<target>/release/<binary>`. It refuses a package the project does not
   hold or holds twice, a package without exactly one binary, and a binary that does not exist,
   naming the build: `cargo build --release --manifest-path <manifest>`.
-- **Its settings.** `install` refuses a service without an `endpoint`, or whose `credentials` file
-  does not exist, naming `trust-runtime ctl service-token <name> --out <file>` (RU-81): it could
-  not connect. The service reads them itself when it starts: its working folder is the project
-  folder, and its environment's `TRUST_PROJECT` names that folder, so that `Service::connect`
-  reads the project's `trust.toml` and token (RU-62), and a new token needs no new install.
+- **Its settings.** `install` refuses a service whose `credentials` file does not exist, naming
+  `trust-runtime ctl service-token <name> --out <file>` (RU-81): it could not connect. The service
+  reads its settings itself when it starts: its working folder is the project folder, and its
+  environment's `TRUST_PROJECT` names that folder, so that `Service::connect` reads the project's
+  `trust.toml`, token and, without `endpoint`, its runtime's endpoint file (RU-62), and a new token
+  needs no new install. A service without `endpoint` that starts before its runtime has published
+  its endpoint, as at a boot, ends with RU-62's refusal and is started again 2 s later, until its
+  runtime runs; a runtime that starts again on another port ends the service's connection, and the
+  service finds the new port the same way.
 - **Its account.** A service never runs as root or as Windows' LocalSystem. On Linux and macOS it
   runs as the user who owns the project folder, and `install` refuses a project folder of root; on
   Windows it runs as its own virtual account (below).
@@ -1532,7 +1544,7 @@ profile = "development"         # or "production" (RU-47)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
 writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
-endpoint = "tcp://127.0.0.1:47800"
+endpoint = "tcp://127.0.0.1:47800"  # optional: without it, the endpoint the project's runtime publishes (RU-62)
 credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
                                        # service-token recipe --out secrets/recipe.token` (RU-81)
 

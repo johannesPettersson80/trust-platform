@@ -1,10 +1,13 @@
 //! A service's settings (specification 48 RU-62, Appendix B): its name, the runtime's control
 //! endpoint, its service token and its heartbeat's period, read from `[services.<name>]` of the
-//! project's `trust.toml`, or given by the service's own code.
+//! project's `trust.toml`, or given by the service's own code. A section without `endpoint` takes
+//! the endpoint that the project's running runtime published (specification 11 §6.8.0a).
 
 use std::fmt;
 use std::path::Path;
 use std::time::Duration;
+
+use trust_runtime_client::project_files::{endpoint_file_path, read_endpoint_file};
 
 use crate::ServiceError;
 
@@ -45,12 +48,15 @@ impl fmt::Debug for ServiceSettings {
 impl ServiceSettings {
     /// The settings of the service `name` in the `trust.toml` of the project in `project`: its
     /// `endpoint`, the service token in its `credentials` file, a path relative to the project,
-    /// and its `heartbeat`, `500ms` or `2s`.
+    /// and its `heartbeat`, `500ms` or `2s`. Without `endpoint` the service connects to the
+    /// endpoint that the project's running runtime published in its endpoint file, as
+    /// `trust-runtime ctl` finds it (specification 11 §6.8.0a).
     ///
     /// # Errors
     ///
     /// [`ServiceError::Settings`] naming what is missing or does not read: the file, the service,
-    /// one of its three settings, or the token's file.
+    /// its `credentials` or `heartbeat`, the token's file, an `endpoint` that is no text, or,
+    /// without one, the endpoint file of a runtime that is not running or does not read.
     pub fn from_project(project: &Path, name: &str) -> Result<Self, ServiceError> {
         let file = project.join("trust.toml");
         let text = std::fs::read_to_string(&file)
@@ -68,7 +74,15 @@ impl ServiceSettings {
                 .and_then(toml::Value::as_str)
                 .ok_or_else(|| settings(format!("[services.{name}] has no {key}")))
         };
-        let endpoint = text_of("endpoint")?.to_string();
+        let endpoint = match service.get("endpoint") {
+            None => published_endpoint(project, name)?,
+            Some(endpoint) => endpoint.as_str().map(str::to_string).ok_or_else(|| {
+                settings(format!(
+                    "[services.{name}] endpoint {endpoint} is no text such as \
+                     \"tcp://127.0.0.1:47800\""
+                ))
+            })?,
+        };
         let credentials = project.join(text_of("credentials")?);
         let token = std::fs::read_to_string(&credentials)
             .map_err(|error| {
@@ -98,6 +112,24 @@ impl ServiceSettings {
 
 fn settings(message: String) -> ServiceError {
     ServiceError::Settings(message)
+}
+
+/// The endpoint that the project's running runtime published in its endpoint file (specification
+/// 11 §6.8.0a), for a service whose section names none. Every running runtime publishes the
+/// endpoint it bound there, a free port chosen at its start included.
+fn published_endpoint(project: &Path, name: &str) -> Result<String, ServiceError> {
+    match read_endpoint_file(project) {
+        Ok(Some(file)) => Ok(file.endpoint),
+        Ok(None) => Err(settings(format!(
+            "[services.{name}] names no endpoint, and the project's runtime is not running: no \
+             endpoint file at {}",
+            endpoint_file_path(project).display()
+        ))),
+        Err(error) => Err(settings(format!(
+            "[services.{name}] names no endpoint, and the endpoint file of the project's runtime \
+             does not read: {error}"
+        ))),
+    }
 }
 
 /// A period of `trust.toml` above zero: a whole number of `ns`, `us`, `ms`, `s` or `min`.

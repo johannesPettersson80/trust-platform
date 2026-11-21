@@ -6,10 +6,6 @@ name = "MainRes"
 cycle_interval_ms = 10
 
 [runtime.control]
-# A TCP endpoint, which the price service reaches on every computer; trust.toml names it too.
-endpoint = "tcp://127.0.0.1:47800"
-# The examples' non-secret token: replace it before the runtime is reachable beyond this computer.
-auth_token = "trust-example-token"
 mode = "production"
 debug_enabled = true
 

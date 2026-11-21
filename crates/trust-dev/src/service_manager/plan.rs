@@ -34,8 +34,9 @@ pub(crate) struct Owner {
 /// # Errors
 ///
 /// A name that is no identifier, a `trust.toml` that does not read or declares no such service, a
-/// service without `package` or `endpoint`, a `credentials` file that does not exist, and a binary
-/// that cannot be found or does not exist, each naming what to do.
+/// service without `package`, a `credentials` file that does not exist, and a binary that cannot be
+/// found or does not exist, each naming what to do. A service without `endpoint` is installed: it
+/// connects to the endpoint its project's running runtime publishes (specification 48 RU-62).
 pub(crate) fn resolve(project: &Path, name: &str, binary: Option<&Path>) -> anyhow::Result<Plan> {
     check_name(name)?;
     let project = absolute(project)?;
@@ -58,7 +59,6 @@ pub(crate) fn resolve(project: &Path, name: &str, binary: Option<&Path>) -> anyh
             .with_context(|| format!("[services.{name}] has no {key}"))
     };
     let package = setting("package")?;
-    setting("endpoint")?;
     let credentials = setting("credentials")?;
     let token = project.join(credentials);
     if !token.is_file() {
