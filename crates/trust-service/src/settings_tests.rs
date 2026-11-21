@@ -21,7 +21,19 @@ fn project(text: &str, token: Option<&str>) -> PathBuf {
 
 /// Appendix B's service, with an endpoint, a credentials file and a heartbeat.
 const RECIPE: &str = "[services.recipe]\npackage = \"recipe-service\"\nheartbeat = \"500ms\"\n\
-timeout = \"2s\"\nendpoint = \"tcp://127.0.0.1:47800\"\ncredentials = \"secrets/recipe.token\"\n";
+endpoint = \"tcp://127.0.0.1:47800\"\ncredentials = \"secrets/recipe.token\"\n";
+
+/// Publishes `text` as the endpoint file of the project's runtime (specification 11 §6.8.0a).
+fn publish(root: &Path, text: &str) {
+    let folder = root.join(".trust-runtime");
+    std::fs::create_dir_all(&folder).expect("the endpoint folder");
+    std::fs::write(folder.join("control.json"), text).expect("the endpoint file");
+}
+
+/// The endpoint file of a runtime that bound the free port 50123 and generated a token of its own,
+/// as a runtime on its default endpoint publishes it.
+const PUBLISHED: &str =
+    r#"{"schema_version":1,"endpoint":"tcp://127.0.0.1:50123","pid":4242,"auth_token":"RUNTIME"}"#;
 
 fn refusal(root: &Path, name: &str) -> String {
     match ServiceSettings::from_project(root, name) {
@@ -48,9 +60,10 @@ fn a_services_settings_come_from_its_trust_toml_section() {
 
 #[test]
 fn a_missing_setting_is_named_with_what_to_do() {
-    // A service trust.toml does not declare, a section without an endpoint, and a token file that
-    // does not exist, whose refusal says how to create it. Catches a service that starts without
-    // its credentials and fails later with a refusal it cannot explain.
+    // A service trust.toml does not declare, a section without an endpoint while the project's
+    // runtime is not running, and a token file that does not exist, whose refusal says how to
+    // create it. Catches a service that starts without its credentials and fails later with a
+    // refusal it cannot explain.
     let root = project(RECIPE, Some("ABCDEFGH"));
     assert_eq!(
         refusal(&root, "camera"),
@@ -62,7 +75,14 @@ fn a_missing_setting_is_named_with_what_to_do() {
     );
     assert_eq!(
         refusal(&no_endpoint, "recipe"),
-        "[services.recipe] has no endpoint"
+        format!(
+            "[services.recipe] names no endpoint, and no runtime of the project has published one: \
+             no endpoint file at {}",
+            no_endpoint
+                .join(".trust-runtime")
+                .join("control.json")
+                .display()
+        )
     );
     let no_token = project(RECIPE, None);
     let message = refusal(&no_token, "recipe");
@@ -70,6 +90,62 @@ fn a_missing_setting_is_named_with_what_to_do() {
         message.contains("secrets/recipe.token")
             && message.contains("trust-runtime ctl service-token recipe --out <file>"),
         "{message}"
+    );
+}
+
+#[test]
+fn without_an_endpoint_a_service_takes_the_one_its_running_runtime_published() {
+    // Specification 48 RU-62 with specification 11 §6.8.0a: a section without `endpoint` takes the
+    // endpoint in the runtime's endpoint file, with the free port the runtime bound, and the
+    // service still presents its own service token, never the token the runtime generated, which
+    // would make it an Admin whose writes no `writes` limits. An endpoint the section names wins
+    // over the file. Catches a service that cannot reach a runtime on its default endpoint, one
+    // that takes the runtime's token, and a file that overrides what the user named.
+    let no_endpoint = RECIPE.replace("endpoint = \"tcp://127.0.0.1:47800\"\n", "");
+    let root = project(&no_endpoint, Some("ABCDEFGH\n"));
+    publish(&root, PUBLISHED);
+    assert_eq!(
+        ServiceSettings::from_project(&root, "recipe"),
+        Ok(ServiceSettings {
+            name: "recipe".into(),
+            endpoint: "tcp://127.0.0.1:50123".into(),
+            token: "ABCDEFGH".into(),
+            heartbeat: Duration::from_millis(500),
+        })
+    );
+    let named = project(RECIPE, Some("ABCDEFGH"));
+    publish(&named, PUBLISHED);
+    assert_eq!(
+        ServiceSettings::from_project(&named, "recipe").map(|settings| settings.endpoint),
+        Ok("tcp://127.0.0.1:47800".into())
+    );
+}
+
+#[test]
+fn an_endpoint_that_is_no_text_or_a_published_file_that_does_not_read_is_named() {
+    // An `endpoint` that is no text, and, without one, an endpoint file of a schema this build
+    // does not read. Catches a service that connects to a guessed endpoint instead of saying why
+    // it cannot connect.
+    let number = project(&RECIPE.replace("\"tcp://127.0.0.1:47800\"", "5"), Some("A"));
+    assert_eq!(
+        refusal(&number, "recipe"),
+        "[services.recipe] endpoint 5 is no text such as \"tcp://127.0.0.1:47800\""
+    );
+    let root = project(
+        &RECIPE.replace("endpoint = \"tcp://127.0.0.1:47800\"\n", ""),
+        Some("A"),
+    );
+    publish(
+        &root,
+        r#"{"schema_version":2,"endpoint":"tcp://127.0.0.1:50123","pid":4242}"#,
+    );
+    assert_eq!(
+        refusal(&root, "recipe"),
+        format!(
+            "[services.recipe] names no endpoint, and the endpoint file of the project's runtime \
+             does not read: {} has unsupported schema_version 2",
+            root.join(".trust-runtime").join("control.json").display()
+        )
     );
 }
 

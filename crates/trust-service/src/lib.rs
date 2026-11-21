@@ -97,7 +97,8 @@ impl Service {
     ///
     /// # Errors
     ///
-    /// [`ServiceError::Settings`] for settings that are missing or do not read, and
+    /// [`ServiceError::Settings`] for settings that are missing or do not read, among them a
+    /// section without `endpoint` while the project's runtime is not running, and
     /// [`ServiceError::Control`] for an endpoint that cannot be reached.
     pub fn connect(name: &str) -> Result<Self, ServiceError> {
         let project = std::env::var_os("TRUST_PROJECT").map_or_else(

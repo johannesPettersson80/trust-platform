@@ -41,14 +41,15 @@ pub use links::{
     update_deployment_pointers, validate_pointer_slot, PointerState,
 };
 pub use retained::check_retained;
+// The link to the bundle that runs, and the store of a `current` link: clients read a store
+// runtime's files by the same rule (specification 11, section 6.8.0a).
+pub use trust_runtime_client::project_files::{store_root, CURRENT_LINK};
 
 use bundles::{copy_bundle_files, copy_sidecars, is_program_file, program_path, IMAGE_FILE};
 use links::pointer_state;
 
 /// The folder of a store's bundles.
 pub const BUNDLES_DIR: &str = "bundles";
-/// The link to the bundle that runs. Replacing it is a deployment's commit point.
-pub const CURRENT_LINK: &str = "current";
 /// The link to the bundle before the running one. A rollback swaps it with `current`.
 pub const PREVIOUS_LINK: &str = "previous";
 /// The file of a bundle that holds its install sequence as decimal text (specification 34 §11.2).
@@ -164,19 +165,6 @@ pub struct Rollback {
     pub current: PathBuf,
     /// The bundle that `previous` names after the rollback: the one the rollback set aside.
     pub previous: PathBuf,
-}
-
-/// The store a project folder belongs to: the folder that holds `project`, when `project` is a
-/// store's `current` link. Any other folder has no store.
-#[must_use]
-pub fn store_root(project: &Path) -> Option<PathBuf> {
-    let is_link =
-        fs::symlink_metadata(project).is_ok_and(|metadata| metadata.file_type().is_symlink());
-    if is_link && project.file_name() == Some(OsStr::new(CURRENT_LINK)) {
-        project.parent().map(Path::to_path_buf)
-    } else {
-        None
-    }
 }
 
 /// Writes `bytes` to `path` through a temporary file and then a rename, so that a stop leaves either
