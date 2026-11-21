@@ -27,6 +27,8 @@ mod places;
 pub mod prelude;
 mod refs;
 pub mod seq;
+#[cfg(test)]
+mod seq_tests;
 pub mod strings;
 pub mod test;
 pub mod types;
