@@ -44,12 +44,15 @@ pub(super) fn places(
         for member in members {
             let place = format!("place.{}", member.field());
             let value = load(types, member.ty, &place, structures, &mut reached, 0)?;
-            fields.push(format!("{}: {value}", member.name));
+            // The field as a raw identifier, which names a field that a Rust keyword spells
+            // (`r#loop`) as it names any other: a structure of the crate comes from Rust, so its
+            // fields are never `self`, `Self`, `super` or `crate`, which no raw identifier spells.
+            fields.push(format!("r#{}: {value}", member.name));
             let statement = store(
                 types,
                 member.ty,
                 &place,
-                &format!("value.{}", member.name),
+                &format!("value.r#{}", member.name),
                 structures,
                 &mut reached,
                 0,

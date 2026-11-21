@@ -804,3 +804,104 @@ fn a_rust_pou_keeps_structures_as_structured_text_does() {
         Some(Value::String("seg".into()))
     );
 }
+
+/// A structure whose fields Rust's keywords spell, raw identifiers in the crate, which Structured
+/// Text names as it names any field.
+const KEYWORDED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_enum(name = \"PHASE\")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Phase {
+    Idle = 0,
+    r#loop = 1,
+}
+
+#[trust_struct(name = \"WINDOW\")]
+#[derive(Clone, Copy)]
+pub struct Window {
+    pub r#loop: f64,
+    #[init(true)]
+    pub r#match: bool,
+    pub phase: Phase,
+}
+
+#[trust_fb(name = \"SHIFTER\")]
+#[budget(\"1us\")]
+pub struct Shifter {
+    #[input]
+    pub amount: f64,
+    #[output]
+    pub window: Window,
+}
+
+impl Body for Shifter {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        self.window.r#loop += self.amount;
+        self.window.r#match = !self.window.r#match;
+        self.window.phase = if self.window.r#match {
+            Phase::Idle
+        } else {
+            Phase::r#loop
+        };
+        Ok(())
+    }
+}
+";
+
+/// A program that shifts the window twice and reads its fields by their names.
+const KEYWORDED_PROGRAM: &str = "PROGRAM Line
+VAR
+    shifter : SHIFTER;
+    looped : LREAL;
+    matched : BOOL;
+    looping : BOOL;
+END_VAR
+shifter(amount := 1.5);
+looped := shifter.window.loop;
+matched := shifter.window.match;
+looping := shifter.window.phase = PHASE#loop;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_structure_field_that_a_rust_keyword_spells_crosses_as_any_field() {
+    // RU-25 and RU-29: a field of a crate structure written as a raw identifier, `r#loop` and
+    // `r#match`, is the field `loop` and `match` of Structured Text, which neither reserves, and an
+    // enumeration's variant `r#loop` its value `PHASE#loop`; the macros and the generated code read
+    // and write them as any other. By hand: the window starts at loop 0.0 and match TRUE, as
+    // declared; two calls shift it by 1.5 each and flip match, to 1.5 and FALSE with the phase
+    // `loop`, then 3.0 and TRUE with the phase `Idle`. Catches a macro or generated code that
+    // spells such a name as the keyword, which does not compile (checklist G267).
+    let root = custom_project(
+        "rust-pous-keyworded",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", KEYWORDED)],
+        KEYWORDED_PROGRAM,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::from_millis(0), &mut NoHooks)
+        .expect("the scan runs");
+    assert_eq!(program.value("MAIN.LOOPED"), Some(Value::LReal(1.5)));
+    assert_eq!(program.value("MAIN.MATCHED"), Some(Value::Bool(false)));
+    assert_eq!(program.value("MAIN.LOOPING"), Some(Value::Bool(true)));
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    assert_eq!(program.value("MAIN.LOOPED"), Some(Value::LReal(3.0)));
+    assert_eq!(program.value("MAIN.MATCHED"), Some(Value::Bool(true)));
+    assert_eq!(program.value("MAIN.LOOPING"), Some(Value::Bool(false)));
+}
