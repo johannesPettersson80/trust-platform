@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
 import { projectRequest } from "./projectRequest";
+import { ensureToolchain } from "./toolchain";
 import {
   summarizeCheck,
   type CheckProblemCounts,
@@ -136,10 +137,22 @@ async function runAndReport(
     );
     return undefined;
   }
-  const response = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: "truST: compiling…" },
-    () => runCheck(context, root.fsPath)
-  );
+  const compile = () =>
+    vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Window, title: "truST: compiling…" },
+      () => runCheck(context, root.fsPath)
+    );
+  let response = await compile();
+  // A project's Rust crate is checked with the toolchain's cargo (specification 11 §6.8.1c), and the
+  // check names a toolchain that is not installed with the code `toolchain`. The extension installs it
+  // then, as before a launch (specification 44 §4.6), and checks again: a Start that the failed
+  // Compile holds back would never reach the launch's install.
+  if (
+    response.response?.issues.some((issue) => issue.code === "toolchain") &&
+    (await ensureToolchain(context))
+  ) {
+    response = await compile();
+  }
   if (!response.response) {
     clearCompileStatusMessage();
     void vscode.window.showWarningMessage(

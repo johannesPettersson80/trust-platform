@@ -10,64 +10,20 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
-
 use crate::control::ControlEndpoint;
 use crate::error::RuntimeError;
+
+// The endpoint file's place and its reader are the clients' (spec 11, section 6.8.0a): every client
+// reads the file the runtime writes here through the same code.
+pub(super) use trust_runtime_client::project_files::{
+    endpoint_file_path, read_endpoint_file, EndpointFileError, ENDPOINT_FILE_SCHEMA_VERSION,
+};
+pub use trust_runtime_client::project_files::{EndpointFile, ENDPOINT_DIR, ENDPOINT_FILE};
 
 use super::defaults::runtime_files_folder;
 use super::token_file::{
     read_token_file, remove_token_file_of, token_file_path, write_token_file, TokenFile,
 };
-
-/// The directory that holds the endpoint file and the default socket, in the folder of the
-/// project's runtime files: the project folder, or the program store for a store's `current` link
-/// (spec 11, section 6.8.0a).
-pub const ENDPOINT_DIR: &str = ".trust-runtime";
-/// The endpoint file's name inside [`ENDPOINT_DIR`].
-pub const ENDPOINT_FILE: &str = "control.json";
-/// The only schema version that this build writes and reads.
-pub(super) const ENDPOINT_FILE_SCHEMA_VERSION: u32 = 1;
-
-/// What the running runtime publishes about its control endpoint.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EndpointFile {
-    /// The schema version, always 1.
-    pub schema_version: u32,
-    /// The bound endpoint, with the real port for `tcp://127.0.0.1:0`.
-    pub endpoint: String,
-    /// The process id of the runtime that published the file.
-    pub pid: u32,
-    /// The token the runtime generated for this start. It is present only when the runtime
-    /// generated one and keeps it in this file (Unix-like systems).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_token: Option<String>,
-}
-
-impl fmt::Debug for EndpointFile {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("EndpointFile")
-            .field("schema_version", &self.schema_version)
-            .field("endpoint", &self.endpoint)
-            .field("pid", &self.pid)
-            .field(
-                "auth_token",
-                &self.auth_token.as_ref().map(|_| "<redacted>"),
-            )
-            .finish()
-    }
-}
-
-/// Why an endpoint file that exists was not used (spec 11, section 6.8.0a).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum EndpointFileError {
-    /// The file exists but cannot be read, for example because it belongs to another user. A
-    /// client skips it and resolves on.
-    Unreadable(String),
-    /// The file was read but does not parse or has another schema version.
-    Invalid(String),
-}
 
 /// Where the token that a runtime generated is kept: in the endpoint file (`None`), or in the
 /// per-user token file in this folder (Windows).
@@ -315,46 +271,6 @@ pub(super) fn published_token(
     read_token_file(&path)
         .filter(|token| token.pid == file.pid && token.endpoint == file.endpoint)
         .map(TokenFile::into_token)
-}
-
-/// The path of the endpoint file for a project folder, in the folder of its runtime files.
-pub(super) fn endpoint_file_path(project_root: &Path) -> PathBuf {
-    runtime_files_folder(project_root)
-        .join(ENDPOINT_DIR)
-        .join(ENDPOINT_FILE)
-}
-
-/// Reads the project's endpoint file, or `None` when no runtime has published one.
-///
-/// # Errors
-///
-/// Returns [`EndpointFileError::Unreadable`] when the file exists but cannot be read, and
-/// [`EndpointFileError::Invalid`] when it does not parse or has an unknown schema version.
-pub(super) fn read_endpoint_file(
-    project_root: &Path,
-) -> Result<Option<EndpointFile>, EndpointFileError> {
-    let path = endpoint_file_path(project_root);
-    let text = match fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => {
-            return Err(EndpointFileError::Unreadable(format!(
-                "read {}: {error}",
-                path.display()
-            )))
-        }
-    };
-    let file: EndpointFile = serde_json::from_str(&text).map_err(|error| {
-        EndpointFileError::Invalid(format!("parse {}: {error}", path.display()))
-    })?;
-    if file.schema_version != ENDPOINT_FILE_SCHEMA_VERSION {
-        return Err(EndpointFileError::Invalid(format!(
-            "{} has unsupported schema_version {}",
-            path.display(),
-            file.schema_version
-        )));
-    }
-    Ok(Some(file))
 }
 
 /// Creates `dir` when it is missing and restricts it to its owner (mode 0700 on Unix-like

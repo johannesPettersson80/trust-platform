@@ -23,6 +23,9 @@ interface CatalogEntry {
   readonly lesson?: ControlLessonMetadata;
   readonly lessonAvailability?: { readonly kind: "available" } | { readonly kind: "unavailable"; readonly reason: string };
   readonly copyable: boolean;
+  readonly execution?: string;
+  readonly hardwareLabel: string;
+  readonly hardwareRequired: boolean;
 }
 
 interface CatalogAnswer {
@@ -70,6 +73,9 @@ function toExampleEntry(entry: CatalogEntry): ExampleEntry {
     lesson: entry.lesson,
     lessonAvailability: availabilityOf(entry),
     copyable: entry.copyable,
+    execution: entry.execution,
+    hardwareLabel: entry.hardwareLabel,
+    hardwareRequired: entry.hardwareRequired,
   };
 }
 

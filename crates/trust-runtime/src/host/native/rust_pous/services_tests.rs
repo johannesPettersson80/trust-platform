@@ -22,7 +22,6 @@ fn project(files: &[(&str, &str)]) -> PathBuf {
 const TRUST_TOML: &str = "[services.recipe]
 package = \"recipe-service\"
 heartbeat = \"500ms\"
-timeout = \"2s\"
 endpoint = \"tcp://127.0.0.1:47800\"
 credentials = \"secrets/recipe.token\"
 
@@ -79,6 +78,38 @@ fn a_service_trust_toml_cannot_hold_is_named() {
         let root = project(&[("trust.toml", text)]);
         let refused = services_text(&root).expect_err(text);
         assert!(refused.contains(named), "{text}: {refused}");
+    }
+}
+
+#[test]
+fn a_setting_appendix_b_does_not_list_is_refused_naming_it() {
+    // Appendix B, RU-63: a service's settings are `package`, `heartbeat`, `writes`, `endpoint` and
+    // `credentials`, and every one of them is taken; another key, a misspelt `heartbeat` or the
+    // `timeout` that no requirement defines, refuses `trust.toml` naming the service and the key, as
+    // runtime.toml refuses an unknown key. Catches a misspelt setting that is lost, so that the
+    // service runs on the default it was meant to replace.
+    let every = "[services.recipe]\npackage = \"recipe-service\"\nheartbeat = \"500ms\"\n\
+                 writes = [\"Main.target\"]\nendpoint = \"tcp://127.0.0.1:47800\"\n\
+                 credentials = \"secrets/recipe.token\"\n";
+    let root = project(&[("trust.toml", every)]);
+    assert!(
+        services_text(&root).is_ok_and(|text| text.is_some()),
+        "{every}"
+    );
+    for (text, key) in [
+        ("[services.recipe]\nheartbaet = \"500ms\"\n", "`heartbaet`"),
+        (
+            "[services.camera]\nheartbeat = \"1s\"\ntimeout = \"2s\"\n",
+            "`timeout`",
+        ),
+    ] {
+        let root = project(&[("trust.toml", text)]);
+        let refused = services_text(&root).expect_err(text);
+        let service = text.lines().next().expect("the service's table");
+        assert!(
+            refused.contains(service) && refused.contains(key),
+            "{text}: {refused}"
+        );
     }
 }
 

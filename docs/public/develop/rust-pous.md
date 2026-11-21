@@ -331,7 +331,6 @@ connects by its name with the settings of its `[services.<name>]`:
 
 ```toml
 [services.recipe]
-endpoint = "tcp://127.0.0.1:47800"     # the runtime's control endpoint
 credentials = "secrets/recipe.token"   # its service token, never in version control
 heartbeat = "500ms"
 ```
@@ -352,6 +351,10 @@ fn main() -> Result<(), trust_service::ServiceError> {
 ```
 
 `Service::connect` reads `trust.toml` in the current folder, or in the folder `TRUST_PROJECT` names.
+It connects to the endpoint that the project's running runtime publishes in
+`.trust-runtime/control.json`, as `trust-runtime ctl` finds it, so the runtime keeps its default
+endpoint and no token is written into the project. To reach a runtime that does not publish into
+this project folder, name its endpoint: `endpoint = "tcp://192.168.1.20:47800"`.
 Each read is one completed scan's values, with the scan's number, its time and whether the program
 runs; `get` reads a value as the Rust type of its declared type (`bool`, the integers, `f32` from a
 `REAL`, `f64`, `String`, `Duration` from a `TIME`). The heartbeat runs on a connection and a thread

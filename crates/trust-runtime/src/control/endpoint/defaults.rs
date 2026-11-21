@@ -108,14 +108,9 @@ fn unbound_loopback() -> ControlEndpoint {
     ))
 }
 
-/// The folder that holds a project's runtime files, its `.trust-runtime` directory, and whose path
-/// gives `<h>` (spec 11, section 6.8.0a): the program store that holds `project_root` when it is a
-/// store's `current` link (spec 34 §11.2), so that the files stay with the runtime when an install
-/// or a rollback moves `current` to another bundle, and otherwise the project folder itself.
-pub(crate) fn runtime_files_folder(project_root: &Path) -> PathBuf {
-    crate::deployment::program_store::store_root(project_root)
-        .unwrap_or_else(|| project_root.to_path_buf())
-}
+// The folder of a project's runtime files is the clients' rule too: a store's `current` link keeps
+// its files in the store folder (spec 11, section 6.8.0a; spec 34 §11.2).
+pub(crate) use trust_runtime_client::project_files::runtime_files_folder;
 
 /// The folder of the project's runtime files ([`runtime_files_folder`]) as the operating system
 /// names it, so that every client and the runtime derive the same sockets and token file from it.

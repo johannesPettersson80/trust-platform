@@ -243,6 +243,100 @@ fn every_lesson_of_the_packaged_gallery_can_be_copied() {
 }
 
 #[test]
+fn a_card_says_what_its_packaged_default_needs() {
+    // Specification 25 §3.1: a card of an example that is not a course lesson says `Runs in
+    // simulator` when its packaged io.toml uses the simulated driver, and then its hardware is
+    // optional; without that default its hardware is required. Catches: the badge decided by a
+    // list of ids (rust-function-block, simulated, showed none), a hardware example that runs in the
+    // simulator shown as requiring its hardware, and a lesson given a starter's badge.
+    let gallery = Gallery::new(
+        r#"[
+          {"id":"sim","title":"Sim","description":"d","path":"sim","hardware":"none","tags":["simulator"]},
+          {"id":"ads","title":"ADS","description":"d","path":"ads","hardware":"twincat","tags":["ads"]},
+          {"id":"other","title":"Other","description":"d","path":"other","hardware":"profinet"},
+          {"id":"pi-field","title":"Pi","description":"d","path":"pi-field","hardware":"raspberrypi"},
+          {"id":"plain","title":"Plain","description":"d","path":"plain","hardware":"none"},
+          {"id":"control-lesson","title":"Lesson","description":"d","path":"control/lesson","hardware":"none","tags":["control"]}
+        ]"#,
+    );
+    let simulated = "[io]\ndriver = \"simulated\"\nparams = {}\n";
+    gallery.write("sim/io.toml", simulated);
+    gallery.write("ads/io.toml", simulated);
+    gallery.write("other/io.toml", simulated);
+    gallery.write("pi-field/io.toml", "[io]\ndriver = \"gpio\"\nparams = {}\n");
+    gallery.write("plain/src/Main.st", "PROGRAM Main\nEND_PROGRAM\n");
+    gallery.write("control/lesson/io.toml", simulated);
+    let answer = gallery.catalog(&[]).expect("the gallery loads");
+    let badges = |id: &str| {
+        let entry = entry(&answer, id);
+        (
+            entry.get("execution").cloned(),
+            entry["hardwareLabel"].clone(),
+            entry["hardwareRequired"].clone(),
+        )
+    };
+    let runs = Some(json!("Runs in simulator"));
+    assert_eq!(
+        badges("sim"),
+        (runs.clone(), json!("No hardware needed"), json!(false))
+    );
+    assert_eq!(
+        badges("ads"),
+        (
+            runs.clone(),
+            json!("Hardware optional: TwinCAT"),
+            json!(false)
+        )
+    );
+    assert_eq!(
+        badges("other"),
+        (runs, json!("Hardware optional: profinet"), json!(false))
+    );
+    assert_eq!(
+        badges("pi-field"),
+        (None, json!("Requires Raspberry Pi"), json!(true))
+    );
+    assert_eq!(badges("plain"), (None, json!("No hardware"), json!(false)));
+    assert_eq!(
+        badges("control-lesson"),
+        (None, json!("No hardware"), json!(false))
+    );
+}
+
+#[test]
+fn every_example_of_the_packaged_gallery_says_it_runs_in_the_simulator() {
+    // The examples the extension packages, other than the course lessons, all ship the simulated
+    // driver, so each card says `Runs in simulator`; TwinCAT ADS and Raspberry Pi keep their
+    // hardware optional, the others need none (specification 25 §3.1). Catches: an example that
+    // runs in the simulator without its badge, as rust-function-block had.
+    let gallery = packaged_gallery();
+    let answer = catalog_answer(json!({ "root": gallery.0 })).expect("the gallery loads");
+    let examples: Vec<&Value> = answer["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .filter(|entry| entry.get("lessonAvailability").is_none())
+        .collect();
+    assert!(examples
+        .iter()
+        .any(|entry| entry["id"] == "rust-function-block"));
+    for example in &examples {
+        assert_eq!(
+            example["execution"], "Runs in simulator",
+            "{}",
+            example["id"]
+        );
+        assert_eq!(example["hardwareRequired"], false, "{}", example["id"]);
+        let expected = match example["id"].as_str() {
+            Some("twincat-ads") => "Hardware optional: TwinCAT",
+            Some("raspberry-pi") => "Hardware optional: Raspberry Pi",
+            _ => "No hardware needed",
+        };
+        assert_eq!(example["hardwareLabel"], expected, "{}", example["id"]);
+    }
+}
+
+#[test]
 fn the_readme_action_reports_whether_it_changed_the_copy() {
     let gallery = Gallery::new(
         r#"[{"id": "a", "title": "A", "description": "d", "path": "control/m/01", "hardware": "none", "tags": ["control"]}]"#,

@@ -23,7 +23,8 @@ const EVERY: Duration = Duration::from_secs(1);
 
 fn main() -> Result<(), ServiceError> {
     let source = std::env::var("PRICE_SOURCE").unwrap_or_else(|_| STAND_IN.to_owned());
-    // [services.price] of the project's trust.toml: the endpoint, the token and the heartbeat.
+    // [services.price] of the project's trust.toml: the token and the heartbeat, and the endpoint
+    // that the project's running runtime published.
     let service = Service::connect("price")?;
     let mut heartbeat: Option<Heartbeat> = None;
     let mut told = false;

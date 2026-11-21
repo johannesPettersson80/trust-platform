@@ -69,9 +69,10 @@ values only while the service's heartbeat says it runs, and falls back to a safe
 
 ## What happened
 
-**The service.** `price-service/src/main.rs` connects as the service `price`, with the endpoint, the
-token file and the heartbeat period of `[services.price]` in `trust.toml`. Every second it fetches the
-price and writes the setpoint for it, `service.set(plant::Heater::price_setpoint, &setpoint)`. After
+**The service.** `price-service/src/main.rs` connects as the service `price`, with the token file and
+the heartbeat period of `[services.price]` in `trust.toml`, to the endpoint that the runtime published
+in `.trust-runtime/control.json` when it started, where `trust-runtime ctl` finds it too. Every second
+it fetches the price and writes the setpoint for it, `service.set(plant::Heater::price_setpoint, &setpoint)`. After
 its first write it starts its heartbeat, which runs on a thread of its own, so that the service's
 work never delays it. At the start of its next cycle the runtime writes the setpoint, as the
 program's input, and adds one to the global `price_heartbeat` for each heartbeat:
@@ -135,20 +136,19 @@ not compile. The token's role, Engineer, lets the service write at all; a Viewer
 
 | File | What it holds |
 |---|---|
-| `src/Heater.st` | the program `HeaterControl`: the gate, the target and the heater |
+| `src/Main.st` | the program `HeaterControl`: the gate, the target and the heater |
 | `src/config.st` | the configuration: the instance `Heater` every 100 ms |
 | `src/generated/services.st` | the global `price_heartbeat`, which `trust-dev rust declarations` writes from `trust.toml` |
-| `trust.toml` | the service `price`: its package, endpoint, token file, heartbeat period and `writes` |
-| `runtime.toml` | the runtime's control endpoint, `tcp://127.0.0.1:47800`, with the examples' token |
+| `trust.toml` | the service `price`: its package, token file, heartbeat period and `writes` |
+| `runtime.toml` | the runtime's settings; it keeps its platform's default control endpoint |
 | `price-service/src/main.rs` | the service: connect, fetch, write, heartbeat |
 | `price-service/src/price.rs` | the price source's answer and the setpoint rule, with their tests |
 | `price-service/src/plant.rs` | the bindings, which `trust-dev service bindings` writes |
 | `price-service/examples/stand_in_source.rs` | the stand-in for a price source |
 | `price-service/Cargo.toml` | the service's crate, with `trust-service` at this release's version |
 
-- `runtime.toml` holds the examples' token, `trust-example-token`, which is no secret: replace it before
-  the runtime is reachable from another computer. The service's token in `secrets/` is a secret, and
-  `.gitignore` keeps it out of version control.
+- The service's token in `secrets/` gives the service its rights, so `.gitignore` keeps it out of
+  version control.
 - `cargo test --manifest-path price-service/Cargo.toml` runs the service's tests.
 - [Rust POUs](https://johannespettersson80.github.io/trust-platform/develop/rust-pous/): heartbeats of
   services, writing a service and running one.

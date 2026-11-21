@@ -413,7 +413,7 @@ communicationPanel -down-> controlServer : Communication comm.* requests\nthroug
 adsPanel -down-> controlServer : ADS control requests\nthrough selected runtime endpoint
 runtimeClient -down-> controlServer : shared JSON-line control\n(comm.*, ADS, fleet.topology)
 projectEndpoint -down-> ctlClient : `trust-runtime ctl --project <dir>\nendpoint --json` at each connection attempt
-ctlClient --> endpointFile : reads (explicit, endpoint file,\nconfigured, platform default)
+ctlClient --> endpointFile : reads (explicit, endpoint file,\nconfigured, platform default;\nthe reader is trust-runtime-client's)
 
 ' Handlers to IDE
 featureHandler --> completion
@@ -449,6 +449,7 @@ adsOnboarding --> twincatPlc : ADS UDP identify/discover\nroute planning/add-rou
 adsExternalClients --> adsServerCrate : ADS/AMS browse/read/write/notify\nplain now, secure reserved
 ctlClient --> controlServer : JSON IPC\nshutdown acknowledgement precedes stop signal
 rustService --> controlServer : service token\nvariables.read / variables.write /\nservice.heartbeat (trust-runtime-client)
+rustService --> endpointFile : reads the published endpoint when\n[services.<name>] names none\n(trust-runtime-client's reader)
 serviceInstall --> osServiceManager : installs + starts (root)\nrelease binary as the project folder's owner
 osServiceManager --> rustService : starts at boot,\nagain 2 s after it ends
 launcher --> controlServer : trust-runtime discover --endpoint\n(comm.search.* through trust-runtime-client)

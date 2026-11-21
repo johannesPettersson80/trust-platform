@@ -4,8 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import {
-  exampleQuickPickItems,
-  hardwareBadge,
+  compactExampleDescription,
   type ExampleEntry,
 } from "../../examples/model";
 import {
@@ -701,21 +700,6 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     }
   });
 
-  test("hardware badges map to the user-facing requirement labels", () => {
-    assert.strictEqual(hardwareBadge("none"), "No hardware");
-    assert.strictEqual(hardwareBadge("twincat"), "Requires TwinCAT");
-    assert.strictEqual(hardwareBadge("raspberrypi"), "Requires Raspberry Pi");
-  });
-
-  test("example gallery entries carry hardware badges", () => {
-    const items = exampleQuickPickItems(manifestEntries());
-    const conveyor = items.find((item) => item.id === "conveyor");
-    assert.ok(conveyor, "conveyor must be offered");
-    assert.strictEqual(conveyor?.description, "No hardware");
-    const ads = items.find((item) => item.id === "twincat-ads");
-    assert.strictEqual(ads?.description, "Requires TwinCAT");
-  });
-
   test("example gallery has scalable search plus hardware and tag filters", () => {
     const source = readSrc("examples/galleryWebview.ts");
     assert.ok(
@@ -862,25 +846,22 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 
   test("starter descriptions are compact enough for gallery cards", () => {
-    for (const item of exampleQuickPickItems(manifestEntries())) {
+    for (const entry of manifestEntries()) {
+      const shown = compactExampleDescription(entry.description);
       assert.ok(
-        item.detail.length <= 80,
-        `example '${item.id}' detail is too long for the first-run gallery card: ${item.detail.length} chars`
+        shown.length <= 80,
+        `example '${entry.id}' detail is too long for the first-run gallery card: ${shown.length} chars`
       );
     }
   });
 
   test("long gallery descriptions are shortened at a word boundary", () => {
-    const item = exampleQuickPickItems([{
-      id: "long-description",
-      title: "Long description",
-      description: "A deliberately long catalog description that should remain readable when it is displayed in the compact first-run gallery card.",
-      path: "long-description",
-      hardware: "none",
-    }])[0];
-    assert.ok(item.detail.length <= 80);
-    assert.ok(item.detail.endsWith("…"));
-    assert.ok(!item.detail.endsWith(" …"));
+    const shown = compactExampleDescription(
+      "A deliberately long catalog description that should remain readable when it is displayed in the compact first-run gallery card."
+    );
+    assert.ok(shown.length <= 80);
+    assert.ok(shown.endsWith("…"));
+    assert.ok(!shown.endsWith(" …"));
   });
 
   test("the PLCopen Motion starter is portable outside the repository", () => {
