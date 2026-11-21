@@ -8,6 +8,10 @@ as an ordinary Rust program, which you build with your own Rust.
 
 --8<-- "examples/rust_function_block/README.md:3"
 
+## Rust Barcode Reader
+
+--8<-- "examples/rust_barcode/README.md:3"
+
 ## Rust Service
 
 --8<-- "examples/rust_service/README.md:3"

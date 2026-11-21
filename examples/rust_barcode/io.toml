@@ -1,0 +1,4 @@
+# Simulated I/O so the project runs with no hardware or brokers, on any machine.
+[io]
+driver = "simulated"
+params = {}

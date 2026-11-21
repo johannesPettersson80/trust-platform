@@ -5876,6 +5876,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-barcode"
+version = "0.1.0"
+dependencies = [
+ "trust-plc",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"

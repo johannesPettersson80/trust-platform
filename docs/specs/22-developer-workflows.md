@@ -528,6 +528,11 @@ folder, so it runs after such a session, as in the list's order:
   0.0 and at speed, a Write of 50.0 to the setpoint moving the speed by 1.0 a
   run of the 100 ms task to 50.0 in about 4.9 s, and a Write of 20.0 bringing
   it down to 20.0 in about 2.9 s (specification 48, RU-88);
+- `rust-barcode`: the walkthrough of `rust_barcode` on the unmodified example:
+  Start building the crate with truST's toolchain, Live Values showing no label
+  at `%IW0` and no verdict, and a Write of each label's number giving its
+  verdict: 1 accepted, 2 expired, 3 unreadable with no problem from the reader,
+  4 another product;
 - `rust-service`: the walkthrough of `rust_service`, its runtime started in the
   same way on the example's own TCP endpoint and token, without a web server:
   the service's token created with `trust-runtime ctl service-token`, Connect

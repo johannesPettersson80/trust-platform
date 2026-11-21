@@ -1,0 +1,9 @@
+# The runtime's endpoint file: it can hold a control token.
+/.trust-runtime/
+# What the build writes: its folder, the program's image and its deployment record.
+/build/
+/program.tpi
+/deployment-record.bin
+# Where your own cargo tests the crate, and its lockfile.
+/rust/target/
+/rust/Cargo.lock
