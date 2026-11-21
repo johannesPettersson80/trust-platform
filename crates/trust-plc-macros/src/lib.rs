@@ -62,9 +62,10 @@ pub fn trust_program(args: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Declares the `impl` block of a POU's sequence (specification 48 §15): its `async fn`, written as
-/// straight-line Rust that awaits `s.next_cycle()`, `s.until(pred)` and `s.wait(t)`, each limited by
-/// `.within(t)` if it must be, becomes a state machine that each activation runs from its wait
-/// point to its next one (RU-71, RU-72). The POU names the sequence, `sequence = "run"`, and has no
+/// straight-line Rust that awaits `s.next_cycle()`, `s.until(pred)` and `s.wait(t)`, or each or the
+/// first of several with `s.all(..)` and `s.race(..)`, each limited by `.within(t)` if it must be,
+/// becomes a state machine that each activation runs from its wait point to its next one (RU-71,
+/// RU-72). The POU names the sequence, `sequence = "run"`, and has no
 /// `impl Body` of its own; its last variable `_seq` holds where the sequence waits and its locals.
 /// ```ignore
 /// #[trust_program(name = "PALLETIZER", sequence = "run")]

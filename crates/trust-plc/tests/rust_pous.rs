@@ -663,3 +663,229 @@ fn a_sequence_that_returns_starts_again_at_its_top() -> Result<(), Fault> {
     assert_eq!(counter(&c), (0, false, 0, 0, 0));
     Ok(())
 }
+
+/// A press that closes once both guards have reported closed, each a pulse that need not last, and
+/// at least 30 ms have passed, all within 100 ms; it presses for one activation and starts again.
+#[trust_program(name = "PRESS", sequence = "run")]
+#[budget("40us")]
+pub struct Press {
+    #[input]
+    pub left_closed: bool,
+    #[input]
+    pub right_closed: bool,
+    #[output]
+    pub pressing: bool,
+    #[output]
+    pub presses: i16,
+}
+
+#[trust_sequence]
+impl Press {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.all(
+                s.until(|me: &Self| me.left_closed),
+                s.until(|me: &Self| me.right_closed),
+                s.wait(Time::from_millis(s, 30)?),
+            )
+            .within(Time::from_millis(s, 100)?)
+            .await?;
+            self.pressing = true;
+            self.presses = checked::add(s, self.presses, 1)?;
+            s.next_cycle().await;
+            self.pressing = false;
+        }
+    }
+}
+
+/// The press's output, its count, and where its sequence waits since when with which members of
+/// its `s.all` complete.
+fn press(p: &Press) -> (bool, i16, u16, i64, u16) {
+    (
+        p.pressing,
+        p.presses,
+        p._seq.point,
+        p._seq.began.as_nanos() / 1_000_000,
+        p._seq.done.0,
+    )
+}
+
+#[test]
+fn an_all_completes_when_its_last_member_has_and_keeps_those_that_did() -> Result<(), Fault> {
+    // RU-72 and IEC §6.7.5 Table 61 features 4a and 4b, every 10 ms. At 0 ms the s.all, point 1,
+    // begins with no member complete. The left guard pulses at 10 ms: member 1 completes, done
+    // 0b001, and stays complete at 20 ms when the pulse is gone. At 30 ms 30 ms have passed:
+    // member 3, done 0b101. The right guard closes at 40 ms, the last member: the press closes,
+    // counts 1 and waits a cycle, point 2 begun at 40 ms, done 0 again. At 50 ms it opens and the
+    // s.all begins anew. Catches members that must hold at one activation together (the level
+    // `until(a && b)`), a member that completes at the activation that began the wait, and a
+    // `done` that leaks into the next wait.
+    let mut cx = trust_plc::test::task(Time::from_nanos(10_000_000));
+    let mut p = Press::new();
+    p.call(&mut cx)?;
+    assert_eq!(press(&p), (false, 0, 1, 0, 0b000), "at 0 ms");
+    p.left_closed = true;
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        press(&p),
+        (false, 0, 1, 0, 0b001),
+        "at 10 ms, the left pulse"
+    );
+    p.left_closed = false;
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        press(&p),
+        (false, 0, 1, 0, 0b001),
+        "at 20 ms, the pulse gone"
+    );
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(press(&p), (false, 0, 1, 0, 0b101), "at 30 ms, 30 ms passed");
+    p.right_closed = true;
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(
+        press(&p),
+        (true, 1, 2, 40, 0b000),
+        "at 40 ms, the right guard"
+    );
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    assert_eq!(press(&p), (false, 1, 1, 50, 0b000), "at 50 ms, anew");
+    Ok(())
+}
+
+#[test]
+fn an_all_that_would_complete_too_late_faults_first() -> Result<(), Fault> {
+    // RU-72: `.within(t)` limits the whole s.all and is checked before its members. The left
+    // guard pulses at 10 ms (done 0b001), 30 ms pass at 30 ms (0b101), and at 100 ms the wait has
+    // lasted exactly its 100 ms, still in time. The right guard closes at 110 ms, which would
+    // complete it, but 110 ms is too late: RustFault with [1, 100, 110], and the instance as it
+    // was before that activation (RU-28), done 0b101 and the press open. Catches a limit checked
+    // after the members, and one that faults at exactly its time.
+    let mut raw = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    raw.interval_ns = 10_000_000;
+    let mut cx = trust_plc::__private::enter(&raw);
+    let mut p = Press::new();
+    p.call(&mut cx)?;
+    p.left_closed = true;
+    trust_plc::test::advance(&mut cx);
+    p.call(&mut cx)?;
+    p.left_closed = false;
+    for _ in 0..9 {
+        trust_plc::test::advance(&mut cx);
+        p.call(&mut cx)?;
+    }
+    assert_eq!(
+        press(&p),
+        (false, 0, 1, 0, 0b101),
+        "at 100 ms, exactly 100 ms"
+    );
+    p.right_closed = true;
+    trust_plc::test::advance(&mut cx);
+    let fault = p.call(&mut cx).expect_err("at 110 ms, too late");
+    let _ = trust_plc::__private::leave(cx, &mut raw);
+    assert_eq!(fault.raw(), FaultCode::RustFault as u32);
+    assert_eq!(raw.fault.detail, [1, 100, 110]);
+    assert_eq!(press(&p), (false, 0, 1, 0, 0b101), "after the fault");
+    Ok(())
+}
+
+/// A feeder that waits for a part, a stop or 50 ms, whichever comes first: it counts a part fed
+/// and a timeout missed, and keeps the number of the member that ended the wait.
+#[trust_fb(name = "FEEDER", sequence = "feed")]
+#[budget("40us")]
+pub struct Feeder {
+    #[input]
+    pub part: bool,
+    #[input]
+    pub stop: bool,
+    #[output]
+    pub fed: i16,
+    #[output]
+    pub missed: i16,
+    #[output]
+    pub ended: u16,
+}
+
+#[trust_sequence]
+impl Feeder {
+    async fn feed(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            let won: u16 = s
+                .race(
+                    s.until(|me: &Self| me.part),
+                    s.until(|me: &Self| me.stop),
+                    s.wait(Time::from_millis(s, 50)?),
+                )
+                .await;
+            self.ended = won;
+            if won == 1 {
+                self.fed = checked::add(s, self.fed, 1)?;
+            } else if won == 3 {
+                self.missed = checked::add(s, self.missed, 1)?;
+            }
+            s.next_cycle().await;
+        }
+    }
+}
+
+/// The feeder's counts, the member that ended its last race, and where its sequence waits since
+/// when, with its local `won`.
+fn feeder(f: &Feeder) -> (i16, i16, u16, u16, i64, u16) {
+    (
+        f.fed,
+        f.missed,
+        f.ended,
+        f._seq.point,
+        f._seq.began.as_nanos() / 1_000_000,
+        f._seq.won,
+    )
+}
+
+#[test]
+fn a_race_completes_with_its_first_member_in_order_that_completes() -> Result<(), Fault> {
+    // RU-72 and IEC §6.7.5 Table 61 feature 2a, every 10 ms. At 0 ms the race, point 1, begins.
+    // At 20 ms a part and a stop come together: both complete, and the first in order wins, 1, a
+    // part fed; the cycle's wait, point 2, begins at 20 ms. At 30 ms the race begins anew; the part
+    // is still there but a wait never completes at the activation that began it. Part and stop go;
+    // at 80 ms 50 ms have passed since 30 ms: member 3 wins, a miss, point 2 at 80 ms. The race
+    // begins at 90 ms, and the stop at 100 ms ends it, 2, neither fed nor missed. Catches a race
+    // that takes the last member that completed, one that completes at once, a timeout counted
+    // from the wrong activation, and a value that is not the member's number from 1.
+    let mut cx = trust_plc::test::task(Time::from_nanos(10_000_000));
+    let mut f = Feeder::new();
+    f.call(&mut cx)?;
+    assert_eq!(feeder(&f), (0, 0, 0, 1, 0, 0), "at 0 ms");
+    trust_plc::test::advance(&mut cx);
+    f.call(&mut cx)?;
+    assert_eq!(feeder(&f), (0, 0, 0, 1, 0, 0), "at 10 ms, nothing");
+    f.part = true;
+    f.stop = true;
+    trust_plc::test::advance(&mut cx);
+    f.call(&mut cx)?;
+    assert_eq!(feeder(&f), (1, 0, 1, 2, 20, 1), "at 20 ms, part and stop");
+    trust_plc::test::advance(&mut cx);
+    f.call(&mut cx)?;
+    assert_eq!(feeder(&f), (1, 0, 1, 1, 30, 1), "at 30 ms, anew");
+    f.part = false;
+    f.stop = false;
+    for _ in 0..4 {
+        trust_plc::test::advance(&mut cx);
+        f.call(&mut cx)?;
+    }
+    assert_eq!(feeder(&f), (1, 0, 1, 1, 30, 1), "at 70 ms, 40 ms waited");
+    trust_plc::test::advance(&mut cx);
+    f.call(&mut cx)?;
+    assert_eq!(feeder(&f), (1, 1, 3, 2, 80, 3), "at 80 ms, 50 ms waited");
+    trust_plc::test::advance(&mut cx);
+    f.call(&mut cx)?;
+    assert_eq!(feeder(&f), (1, 1, 3, 1, 90, 3), "at 90 ms, anew");
+    f.stop = true;
+    trust_plc::test::advance(&mut cx);
+    f.call(&mut cx)?;
+    assert_eq!(feeder(&f), (1, 1, 2, 2, 100, 2), "at 100 ms, the stop");
+    Ok(())
+}

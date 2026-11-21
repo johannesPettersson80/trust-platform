@@ -336,3 +336,150 @@ fn a_configuration_runs_a_rust_sequence_scan_by_scan() {
         "after the warm restart"
     );
 }
+
+/// A press whose sequence waits for both guards, each a pulse, with an `s.all`, and races its
+/// stroke to the bottom against a stop into the local `won`.
+const PRESS: &str = "
+/// Presses once both guards have closed, and ends on the bottom or a stop.
+#[trust_program(name = \"PRESS\", sequence = \"run\")]
+#[budget(\"80us\")]
+pub struct Press {
+    #[input]
+    pub left_closed: bool,
+    #[input]
+    pub right_closed: bool,
+    #[input]
+    pub at_bottom: bool,
+    #[input]
+    pub stop_pressed: bool,
+    #[output]
+    pub pressing: bool,
+    #[output]
+    pub ended: u16,
+}
+
+#[trust_sequence]
+impl Press {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.all(
+                s.until(|me: &Self| me.left_closed),
+                s.until(|me: &Self| me.right_closed),
+            )
+            .await;
+            self.pressing = true;
+            let won: u16 = s
+                .race(
+                    s.until(|me: &Self| me.at_bottom),
+                    s.until(|me: &Self| me.stop_pressed),
+                )
+                .await;
+            self.pressing = false;
+            self.ended = won;
+        }
+    }
+}
+";
+
+/// The configuration that runs PRESS every 10 ms, its inputs and outputs connected to globals.
+const PRESS_LINE: &str = "CONFIGURATION Line
+VAR_GLOBAL
+    left_guard : BOOL;
+    right_guard : BOOL;
+    bottom : BOOL;
+    stop_button : BOOL;
+    pressing : BOOL;
+    ended : UINT;
+END_VAR
+RESOURCE Station ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Cell WITH Fast : PRESS(left_closed := left_guard, right_closed := right_guard, at_bottom := bottom, stop_pressed := stop_button, pressing => pressing, ended => ended);
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_configuration_runs_a_rust_sequences_all_and_race_scan_by_scan() {
+    // Specification 48 RU-71 and RU-72 in a project: the generated state PRESS_SEQ holds `done`
+    // after `began` and the local `won` after it, and the program's code passes all of them.
+    // Activations every 10 ms: at 0 ms the s.all, point 1, begins; the left guard pulses before
+    // 10 ms, done 1, and its bit stays at 20 ms when the pulse is gone; the right guard closes
+    // before 30 ms, the last member: the press presses and races, point 2, done 0 again. Bottom
+    // and stop come together before 40 ms: the first member in order wins, `won` 1, the press
+    // stops, `ended` 1, and the s.all begins anew, point 1; at 50 ms the right guard, still
+    // closed, completes its member, done 2. Catches a state whose `done` or `won` the declaration
+    // lays out apart from the macro's, a member that must hold at one activation with the others,
+    // and a race that takes the last member that completed.
+    let root = custom_project(
+        "rust-sequence-all-race",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &format!("{ROOT}{PRESS}")),
+        ],
+        PRESS_LINE,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let scan = |program: &mut trust_runtime::native::NativeProgram<
+        '_,
+        trust_runtime::native::HostCode,
+    >,
+                time: i64| {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    };
+    let write = |program: &mut trust_runtime::native::NativeProgram<
+        '_,
+        trust_runtime::native::HostCode,
+    >,
+                 name: &str,
+                 on: bool| {
+        let (symbol, _) = program
+            .image()
+            .find_symbol(name)
+            .unwrap_or_else(|| panic!("the symbol of {name}"));
+        program
+            .write_symbol(symbol, &Value::Bool(on))
+            .unwrap_or_else(|error| panic!("{name} written: {error:?}"));
+    };
+    let press =
+        |program: &trust_runtime::native::NativeProgram<'_, trust_runtime::native::HostCode>| {
+            (
+                program.value("CELL._SEQ.POINT"),
+                program.value("CELL._SEQ.DONE"),
+                program.value("CELL._SEQ.WON"),
+                program.value("PRESSING"),
+                program.value("ENDED"),
+            )
+        };
+    let state = |point: u16, done: u16, won: u16, pressing: bool, ended: u16| {
+        (
+            Some(Value::UInt(point)),
+            Some(Value::Word(done)),
+            Some(Value::UInt(won)),
+            Some(Value::Bool(pressing)),
+            Some(Value::UInt(ended)),
+        )
+    };
+    scan(&mut program, 0);
+    assert_eq!(press(&program), state(1, 0, 0, false, 0), "at 0 ms");
+    write(&mut program, "LEFT_GUARD", true);
+    scan(&mut program, 10);
+    assert_eq!(press(&program), state(1, 1, 0, false, 0), "at 10 ms");
+    write(&mut program, "LEFT_GUARD", false);
+    scan(&mut program, 20);
+    assert_eq!(press(&program), state(1, 1, 0, false, 0), "at 20 ms");
+    write(&mut program, "RIGHT_GUARD", true);
+    scan(&mut program, 30);
+    assert_eq!(press(&program), state(2, 0, 0, true, 0), "at 30 ms");
+    write(&mut program, "BOTTOM", true);
+    write(&mut program, "STOP_BUTTON", true);
+    scan(&mut program, 40);
+    assert_eq!(press(&program), state(1, 0, 1, false, 1), "at 40 ms");
+    scan(&mut program, 50);
+    assert_eq!(press(&program), state(1, 2, 1, false, 1), "at 50 ms");
+}

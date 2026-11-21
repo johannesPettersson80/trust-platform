@@ -636,7 +636,8 @@ fn field_variable(ident: &Ident, ty: &Type, attributes: &[Attribute]) -> Result<
     })
 }
 
-fn variable_name(ident: &Ident) -> Result<String, Error> {
+/// The Structured Text name of the variable `ident`: an IEC identifier and no reserved word.
+pub(crate) fn variable_name(ident: &Ident) -> Result<String, Error> {
     let name = ident.unraw().to_string();
     if !is_identifier(&name) {
         return Err(Error::new(

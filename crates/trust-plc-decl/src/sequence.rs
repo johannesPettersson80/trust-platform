@@ -1,7 +1,9 @@
 //! A `#[trust_sequence]`'s body (specification 48 §15, RU-71, RU-72), as the attribute and the
 //! declarations' writer read it: its wait points in the body's order, each with what it waits for and
 //! the step that the `s.step` before it names, and its locals, each a variable of the sequence's
-//! state; and RU-72's refusals, each at its place in the body.
+//! state; and RU-72's refusals, each at its place in the body. The members of an `s.all` or an
+//! `s.race` are `s.next_cycle()`, `s.until(..)` and `s.wait(..)`, two to sixteen of them, and only an
+//! `s.race` gives a value, the number of its member that completed, to a `u16` local.
 
 use proc_macro2::Span;
 use syn::spanned::Spanned;
@@ -16,6 +18,13 @@ use crate::{Field, Section, Structure, Variable};
 /// The name of a sequence's state in its POU's instance (RU-71): the one leading underscore an IEC
 /// identifier may have.
 pub const STATE: &str = "_seq";
+
+/// The field of the state of a sequence whose body holds an `s.all`: the members of the `s.all` it
+/// waits at that have completed, bit 0 for the first (RU-72).
+pub const DONE: &str = "done";
+
+/// The most members an `s.all` or an `s.race` takes: one bit each of `done`, a `WORD` (RU-72).
+pub const MOST_MEMBERS: usize = 16;
 
 /// The Rust name of the type of the state of the sequence of the POU whose Rust item is `item`,
 /// `<Item>Sequence`: `#[trust_sequence]` declares it beside the POU's `impl` block, and the POU's
@@ -34,7 +43,8 @@ pub fn state_structure(pou: &str) -> String {
 
 /// The structure of the state of `sequence`, the sequence of the POU named `pou` whose Rust item is
 /// `item` (RU-71): `point : UINT`, the wait point it waits at, `began : TIME`, when its wait began,
-/// and its locals with their types, each starting at its type's default, the sequence's top.
+/// `done : WORD` when the body holds an `s.all` (RU-72), and its locals with their types, each
+/// starting at its type's default, the sequence's top.
 #[must_use]
 pub fn state(pou: &str, item: &str, sequence: &Sequence) -> Structure {
     let mut fields = vec![
@@ -49,6 +59,13 @@ pub fn state(pou: &str, item: &str, sequence: &Sequence) -> Structure {
             init: None,
         },
     ];
+    if sequence.holds_all() {
+        fields.push(Field {
+            name: DONE.to_string(),
+            ty: DataType::Elementary(Elementary::Word),
+            init: None,
+        });
+    }
     fields.extend(sequence.locals.iter().map(|local| Field {
         name: local.name.clone(),
         ty: local.ty.clone(),
@@ -124,6 +141,14 @@ pub struct Sequence {
     pub locals: Vec<Local>,
 }
 
+impl Sequence {
+    /// Whether its body holds an `s.all`, whose state then has `done` (RU-72).
+    #[must_use]
+    pub fn holds_all(&self) -> bool {
+        self.wait_points.iter().any(|point| point.wait == Wait::All)
+    }
+}
+
 /// Reads the sequence `item`, an `async fn name(&mut self, s: &mut Seq) -> Result<(), Fault>`.
 ///
 /// # Errors
@@ -131,7 +156,10 @@ pub struct Sequence {
 /// A refusal of RU-72 at its place: a function that is not `async`, has no context of the
 /// sequence's wait points, awaits anything but one of them, awaits inside another expression, has
 /// an `async` block or closure, a loop that can run without reaching a wait point, a `for` loop with
-/// a wait point, a local without its type, two locals of one name, or a local of no IEC type.
+/// a wait point, an `s.all` or `s.race` with too few or too many members or a member that is not a
+/// plain wait, a value from a wait point other than `s.race` or into a local that is not `u16`, a
+/// local without its type, two locals of one name, a local named as a field of the state, or a local
+/// of no IEC type.
 pub fn sequence(item: &ImplItemFn) -> Result<Sequence, Error> {
     if item.sig.asyncness.is_none() {
         return Err(Error::new(
@@ -155,14 +183,29 @@ pub fn sequence(item: &ImplItemFn) -> Result<Sequence, Error> {
         context: context.ident.to_string(),
         wait_points: Vec::new(),
         locals: Vec::new(),
+        local_places: Vec::new(),
         step: None,
     };
     reader.block(&item.block)?;
-    Ok(Sequence {
+    let read = Sequence {
         name: item.sig.ident.to_string(),
         wait_points: reader.wait_points,
         locals: reader.locals,
-    })
+    };
+    if read.holds_all()
+        && let Some(index) = read
+            .locals
+            .iter()
+            .position(|local| local.name.eq_ignore_ascii_case(DONE))
+    {
+        let place = reader
+            .local_places
+            .get(index)
+            .copied()
+            .unwrap_or_else(|| item.sig.ident.span());
+        return Err(a_field_of_the_state(place, DONE));
+    }
+    Ok(read)
 }
 
 /// What reading a body has found so far.
@@ -171,6 +214,8 @@ struct Reader {
     context: String,
     wait_points: Vec<WaitPoint>,
     locals: Vec<Local>,
+    /// Where each local's name stands, for a refusal found after the body is read.
+    local_places: Vec<Span>,
     /// The step the last `s.step` named, for the next wait point.
     step: Option<String>,
 }
@@ -187,6 +232,9 @@ impl Reader {
         match statement {
             Stmt::Local(local) => {
                 if let Some(init) = &local.init {
+                    if let Some(awaited) = awaited(&init.expr) {
+                        return self.race_into(local, awaited);
+                    }
                     plain(&init.expr)?;
                     if let Some((_, otherwise)) = &init.diverge {
                         plain(otherwise)?;
@@ -270,6 +318,37 @@ impl Reader {
         Ok(())
     }
 
+    /// `let won: u16 = s.race(..).await;`: the wait point, and the local that keeps the number of
+    /// the member that completed. Any other wait point gives no value.
+    fn race_into(&mut self, local: &LetStatement, awaited: &ExprAwait) -> Result<(), Error> {
+        if self.wait_of(&awaited.base)?.0 != Wait::Race {
+            return Err(Error::new(
+                awaited.span(),
+                "a wait point stands as a statement of its own, `s.wait(t).await;`: only `s.race` \
+                 gives a value, the number of its member that completed, `let won: u16 = \
+                 s.race(..).await;` (specification 48 RU-72)",
+            ));
+        }
+        if let Some((_, otherwise)) = local.init.as_ref().and_then(|init| init.diverge.as_ref()) {
+            return Err(Error::new(
+                otherwise.span(),
+                "the number of the member that completed is always there: `let won: u16 = \
+                 s.race(..).await;` takes no `else` (specification 48 RU-72)",
+            ));
+        }
+        self.wait_point(awaited)?;
+        self.local(local)?;
+        let number = self.locals.last().map(|won| &won.ty);
+        if number != Some(&DataType::Elementary(Elementary::Uint)) {
+            return Err(Error::new(
+                local.pat.span(),
+                "the number of the `s.race`'s member that completed is a `u16`: `let won: u16 = \
+                 s.race(..).await;` (specification 48 RU-72)",
+            ));
+        }
+        Ok(())
+    }
+
     /// What `base`, the expression before `.await`, waits for, and whether `.within` limits it.
     fn wait_of(&self, base: &Expr) -> Result<(Wait, bool), Error> {
         let Expr::MethodCall(call) = base else {
@@ -286,8 +365,14 @@ impl Reader {
                 "next_cycle" => Wait::NextCycle,
                 "until" => Wait::Until,
                 "wait" => Wait::Wait,
-                "all" => Wait::All,
-                "race" => Wait::Race,
+                "all" => {
+                    self.members(call)?;
+                    Wait::All
+                }
+                "race" => {
+                    self.members(call)?;
+                    Wait::Race
+                }
                 other => {
                     return Err(Error::new(
                         call.method.span(),
@@ -312,6 +397,52 @@ impl Reader {
         } else {
             Err(not_a_wait_point(base.span()))
         }
+    }
+
+    /// The members of `s.all(..)` or `s.race(..)`: two to sixteen, each `s.next_cycle()`,
+    /// `s.until(..)` or `s.wait(..)` without a `.within` of its own.
+    fn members(&self, call: &syn::ExprMethodCall) -> Result<(), Error> {
+        let (s, method) = (&self.context, &call.method);
+        if !(2..=MOST_MEMBERS).contains(&call.args.len()) {
+            return Err(Error::new(
+                method.span(),
+                format!(
+                    "`{s}.{method}` takes two to sixteen waits, one bit each of the state's `done`: \
+                     `{s}.{method}({s}.until(..), {s}.wait(..))` (specification 48 RU-72)"
+                ),
+            ));
+        }
+        for member in &call.args {
+            let plain_wait = match member {
+                Expr::MethodCall(inner) if inner.method == "within" => {
+                    return Err(Error::new(
+                        inner.method.span(),
+                        format!(
+                            "a member of `{s}.{method}` takes no `.within` of its own: `.within(t)` \
+                             stands last and limits the whole wait point, \
+                             `{s}.{method}(..).within(t).await?` (specification 48 RU-72)"
+                        ),
+                    ));
+                }
+                Expr::MethodCall(inner) => {
+                    self.is_context(&inner.receiver)
+                        && ["next_cycle", "until", "wait"]
+                            .iter()
+                            .any(|name| inner.method == name)
+                }
+                _ => false,
+            };
+            if !plain_wait {
+                return Err(Error::new(
+                    member.span(),
+                    format!(
+                        "a member of `{s}.{method}` is `{s}.next_cycle()`, `{s}.until(..)` or \
+                         `{s}.wait(..)` (specification 48 RU-72)"
+                    ),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn is_context(&self, expression: &Expr) -> bool {
@@ -347,7 +478,14 @@ impl Reader {
                 "a local of a sequence is one name, not a pattern (specification 48 RU-71)",
             ));
         };
-        let name = ident.ident.to_string();
+        // A local is a field of the state in Structured Text, named as a variable is.
+        let name = crate::variable_name(&ident.ident)?;
+        if let Some(field) = ["point", "began"]
+            .into_iter()
+            .find(|field| name.eq_ignore_ascii_case(field))
+        {
+            return Err(a_field_of_the_state(ident.ident.span(), field));
+        }
         if self
             .locals
             .iter()
@@ -363,7 +501,32 @@ impl Reader {
         }
         let ty = DataType::of(&typed.ty)?;
         self.locals.push(Local { name, ty });
+        self.local_places.push(ident.ident.span());
         Ok(())
+    }
+}
+
+/// The refusal of a local named as `field`, a field of the sequence's own state.
+fn a_field_of_the_state(place: Span, field: &str) -> Error {
+    Error::new(
+        place,
+        format!(
+            "a local of a sequence cannot be named `{field}` in any case: the sequence's state, \
+             whose variables the locals are, has a field `{field}` of its own (specification 48 \
+             RU-71)"
+        ),
+    )
+}
+
+/// The wait point of `expression`, `w.await` or `w.await?`, when it is one.
+fn awaited(expression: &Expr) -> Option<&ExprAwait> {
+    match expression {
+        Expr::Await(awaited) => Some(awaited),
+        Expr::Try(tried) => match &*tried.expr {
+            Expr::Await(awaited) => Some(awaited),
+            _ => None,
+        },
+        _ => None,
     }
 }
 
@@ -462,8 +625,17 @@ impl<'ast> Visit<'ast> for Found {
 /// Whether every way through `block` reaches a wait point before it could go round its loop again.
 fn always_waits(block: &Block) -> bool {
     for statement in &block.stmts {
-        let Stmt::Expr(expression, _) = statement else {
-            continue;
+        let expression = match statement {
+            Stmt::Expr(expression, _) => expression,
+            Stmt::Local(local)
+                if local
+                    .init
+                    .as_ref()
+                    .is_some_and(|init| awaited(&init.expr).is_some()) =>
+            {
+                return true;
+            }
+            _ => continue,
         };
         if always_waits_expression(expression) {
             return true;

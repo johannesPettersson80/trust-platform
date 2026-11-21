@@ -46,7 +46,7 @@ pub(crate) fn expand(args: &TokenStream, item: &TokenStream) -> TokenStream {
             // The refusal, with the state's type and the sequence as plain methods, so that the
             // compiler names only the refusal.
             let error = error.to_compile_error();
-            let state = pou.map(|pou| state(&pou, "", &[], &[]));
+            let state = pou.map(|pou| state(&pou, "", false, &[], &[]));
             stub_sequences(&mut block);
             quote! { #error #state #block }
         }
@@ -117,7 +117,7 @@ fn lowered(block: &mut ItemImpl) -> Result<TokenStream, (Error, Option<Ident>)> 
     if let Some(item) = block.items.get_mut(index) {
         *item = lowered;
     }
-    Ok(state(&pou, &name, &hoisted, &starts))
+    Ok(state(&pou, &name, sequence.holds_all(), &hoisted, &starts))
 }
 
 /// The struct the block's `impl` is for: the POU.
@@ -153,9 +153,16 @@ fn context_of(function: &ImplItemFn) -> Result<Ident, Error> {
     }
 }
 
-/// The declaration of the state's type: the wait point, the time its wait began and the locals
-/// (RU-71), with the defaults a cold or a warm restart starts it at, its top (RU-73).
-fn state(pou: &Ident, sequence: &str, locals: &[Hoisted], starts: &[TokenStream]) -> TokenStream {
+/// The declaration of the state's type: the wait point, the time its wait began, the members of an
+/// `s.all` that have completed when the body holds one (`all`), and the locals (RU-71, RU-72), with
+/// the defaults a cold or a warm restart starts it at, its top (RU-73).
+fn state(
+    pou: &Ident,
+    sequence: &str,
+    all: bool,
+    locals: &[Hoisted],
+    starts: &[TokenStream],
+) -> TokenStream {
     let state = state_type(pou);
     let names: Vec<&Ident> = locals.iter().map(|local| &local.name).collect();
     let types: Vec<&Type> = locals.iter().map(|local| &local.ty).collect();
@@ -168,6 +175,18 @@ fn state(pou: &Ident, sequence: &str, locals: &[Hoisted], starts: &[TokenStream]
          RU-71): where it waits and its locals."
     );
     let began = value(&DataType::Elementary(Elementary::Time), None);
+    let (done, done_start) = if all {
+        (
+            quote! {
+                /// The members of the `s.all` the sequence waits at that have completed, bit 0
+                /// for the first; 0 at every other wait point (specification 48 RU-72).
+                pub done: ::trust_plc::Word,
+            },
+            quote! { done: ::trust_plc::Word(0), },
+        )
+    } else {
+        (TokenStream::new(), TokenStream::new())
+    };
     quote! {
         #[doc = #document]
         #[derive(Clone, Copy, Debug)]
@@ -177,6 +196,7 @@ fn state(pou: &Ident, sequence: &str, locals: &[Hoisted], starts: &[TokenStream]
             pub point: u16,
             /// The logical time of the activation that began the wait.
             pub began: ::trust_plc::Time,
+            #done
             #(
                 #[doc = #documents]
                 pub #names: #types,
@@ -184,7 +204,7 @@ fn state(pou: &Ident, sequence: &str, locals: &[Hoisted], starts: &[TokenStream]
         }
 
         impl ::trust_plc::Declared for #state {
-            const DEFAULT: Self = Self { point: 0, began: #began, #(#names: #starts),* };
+            const DEFAULT: Self = Self { point: 0, began: #began, #done_start #(#names: #starts),* };
         }
 
         impl ::trust_plc::Value for #state {}
