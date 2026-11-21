@@ -13,6 +13,7 @@ use rust_pous_support::{built, custom_project, manifest};
 use trust_runtime::native::rust_pous::Written;
 use trust_runtime::native::{load, NoHooks};
 use trust_runtime::value::{Duration, Value};
+use trust_runtime_core::native::change::CarriedValueEvent;
 
 /// The root of a crate whose program the configuration runs: a configuration binds each program the
 /// crate declares, as it binds each of Structured Text's.
@@ -624,4 +625,179 @@ fn a_configuration_runs_a_rust_sequences_children_scan_by_scan() {
     assert_eq!(filler(&program), state(2, 2, 2, false, 0), "at 30 ms");
     scan(&mut program, 40);
     assert_eq!(filler(&program), state(3, 0, 2, false, 1), "at 40 ms");
+}
+
+/// A stamp whose sequence waits for a part, strokes for `STROKE` milliseconds and counts it, the
+/// program of the online change test.
+const STAMP: &str = "
+/// Strokes once for each part.
+#[trust_program(name = \"STAMP\", sequence = \"run\")]
+#[budget(\"80us\")]
+pub struct Stamp {
+    #[input]
+    pub part: bool,
+    #[output]
+    pub down: bool,
+    #[output]
+    pub strokes: i16,
+}
+
+#[trust_sequence]
+impl Stamp {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.until(|me: &Self| me.part).await;
+            self.down = true;
+            s.wait(Time::from_millis(s, STROKE)?).await;
+            self.down = false;
+            self.strokes = checked::add(s, self.strokes, 1)?;
+        }
+    }
+}
+";
+
+/// The configuration that runs STAMP every 10 ms, its input and outputs connected to globals.
+const STAMPING: &str = "CONFIGURATION Line
+VAR_GLOBAL
+    part : BOOL;
+    down : BOOL;
+    strokes : INT;
+END_VAR
+RESOURCE Station ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Cell WITH Fast : STAMP(part := part, down => down, strokes => strokes);
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn an_online_change_keeps_a_sequence_with_its_wait_points_and_restarts_one_without() {
+    // Specification 48 RU-73 with specification 44 §12.2. The running stamp waits for a part,
+    // point 1, at 0 ms; the part comes before 10 ms, so it strokes from 10 ms, point 2. A change at
+    // 20 ms to a stroke of 200 ms keeps the wait points and locals, so the state's member
+    // `shape_2850a962` (the FNV-1a hash of `wait #1`, `wait #2`, computed independently) is carried
+    // and so is the state: the stroke begun at 10 ms is still going at 200 ms and over at 210 ms,
+    // when the stamp counts 1 and waits for the next part. It strokes again from 220 ms. A change at
+    // 230 ms that adds a wait point before the stroke changes the shape to `shape_f0f8592b` (`wait
+    // #1`, `wait #2`, `wait #3`): the report lists that member as new, the state is carried as it
+    // was, point 2, and the next activation starts the sequence at its top, waiting for a part,
+    // point 1; the outputs keep their values, the count 1 and the stamp down. At 240 ms the part,
+    // still there, completes the wait and the added wait point begins, point 2. Catches a change
+    // that resumes a sequence at a wait point whose number now means another, one that restarts a
+    // sequence whose wait points stayed, and a restart the report does not name.
+    let build = |name: &str, source: &str| {
+        let root = custom_project(
+            name,
+            &[
+                ("Cargo.toml", &manifest("")),
+                ("src/lib.rs", &format!("{ROOT}{source}")),
+            ],
+            STAMPING,
+        );
+        built(&root)
+    };
+    let first = STAMP.replace("STROKE", "100");
+    let longer = STAMP.replace("STROKE", "200");
+    let added = first.replace(
+        "            self.down = true;",
+        "            s.next_cycle().await;\n            self.down = true;",
+    );
+    assert_ne!(added, first);
+    let Some((first, device)) = build("rust-sequence-change-first", &first) else {
+        return;
+    };
+    let Some((longer, _)) = build("rust-sequence-change-longer", &longer) else {
+        return;
+    };
+    let Some((added, _)) = build("rust-sequence-change-added", &added) else {
+        return;
+    };
+    let scan = |program: &mut trust_runtime::native::NativeProgram<
+        '_,
+        trust_runtime::native::HostCode,
+    >,
+                time: i64| {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    };
+    let stamp =
+        |program: &trust_runtime::native::NativeProgram<'_, trust_runtime::native::HostCode>| {
+            (
+                program.value("CELL._SEQ.POINT"),
+                program.value("DOWN"),
+                program.value("STROKES"),
+            )
+        };
+    let state = |point: u16, down: bool, strokes: i16| {
+        (
+            Some(Value::UInt(point)),
+            Some(Value::Bool(down)),
+            Some(Value::Int(strokes)),
+        )
+    };
+    let names_the_shape = |events: &[CarriedValueEvent], shape: &str| {
+        events.iter().any(|event| {
+            matches!(event, CarriedValueEvent::New { name }
+                if name.eq_ignore_ascii_case(&format!("Cell._seq.{shape}")))
+        })
+    };
+    let mut running = load(&first.image, &device).expect("the image loads");
+    running.cold_start(Duration::ZERO).expect("the cold start");
+    scan(&mut running, 0);
+    let (part, _) = running
+        .image()
+        .find_symbol("PART")
+        .expect("the symbol of part");
+    running
+        .write_symbol(part, &Value::Bool(true))
+        .expect("the part comes");
+    scan(&mut running, 10);
+    assert_eq!(stamp(&running), state(2, true, 0), "at 10 ms");
+
+    let mut kept = load(&longer.image, &device).expect("the image loads");
+    let report = kept
+        .change_from(&mut running, Duration::from_millis(20))
+        .expect("the change applies");
+    assert!(
+        !report.events.iter().any(|event| matches!(
+            event,
+            CarriedValueEvent::New { name } if name.to_ascii_lowercase().contains("shape_")
+        )),
+        "{:?}",
+        report.events
+    );
+    scan(&mut kept, 200);
+    assert_eq!(stamp(&kept), state(2, true, 0), "at 200 ms, 190 ms of 200");
+    scan(&mut kept, 210);
+    assert_eq!(stamp(&kept), state(1, false, 1), "at 210 ms, 200 ms");
+    scan(&mut kept, 220);
+    assert_eq!(stamp(&kept), state(2, true, 1), "at 220 ms, the next part");
+
+    let mut restarted = load(&added.image, &device).expect("the image loads");
+    let report = restarted
+        .change_from(&mut kept, Duration::from_millis(230))
+        .expect("the change applies");
+    assert!(
+        names_the_shape(&report.events, "shape_f0f8592b"),
+        "{:?}",
+        report.events
+    );
+    assert_eq!(
+        stamp(&restarted),
+        state(2, true, 1),
+        "carried, before it runs"
+    );
+    scan(&mut restarted, 230);
+    assert_eq!(
+        stamp(&restarted),
+        state(1, true, 1),
+        "at 230 ms, at its top"
+    );
+    scan(&mut restarted, 240);
+    assert_eq!(
+        stamp(&restarted),
+        state(2, true, 1),
+        "at 240 ms, the added wait"
+    );
 }

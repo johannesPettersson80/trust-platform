@@ -19,3 +19,8 @@
   a state of its own, which the debugger shows as `<instance>._seq.fill`. A loop whose only wait is
   a child that can return without waiting, or an inner loop that can `break` before its wait, is now
   refused, as it could keep a scan from ending.
+- An online change keeps a Rust sequence where it waits when the changed code has the same wait
+  points, each named by its step or its order, and the same locals, and otherwise starts the
+  sequence at its top at its next activation (specification 48 RU-73). The change's report then
+  lists the sequence state's new member `shape_<signature>`, whose name changes with the wait points
+  and the locals. A child sequence that changed starts at its top the next time it runs.

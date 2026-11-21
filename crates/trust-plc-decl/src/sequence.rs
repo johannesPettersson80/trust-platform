@@ -8,6 +8,8 @@
 //! A `#[trust_sequence]` block holds the POU's sequence, the one `async fn` no other awaits, and the
 //! child sequences it awaits, each with a state of its own in a field of `_seq` (RU-71, RU-72).
 
+use std::fmt::Write as _;
+
 use proc_macro2::Span;
 use syn::ext::IdentExt as _;
 use syn::spanned::Spanned;
@@ -111,8 +113,37 @@ pub fn states(pou: &str, item: &str, block: &Block) -> Vec<Structure> {
     std::iter::once(first).chain(children).collect()
 }
 
+/// The name of the member of the state of `sequence` that tells an online change whether the
+/// changed code has the same wait points and locals (RU-73): `shape_` and eight hexadecimal digits of
+/// the 32-bit FNV-1a hash of a line per wait point, `wait <step>` or `wait #<number>`, and a line per
+/// local, `local <name>: <type>` with its name in small letters, in the body's order, each line
+/// ending in a line feed.
+#[must_use]
+pub fn shape(sequence: &Sequence) -> String {
+    let mut lines = String::new();
+    for point in &sequence.wait_points {
+        // Writing to a `String` cannot fail.
+        let _ = match &point.step {
+            Some(step) => writeln!(lines, "wait {step}"),
+            None => writeln!(lines, "wait #{}", point.number),
+        };
+    }
+    for local in &sequence.locals {
+        let _ = writeln!(
+            lines,
+            "local {}: {}",
+            local.name.to_ascii_lowercase(),
+            local.ty.iec()
+        );
+    }
+    let hash = lines.bytes().fold(0x811c_9dc5_u32, |hash, byte| {
+        (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
+    });
+    format!("shape_{hash:08x}")
+}
+
 /// The fields of the state of `sequence`: `point`, `began`, `done` when its body holds an `s.all`,
-/// and its locals.
+/// its shape (RU-73), and its locals.
 fn fields(sequence: &Sequence) -> Vec<Field> {
     let mut fields = vec![
         Field {
@@ -133,6 +164,11 @@ fn fields(sequence: &Sequence) -> Vec<Field> {
             init: None,
         });
     }
+    fields.push(Field {
+        name: shape(sequence),
+        ty: DataType::Elementary(Elementary::Bool),
+        init: None,
+    });
     fields.extend(sequence.locals.iter().map(|local| Field {
         name: local.name.clone(),
         ty: local.ty.clone(),

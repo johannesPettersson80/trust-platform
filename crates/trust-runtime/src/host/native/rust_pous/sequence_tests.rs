@@ -66,7 +66,7 @@ fn a_pou_that_runs_a_sequence_declares_its_state_last() {
     assert!(
         text.contains(
             "TYPE\n    PALLETIZER_SEQ :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
-             parts : INT;\n    END_STRUCT;\nEND_TYPE\n"
+             shape_a6097454 : BOOL;\n        parts : INT;\n    END_STRUCT;\nEND_TYPE\n"
         ),
         "{text}"
     );
@@ -132,7 +132,7 @@ fn a_sequence_that_holds_an_all_declares_done_in_its_state() {
     assert!(
         text.contains(
             "TYPE\n    PRESS_SEQ :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
-             done : WORD;\n        won : UINT;\n    END_STRUCT;\nEND_TYPE\n"
+             done : WORD;\n        shape_dfd956cf : BOOL;\n        won : UINT;\n    END_STRUCT;\nEND_TYPE\n"
         ),
         "{text}"
     );
@@ -204,11 +204,12 @@ fn a_sequence_with_children_declares_a_state_for_each() {
     let text = declarations_text(&krate);
     for declared in [
         "TYPE\n    FILLER_SEQ :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
-         fill : FILLER_SEQ_FILL;\n        settle : FILLER_SEQ_SETTLE;\n    END_STRUCT;\nEND_TYPE\n",
-        "TYPE\n    FILLER_SEQ_FILL :\n    STRUCT\n        point : UINT;\n        began : TIME;\n    \
+         shape_2850a962 : BOOL;\n        fill : FILLER_SEQ_FILL;\n        settle : FILLER_SEQ_SETTLE;\n    \
          END_STRUCT;\nEND_TYPE\n",
+        "TYPE\n    FILLER_SEQ_FILL :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
+         shape_2850a962 : BOOL;\n    END_STRUCT;\nEND_TYPE\n",
         "TYPE\n    FILLER_SEQ_SETTLE :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
-         ticks : INT;\n    END_STRUCT;\nEND_TYPE\n",
+         shape_f2f1bb94 : BOOL;\n        ticks : INT;\n    END_STRUCT;\nEND_TYPE\n",
     ] {
         assert!(text.contains(declared), "expected\n{declared}\nin\n{text}");
     }

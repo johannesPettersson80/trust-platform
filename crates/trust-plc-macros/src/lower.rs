@@ -140,7 +140,8 @@ struct Lowering {
 /// Lowers the sequence `item`, an `async fn name(&mut self, s: &mut Seq) -> Result<(), Fault>` that
 /// `trust-plc-decl` has read without a refusal, to a plain method of the same name that runs one
 /// activation: the POU's sequence returns `Result<(), Fault>`, a child `Result<bool, Fault>`, true
-/// once it has returned. `locals` are its locals, the fields of its state.
+/// once it has returned. `locals` are its locals, the fields of its state, and `shape` the member
+/// of its state that an online change makes new when its wait points or locals changed (RU-73).
 ///
 /// # Errors
 ///
@@ -151,6 +152,7 @@ pub(crate) fn lower(
     context: &Ident,
     locals: &[Hoisted],
     role: &Role,
+    shape: &Ident,
 ) -> Result<TokenStream, Error> {
     let (state, child) = match role {
         Role::Pou => (quote! { self._seq }, false),
@@ -189,6 +191,12 @@ pub(crate) fn lower(
         #(#attributes)*
         #[allow(unused_mut, unused_assignments, unreachable_code, clippy::never_loop)]
         #visibility #signature {
+            if !#state.#shape {
+                // Its wait points or locals are new to the state, at the first activation or
+                // after an online change that changed them: it starts at its top (RU-73).
+                #state = ::trust_plc::declared_default();
+                #state.#shape = true;
+            }
             #(let mut #names: #types = #state.#names;)*
             let mut __trust_at: usize = match #state.point {
                 #(#numbers => #resumes,)*
