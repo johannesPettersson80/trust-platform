@@ -28,6 +28,7 @@ const EQUIPMENT_EXAMPLE = "hmi_equipment";
 const MOTION_EXAMPLE = "plcopen-motion-single-axis";
 const EMPTY_EXAMPLE = "empty-simulator";
 const SERVICE_EXAMPLE = "rust_service";
+const RAMP_EXAMPLE = "rust_function_block";
 
 /** One window of the run: its journey, the example its project copies, an edit of the copy that the journey needs, and for
  * F23 how the project's runtime listens. */
@@ -56,6 +57,7 @@ const SESSIONS: Session[] = [
   { name: "hmi-equipment", journey: "hmi-equipment", example: EQUIPMENT_EXAMPLE, runtime: "default endpoint" },
   { name: "plcopen-motion", journey: "plcopen-motion", example: MOTION_EXAMPLE },
   { name: "first-program", journey: "first-program", example: EMPTY_EXAMPLE },
+  { name: "rust-function-block", journey: "rust-function-block", example: RAMP_EXAMPLE },
   { name: "rust-service", journey: "rust-service", example: SERVICE_EXAMPLE, runtime: "TCP endpoint with a token", noWeb: true, service: true },
 ];
 
