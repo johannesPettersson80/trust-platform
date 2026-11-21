@@ -87,17 +87,21 @@ pub fn state(pou: &str, item: &str, sequence: &Sequence) -> Structure {
     Structure {
         name: state_structure(pou),
         item: state_item(item),
-        fields: fields(sequence),
+        fields: fields(sequence, Some(shape(sequence))),
     }
 }
 
 /// The structures of the states of `block`'s sequences, the POU's first: its state (see
-/// [`state`]) with a field for each child sequence after its locals, named as the child and of the
-/// child's state, then each child's state, laid out as the POU's sequence's, in the block's order
-/// (RU-71).
+/// [`state`]), whose shape is the block's ([`block_shape`]), with a field for each child sequence
+/// after its locals, named as the child and of the child's state, then each child's state, laid out
+/// as the POU's sequence's without a shape, in the block's order (RU-71, RU-73).
 #[must_use]
 pub fn states(pou: &str, item: &str, block: &Block) -> Vec<Structure> {
-    let mut first = state(pou, item, &block.sequence);
+    let mut first = Structure {
+        name: state_structure(pou),
+        item: state_item(item),
+        fields: fields(&block.sequence, Some(block_shape(block))),
+    };
     first
         .fields
         .extend(block.children.iter().map(|child| Field {
@@ -108,25 +112,64 @@ pub fn states(pou: &str, item: &str, block: &Block) -> Vec<Structure> {
     let children = block.children.iter().map(|child| Structure {
         name: child_state_structure(pou, &child.name),
         item: child_state_item(item, &child.name),
-        fields: fields(child),
+        fields: fields(child, None),
     });
     std::iter::once(first).chain(children).collect()
 }
 
-/// The name of the member of the state of `sequence` that tells an online change whether the
-/// changed code has the same wait points and locals (RU-73): `shape_` and eight hexadecimal digits of
-/// the 32-bit FNV-1a hash of a line per wait point, `wait <step>` or `wait #<number>`, and a line per
-/// local, `local <name>: <type>` with its name in small letters, in the body's order, each line
-/// ending in a line feed.
+/// The name of the member of the state of `sequence`, a sequence without children, that tells an
+/// online change whether the changed code has the same wait points and locals (RU-73): `shape_` and
+/// eight hexadecimal digits of the 32-bit FNV-1a hash of its lines: a line per wait point, `wait
+/// <step>` or `wait #<number>`, a line per parameter, `parameter <name>: <type>`, and a line per local,
+/// `local <name>: <type>`, each name in small letters, in the body's order.
 #[must_use]
 pub fn shape(sequence: &Sequence) -> String {
-    let mut lines = String::new();
+    let mut text = String::new();
+    lines(sequence, &mut text);
+    signature(&text)
+}
+
+/// The shape of the POU's state of `block` (RU-73): the hash of the lines of the POU's sequence and
+/// then of each child in the block's order, each child's after a line `child <name>`, so that a
+/// change of any of them starts the whole sequence at its top.
+#[must_use]
+pub fn block_shape(block: &Block) -> String {
+    let mut text = String::new();
+    lines(&block.sequence, &mut text);
+    for child in &block.children {
+        // Writing to a `String` cannot fail.
+        let _ = writeln!(text, "child {}", child.name.to_ascii_lowercase());
+        lines(child, &mut text);
+    }
+    signature(&text)
+}
+
+/// `shape_` and eight hexadecimal digits of the 32-bit FNV-1a hash of `text`.
+fn signature(text: &str) -> String {
+    let hash = text.bytes().fold(0x811c_9dc5_u32, |hash, byte| {
+        (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
+    });
+    format!("shape_{hash:08x}")
+}
+
+/// The lines of `sequence` that its shape hashes (RU-73): a line per wait point, `wait <step>` or
+/// `wait #<number>`, a line per parameter, `parameter <name>: <type>`, and a line per local, `local
+/// <name>: <type>`, each name in small letters, in the body's order, each line ending in a line feed.
+fn lines(sequence: &Sequence, lines: &mut String) {
     for point in &sequence.wait_points {
         // Writing to a `String` cannot fail.
         let _ = match &point.step {
             Some(step) => writeln!(lines, "wait {step}"),
             None => writeln!(lines, "wait #{}", point.number),
         };
+    }
+    for parameter in &sequence.parameters {
+        let _ = writeln!(
+            lines,
+            "parameter {}: {}",
+            parameter.name.to_ascii_lowercase(),
+            parameter.ty.iec()
+        );
     }
     for local in &sequence.locals {
         let _ = writeln!(
@@ -136,15 +179,11 @@ pub fn shape(sequence: &Sequence) -> String {
             local.ty.iec()
         );
     }
-    let hash = lines.bytes().fold(0x811c_9dc5_u32, |hash, byte| {
-        (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
-    });
-    format!("shape_{hash:08x}")
 }
 
 /// The fields of the state of `sequence`: `point`, `began`, `done` when its body holds an `s.all`,
-/// its shape (RU-73), and its locals.
-fn fields(sequence: &Sequence) -> Vec<Field> {
+/// the member `shape` names when it is the POU's state (RU-73), its parameters and its locals.
+fn fields(sequence: &Sequence, shape: Option<String>) -> Vec<Field> {
     let mut fields = vec![
         Field {
             name: "point".to_string(),
@@ -164,11 +203,18 @@ fn fields(sequence: &Sequence) -> Vec<Field> {
             init: None,
         });
     }
-    fields.push(Field {
-        name: shape(sequence),
-        ty: DataType::Elementary(Elementary::Bool),
+    if let Some(shape) = shape {
+        fields.push(Field {
+            name: shape,
+            ty: DataType::Elementary(Elementary::Bool),
+            init: None,
+        });
+    }
+    fields.extend(sequence.parameters.iter().map(|parameter| Field {
+        name: parameter.name.clone(),
+        ty: parameter.ty.clone(),
         init: None,
-    });
+    }));
     fields.extend(sequence.locals.iter().map(|local| Field {
         name: local.name.clone(),
         ty: local.ty.clone(),
@@ -236,10 +282,21 @@ pub struct Sequence {
     pub name: String,
     /// Its wait points in the body's order.
     pub wait_points: Vec<WaitPoint>,
+    /// A child's parameters after its context, in their order: variables of its state before its
+    /// locals, set from the arguments when it starts (RU-72).
+    pub parameters: Vec<Local>,
     /// Its locals in the body's order.
     pub locals: Vec<Local>,
     /// The child sequences its wait points await, each once, in the body's order.
     pub awaits: Vec<String>,
+}
+
+/// A child sequence a wait point awaits: its name, where the name stands, and the number of the
+/// arguments the call passes after the context.
+pub(super) struct Awaited {
+    pub(super) child: String,
+    pub(super) place: Span,
+    pub(super) arguments: usize,
 }
 
 /// A `#[trust_sequence]` block (RU-71, RU-72): the POU's sequence, the one `async fn` of the block
@@ -277,8 +334,8 @@ pub fn sequence(item: &ImplItemFn) -> Result<Sequence, Error> {
     read(item).map(|(sequence, _)| sequence)
 }
 
-/// [`sequence`], with the place of each child sequence's name in the body, where it is awaited.
-fn read(item: &ImplItemFn) -> Result<(Sequence, Vec<(String, Span)>), Error> {
+/// [`sequence`], with each child sequence a wait point awaits.
+fn read(item: &ImplItemFn) -> Result<(Sequence, Vec<Awaited>), Error> {
     if item.sig.asyncness.is_none() {
         return Err(Error::new(
             item.sig.fn_token.span(),
@@ -303,13 +360,7 @@ fn read(item: &ImplItemFn) -> Result<(Sequence, Vec<(String, Span)>), Error> {
             "a sequence takes its wait points' context after `&mut self`: `s: &mut Seq`",
         ));
     };
-    if let Some(parameter) = inputs.next() {
-        return Err(Error::new(
-            parameter.span(),
-            "a sequence takes no parameter but its context, `async fn name(&mut self, s: &mut \
-             Seq)`: a child sequence reads what it needs from its instance (specification 48 RU-72)",
-        ));
-    }
+    let (parameters, parameter_places) = parameters(inputs)?;
     let Pat::Ident(context) = &*context.pat else {
         return Err(Error::new(
             context.pat.span(),
@@ -319,6 +370,10 @@ fn read(item: &ImplItemFn) -> Result<(Sequence, Vec<(String, Span)>), Error> {
     let mut reader = Reader {
         context: context.ident.to_string(),
         wait_points: Vec::new(),
+        parameters: parameters
+            .iter()
+            .map(|parameter| parameter.name.clone())
+            .collect(),
         locals: Vec::new(),
         local_places: Vec::new(),
         children: Vec::new(),
@@ -326,31 +381,94 @@ fn read(item: &ImplItemFn) -> Result<(Sequence, Vec<(String, Span)>), Error> {
     };
     reader.block(&item.block)?;
     let mut awaits: Vec<String> = Vec::new();
-    for (child, _) in &reader.children {
-        if !awaits.contains(child) {
-            awaits.push(child.clone());
+    for awaited in &reader.children {
+        if !awaits.contains(&awaited.child) {
+            awaits.push(awaited.child.clone());
         }
     }
     let read = Sequence {
         name: item.sig.ident.unraw().to_string(),
         wait_points: reader.wait_points,
+        parameters,
         locals: reader.locals,
         awaits,
     };
-    if read.holds_all()
-        && let Some(index) = read
-            .locals
-            .iter()
-            .position(|local| local.name.eq_ignore_ascii_case(DONE))
-    {
-        let place = reader
-            .local_places
-            .get(index)
-            .copied()
-            .unwrap_or_else(|| item.sig.ident.span());
-        return Err(a_field_of_the_state(place, DONE));
+    if read.holds_all() {
+        let named_done = |names: &[Local], places: &[Span]| {
+            names
+                .iter()
+                .position(|named| named.name.eq_ignore_ascii_case(DONE))
+                .map(|index| {
+                    places
+                        .get(index)
+                        .copied()
+                        .unwrap_or_else(|| item.sig.ident.span())
+                })
+        };
+        if let Some(place) = named_done(&read.parameters, &parameter_places)
+            .or_else(|| named_done(&read.locals, &reader.local_places))
+        {
+            return Err(a_field_of_the_state(place, DONE));
+        }
     }
     Ok((read, reader.children))
+}
+
+/// A child sequence's parameters, the inputs after its context: each one name with its type, of
+/// the types a local takes, named as a field of its state can be (RU-72); with where each name
+/// stands.
+fn parameters<'a>(
+    inputs: impl Iterator<Item = &'a FnArg>,
+) -> Result<(Vec<Local>, Vec<Span>), Error> {
+    let mut parameters: Vec<Local> = Vec::new();
+    let mut places = Vec::new();
+    for input in inputs {
+        let (FnArg::Typed(typed), Some(ident)) = (input, parameter_ident(input)) else {
+            return Err(Error::new(
+                input.span(),
+                "a child sequence's parameter is one name with its type, `target: f64`: it is a \
+                 variable of the child's state (specification 48 RU-72)",
+            ));
+        };
+        let name = crate::variable_name(ident)?;
+        if let Some(field) = ["point", "began"]
+            .into_iter()
+            .find(|field| name.eq_ignore_ascii_case(field))
+        {
+            return Err(a_field_of_the_state(ident.span(), field));
+        }
+        if parameters
+            .iter()
+            .any(|other| other.name.eq_ignore_ascii_case(&name))
+        {
+            return Err(Error::new(
+                ident.span(),
+                format!(
+                    "a second parameter `{name}`: a child's parameters are variables of its state, \
+                     one of each name, as Structured Text names them without case (specification \
+                     48 RU-72)"
+                ),
+            ));
+        }
+        parameters.push(Local {
+            name,
+            ty: DataType::of(&typed.ty)?,
+        });
+        places.push(ident.span());
+    }
+    Ok((parameters, places))
+}
+
+/// The name of the parameter `input`, when it is one name: `target` in `target: f64` or `mut
+/// target: f64`.
+pub(super) fn parameter_ident(input: &FnArg) -> Option<&syn::Ident> {
+    let FnArg::Typed(typed) = input else {
+        return None;
+    };
+    match &*typed.pat {
+        Pat::Ident(ident) if ident.subpat.is_none() && ident.by_ref.is_none() => Some(&ident.ident),
+        _ => None,
+    }
 }
 
 /// What reading a body has found so far.
@@ -358,11 +476,13 @@ struct Reader {
     /// The name of the wait points' context, `s`.
     context: String,
     wait_points: Vec<WaitPoint>,
+    /// The names of the sequence's parameters, which no local takes.
+    parameters: Vec<String>,
     locals: Vec<Local>,
     /// Where each local's name stands, for a refusal found after the body is read.
     local_places: Vec<Span>,
-    /// The child sequences the wait points await, each where its name stands.
-    children: Vec<(String, Span)>,
+    /// The child sequences the wait points await.
+    children: Vec<Awaited>,
     /// The step the last `s.step` named, for the next wait point.
     step: Option<String>,
 }
@@ -467,9 +587,12 @@ impl Reader {
 
     fn wait_point(&mut self, awaited: &ExprAwait) -> Result<(), Error> {
         let (wait, within) = self.wait_of(&awaited.base)?;
-        if let Some(child) = child_called(&awaited.base) {
-            self.children
-                .push((child.unraw().to_string(), child.span()));
+        if let Some((child, arguments)) = child_called(&awaited.base) {
+            self.children.push(Awaited {
+                child: child.unraw().to_string(),
+                place: child.span(),
+                arguments,
+            });
         }
         let number = u16::try_from(self.wait_points.len() + 1)
             .map_err(|_| Error::new(awaited.span(), "a sequence has at most 65535 wait points"))?;
@@ -551,7 +674,6 @@ impl Reader {
             return Ok((wait, false));
         }
         let child = matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident("self"))
-            && call.args.len() == 1
             && call
                 .args
                 .first()
@@ -650,6 +772,19 @@ impl Reader {
         {
             return Err(a_field_of_the_state(ident.ident.span(), field));
         }
+        if let Some(parameter) = self
+            .parameters
+            .iter()
+            .find(|parameter| parameter.eq_ignore_ascii_case(&name))
+        {
+            return Err(Error::new(
+                ident.ident.span(),
+                format!(
+                    "a local `{name}` beside the parameter `{parameter}`: both are variables of the \
+                     child's state, one of each name (specification 48 RU-72)"
+                ),
+            ));
+        }
         if self
             .locals
             .iter()
@@ -684,7 +819,7 @@ fn a_field_of_the_state(place: Span, field: &str) -> Error {
 
 /// The name of the child sequence that `base`, the expression before `.await`, awaits, when it is
 /// one, `self.fill(s)` or `self.fill(s).within(t)`.
-fn child_called(base: &Expr) -> Option<&syn::Ident> {
+fn child_called(base: &Expr) -> Option<(&syn::Ident, usize)> {
     let Expr::MethodCall(call) = base else {
         return None;
     };
@@ -692,7 +827,7 @@ fn child_called(base: &Expr) -> Option<&syn::Ident> {
         return child_called(&call.receiver);
     }
     matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident("self"))
-        .then_some(&call.method)
+        .then(|| (&call.method, call.args.len().saturating_sub(1)))
 }
 
 /// The wait point of `expression`, `w.await` or `w.await?`, when it is one.

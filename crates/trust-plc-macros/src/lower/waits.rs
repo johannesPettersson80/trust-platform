@@ -21,8 +21,9 @@ pub(super) enum Check {
     All(Vec<Check>),
     /// `s.race(..)`: over when one member completes, the first in order winning.
     Race(Vec<Check>),
-    /// `self.<child>(s)`: over when the child sequence has returned, which it runs.
-    Child(Ident),
+    /// `self.<child>(s, ..)`: over when the child sequence has returned, which it runs; with the
+    /// arguments of its parameters.
+    Child(Ident, Vec<Expr>),
 }
 
 /// A wait point: what it checks, and the limit of its `.within(t)`.
@@ -59,7 +60,6 @@ impl Lowering {
         let is_context =
             matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident(&self.context));
         let is_child = matches!(&*call.receiver, Expr::Path(path) if path.path.is_ident("self"))
-            && call.args.len() == 1
             && call.args.first().is_some_and(
                 |argument| matches!(argument, Expr::Path(path) if path.path.is_ident(&self.context)),
             );
@@ -68,7 +68,13 @@ impl Lowering {
                 "all" if is_context => Check::All(self.members(call)?),
                 "race" if is_context => Check::Race(self.members(call)?),
                 _ if is_context => self.member(base)?,
-                _ if is_child => Check::Child(call.method.clone()),
+                _ if is_child => {
+                    let mut arguments: Vec<Expr> = call.args.iter().skip(1).cloned().collect();
+                    for argument in &mut arguments {
+                        self.rewrite(argument)?;
+                    }
+                    Check::Child(call.method.clone(), arguments)
+                }
                 _ => return Err(Error::new(
                     base.span(),
                     "a wait point is `s.next_cycle()`, `s.until(..)`, `s.wait(..)`, `s.all(..)`, \
@@ -127,13 +133,14 @@ impl Lowering {
             .and_then(|index| self.waits.get(index))
     }
 
-    /// The child sequence the wait point of this number awaits, when it awaits one.
-    pub(super) fn child_of(&self, number: u16) -> Option<&Ident> {
+    /// The child sequence the wait point of this number awaits, with the arguments of its
+    /// parameters, when it awaits one.
+    pub(super) fn child_of(&self, number: u16) -> Option<(&Ident, &[Expr])> {
         match self.wait(number) {
             Some(WaitPoint {
-                check: Check::Child(child),
+                check: Check::Child(child, arguments),
                 ..
-            }) => Some(child),
+            }) => Some((child, arguments)),
             _ => None,
         }
     }
@@ -224,7 +231,7 @@ impl Lowering {
                 }
             }
             // The child runs on from where it waits; the sequence waits on until it has returned.
-            Check::Child(child) => quote! {
+            Check::Child(child, _) => quote! {
                 if !self.#child(#context)? {
                     return #waiting;
                 }
@@ -267,7 +274,7 @@ impl Lowering {
             }}),
             // A member is a plain wait: the reader refuses an `s.all`, an `s.race` or a child
             // sequence inside another.
-            Check::NextCycle | Check::All(_) | Check::Race(_) | Check::Child(_) => None,
+            Check::NextCycle | Check::All(_) | Check::Race(_) | Check::Child(..) => None,
         }
     }
 }

@@ -16,8 +16,11 @@
 //! `let` becomes an assignment where it stands, as the reader of `trust-plc-decl` finds the locals
 //! (the statements of the body's blocks, of `if` and of loops), so that both agree on them.
 
+use std::collections::HashMap;
+
 use proc_macro2::{Literal, TokenStream};
-use quote::quote;
+use quote::{format_ident, quote};
+use syn::ext::IdentExt as _;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::visit_mut::VisitMut;
@@ -130,6 +133,9 @@ struct Lowering {
     state: TokenStream,
     /// Whether it is a child, whose result says whether it has returned.
     child: bool,
+    /// The parameters of each child sequence of the block, by its name, which the wait point that
+    /// awaits it sets from its arguments.
+    parameters: HashMap<String, Vec<Ident>>,
     ops: Vec<Op>,
     labels: usize,
     waits: Vec<WaitPoint>,
@@ -140,8 +146,9 @@ struct Lowering {
 /// Lowers the sequence `item`, an `async fn name(&mut self, s: &mut Seq) -> Result<(), Fault>` that
 /// `trust-plc-decl` has read without a refusal, to a plain method of the same name that runs one
 /// activation: the POU's sequence returns `Result<(), Fault>`, a child `Result<bool, Fault>`, true
-/// once it has returned. `locals` are its locals, the fields of its state, and `shape` the member
-/// of its state that an online change makes new when its wait points or locals changed (RU-73).
+/// once it has returned. `locals` are its parameters and locals, the fields of its state, `shape` the
+/// member of the POU's state that an online change makes new when the block changed (RU-73), and
+/// `parameters` the parameters of each child of the block.
 ///
 /// # Errors
 ///
@@ -152,7 +159,8 @@ pub(crate) fn lower(
     context: &Ident,
     locals: &[Hoisted],
     role: &Role,
-    shape: &Ident,
+    shape: Option<&Ident>,
+    parameters: &HashMap<String, Vec<Ident>>,
 ) -> Result<TokenStream, Error> {
     let (state, child) = match role {
         Role::Pou => (quote! { self._seq }, false),
@@ -162,6 +170,7 @@ pub(crate) fn lower(
         context: context.clone(),
         state: state.clone(),
         child,
+        parameters: parameters.clone(),
         ops: Vec::new(),
         labels: 1,
         waits: Vec::new(),
@@ -174,6 +183,8 @@ pub(crate) fn lower(
     signature.asyncness = None;
     if child {
         signature.output = syn::parse_quote!(-> ::core::result::Result<bool, ::trust_plc::Fault>);
+        // The parameters are variables of the child's state, which the awaiting wait point sets.
+        signature.inputs = signature.inputs.into_iter().take(2).collect();
     }
     let attributes = &item.attrs;
     let visibility = &item.vis;
@@ -187,16 +198,22 @@ pub(crate) fn lower(
         .iter()
         .map(|label| Literal::usize_unsuffixed(*label))
         .collect();
+    // The POU's sequence starts at its top when its shape is new to the state, at the first
+    // activation or after an online change that changed the block (RU-73); a child's state, which
+    // has no shape, starts when the sequence that awaits it starts it.
+    let reset = shape.map(|shape| {
+        quote! {
+            if !#state.#shape {
+                #state = ::trust_plc::declared_default();
+                #state.#shape = true;
+            }
+        }
+    });
     Ok(quote! {
         #(#attributes)*
         #[allow(unused_mut, unused_assignments, unreachable_code, clippy::never_loop)]
         #visibility #signature {
-            if !#state.#shape {
-                // Its wait points or locals are new to the state, at the first activation or
-                // after an online change that changed them: it starts at its top (RU-73).
-                #state = ::trust_plc::declared_default();
-                #state.#shape = true;
-            }
+            #reset
             #(let mut #names: #types = #state.#names;)*
             let mut __trust_at: usize = match #state.point {
                 #(#numbers => #resumes,)*
@@ -377,7 +394,7 @@ impl Lowering {
 
     fn wait_point(&mut self, awaited: &ExprAwait) -> Result<(), Error> {
         let wait = self.wait_of(&awaited.base)?;
-        let child = matches!(wait.check, Check::Child(_));
+        let child = matches!(wait.check, Check::Child(..));
         self.waits.push(wait);
         let number = u16::try_from(self.waits.len())
             .map_err(|_| Error::new(awaited.span(), "a sequence has at most 65535 wait points"))?;
@@ -499,9 +516,21 @@ impl Lowering {
                     // sequence goes on at once when it returns without waiting (RU-72).
                     let begin = self.begin(*number, &names);
                     let jump = goto(*after);
-                    if let Some(child) = self.child_of(*number) {
+                    if let Some((child, arguments)) = self.child_of(*number) {
+                        // The arguments are evaluated once, before the child starts, and set its
+                        // parameters, variables of its state (RU-72).
+                        let parameters = self
+                            .parameters
+                            .get(&child.unraw().to_string())
+                            .cloned()
+                            .unwrap_or_default();
+                        let values: Vec<Ident> = (0..arguments.len())
+                            .map(|index| format_ident!("__trust_argument_{index}"))
+                            .collect();
                         chunk.extend(quote! {
+                            #(let #values = #arguments;)*
                             self._seq.#child = ::trust_plc::declared_default();
+                            #(self._seq.#child.#parameters = #values;)*
                             if !self.#child(#context)? {
                                 #begin
                             }

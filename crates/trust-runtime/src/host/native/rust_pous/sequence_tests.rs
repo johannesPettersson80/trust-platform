@@ -179,10 +179,12 @@ impl Filler {
 
 #[test]
 fn a_sequence_with_children_declares_a_state_for_each() {
-    // RU-71 and RU-72: the POU's state FILLER_SEQ holds a field for each child after its locals,
-    // in the block's order, of the child's state, FILLER_SEQ_FILL and FILLER_SEQ_SETTLE, each a
-    // structure of the crate the generated code builds from its Rust type. Catches a child's state
-    // the declaration leaves out, whose program would pass the POU's state one structure short.
+    // RU-71 to RU-73: the POU's state FILLER_SEQ holds the block's shape, shape_48c9a702 (computed
+    // independently from run's lines, `child fill` and fill's, `child settle` and settle's), and a
+    // field for each child after its locals, in the block's order, of the child's state,
+    // FILLER_SEQ_FILL and FILLER_SEQ_SETTLE, each a structure of the crate the generated code builds
+    // from its Rust type, without a shape. Catches a child's state the declaration leaves out, whose
+    // program would pass the POU's state one structure short.
     let root = project(&[("rust/Cargo.toml", MANIFEST), ("rust/src/lib.rs", FILLER)]);
     let krate = read(&root).expect("the crate reads").expect("a crate");
     let state: Vec<(&str, Vec<String>)> = krate
@@ -204,12 +206,12 @@ fn a_sequence_with_children_declares_a_state_for_each() {
     let text = declarations_text(&krate);
     for declared in [
         "TYPE\n    FILLER_SEQ :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
-         shape_2850a962 : BOOL;\n        fill : FILLER_SEQ_FILL;\n        settle : FILLER_SEQ_SETTLE;\n    \
+         shape_48c9a702 : BOOL;\n        fill : FILLER_SEQ_FILL;\n        settle : FILLER_SEQ_SETTLE;\n    \
          END_STRUCT;\nEND_TYPE\n",
-        "TYPE\n    FILLER_SEQ_FILL :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
-         shape_2850a962 : BOOL;\n    END_STRUCT;\nEND_TYPE\n",
+        "TYPE\n    FILLER_SEQ_FILL :\n    STRUCT\n        point : UINT;\n        began : TIME;\n    \
+         END_STRUCT;\nEND_TYPE\n",
         "TYPE\n    FILLER_SEQ_SETTLE :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
-         shape_f2f1bb94 : BOOL;\n        ticks : INT;\n    END_STRUCT;\nEND_TYPE\n",
+         ticks : INT;\n    END_STRUCT;\nEND_TYPE\n",
     ] {
         assert!(text.contains(declared), "expected\n{declared}\nin\n{text}");
     }
@@ -236,4 +238,46 @@ fn a_pou_that_names_a_child_sequence_is_refused() {
         }),
         "{found:#?}"
     );
+}
+
+/// A shuttle whose sequence awaits the child `go` with its target as the argument of the
+/// parameter `goal`.
+const SHUTTLE: &str = "use trust_plc::prelude::*;
+
+#[trust_program(name = \"SHUTTLE\", sequence = \"run\")]
+#[budget(\"60us\")]
+pub struct Shuttle {
+    #[input] pub arrived: bool,
+    #[output] pub target: f64,
+}
+
+#[trust_sequence]
+impl Shuttle {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            self.go(s, 10.0).await?;
+            self.go(s, 0.0).await?;
+        }
+    }
+
+    async fn go(&mut self, s: &mut Seq, goal: f64) -> Result<(), Fault> {
+        self.target = goal;
+        s.until(|me: &Self| me.arrived).await;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_childs_parameter_is_declared_in_its_state() {
+    // RU-71 and RU-72: the child's parameter `goal` is a variable of its state SHUTTLE_SEQ_GO, which
+    // has no shape, the POU's state's alone (RU-73), so that the generated declaration holds what the
+    // macro's state holds. Catches a state
+    // declared without the parameter, whose program would pass the child's state one field short.
+    let root = project(&[("rust/Cargo.toml", MANIFEST), ("rust/src/lib.rs", SHUTTLE)]);
+    let krate = read(&root).expect("the crate reads").expect("a crate");
+    let text = declarations_text(&krate);
+    let declared = "TYPE\n    SHUTTLE_SEQ_GO :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
+                    goal : LREAL;\n    END_STRUCT;\nEND_TYPE\n";
+    assert!(text.contains(declared), "expected\n{declared}\nin\n{text}");
 }
