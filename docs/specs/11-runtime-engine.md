@@ -3640,7 +3640,13 @@ the statement's file, by the label of specification 44 §5.9, and its line, from
 table (specification 44 §8.6), so that a client with the sources, such as `trust-dev test --device`,
 shows the statement as it shows one of its own runs (specification 22). When a failed assertion ended
 the scan, the result adds its values as `"assertion": {"name": "ASSERT_EQUAL", "expected": {...},
-"actual": {...}}`, the object of specification 22, each value in the encoding above. A fault of a
+"actual": {...}}`, the object of specification 22, each value in the encoding above. When the
+program is a debug image with Rust POUs, the result adds `rust_pous`, each Rust POU's record after
+the scan as `tasks.stats` lists it ("Rust POU budgets": `name`, `budget_ns`, `longest_ns`,
+`over_budget`, in the order of the image's Rust POU table), with the calls since the program was
+loaded, so that `trust-dev rust bench --device` reads what the steps' calls took (specification 48
+RU-48); a stepped scan runs outside the task schedule, so its calls reach `tasks.stats` and the
+event `rust_budget_exceeded` only through the next scan the program's tasks run. A fault of a
 stepped scan is reported and not latched: no safe state is applied, the resource stays Stopped, and
 the next step runs the next scan, as the conformance runner's kernel continues. A name that names no
 variable, or that names one of several programs, refuses the step before its scan, with the name (a

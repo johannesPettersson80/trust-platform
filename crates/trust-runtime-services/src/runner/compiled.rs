@@ -46,7 +46,7 @@ use super::process_io::ProcessIo;
 use super::retain::{CycleRetain, RetainConfig, RetainStore};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::sources::fault_at;
-use crate::metrics::{MemoryFigure, ProgramMemory};
+use crate::metrics::{MemoryFigure, ProgramMemory, RustPouStats};
 use crate::status::IoDriverStatus;
 
 /// The installed compiled program of a device: the kernel's program of an admitted image, with the
@@ -625,12 +625,24 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
             .collect::<Result<Vec<_>, _>>()?;
         let error_at = error.as_ref().and_then(|_| fault_at(&self.program));
         let assertion = error.as_ref().and_then(|_| self.program.failed_assertion());
+        // The Rust POU records the step's calls left, which a bench on a device reads from the
+        // reply (specification 48 RU-48).
+        let rust_pous = (0u32..)
+            .zip(self.program.rust_times())
+            .map(|(pou, time)| RustPouStats {
+                name: SmolStr::new(self.program.rust_pou_name(pou).unwrap_or_default()),
+                budget_ns: time.budget_ns,
+                longest_ns: time.longest_ns,
+                over_budget: time.over,
+            })
+            .collect();
         Ok(StepOutcome {
             values,
             direct,
             error,
             error_at,
             assertion,
+            rust_pous,
         })
     }
 

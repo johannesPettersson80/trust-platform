@@ -3,6 +3,7 @@
 //! expected value is written out here from the specification and the requests below.
 
 use alloc::vec;
+use alloc::vec::Vec;
 
 use serde_json::{json, Value as JsonValue};
 use trust_runtime_core::error::RuntimeError;
@@ -14,6 +15,7 @@ use trust_runtime_core::value::{Duration, Value};
 
 use super::{request, restart_time, StepOutcome, StepRefusal, StepRequest};
 use crate::debug::sources::StatementAt;
+use crate::metrics::RustPouStats;
 use crate::tests::fake_host::FakeHost;
 
 /// A stopped resource whose platform answers every step with `answer`.
@@ -60,6 +62,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
             bound: Some(Value::Int(5)),
             delta: None,
         }),
+        rust_pous: Vec::new(),
     }));
     let params = json!({
         "time_ns": 20_000_000,
@@ -102,6 +105,47 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
                 "bound": {"type": "INT", "value": 5},
             },
         }))
+    );
+}
+
+#[test]
+fn a_step_of_a_debug_image_with_rust_pous_replies_with_their_records() {
+    // Specification 11 §6.8.1 and specification 48 RU-48: a step's reply holds each Rust POU's
+    // record, in the outcome's order and as `tasks.stats` lists it, so that a bench on a device
+    // reads what the step's calls took; a reply without records has no `rust_pous` (the reply of
+    // the test above). Catches records left out of the reply, a field renamed, and an order that
+    // is not the Rust POU table's.
+    let host = stopped(Ok(StepOutcome {
+        values: Vec::new(),
+        direct: Vec::new(),
+        error: None,
+        error_at: None,
+        assertion: None,
+        rust_pous: vec![
+            RustPouStats {
+                name: "SPIN".into(),
+                budget_ns: 1_000,
+                longest_ns: 52_000,
+                over_budget: 7,
+            },
+            RustPouStats {
+                name: "AXIS.jog".into(),
+                budget_ns: 2_000,
+                longest_ns: 0,
+                over_budget: 0,
+            },
+        ],
+    }));
+    let reply = request(3, Some(&json!({"time_ns": 0, "restart": "cold"})), &host);
+    assert!(reply.ok, "{:?}", reply.error);
+    assert_eq!(
+        reply
+            .result_value()
+            .map(|result| result["rust_pous"].clone()),
+        Some(json!([
+            {"name": "SPIN", "budget_ns": 1_000, "longest_ns": 52_000, "over_budget": 7},
+            {"name": "AXIS.jog", "budget_ns": 2_000, "longest_ns": 0, "over_budget": 0},
+        ]))
     );
 }
 
