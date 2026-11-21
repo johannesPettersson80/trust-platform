@@ -22,6 +22,12 @@ truST product clock sources `TIME()` and `CURRENT_DT()` are outside the IEC
 standard-function tables and are specified and tested as product runtime
 helpers.
 
+A formal call of a function of fixed inputs may be incomplete, each omitted
+input taking the default value of its type (IEC 61131-3 Ed.3 §6.6.1.4.2;
+specification 07 §1, "Calls"). The type rules are asserted in
+`crates/trust-hir/tests/semantic_type_checking/incomplete_standard_calls.rs`
+and the values in `crates/trust-runtime/tests/stdlib_incomplete_formal_calls.rs`.
+
 The private runtime registration lists use fixed named arrays for firmware placement.
 Their 89 entries, parameter lists and implementations remain unchanged; existing
 registration-baseline and hosted-override tests pin that representation change.
