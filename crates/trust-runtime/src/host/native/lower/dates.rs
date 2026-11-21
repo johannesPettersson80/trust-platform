@@ -230,6 +230,16 @@ impl Lowerer<'_, '_> {
         })
     }
 
+    /// A date or time operand that a formal call may omit (specification 07 §1): an omitted one is
+    /// 0, the default value of every date and time type in its storage (`T#0s`, the 1970-01-01
+    /// epoch, midnight) and of an integer component.
+    fn date_operand(&mut self, operand: Option<&SyntaxNode>) -> Result<String, NativeError> {
+        match operand {
+            Some(value) => Ok(self.operand(value)?.0),
+            None => Ok("0i64".to_string()),
+        }
+    }
+
     /// The date and time function `name` with `args`; `name` is one (`is_date_function`).
     pub(super) fn call_date_function(
         &mut self,
@@ -242,7 +252,7 @@ impl Lowerer<'_, '_> {
             return Err(self.unsupported(node, format!("the standard function {name}")));
         };
         use DateFunction as F;
-        let values = self.formal_order(node, name, function.formals(), args)?;
+        let values = self.formal_slots(name, function.formals(), args)?;
         if let F::Split(library, _, faults) = function {
             self.split(name, library, faults, &values)?;
             return Ok(Called::Nothing);
@@ -250,49 +260,56 @@ impl Lowerer<'_, '_> {
         let ty = self.type_of(node)?;
         let value = match (function, values.as_slice()) {
             (F::Durations { add }, [a, b]) => {
-                let (a, _) = self.operand(a)?;
-                let (b, _) = self.operand(b)?;
+                let a = self.date_operand(a.as_ref())?;
+                let b = self.date_operand(b.as_ref())?;
                 let function = if add { "add" } else { "sub" };
                 format!("lib::{function}(cx, {a}, {b})?")
             }
             (F::TicksAndTime { add }, [a, b]) => {
-                let (a, _) = self.operand(a)?;
-                let (b, _) = self.operand(b)?;
+                let a = self.date_operand(a.as_ref())?;
+                let b = self.date_operand(b.as_ref())?;
                 format!("lib::ticks_add(cx, {a}, {b}, {add})?")
             }
             (F::NanosAndTime { add }, [a, b]) => {
-                let (a, _) = self.operand(a)?;
-                let (b, _) = self.operand(b)?;
+                let a = self.date_operand(a.as_ref())?;
+                let b = self.date_operand(b.as_ref())?;
                 format!("lib::nanos_add(cx, {a}, {b}, {add})?")
             }
             (F::TicksApart, [a, b]) => {
-                let (a, _) = self.operand(a)?;
-                let (b, _) = self.operand(b)?;
+                let a = self.date_operand(a.as_ref())?;
+                let b = self.date_operand(b.as_ref())?;
                 format!("lib::ticks_diff(cx, {a}, {b})?")
             }
             (F::NanosApart, [a, b]) => {
-                let (a, _) = self.operand(a)?;
-                let (b, _) = self.operand(b)?;
+                let a = self.date_operand(a.as_ref())?;
+                let b = self.date_operand(b.as_ref())?;
                 format!("lib::nanos_add(cx, {a}, {b}, false)?")
             }
             (F::Scale { multiply }, [duration, factor]) => {
-                let (duration, _) = self.operand(duration)?;
-                let factor = self.operand(factor)?;
+                let duration = self.date_operand(duration.as_ref())?;
+                // An omitted factor is 0, an integer.
+                let factor = match factor {
+                    Some(factor) => self.operand(factor)?,
+                    None => ("0i64".to_string(), Elem::LInt),
+                };
                 self.scale(node, &duration, factor, multiply)?
             }
             (F::Components(library, _), components) => {
                 let mut wide = Vec::with_capacity(components.len());
                 for component in components {
-                    wide.push(self.component(component)?);
+                    wide.push(match component {
+                        Some(component) => self.component(component)?,
+                        None => "0i64".to_string(),
+                    });
                 }
                 format!("lib::{library}(cx, {})?", wide.join(", "))
             }
             (F::Join(library, _), [a, b]) => {
-                let (a, _) = self.operand(a)?;
-                let (b, _) = self.operand(b)?;
+                let a = self.date_operand(a.as_ref())?;
+                let b = self.date_operand(b.as_ref())?;
                 format!("lib::{library}(cx, {a}, {b})?")
             }
-            (F::DayOfWeek, [date]) => {
+            (F::DayOfWeek, [Some(date)]) => {
                 let (date, _) = self.operand(date)?;
                 format!("lib::day_of_week({date})")
             }
@@ -307,18 +324,19 @@ impl Lowerer<'_, '_> {
 
     /// `SPLIT_DATE(IN, YEAR, MONTH, DAY)` and the others, of `values` in their formals' order:
     /// the components of the input, each converted to its output's integer type before any is
-    /// written, as the runtime writes them in one transaction.
+    /// written, as the runtime writes them in one transaction. An omitted input is its type's
+    /// default value, and an omitted output is not written (specification 07 §1).
     fn split(
         &mut self,
         name: &str,
         library: &str,
         faults: bool,
-        values: &[SyntaxNode],
+        values: &[Option<SyntaxNode>],
     ) -> Result<(), NativeError> {
         let Some((input, outputs)) = values.split_first() else {
             return Ok(());
         };
-        let (input, _) = self.operand(input)?;
+        let input = self.date_operand(input.as_ref())?;
         let components = if faults {
             self.bind(&format!("lib::{library}(cx, {input})?"))
         } else {
@@ -327,6 +345,9 @@ impl Lowerer<'_, '_> {
         let lint = self.model.types.elem(Elem::LInt);
         let mut converted = Vec::with_capacity(outputs.len());
         for (index, output) in outputs.iter().enumerate() {
+            let Some(output) = output else {
+                continue;
+            };
             let place = self.place(output)?;
             if !self
                 .info(place.ty)
