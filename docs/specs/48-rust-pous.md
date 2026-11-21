@@ -1240,27 +1240,27 @@ Text writes as an SFC or a `CASE` machine, written as straight-line Rust with `.
 where it waits for a later cycle:
 
 ```rust
-#[trust_program(name = "PALLETIZER")]
+#[trust_program(name = "PALLETIZER", sequence = "run")]
 #[budget("80us")]
 pub struct Palletizer {
     #[input] pub part_present: bool,
     #[input] pub gripper_closed: bool,
     #[output] pub close_gripper: bool,
-    #[output] pub step: Str<16>,
+    #[output] pub active_step: Str<16>,
 }
 
+#[trust_sequence]
 impl Palletizer {
-    #[trust_sequence]
     async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
         loop {
-            s.step(&mut self.step, "WAIT_PART");
+            s.step(&mut self.active_step, "WAIT_PART");
             s.until(|me: &Self| me.part_present).await;
-            s.step(&mut self.step, "GRIP");
+            s.step(&mut self.active_step, "GRIP");
             self.close_gripper = true;
             s.until(|me: &Self| me.gripper_closed)
-                .within(Time::from_secs(2))
+                .within(Time::from_millis(s, 2_000)?)
                 .await?;
-            s.wait(Time::from_millis(500)).await;
+            s.wait(Time::from_millis(s, 500)?).await;
             self.close_gripper = false;
         }
     }
@@ -1280,6 +1280,22 @@ are not allowed, so `__seq` could not be declared). The state is in the symbol t
 Variables view shows it, and `variables.read` and the HMI read it by its path,
 `<instance>._seq.point` (Live Values lists only variables with an address, specification 25 §4.3).
 
+How the Rust declares it: an attribute reads only its own item, so the struct's attribute cannot see
+an `impl` block, and an attribute on a function inside one cannot declare a type. The struct
+therefore names its sequence, `sequence = "run"` (as `implements` names what its methods provide,
+RU-33), and `#[trust_sequence]` stands on the `impl` block that holds the `async fn`. The attribute
+on the block declares the state's type, `<struct>Sequence`, a structure of `point`, `began` and the
+locals; the struct's attribute adds `_seq` of that type as the POU's last variable, refuses a
+variable of its own named `_seq` in any case, and implements `Body` by running the sequence, so the
+POU has no `impl Body` of its own and each activation, a program's or a block's call alike, runs
+the sequence. `s` is the POU's context (`Seq` is `Cx`): plain code passes it where a function or a
+block call needs the context. Between two wait points a local is an ordinary variable of the
+function: the activation reads it from `_seq` when it begins and writes it back when it reaches its
+next wait point, and a fault discards the activation's changes with the rest of the instance's
+(RU-28). A body that returns starts again at its top at the next activation, as a program's body
+runs at each activation; a sequence that must stop waits at its end (`loop { s.next_cycle().await;
+}`).
+
 **RU-72. Wait points.** The body awaits only the SDK's wait points: `s.next_cycle()`, `s.until(pred)`
 (true at the start of a later cycle), `s.wait(t)` (the task's logical time advanced by `t`),
 `s.all(...)` and `s.race(...)` of these, a child sequence of the same instance, and `.within(t)`
@@ -1291,13 +1307,17 @@ whose logical time is at least `t` after the one that began it. A wait point's n
 among the body's wait points, from 1. `.within(t)` faults at the first activation whose logical time
 is more than `t` after the one that began the wait, a wait of exactly `t` being still in time, with
 the wait point's number as the fault's number and `t` and the time waited, in milliseconds, as its
-two numbers (Appendix A), as an SFC names the step that overran its time. A
-predicate is a plain function of the instance, without a wait point. A wait point stands as a
+two numbers (Appendix A), as an SFC names the step that overran its time. An activation that resumes
+a wait checks `.within(t)` first: a wait that would complete more than `t` after it began faults, as
+it came too late. A wait point's arguments, `t` and the predicate, are evaluated at each activation
+that checks the wait. A predicate is a plain function of the instance, without a wait point. A wait point stands as a
 statement of its own (`s.wait(t).await;`, `....within(t).await?;`). The attribute refuses any other
 `.await`, an `.await` inside another expression, an `async` block or closure, a future of another
 crate, a loop that can run without reaching a wait point, a `for` loop with a wait point in it (its
-iterator would have to survive the wait), a local without its type, two locals of one name in one
-sequence, and a variable of the POU named `_seq` in any case, each with its place in the body.
+iterator would have to survive the wait), an `if let` or a `while let` with a wait point in it (its
+binding would have to live across the wait), a `break` with a value out of a loop that holds a wait
+point, a local without its type, two locals of one name in one sequence, and a variable of the POU
+named `_seq` in any case, each with its place in the body.
 
 **RU-73. Restarts and changes.** A cold or warm restart starts every sequence at its top, as an SFC
 starts at its initial step (IEC §6.7); a sequence that must resume keeps its progress in retained

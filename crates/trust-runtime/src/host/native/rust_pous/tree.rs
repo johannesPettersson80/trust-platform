@@ -186,11 +186,23 @@ impl Walk<'_> {
                         &item.ident,
                         &[Kind::FunctionBlock, Kind::Program],
                         |kind, args| {
-                            if kind == Kind::Program {
+                            let pou = if kind == Kind::Program {
                                 trust_plc_decl::program(args, item)
                             } else {
                                 trust_plc_decl::function_block(args, item)
+                            }?;
+                            if pou.sequence.is_some() {
+                                // The program's code calls a POU with its variables, so a
+                                // declaration without the sequence's state would not match the
+                                // POU's call (specification 48 RU-71; R6e declares it).
+                                return Err(syn::Error::new(
+                                    item.ident.span(),
+                                    "this POU runs a sequence (specification 48 §15), whose state \
+                                     `_seq` the generated declarations do not declare yet: it runs \
+                                     in the crate's own tests, not yet in a project's program",
+                                ));
                             }
+                            Ok(pou)
                         },
                     );
                 }
