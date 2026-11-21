@@ -1056,18 +1056,22 @@ The type of an omitted input is the one its call gives it:
 - the common type of the inputs given with it, where one generic types them: `LIMIT(IN := b,
   MX := 5)`, IEC's own example, is `LIMIT(MN := 0, IN := b, MX := 5)`;
 - the input's own type where it has one: the selector of `SEL` is `FALSE`, the count of `SHL`,
-  `SHR`, `ROL` and `ROR` and the exponent of `EXPT` are 0.
+  `SHR`, `ROL` and `ROR`, the exponent of `EXPT` and the length and the position of a string
+  function are 0, each of which §8.1 defines (`LEFT(IN := s)` is the empty text, and a position
+  below 1 is the first character).
 
 A formal call is refused, with an error that names the inputs it needs, when no input it gives
-types an omitted one: when it omits every input of the generic (`LIMIT()`, `SEL(G := c)`), the
-value of a shift (`SHL(N := 2)`) or the base of `EXPT`; and when it gives `SUB` or `DIV` a time and
+types an omitted one: when it omits every input of the generic (`LIMIT()`, `SEL(G := c)`,
+`FIND()`), the value of a shift (`SHL(N := 2)`), the base of `EXPT`, or the text of `LEFT`,
+`RIGHT`, `MID` and `DELETE`; and when it gives `SUB` or `DIV` a time and
 omits the other input, whose type depends on the overload the time picks (IEC Table 37). An
 omitted input of an enumerated or a subrange type, which declares its own default value, is not
 compiled (specification 44 NX-09).
 
 The functions of fixed inputs whose formal call may be incomplete are `ATAN2`, `SUB`, `DIV`,
-`MOD`, `EXPT`, `SHL`, `SHR`, `ROL`, `ROR`, `NE`, `SEL` and `LIMIT`; the string functions (§8) and
-the date and time functions (§9) take every input. An extensible function (`ADD`, `MUX`, ...)
+`MOD`, `EXPT`, `SHL`, `SHR`, `ROL`, `ROR`, `NE`, `SEL`, `LIMIT` and the string functions `LEFT`,
+`RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE` and `FIND`; the date and time functions (§9) take
+every input. An extensible function (`ADD`, `MUX`, ...)
 numbers its inputs by their places, so a formal call names `IN1` to `INn` without a gap
 (`docs/IEC_DECISIONS.md`, 2026-11-21).
 

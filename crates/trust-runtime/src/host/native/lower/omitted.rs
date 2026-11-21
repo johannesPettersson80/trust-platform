@@ -67,20 +67,39 @@ impl Lowerer<'_, '_> {
         operands: &[Option<SyntaxNode>],
         wide: bool,
     ) -> Result<Vec<(String, u32)>, NativeError> {
-        let mut texts = Vec::with_capacity(operands.len());
-        for operand in operands {
-            texts.push(match operand {
-                Some(value) => self.text_ref(value)?,
-                None => {
-                    let empty = if wide {
-                        Text::Units(Vec::new())
-                    } else {
-                        Text::Bytes(Vec::new())
-                    };
-                    (self.text_temp(&[empty], 0), 0)
-                }
-            });
+        operands
+            .iter()
+            .map(|operand| self.operand_text(operand.as_ref(), wide))
+            .collect()
+    }
+
+    /// `operand` as a reference to a string and its capacity: an omitted one is an empty text of
+    /// the family, `WSTRING` when `wide`.
+    pub(super) fn operand_text(
+        &mut self,
+        operand: Option<&SyntaxNode>,
+        wide: bool,
+    ) -> Result<(String, u32), NativeError> {
+        if let Some(value) = operand {
+            return self.text_ref(value);
         }
-        Ok(texts)
+        let empty = if wide {
+            Text::Units(Vec::new())
+        } else {
+            Text::Bytes(Vec::new())
+        };
+        Ok((self.text_temp(&[empty], 0), 0))
+    }
+
+    /// The length or position `operand` of a string function as an `i64`, as the runtime takes it:
+    /// an omitted one is 0.
+    pub(super) fn operand_count(
+        &mut self,
+        operand: Option<&SyntaxNode>,
+    ) -> Result<String, NativeError> {
+        match operand {
+            Some(value) => self.count(value),
+            None => Ok("0i64".to_string()),
+        }
     }
 }

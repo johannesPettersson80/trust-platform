@@ -95,13 +95,15 @@ impl Lowerer<'_, '_> {
     }
 
     /// An integer argument of a string function as an `i64`, as the runtime takes it.
-    fn count(&mut self, node: &SyntaxNode) -> Result<String, NativeError> {
+    pub(super) fn count(&mut self, node: &SyntaxNode) -> Result<String, NativeError> {
         let lint = self.model.types.elem(Elem::LInt);
         self.scalar_to(node, lint)
     }
 
     /// The call of string function `name` with `args`; its arguments are evaluated in their
-    /// order. A function of `WSTRING`s calls the library's wide function of the same rule.
+    /// order. A function of `WSTRING`s calls the library's wide function of the same rule. A text
+    /// that a formal call omits is the empty text, an omitted length or position 0 (specification
+    /// 07 §1).
     pub(super) fn call_text_function(
         &mut self,
         node: &SyntaxNode,
@@ -110,8 +112,12 @@ impl Lowerer<'_, '_> {
         args: Vec<Arg>,
         want: &Want,
     ) -> Result<Called, NativeError> {
-        let values = self.formal_order(node, name, formals, args)?;
-        let wide = values.first().is_some_and(|text| self.is_wide_text(text));
+        let slots = self.formal_slots(name, formals, args)?;
+        let wide = slots
+            .iter()
+            .flatten()
+            .find(|value| self.is_text(value))
+            .is_some_and(|text| self.is_wide_text(text));
         let function = |base: &str| {
             if wide {
                 format!("{base}_wide")
@@ -119,25 +125,25 @@ impl Lowerer<'_, '_> {
                 base.to_string()
             }
         };
-        match (name, values.as_slice()) {
-            ("LEN", [text]) => {
+        match (name, slots.as_slice()) {
+            ("LEN", [Some(text)]) => {
                 let (text, _) = self.text_ref(text)?;
                 let len = if wide { "len_wide_int" } else { "len_int" };
                 let value = self.bind(&format!("lib::{len}(cx, ({text}).view())?"));
                 self.int_result(node, value, want)
             }
             ("FIND", [text, wanted]) => {
-                let (text, _) = self.text_ref(text)?;
-                let (wanted, _) = self.text_ref(wanted)?;
+                let (text, _) = self.operand_text(text.as_ref(), wide)?;
+                let (wanted, _) = self.operand_text(wanted.as_ref(), wide)?;
                 let value = self.bind(&format!(
                     "lib::{}(cx, ({text}).view(), ({wanted}).view())?",
                     function("find")
                 ));
                 self.int_result(node, value, want)
             }
-            ("LEFT" | "RIGHT", [text, count]) => {
+            ("LEFT" | "RIGHT", [Some(text), count]) => {
                 let (text, capacity) = self.text_ref(text)?;
-                let count = self.count(count)?;
+                let count = self.operand_count(count.as_ref())?;
                 let function = function(&name.to_ascii_lowercase());
                 let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
@@ -145,10 +151,10 @@ impl Lowerer<'_, '_> {
                 ));
                 Ok(text_result(temp, capacity, wide))
             }
-            ("MID" | "DELETE", [text, length, position]) => {
+            ("MID" | "DELETE", [Some(text), length, position]) => {
                 let (text, capacity) = self.text_ref(text)?;
-                let length = self.count(length)?;
-                let position = self.count(position)?;
+                let length = self.operand_count(length.as_ref())?;
+                let position = self.operand_count(position.as_ref())?;
                 let function = function(&name.to_ascii_lowercase());
                 let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
@@ -157,9 +163,9 @@ impl Lowerer<'_, '_> {
                 Ok(text_result(temp, capacity, wide))
             }
             ("INSERT", [text, inserted, position]) => {
-                let (text, first) = self.text_ref(text)?;
-                let (inserted, second) = self.text_ref(inserted)?;
-                let position = self.count(position)?;
+                let (text, first) = self.operand_text(text.as_ref(), wide)?;
+                let (inserted, second) = self.operand_text(inserted.as_ref(), wide)?;
+                let position = self.operand_count(position.as_ref())?;
                 let capacity = first.saturating_add(second).min(MAX_TEXT);
                 let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
@@ -169,10 +175,10 @@ impl Lowerer<'_, '_> {
                 Ok(text_result(temp, capacity, wide))
             }
             ("REPLACE", [text, replacement, length, position]) => {
-                let (text, first) = self.text_ref(text)?;
-                let (replacement, second) = self.text_ref(replacement)?;
-                let length = self.count(length)?;
-                let position = self.count(position)?;
+                let (text, first) = self.operand_text(text.as_ref(), wide)?;
+                let (replacement, second) = self.operand_text(replacement.as_ref(), wide)?;
+                let length = self.operand_count(length.as_ref())?;
+                let position = self.operand_count(position.as_ref())?;
                 let capacity = first.saturating_add(second).min(MAX_TEXT);
                 let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
