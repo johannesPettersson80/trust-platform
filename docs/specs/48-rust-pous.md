@@ -1260,7 +1260,15 @@ sequence from its wait point to its next one and returns.
 **RU-72. Wait points.** The body awaits only the SDK's wait points: `s.next_cycle()`, `s.until(pred)`
 (true at the start of a later cycle), `s.wait(t)` (the task's logical time advanced by `t`),
 `s.all(...)` and `s.race(...)` of these, a child sequence of the same instance, and `.within(t)`
-on any of them, which faults with `RustFault` when the wait outlasts `t` in logical time. A
+on any of them, which faults with `RustFault` when the wait outlasts `t` in logical time. A wait
+begins at the activation that reaches its wait point, which then returns, and completes at a later
+activation, never at the one that began it: `s.next_cycle()` at the next activation, `s.until(pred)`
+at the first later activation at whose start `pred` holds, and `s.wait(t)` at the first activation
+whose logical time is at least `t` after the one that began it. A wait point's number is its place
+among the body's wait points, from 1. `.within(t)` faults at the first activation whose logical time
+is more than `t` after the one that began the wait, a wait of exactly `t` being still in time, with
+the wait point's number as the fault's number and `t` and the time waited, in milliseconds, as its
+two numbers (Appendix A), as an SFC names the step that overran its time. A
 predicate is a plain function of the instance, without a wait point. The attribute refuses any other
 `.await`, an `async` block or closure, a future of another crate and a loop that can run without
 reaching a wait point, each with its place in the body.
@@ -1493,7 +1501,7 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
 
 | Name | Code | Detail |
 |---|---|---|
-| `RustFault` | 20 in `trust-plc-abi` (specification 44 Appendix A, kernel interface version 6), stable code `runtime_rust_fault` (specification 10 §10.2), `RTSEXCPT_UNKNOWN` in `__TRY` (specification 06 §15) | the POU's number, then two numbers of its choice; the calling statement names the Rust POU |
+| `RustFault` | 20 in `trust-plc-abi` (specification 44 Appendix A, kernel interface version 6), stable code `runtime_rust_fault` (specification 10 §10.2), `RTSEXCPT_UNKNOWN` in `__TRY` (specification 06 §15) | the POU's number, then two numbers of its choice; a sequence's `.within` gives the wait point's number, then its limit and the time waited in milliseconds (RU-72); the calling statement names the Rust POU |
 | event `rust_budget_exceeded` | specification 11's events | the POU's name, the measured time, the budget |
 
 ## Appendix B — `trust.toml`
