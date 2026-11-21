@@ -207,3 +207,132 @@ fn a_rust_first_project_runs_the_configuration_of_its_trust_toml() {
     }
     assert_eq!(program.value("AXIS.RUNS"), Some(Value::UDInt(3)));
 }
+
+/// RU-70's palletizer, a Rust program that runs a sequence.
+const PALLETIZER: &str = "
+/// Grips a part when it comes, within 2 s, holds it 500 ms and lets it go.
+#[trust_program(name = \"PALLETIZER\", sequence = \"run\")]
+#[budget(\"80us\")]
+pub struct Palletizer {
+    #[input]
+    pub part_present: bool,
+    #[input]
+    pub gripper_closed: bool,
+    #[output]
+    pub close_gripper: bool,
+    #[output]
+    pub active_step: Str<16>,
+}
+
+#[trust_sequence]
+impl Palletizer {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.step(&mut self.active_step, \"WAIT_PART\");
+            s.until(|me: &Self| me.part_present).await;
+            s.step(&mut self.active_step, \"GRIP\");
+            self.close_gripper = true;
+            s.until(|me: &Self| me.gripper_closed)
+                .within(Time::from_millis(s, 2_000)?)
+                .await?;
+            s.wait(Time::from_millis(s, 500)?).await;
+            self.close_gripper = false;
+        }
+    }
+}
+";
+
+/// The configuration that runs PALLETIZER every 10 ms, its inputs and its output connected to
+/// globals.
+const CELL: &str = "CONFIGURATION Line
+VAR_GLOBAL
+    part : BOOL;
+    closed : BOOL;
+    gripper : BOOL;
+END_VAR
+RESOURCE Station ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Cell WITH Fast : PALLETIZER(part_present := part, gripper_closed := closed, close_gripper => gripper);
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// Where Cell's sequence waits, and its gripper output's global.
+fn cell(
+    program: &trust_runtime::native::NativeProgram<'_, trust_runtime::native::HostCode>,
+) -> (Option<Value>, Option<Value>) {
+    (program.value("CELL._SEQ.POINT"), program.value("GRIPPER"))
+}
+
+#[test]
+fn a_configuration_runs_a_rust_sequence_scan_by_scan() {
+    // Specification 48 §15 in a project: the generated declarations declare the state `_seq` last
+    // (RU-71) and the program's code passes it to the sequence at each activation. Activations every
+    // 10 ms: at 0 ms the sequence waits for a part, point 1; the part comes before 10 ms, so at
+    // 10 ms it grips, point 2; the gripper closes before 20 ms, so the hold of 500 ms, point 3,
+    // begins at 20 ms, lasts through 510 ms and is over at 520 ms, when the gripper lets go and the
+    // sequence waits for a part again, point 1; at 530 ms the part is still there and it grips.
+    // A warm restart starts the sequence at its top (RU-73): its first activation waits for a part,
+    // point 1, with the gripper open. Catches a state the program's code does not pass, one that
+    // does not survive from one scan to the next, a hold that ends a cycle early or late, and a
+    // restart that resumes a wait.
+    let root = custom_project(
+        "rust-sequences",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &format!("{ROOT}{PALLETIZER}")),
+        ],
+        CELL,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let scan = |program: &mut trust_runtime::native::NativeProgram<
+        '_,
+        trust_runtime::native::HostCode,
+    >,
+                time: i64| {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    };
+    let point = |number: u16| Some(Value::UInt(number));
+    let gripper = |closed: bool| Some(Value::Bool(closed));
+    scan(&mut program, 0);
+    assert_eq!(cell(&program), (point(1), gripper(false)), "at 0 ms");
+    let (part, _) = program
+        .image()
+        .find_symbol("PART")
+        .expect("the symbol of part");
+    program
+        .write_symbol(part, &Value::Bool(true))
+        .expect("the part comes");
+    scan(&mut program, 10);
+    assert_eq!(cell(&program), (point(2), gripper(true)), "at 10 ms");
+    let (closed, _) = program
+        .image()
+        .find_symbol("CLOSED")
+        .expect("the symbol of closed");
+    program
+        .write_symbol(closed, &Value::Bool(true))
+        .expect("the gripper closes");
+    for time in (20..=510).step_by(10) {
+        scan(&mut program, time);
+    }
+    assert_eq!(cell(&program), (point(3), gripper(true)), "at 510 ms");
+    scan(&mut program, 520);
+    assert_eq!(cell(&program), (point(1), gripper(false)), "at 520 ms");
+    scan(&mut program, 530);
+    assert_eq!(cell(&program), (point(2), gripper(true)), "at 530 ms");
+    program
+        .warm_start(Duration::ZERO)
+        .expect("the warm restart");
+    scan(&mut program, 0);
+    assert_eq!(
+        cell(&program),
+        (point(1), gripper(false)),
+        "after the warm restart"
+    );
+}

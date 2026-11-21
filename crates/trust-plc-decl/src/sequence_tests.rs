@@ -278,3 +278,55 @@ fn a_sequence_that_is_no_rust_name_or_a_variable_named_as_the_state_is_refused()
         .to_string();
     assert!(refusal.contains("belongs to `#[trust_fb]`"), "{refusal}");
 }
+
+#[test]
+fn a_pou_that_runs_a_sequence_has_its_state_last_with_the_sequences_locals() {
+    // RU-71: the readers add `_seq` as the POU's last variable, an internal one of the type
+    // `<Item>Sequence`, and the state's structure `<POU>_SEQ`, in the POU's namespace, holds
+    // `point : UINT`, `began : TIME` and the locals in the body's order. Catches a state that the
+    // macro and the declarations' writer would lay out differently.
+    let item = pou_struct("#[input] pub start: bool");
+    let block = crate::function_block(
+        arguments("name = \"Motion.CELL\", sequence = \"run\""),
+        &item,
+    )
+    .expect("the block reads");
+    let last = block.variables.last().expect("a variable");
+    assert_eq!(
+        (last.name.as_str(), &last.ty, &last.section, last.retain),
+        (
+            "_seq",
+            &DataType::Named("CellSequence".into()),
+            &crate::Section::Var,
+            false
+        )
+    );
+    let read = sequence(&parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            let mut count: i16 = 0;
+            loop {
+                count = 1;
+                s.next_cycle().await;
+            }
+        }
+    })
+    .expect("the sequence reads");
+    let state = crate::sequence::state(&block.name, &block.item, &read);
+    assert_eq!(
+        (state.name.as_str(), state.item.as_str()),
+        ("Motion.CELL_SEQ", "CellSequence")
+    );
+    let fields: Vec<(&str, &DataType)> = state
+        .fields
+        .iter()
+        .map(|field| (field.name.as_str(), &field.ty))
+        .collect();
+    assert_eq!(
+        fields,
+        [
+            ("point", &DataType::Elementary(Elementary::Uint)),
+            ("began", &DataType::Elementary(Elementary::Time)),
+            ("count", &DataType::Elementary(Elementary::Int)),
+        ]
+    );
+}

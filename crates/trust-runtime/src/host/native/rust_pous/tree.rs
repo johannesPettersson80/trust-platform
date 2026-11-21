@@ -72,9 +72,22 @@ struct Walk<'a> {
     exports: Vec<(Vec<String>, String)>,
     /// The methods (RU-32), each with the name of its `impl` block's type, its file and its place.
     methods: Vec<(String, Method, String, Span, ItemSpan)>,
+    /// The sequences of the `#[trust_sequence]` blocks (specification 48 RU-71).
+    sequences: Vec<SequenceFound>,
     /// What the crate writes under `st::` (RU-38).
     structured_text: Uses,
     errors: Vec<RustPouError>,
+}
+
+/// A sequence a `#[trust_sequence]` block declares (specification 48 RU-71), before the walk gives
+/// its state to the POU that runs it.
+struct SequenceFound {
+    /// The name of the block's struct.
+    owner: String,
+    sequence: trust_plc_decl::sequence::Sequence,
+    file: String,
+    span: Span,
+    module: Module,
 }
 
 /// Walks the crate whose root file is `root` in the project in `project`.
@@ -86,6 +99,7 @@ pub(super) fn walk(project: &Path, root: &Path) -> Found {
         structures: Vec::new(),
         exports: Vec::new(),
         methods: Vec::new(),
+        sequences: Vec::new(),
         structured_text: Uses::default(),
         errors: Vec::new(),
     };
@@ -186,23 +200,11 @@ impl Walk<'_> {
                         &item.ident,
                         &[Kind::FunctionBlock, Kind::Program],
                         |kind, args| {
-                            let pou = if kind == Kind::Program {
+                            if kind == Kind::Program {
                                 trust_plc_decl::program(args, item)
                             } else {
                                 trust_plc_decl::function_block(args, item)
-                            }?;
-                            if pou.sequence.is_some() {
-                                // The program's code calls a POU with its variables, so a
-                                // declaration without the sequence's state would not match the
-                                // POU's call (specification 48 RU-71; R6e declares it).
-                                return Err(syn::Error::new(
-                                    item.ident.span(),
-                                    "this POU runs a sequence (specification 48 §15), whose state \
-                                     `_seq` the generated declarations do not declare yet: it runs \
-                                     in the crate's own tests, not yet in a project's program",
-                                ));
                             }
-                            Ok(pou)
                         },
                     );
                 }
@@ -221,6 +223,9 @@ impl Walk<'_> {
                 }
                 Item::Impl(item) if !is_test_only(&item.attrs) => {
                     self.methods(place.label, item);
+                    if item.attrs.iter().any(trust_plc_decl::is_sequence) {
+                        self.sequence(place.label, module, item);
+                    }
                 }
                 Item::Use(used)
                     if module.path.is_empty() && matches!(used.vis, Visibility::Public(_)) =>
@@ -404,6 +409,47 @@ impl Walk<'_> {
         }
     }
 
+    /// The sequence of the `#[trust_sequence]` block `item` of `module` (specification 48 RU-71): its
+    /// `async fn` as `trust-plc-decl` reads it, for the POU that runs it.
+    fn sequence(&mut self, label: &str, module: &Module, item: &ItemImpl) {
+        let owner = match (&item.trait_, &*item.self_ty) {
+            (None, Type::Path(path)) if path.qself.is_none() => path
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident.unraw().to_string()),
+            _ => None,
+        };
+        let functions: Vec<&syn::ImplItemFn> = item
+            .items
+            .iter()
+            .filter_map(|member| match member {
+                ImplItem::Fn(function) if function.sig.asyncness.is_some() => Some(function),
+                _ => None,
+            })
+            .collect();
+        let (Some(owner), [function]) = (owner, functions.as_slice()) else {
+            self.error(
+                label,
+                item.impl_token.span,
+                "a `#[trust_sequence]` block is the `impl` block of a POU's struct and holds the \
+                 POU's sequence, one `async fn` (specification 48 RU-71)"
+                    .to_string(),
+            );
+            return;
+        };
+        match trust_plc_decl::sequence::sequence(function) {
+            Ok(sequence) => self.sequences.push(SequenceFound {
+                owner,
+                sequence,
+                file: label.to_string(),
+                span: function.sig.ident.span(),
+                module: module.clone(),
+            }),
+            Err(error) => self.error(label, error.span(), error.to_string()),
+        }
+    }
+
     /// The enumeration the enum `item` declares, when `#[trust_enum]` marks it (RU-25).
     fn enumeration(&mut self, label: &str, item: &syn::ItemEnum) {
         let Some(attribute) = item
@@ -501,6 +547,7 @@ impl Walk<'_> {
             pou.path = path;
             pous.push((pou, declared.span));
         }
+        self.attach_sequences(&mut pous);
         let mut structures = Vec::new();
         for (mut found, public, module, span) in std::mem::take(&mut self.structures) {
             let item = found.path.last().cloned().unwrap_or_default();
@@ -572,6 +619,62 @@ impl Walk<'_> {
             structures,
             structured_text: self.structured_text,
             errors: self.errors,
+        }
+    }
+
+    /// Gives each POU of `pous` that runs a sequence its state's structure among the crate's
+    /// structures, which the generated code builds as any other (specification 48 RU-71); refuses
+    /// a POU whose sequence no `#[trust_sequence]` block of its struct holds, and a block whose
+    /// sequence no POU runs. A refused POU loses its state, so that the refusal is not followed by
+    /// one of its state's type.
+    fn attach_sequences(&mut self, pous: &mut [(RustPou, Span)]) {
+        let mut sequences = std::mem::take(&mut self.sequences);
+        for (pou, span) in pous.iter_mut() {
+            let Some(name) = &pou.pou.sequence else {
+                continue;
+            };
+            let Some(index) = sequences
+                .iter()
+                .position(|found| found.owner == pou.pou.item && found.sequence.name == *name)
+            else {
+                let item = &pou.pou.item;
+                let message = format!(
+                    "{} runs the sequence `{name}`, which no `#[trust_sequence]` block of `{item}` \
+                     holds: `#[trust_sequence] impl {item} {{ async fn {name}(&mut self, s: &mut \
+                     Seq) -> Result<(), Fault> {{ .. }} }}` (specification 48 RU-71)",
+                    pou.pou.name
+                );
+                self.error(&pou.file.clone(), *span, message);
+                pou.pou
+                    .variables
+                    .retain(|variable| variable.name != trust_plc_decl::sequence::STATE);
+                continue;
+            };
+            let found = sequences.remove(index);
+            let structure =
+                trust_plc_decl::sequence::state(&pou.pou.name, &pou.pou.item, &found.sequence);
+            let mut path = found.module.path.clone();
+            path.push(structure.item.clone());
+            let line = found.span.start().line;
+            self.structures.push((
+                RustStructure {
+                    structure,
+                    file: found.file,
+                    line,
+                    path,
+                },
+                found.module.public,
+                found.module.path,
+                found.span,
+            ));
+        }
+        for found in sequences {
+            let message = format!(
+                "the sequence `{}` of `{}` runs in no POU: name it in the POU's attribute, \
+                 `sequence = \"{}\"` (specification 48 RU-71)",
+                found.sequence.name, found.owner, found.sequence.name
+            );
+            self.error(&found.file, found.span, message);
         }
     }
 

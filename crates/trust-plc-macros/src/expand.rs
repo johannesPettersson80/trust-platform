@@ -441,11 +441,9 @@ fn calls(item: &ItemStruct, pou: &Pou) -> TokenStream {
             .unzip(),
         Fields::Unit | Fields::Unnamed(_) => (Vec::new(), Vec::new()),
     };
-    let mut starts: Vec<TokenStream> = pou.variables.iter().map(start).collect();
-    if pou.sequence.is_some() {
-        // The sequence's state starts at its top (specification 48 RU-71, RU-73).
-        starts.push(quote!(::trust_plc::declared_default()));
-    }
+    // A POU that runs a sequence has the state `_seq` last among its variables, which starts at
+    // its top (specification 48 RU-71, RU-73).
+    let starts: Vec<TokenStream> = pou.variables.iter().map(start).collect();
     let values: Vec<_> = (0..fields.len())
         .map(|index| format_ident!("v{index}"))
         .collect();

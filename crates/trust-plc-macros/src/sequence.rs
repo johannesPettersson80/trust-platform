@@ -6,6 +6,7 @@
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use syn::ext::IdentExt as _;
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, Pat, Type};
 use trust_plc_decl::{DataType, Elementary};
@@ -16,7 +17,10 @@ use crate::lower::{self, Hoisted};
 /// The type of the state of the POU `pou`'s sequence, `<Pou>Sequence`, which both attributes
 /// name: `#[trust_sequence]` declares it, the POU's attribute gives `_seq` that type (RU-71).
 pub(crate) fn state_type(pou: &Ident) -> Ident {
-    format_ident!("{}Sequence", pou)
+    format_ident!(
+        "{}",
+        trust_plc_decl::sequence::state_item(&pou.unraw().to_string())
+    )
 }
 
 /// `#[trust_sequence]`: the state's type, and the block with its sequence lowered.

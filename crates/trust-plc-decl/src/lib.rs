@@ -144,6 +144,13 @@ pub fn is_method(attribute: &Attribute) -> bool {
     last_segment_is(attribute, "trust_method")
 }
 
+/// Whether `attribute` is `#[trust_sequence]`, also written `#[trust_plc::trust_sequence]`, on the
+/// `impl` block of a POU's sequence (specification 48 RU-71).
+#[must_use]
+pub fn is_sequence(attribute: &Attribute) -> bool {
+    last_segment_is(attribute, "trust_sequence")
+}
+
 /// Whether `attribute` is `#[budget(...)]`, also written `#[trust_plc::budget(...)]`.
 #[must_use]
 pub fn is_budget(attribute: &Attribute) -> bool {
@@ -205,6 +212,9 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
         let variable = field_variable(ident, &field.ty, &field.attrs)?;
         add(&mut variables, variable, ident.span())?;
     }
+    if sequence.is_some() {
+        variables.push(sequence::state_variable(&item.ident.unraw().to_string()));
+    }
     Ok(Pou {
         kind: Kind::FunctionBlock,
         name,
@@ -259,6 +269,9 @@ pub fn program(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
             ));
         }
         add(&mut variables, variable, ident.span())?;
+    }
+    if sequence.is_some() {
+        variables.push(sequence::state_variable(&item.ident.unraw().to_string()));
     }
     Ok(Pou {
         kind: Kind::Program,

@@ -10,11 +10,68 @@ use syn::{
     Block, Error, Expr, ExprAwait, FnArg, ImplItemFn, Lit, Local as LetStatement, Pat, Stmt,
 };
 
-use crate::types::DataType;
+use crate::types::{DataType, Elementary};
+use crate::{Field, Section, Structure, Variable};
 
 /// The name of a sequence's state in its POU's instance (RU-71): the one leading underscore an IEC
 /// identifier may have.
 pub const STATE: &str = "_seq";
+
+/// The Rust name of the type of the state of the sequence of the POU whose Rust item is `item`,
+/// `<Item>Sequence`: `#[trust_sequence]` declares it beside the POU's `impl` block, and the POU's
+/// variable `_seq` has it (RU-71).
+#[must_use]
+pub fn state_item(item: &str) -> String {
+    format!("{item}Sequence")
+}
+
+/// The Structured Text name of that type, `<POU>_SEQ` in the namespace of the POU named `pou`
+/// (RU-71).
+#[must_use]
+pub fn state_structure(pou: &str) -> String {
+    format!("{pou}_SEQ")
+}
+
+/// The structure of the state of `sequence`, the sequence of the POU named `pou` whose Rust item is
+/// `item` (RU-71): `point : UINT`, the wait point it waits at, `began : TIME`, when its wait began,
+/// and its locals with their types, each starting at its type's default, the sequence's top.
+#[must_use]
+pub fn state(pou: &str, item: &str, sequence: &Sequence) -> Structure {
+    let mut fields = vec![
+        Field {
+            name: "point".to_string(),
+            ty: DataType::Elementary(Elementary::Uint),
+            init: None,
+        },
+        Field {
+            name: "began".to_string(),
+            ty: DataType::Elementary(Elementary::Time),
+            init: None,
+        },
+    ];
+    fields.extend(sequence.locals.iter().map(|local| Field {
+        name: local.name.clone(),
+        ty: local.ty.clone(),
+        init: None,
+    }));
+    Structure {
+        name: state_structure(pou),
+        item: state_item(item),
+        fields,
+    }
+}
+
+/// The variable `_seq` of a POU whose body runs a sequence, of the type of its state, which the
+/// readers of the POU's struct add as its last variable (RU-71).
+pub(crate) fn state_variable(item: &str) -> Variable {
+    Variable {
+        name: STATE.to_string(),
+        section: Section::Var,
+        retain: false,
+        ty: DataType::Named(state_item(item)),
+        init: None,
+    }
+}
 
 /// What a wait point waits for (RU-72).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

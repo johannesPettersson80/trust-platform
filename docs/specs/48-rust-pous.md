@@ -1296,6 +1296,14 @@ next wait point, and a fault discards the activation's changes with the rest of 
 runs at each activation; a sequence that must stop waits at its end (`loop { s.next_cycle().await;
 }`).
 
+The generated declarations (RU-23) declare `_seq` as the POU's last variable, an internal one of
+the structure `<POU>_SEQ` in the POU's namespace, whose fields are `point : UINT`, `began : TIME`
+and the locals with their types; the program's code builds the state from `<struct>Sequence` and
+writes it back as it does any structure of the crate (RU-25), so that type must be reachable as
+the POU is: a POU re-exported from a private module re-exports its state's type beside it. The
+declarations' writer refuses a POU whose `sequence` no `#[trust_sequence]` block of its struct
+holds, and a block whose sequence no POU runs, each at its place.
+
 **RU-72. Wait points.** The body awaits only the SDK's wait points: `s.next_cycle()`, `s.until(pred)`
 (true at the start of a later cycle), `s.wait(t)` (the task's logical time advanced by `t`),
 `s.all(...)` and `s.race(...)` of these, a child sequence of the same instance, and `.within(t)`
