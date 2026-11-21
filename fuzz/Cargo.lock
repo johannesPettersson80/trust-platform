@@ -6297,6 +6297,7 @@ dependencies = [
  "pin-project-lite",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -6522,6 +6523,7 @@ dependencies = [
  "tokio",
  "toml",
  "toml_edit",
+ "tower",
  "tower-lsp",
  "tracing",
  "tracing-subscriber",
