@@ -1,7 +1,8 @@
 //! The variables a project's services may write (specification 48 RU-63; specification 44 §5.14):
 //! a Structured Text project without a crate whose `trust.toml` gives its services `writes` builds
 //! an image whose service table lists each service's paths, and the build refuses a path that no
-//! service's write can reach, naming the service and the path.
+//! service's write can reach, naming the service and the path. The project check refuses the same
+//! paths without the toolchain (specification 11 §6.8.1c).
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -11,7 +12,9 @@ use std::path::{Path, PathBuf};
 
 use rust_pous_support::sources;
 use trust_runtime::native::rust_pous::write_generated;
-use trust_runtime::native::{build_project, Build, Options, Target, Toolchain};
+use trust_runtime::native::{
+    build_project, check_project, Build, NativeError, Options, Target, Toolchain,
+};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime_core::native::image::{Image, ImageService, SectionId};
 
@@ -163,4 +166,77 @@ fn the_build_refuses_each_path_no_service_may_write() {
             "{service} {path} {reason}: {line}"
         );
     }
+}
+
+/// The project checked for this computer as `trust-runtime check` checks it, with no toolchain: a
+/// project without a crate needs none.
+fn check(root: &Path) -> Result<(), String> {
+    check_project(
+        root,
+        &sources(root),
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: false,
+        },
+        ConversionProfile::Iec,
+        || {
+            Err(NativeError::Toolchain(
+                "the check of a project without a crate needs no toolchain".to_string(),
+            ))
+        },
+        &root.join("build/native"),
+    )
+    .map(|_| ())
+    .map_err(|error| error.to_string())
+}
+
+#[test]
+fn the_check_refuses_each_path_no_service_may_write_as_the_build_does() {
+    // Specification 11 §6.8.1c with RU-63: Compile refuses the paths the build refuses, each naming
+    // its service, its path and why, from the program's tables written without a module and without
+    // the toolchain; a project whose services write only what they may passes the check. Catches a
+    // project with a bad path that passes Compile and fails only when it starts (checklist G218).
+    let root = project(
+        "service-writes-checked",
+        "[services.recipe]\nwrites = [\"Main.nothing\", \"Main.limit\", \"Main.timer\", \
+         \"Main.point\", \"Main.target\", \"MAIN.TARGET\", \"Main.speed\"]\n\n\
+         [services.dosing]\nwrites = [\"Main.target\"]\n",
+    );
+    let Err(error) = check(&root) else {
+        panic!("the paths are refused");
+    };
+    let named: Vec<&str> = error
+        .lines()
+        .filter(|line| line.contains("trust.toml: [services."))
+        .collect();
+    let expected = [
+        ("recipe", "Main.nothing", "names no member"),
+        ("recipe", "Main.limit", "is a constant"),
+        (
+            "recipe",
+            "Main.timer",
+            "is an instance, which holds no value",
+        ),
+        ("recipe", "Main.point", "is not an elementary variable"),
+        ("recipe", "MAIN.TARGET", "twice"),
+        (
+            "dosing",
+            "Main.target",
+            "a variable has one service that writes it",
+        ),
+    ];
+    assert_eq!(named.len(), expected.len(), "{error}");
+    for ((service, path, reason), line) in expected.iter().zip(&named) {
+        assert!(
+            line.contains(&format!("[services.{service}] writes \"{path}\""))
+                && line.contains(reason)
+                && line.contains("specification 48 RU-63"),
+            "{service} {path} {reason}: {line}"
+        );
+    }
+    let fine = project(
+        "service-writes-check-passes",
+        "[services.recipe]\nwrites = [\"Main.target\", \"Main.speed\"]\n",
+    );
+    check(&fine).expect("a project whose services write only what they may passes the check");
 }

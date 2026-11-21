@@ -374,7 +374,7 @@ impl Symbols<'_, '_> {
 }
 
 /// The sorted symbols and the lookup of a canonical name's index.
-struct Sorted(Vec<Pending>);
+pub(super) struct Sorted(Vec<Pending>);
 
 impl Sorted {
     fn index(&self, canonical: &str) -> Option<u32> {
@@ -448,7 +448,7 @@ fn align8(value: usize) -> usize {
 
 /// The areas and their starting memory, in `INIT` in the order markers, globals, retain,
 /// instances; returns the areas and the bytes of `INIT`.
-fn areas(
+pub(super) fn areas(
     writer: &mut ImageWriter,
     model: &Model<'_>,
     memory: &StartingMemory,
@@ -530,7 +530,7 @@ fn owner_bytes(
 /// # Errors
 ///
 /// [`NativeError::Compile`] for a tool symbol or one of its parts whose name another symbol has.
-fn symbols(
+pub(super) fn symbols(
     writer: &mut ImageWriter,
     pool: &mut StringPool,
     model: &mut Model<'_>,
@@ -809,7 +809,7 @@ fn type_record(
 }
 
 /// The types: every type of the table, then the program types.
-fn types(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_>) {
+pub(super) fn types(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_>) {
     let all: Vec<TypeInfo> = model.types.all().map(|(_, info)| info.clone()).collect();
     let base = TABLE_PREFIX_BYTES + (all.len() + model.program_types.len()) * TypeRecord::BYTES;
     let mut details = Vec::new();
