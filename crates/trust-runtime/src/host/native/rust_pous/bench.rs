@@ -274,3 +274,40 @@ pub fn write_inputs(
     }
     Ok(())
 }
+
+/// The `inputs` of a `cycle.step` (specification 11 §6.8.1) that write a Rust program's case into
+/// the program instance `instance` of the program image `image` on a device: each input by its
+/// path, `Cell1.start`, with its literal admitted as the variable's declared type admits it and
+/// written as a step's typed value text, `BOOL:true` (RU-48).
+///
+/// # Errors
+///
+/// The text of an image that does not parse, of an input the instance has no variable of, of a
+/// literal its type refuses, and of a value a step carries no text of (an array, a structure, an
+/// enumeration, a date or a time of day).
+pub fn step_inputs(
+    image: &[u8],
+    instance: &str,
+    inputs: &[(String, String)],
+) -> Result<Vec<(String, String)>, String> {
+    let image = trust_runtime_core::native::image::Image::parse(image)
+        .map_err(|error| format!("the bench's image: {error}"))?;
+    inputs
+        .iter()
+        .map(|(input, text)| {
+            let path = format!("{instance}.{input}");
+            let (_, symbol) = image
+                .find_symbol(&path.to_ascii_uppercase())
+                .ok_or_else(|| format!("{path} is no variable of the program"))?;
+            let value = trust_runtime_services::live_values::value_grammar::typed_value(
+                &image,
+                symbol.type_index,
+                text,
+            )
+            .map_err(|error| format!("{path} := {text}: {error}"))?;
+            let typed = trust_runtime_services::cycle_step::typed_value_text(&value)
+                .map_err(|error| format!("{path} := {text}: {error}"))?;
+            Ok((path, typed))
+        })
+        .collect()
+}

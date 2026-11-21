@@ -881,6 +881,7 @@ fn a_step_restarts_writes_scans_and_reads_without_the_drivers() {
             error: None,
             error_at: None,
             assertion: None,
+            rust_pous: Vec::new(),
         }
     );
     assert_eq!(
@@ -1048,6 +1049,7 @@ fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
             error: None,
             error_at: None,
             assertion: None,
+            rust_pous: Vec::new(),
         }
     );
     request.run = Some("NOPE".into());
@@ -1094,6 +1096,7 @@ fn a_step_with_io_runs_a_program_instance_as_a_scan_runs_its_programs() {
             error: None,
             error_at: None,
             assertion: None,
+            rust_pous: Vec::new(),
         }
     );
 }

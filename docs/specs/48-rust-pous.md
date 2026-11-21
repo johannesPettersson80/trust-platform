@@ -921,8 +921,11 @@ In detail:
   name twice, or a value its type cannot take, at the case's line.
 - **The run.** `trust-dev rust bench` builds the project's program with its crate as a debug image,
   in which each Rust POU's longest call is recorded (RU-49), and runs it in the simulator, on the
-  computer, or with `--device <endpoint>` on a device, as `trust-dev test` runs the project's tests
-  (specification 22). Each case calls its POU once a scan for 1,000 scans, or `--scans <n>`, on one
+  computer, or with `--device <endpoint> --target <target>` on a device by stepped scans, whose
+  replies give the records (specification 11 §6.8.1), as `trust-dev test` runs the project's tests
+  (specification 22). On a device, a program's case gives values of the kinds a step's inputs
+  carry (a `BOOL`, an integer, a bit string, a real, a `TIME`, an `LTIME` or a `STRING`); a value of
+  another kind ends the case as a fault does. Each case calls its POU once a scan for 1,000 scans, or `--scans <n>`, on one
   instance, so that a function block keeps its state from one call to the next as on the PLC: a
   function's or a function block's case from a test program the bench generates, a method's on an
   instance of its block at its declared initial values, and a program's on each of its instances,

@@ -23,6 +23,8 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{Duration, Value};
 
+use crate::metrics::RustPouStats;
+
 pub use values::{decode_value, encode_value, parse_typed_value, typed_value_text};
 
 use crate::debug::sources::StatementAt;
@@ -84,6 +86,10 @@ pub struct StepOutcome {
     pub error_at: Option<StatementAt>,
     /// The values of the assertion whose failure ended the scan (specification 22).
     pub assertion: Option<FailedAssertion>,
+    /// Each Rust POU's record of a debug image after the scan, in the order of its Rust POU table:
+    /// its budget, its longest call and its calls over the budget since the program was loaded
+    /// (specification 48 RU-48, RU-49); none for a release image or a program without Rust POUs.
+    pub rust_pous: Vec<RustPouStats>,
 }
 
 /// Why a step ran no scan, or why its result cannot be given.
@@ -229,7 +235,8 @@ pub fn request<H: ResourcePort>(id: u64, params: Option<&JsonValue>, host: &H) -
 /// The result of a step: `{"time_ns", "values", "direct", "errors"}`, the values in the encoding of
 /// [`encode_value`] and `errors` the text of the error the scan ended with; `error_at`, the file and
 /// line of the statement that raised it, and `assertion`, a failed assertion's values, when the
-/// outcome names them.
+/// outcome names them; `rust_pous`, each Rust POU's record as `tasks.stats` lists it, when the
+/// program is a debug image with Rust POUs.
 #[must_use]
 pub fn reply(time: Duration, outcome: &StepOutcome) -> JsonValue {
     let encoded = |entries: &[(SmolStr, Value)]| {
@@ -249,6 +256,21 @@ pub fn reply(time: Duration, outcome: &StepOutcome) -> JsonValue {
     }
     if let Some(assertion) = &outcome.assertion {
         result["assertion"] = assertion_json(assertion);
+    }
+    if !outcome.rust_pous.is_empty() {
+        result["rust_pous"] = outcome
+            .rust_pous
+            .iter()
+            .map(|pou| {
+                json!({
+                    "name": pou.name.as_str(),
+                    "budget_ns": pou.budget_ns,
+                    "longest_ns": pou.longest_ns,
+                    "over_budget": pou.over_budget,
+                })
+            })
+            .collect::<Vec<_>>()
+            .into();
     }
     result
 }

@@ -249,6 +249,17 @@ in nanoseconds, `code`, the hash of the files the program is built from, and `de
 "FILTER_EMA" = { "x86_64-unknown-linux-gnu" = { longest = 4180, code = "…", device = "computer" } }
 ```
 
+To measure on a board, name the device and its target as `trust-dev test` takes them; the bench
+installs its program there and runs each case by stepped scans:
+
+```bash
+trust-dev rust bench --project . --device /dev/ttyACM0 --target esp32c6
+```
+
+The entry is then the board's target's, and its `device` the runtime ID the board reports. A Rust
+program's case on a board gives values of the kinds a step's inputs carry: `BOOL`, integers, bit
+strings, reals, `TIME`, `LTIME` and `STRING`.
+
 The command names each POU whose longest call is over its budget, and each case that faulted,
 which measures nothing for its POU. A change to any Structured Text or Rust file of the project gives
 the program a new `code`, so measure again after it.

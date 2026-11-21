@@ -394,7 +394,12 @@ fn execute_native_tests_on_device(
     let work = work_folder("device", project_root);
     // A device whose settings set a control token refuses a request without it (specification 34
     // PORT-06): the caller's token, else the project's, which the device was installed with.
-    let token = trust_runtime::control::endpoint::device_token(Some(project_root), token)?;
+    // The caller's token is `--token`, else `TRUST_CTL_TOKEN` (specification 22).
+    let from_env = trust_runtime::control::endpoint::control_token_from_env();
+    let token = trust_runtime::control::endpoint::device_token(
+        Some(project_root),
+        token.or(from_env.as_deref()),
+    )?;
     let mut link = DeviceLink::open(port, token.as_deref())?;
     // Which update the device and these tools need (specification 34 TARGET-05).
     if let Some(advice) = link.version_advice() {
