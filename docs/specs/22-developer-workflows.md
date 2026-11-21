@@ -522,6 +522,12 @@ folder, so it runs after such a session, as in the list's order:
   the copy's `src/Main.st` at `%MD0` and saved, Start, the counter growing by
   about 100 a second in Live Values, Stop, and a step of 10 started again,
   growing by about 1000 a second from 0;
+- `rust-function-block`: the walkthrough of `rust_function_block` on the
+  unmodified example: Start building the crate with truST's toolchain, with no
+  Rust on `PATH`, Live Values showing the setpoint input at 0.0 and the speed at
+  0.0 and at speed, a Write of 50.0 to the setpoint moving the speed by 1.0 a
+  run of the 100 ms task to 50.0 in about 4.9 s, and a Write of 20.0 bringing
+  it down to 20.0 in about 2.9 s (specification 48, RU-88);
 - `rust-service`: the walkthrough of `rust_service`, its runtime started in the
   same way on the example's own TCP endpoint and token, without a web server:
   the service's token created with `trust-runtime ctl service-token`, Connect

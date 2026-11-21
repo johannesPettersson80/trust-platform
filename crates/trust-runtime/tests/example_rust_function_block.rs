@@ -6,12 +6,23 @@
 mod rust_pous_support;
 
 use rust_pous_support::{built_from, example_copy, project_sources};
+use trust_runtime::io::IoAddress;
 use trust_runtime::native::{load, HostCode, NativeProgram, NoHooks};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
 /// The README's task interval, in milliseconds.
 const INTERVAL_MS: i64 = 100;
+
+/// Writes `setpoint` into `Setpoint`, `%IL0`, in the input image that the next scan samples, as Live
+/// Values' Write of the simulated input does. The image is untyped: the long word holds the
+/// `LREAL`'s bits.
+fn write_setpoint(program: &mut NativeProgram<'_, HostCode>, setpoint: f64) {
+    let address = IoAddress::parse("%IL0").expect("the address");
+    program
+        .write_address(&address, Value::LWord(setpoint.to_bits()))
+        .expect("%IL0 is in the input image");
+}
 
 /// Scans `program` every 100 ms from `*time` up to `until` ms, then gives Speed and AtSpeed.
 fn run_to(program: &mut NativeProgram<'_, HostCode>, time: &mut i64, until: i64) -> (Value, Value) {
@@ -27,16 +38,33 @@ fn run_to(program: &mut NativeProgram<'_, HostCode>, time: &mut i64, until: i64)
     )
 }
 
+/// Runs to each step's time, checking Speed and AtSpeed there.
+fn expect_ramp(
+    program: &mut NativeProgram<'_, HostCode>,
+    time: &mut i64,
+    steps: &[(i64, f64, bool)],
+) {
+    for &(until, speed, at_speed) in steps {
+        assert_eq!(
+            run_to(program, time, until),
+            (Value::LReal(speed), Value::Bool(at_speed)),
+            "at {until} ms"
+        );
+    }
+}
+
 #[test]
 fn the_examples_ramp_moves_the_speed_as_its_readme_says() {
-    // Specification 48 RU-88, the README's step by step, worked by hand: RAMP moves Speed by rate x
-    // interval = 10 x 0.1 s = 1.0 at each run of the 100 ms task, which runs at its start and then
-    // every 100 ms (specification 10 §4.3). So Speed is 11.0 at 1 s (runs at 0, 0.1, ..., 1 s), 49.0
-    // with AtSpeed FALSE at 4.8 s, and 50.0 with AtSpeed TRUE at 4.9 s, the 50th run. With Setpoint 20.0,
-    // written after that run, it falls by 1.0 a run: 21.0 with AtSpeed FALSE at 7.8 s, the 29th run
-    // after the write, and 20.0 with AtSpeed TRUE at 7.9 s, the 30th. Every value is exact in binary. Catches an example
-    // that does not build as committed (stale declarations, a crate the build refuses) and a README
-    // whose values the program does not compute.
+    // Specification 48 RU-88, the README's step by step, worked by hand: the task runs at its start
+    // and then every 100 ms (specification 10 §4.3), and RAMP moves Speed by rate x interval =
+    // 10 x 0.1 s = 1.0 a run. The setpoint input starts at 0.0, so Speed is 0.0 and AtSpeed TRUE.
+    // With 50.0 written before the run at 1 s, Speed is 1.0 then, 49.0 with AtSpeed FALSE at 5.8 s,
+    // the 49th run with the new setpoint, and 50.0 with AtSpeed TRUE at 5.9 s, the 50th. With 20.0
+    // written after that run it falls by 1.0 a run: 21.0 with AtSpeed FALSE at 8.8 s, the 29th run
+    // after the write, and 20.0 with AtSpeed TRUE at 8.9 s, the 30th. Every value is exact in binary.
+    // Catches an example that does not build as committed (stale declarations, a crate the build
+    // refuses), a setpoint the program does not take from its input, and a README whose values the
+    // program does not compute.
     let root = example_copy("rust_function_block");
     let Some((built, device)) = built_from(&root, &project_sources(&root), ConversionProfile::Iec)
     else {
@@ -45,30 +73,22 @@ fn the_examples_ramp_moves_the_speed_as_its_readme_says() {
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
     let mut time = 0;
-    for (until, speed, at_speed) in [
-        (1_000, 11.0, false),
-        (4_800, 49.0, false),
-        (4_900, 50.0, true),
-    ] {
-        assert_eq!(
-            run_to(&mut program, &mut time, until),
-            (Value::LReal(speed), Value::Bool(at_speed)),
-            "at {until} ms"
-        );
-    }
-    let (setpoint, _) = program
-        .image()
-        .find_symbol("MAININSTANCE.SETPOINT")
-        .expect("Setpoint's symbol");
-    program
-        .write_symbol(setpoint, &Value::LReal(20.0))
-        .expect("Setpoint written");
-    for (until, speed, at_speed) in [(7_800, 21.0, false), (7_900, 20.0, true)] {
-        assert_eq!(
-            run_to(&mut program, &mut time, until),
-            (Value::LReal(speed), Value::Bool(at_speed)),
-            "at {until} ms"
-        );
-    }
+    expect_ramp(&mut program, &mut time, &[(0, 0.0, true), (900, 0.0, true)]);
+    write_setpoint(&mut program, 50.0);
+    expect_ramp(
+        &mut program,
+        &mut time,
+        &[
+            (1_000, 1.0, false),
+            (5_800, 49.0, false),
+            (5_900, 50.0, true),
+        ],
+    );
+    write_setpoint(&mut program, 20.0);
+    expect_ramp(
+        &mut program,
+        &mut time,
+        &[(8_800, 21.0, false), (8_900, 20.0, true)],
+    );
     let _ = std::fs::remove_dir_all(root);
 }
