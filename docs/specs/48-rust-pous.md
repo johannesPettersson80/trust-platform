@@ -12,7 +12,8 @@
   RU-61, RU-62, RU-76), as the owner decided that day. 0.6, 21 November 2026: what a sequence's
   `s.all` and `s.race` wait for, by IEC §6.7.5, and the state an `s.all` keeps (RU-71, RU-72),
   decided under the owner's standing delegation ("do whats most professional and best for the user
-  and us").
+  and us"). 0.7, 21 November 2026: child sequences, when one runs and where its state is (RU-71,
+  RU-72), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1305,9 +1306,15 @@ The generated declarations (RU-23) declare `_seq` as the POU's last variable, an
 the structure `<POU>_SEQ` in the POU's namespace, whose fields are `point : UINT`, `began : TIME`,
 `done : WORD` when the body holds an `s.all`, and the locals with their types; the program's code builds the state from `<struct>Sequence` and
 writes it back as it does any structure of the crate (RU-25), so that type must be reachable as
-the POU is: a POU re-exported from a private module re-exports its state's type beside it. The
-declarations' writer refuses a POU whose `sequence` no `#[trust_sequence]` block of its struct
-holds, and a block whose sequence no POU runs, each at its place.
+the POU is: a POU re-exported from a private module re-exports its state's type beside it. Each
+child sequence (RU-72) has a state of its own, laid out as the POU's sequence's (`point`, `began`,
+`done` when its body holds an `s.all`, and its locals), in a field of `_seq` named as the child,
+after the POU's sequence's locals and in the order of the block's `async fn`s: the debugger shows
+`<instance>._seq.fill.point`. Its type is `<struct>Sequence<Child>` in Rust, the child's name in
+upper camel case (`PalletizerSequenceFill`), and the structure `<POU>_SEQ_<CHILD>` in the generated
+declarations, the child's name in capitals (`PALLETIZER_SEQ_FILL`). The declarations' writer
+refuses a POU whose `sequence` no `#[trust_sequence]` block of its struct holds or names a child
+sequence of it, and a block whose sequence no POU runs, each at its place.
 
 **RU-72. Wait points.** The body awaits only the SDK's wait points: `s.next_cycle()`, `s.until(pred)`
 (true at the start of a later cycle), `s.wait(t)` (the task's logical time advanced by `t`),
@@ -1333,6 +1340,19 @@ feature 2a). `let won: u16 = s.race(..).await;` keeps that member's number, from
 the members of the `s.all` that the sequence waits at that have completed, bit 0 for the first, and 0
 at every other wait point.
 
+A child sequence is another `async fn` of the same `#[trust_sequence]` block, with no parameter but
+the context (`async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault>`), which a sequence of the
+block awaits as a wait point of its own, `self.fill(s).await?;`: the child's fault is the fault of
+the sequence that awaits it. A child runs as a call would: the activation that reaches the wait
+point runs the child from its top to its first wait point, and the sequence that awaits it goes on
+at the activation at which the child returns, at once when the child returns without waiting, so
+moving part of a sequence into a child changes nothing about when anything happens. While the child
+waits, the sequence that awaits it waits at that wait point, which began at the activation that
+reached it, for its `.within(t)` (`self.fill(s).within(t).await?`). Each time it is awaited, a child
+starts at its top with its state as a restart leaves it (RU-73). The POU's sequence, which its struct
+names (RU-71), is the one `async fn` of the block that no other awaits; every other is a child, and
+no sequence awaits itself, directly or through other children, as each sequence has one state.
+
 `.within(t)` faults at the first activation whose logical time is more than `t` after the one that
 began the wait, a wait of exactly `t` being still in time, with the wait point's number as the
 fault's number and `t` and the time waited, in milliseconds, as its two numbers (Appendix A), as an
@@ -1345,14 +1365,21 @@ at each activation that checks them. A predicate is a plain function of the inst
 point. A wait point stands as a statement of its own (`s.wait(t).await;`, `....within(t).await?;`,
 `let won: u16 = s.race(..).await;`). The attribute refuses any other `.await`, an `.await` inside
 another expression, an `async` block or closure, a future of another crate, a loop that can run
-without reaching a wait point, a `for` loop with a wait point in it (its iterator would have to
-survive the wait), an `if let` or a `while let` with a wait point in it (its binding would have to
-live across the wait), a `break` with a value out of a loop that holds a wait point, an `s.all` or an
+without reaching a wait point (a child sequence counts as one only when every way through it waits
+before it returns), a `for` loop with a wait point in it (its iterator would have to survive the
+wait), an `if let` or a `while let` with a wait point in it (its binding would have to live across
+the wait), a labelled block with a wait point in it (its `break` would leave the wait behind), a
+`break` with a value out of a loop that holds a wait point, an `s.all` or an
 `s.race` with fewer than two members or more than sixteen, a member that is not `s.next_cycle()`,
 `s.until(..)` or `s.wait(..)` or that has a `.within` of its own, a value from a wait point other than
 `s.race`, a local of `s.race`'s member number whose type is not `u16`, a local without its type, two
-locals of one name in one sequence, a local that takes a name of the state's own fields (RU-71), and
-a variable of the POU named `_seq` in any case, each with its place in the body.
+locals of one name in one sequence, a local that takes a name of the state's own fields (RU-71), a
+child sequence with a parameter besides the context, a child awaited without `?`, a call
+`self.name(s)` that names no `async fn` of the block, a sequence that awaits itself, directly or
+through other children, two `async fn`s of a block that no other awaits, a child whose name is no
+IEC identifier, is a reserved word, begins with an underscore or names a field of the state of the
+POU's sequence (`point`, `began`, `done`, a local, another child) in any case, and a variable of the
+POU named `_seq` in any case, each with its place in the body.
 
 **RU-73. Restarts and changes.** A cold or warm restart starts every sequence at its top, as an SFC
 starts at its initial step (IEC §6.7); a sequence that must resume keeps its progress in retained

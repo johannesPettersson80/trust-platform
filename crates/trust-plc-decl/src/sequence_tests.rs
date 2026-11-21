@@ -54,6 +54,7 @@ fn the_palletizer_has_three_wait_points_named_by_their_steps() {
                 point(3, Wait::Wait, false, None),
             ],
             locals: Vec::new(),
+            awaits: Vec::new(),
         }
     );
 }
@@ -72,7 +73,7 @@ fn a_local_is_a_variable_of_the_state_with_its_type() {
                 s.next_cycle().await;
             }
             if self.home {
-                self.homing(s).await;
+                self.homing(s).await?;
             } else {
                 s.race(s.wait(Time::from_secs(1)), s.until(|me: &Self| me.stop)).await;
             }
@@ -95,6 +96,7 @@ fn a_local_is_a_variable_of_the_state_with_its_type() {
             point(3, Wait::Race, false, None),
         ]
     );
+    assert_eq!(read.awaits, ["homing"]);
 }
 
 #[test]
@@ -543,4 +545,315 @@ fn a_local_is_named_as_a_variable_of_structured_text_is() {
     })
     .expect("the sequence reads");
     assert_eq!(read.locals[0].name, "ready");
+}
+
+/// The filler's `#[trust_sequence]` block: the POU's sequence `run`, its child `fill`, which awaits
+/// the child `settle`, declared before `fill` so that the block's order is not the order of awaits.
+fn filler() -> syn::ItemImpl {
+    parse_quote! {
+        #[trust_sequence]
+        impl Filler {
+            async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                loop {
+                    s.until(|me: &Self| me.bottle).await;
+                    self.fill(s).within(Time::from_millis(s, 100)?).await?;
+                    s.next_cycle().await;
+                }
+            }
+
+            async fn settle(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                let mut ticks: i16 = 0;
+                while ticks < 2 {
+                    ticks = checked::add(s, ticks, 1)?;
+                    s.next_cycle().await;
+                }
+                Ok(())
+            }
+
+            async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                self.valve = true;
+                s.until(|me: &Self| me.full).await;
+                self.valve = false;
+                self.settle(s).await?;
+                Ok(())
+            }
+        }
+    }
+}
+
+/// A state's structure as its name, its Rust type and its fields with their types.
+type LaidOut<'a> = (&'a str, &'a str, Vec<(&'a str, &'a DataType)>);
+
+#[test]
+fn a_block_holds_the_pous_sequence_and_its_children_in_the_blocks_order() {
+    // RU-71 and RU-72: the POU's sequence is the one no other awaits, `run`; the children follow in
+    // the block's order, `settle` before `fill`. The POU's state holds a field for each child after
+    // its locals, of the child's own state, `FILLER_SEQ_SETTLE` and `FILLER_SEQ_FILL`, each laid out
+    // as a sequence's state. Catches a child taken for the POU's sequence, children in the order of
+    // their awaits, and a child's state the POU's state would not hold.
+    let block = crate::sequence::block(&filler()).expect("the block reads");
+    assert_eq!(block.owner, "Filler");
+    assert_eq!(block.sequence.name, "run");
+    assert_eq!(block.sequence.awaits, ["fill"]);
+    let children: Vec<(&str, &[String])> = block
+        .children
+        .iter()
+        .map(|child| (child.name.as_str(), child.awaits.as_slice()))
+        .collect();
+    assert_eq!(
+        children,
+        [("settle", &[][..]), ("fill", &["settle".to_string()][..])]
+    );
+    let states = crate::sequence::states("FILLER", "Filler", &block);
+    let laid_out: Vec<LaidOut<'_>> = states
+        .iter()
+        .map(|state| {
+            (
+                state.name.as_str(),
+                state.item.as_str(),
+                state
+                    .fields
+                    .iter()
+                    .map(|field| (field.name.as_str(), &field.ty))
+                    .collect(),
+            )
+        })
+        .collect();
+    let uint = DataType::Elementary(Elementary::Uint);
+    let time = DataType::Elementary(Elementary::Time);
+    let int = DataType::Elementary(Elementary::Int);
+    let settle = DataType::Named("FillerSequenceSettle".into());
+    let fill = DataType::Named("FillerSequenceFill".into());
+    assert_eq!(
+        laid_out,
+        [
+            (
+                "FILLER_SEQ",
+                "FillerSequence",
+                vec![
+                    ("point", &uint),
+                    ("began", &time),
+                    ("settle", &settle),
+                    ("fill", &fill)
+                ]
+            ),
+            (
+                "FILLER_SEQ_SETTLE",
+                "FillerSequenceSettle",
+                vec![("point", &uint), ("began", &time), ("ticks", &int)]
+            ),
+            (
+                "FILLER_SEQ_FILL",
+                "FillerSequenceFill",
+                vec![("point", &uint), ("began", &time)]
+            ),
+        ]
+    );
+    assert_eq!(
+        crate::sequence::child_state_item("Palletizer", "fill_box"),
+        "PalletizerSequenceFillBox"
+    );
+}
+
+#[test]
+fn a_block_whose_sequences_cannot_run_as_one_is_refused() {
+    // RU-72's refusals that need the whole block, and the receiver and parameters of a sequence,
+    // each with the words of its message. Catches a sequence whose state two activations would
+    // share (one that awaits itself), a child that does not exist or whose fault would be lost, a
+    // POU with two sequences, and a sequence that cannot change its POU.
+    let cases: Vec<(syn::ItemImpl, &str)> = vec![
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                    loop { s.next_cycle().await; self.run(s).await?; }
+                }
+            } },
+            "`run` awaits itself through `run`",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.a(s).await?; Ok(()) }
+                async fn a(&mut self, s: &mut Seq) -> Result<(), Fault> { self.b(s).await?; Ok(()) }
+                async fn b(&mut self, s: &mut Seq) -> Result<(), Fault> { self.a(s).await?; Ok(()) }
+            } },
+            "`a` awaits itself through `b`",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                    self.missing(s).await?;
+                    Ok(())
+                }
+            } },
+            "`self.missing(..)` awaits no sequence of this block",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+                async fn orphan(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "`run` and `orphan` are both awaited by no sequence of the block",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.fill(s).await?; Ok(()) }
+                async fn fill(&mut self, s: &mut Seq, n: i16) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "takes no parameter but its context",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "a sequence is a method of its POU that changes it",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.fill(s).await; Ok(()) }
+                async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "a child sequence's fault is the fault of the sequence that awaits it",
+        ),
+        (
+            parse_quote! { impl Sequenced for Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "not a trait's",
+        ),
+    ];
+    refused_blocks(cases);
+}
+
+/// Each block of `cases` refused with its reason's words in the message.
+fn refused_blocks(cases: Vec<(syn::ItemImpl, &str)>) {
+    for (item, reason) in cases {
+        let message = crate::sequence::block(&item)
+            .expect_err("the block is refused")
+            .to_string();
+        assert!(
+            message.contains(reason),
+            "expected `{reason}` in: {message}"
+        );
+    }
+}
+
+#[test]
+fn a_child_named_as_no_field_of_the_state_can_be_is_refused() {
+    // RU-71: a child keeps its state in the field `_seq.<child>` of the structure
+    // `<POU>_SEQ_<CHILD>`, so its name is an IEC identifier that is no reserved word, begins with a
+    // letter, and names no field the state has already, in any case. Catches a state whose field
+    // would hide a local or the wait point, and a declaration Structured Text could not compile.
+    let cases: Vec<(syn::ItemImpl, &str)> = vec![
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+                    let fill: i16 = 0;
+                    self.fill(s).await?;
+                    Ok(())
+                }
+                async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "which the state of `run` has already as `fill`",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.Point(s).await?; Ok(()) }
+                async fn Point(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "has already as `point`",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self._fill(s).await?; Ok(()) }
+                async fn _fill(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "a child sequence's name begins with a letter",
+        ),
+        (
+            parse_quote! { impl Cell {
+                async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> { self.step(s).await?; Ok(()) }
+                async fn step(&mut self, s: &mut Seq) -> Result<(), Fault> { s.next_cycle().await; Ok(()) }
+            } },
+            "`step` is a reserved word of Structured Text",
+        ),
+    ];
+    refused_blocks(cases);
+}
+
+#[test]
+fn a_loop_waits_only_where_every_way_round_waits() {
+    // RU-72's loop rule over the whole block: a child sequence that can return without waiting is
+    // no wait point, so a loop whose only wait is awaiting it could spin a scan; an inner loop that
+    // can `break` before its wait lets the outer one spin; a labelled block's `break` would skip its
+    // wait. A loop that awaits a child that always waits, and one that breaks only after waiting,
+    // are taken. Catches a scan that never ends behind a child or an inner loop, and a rule that
+    // refuses loops that do wait.
+    let skips: syn::ItemImpl = parse_quote! { impl Cell {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            loop { self.maybe(s).await?; }
+        }
+        async fn maybe(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            if self.skip {
+                return Ok(());
+            }
+            s.next_cycle().await;
+            Ok(())
+        }
+    } };
+    let message = crate::sequence::block(&skips)
+        .expect_err("the loop could spin")
+        .to_string();
+    assert!(
+        message.contains("a child sequence it awaits can return without waiting"),
+        "{message}"
+    );
+    let inner = refused(&parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            loop {
+                loop {
+                    if self.ready {
+                        break;
+                    }
+                    s.next_cycle().await;
+                }
+            }
+        }
+    });
+    assert!(
+        inner.contains("can run without reaching a wait point"),
+        "{inner}"
+    );
+    let labelled = refused(&parse_quote! {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            'wait: {
+                if self.ready {
+                    break 'wait;
+                }
+                s.next_cycle().await;
+            }
+            Ok(())
+        }
+    });
+    assert!(
+        labelled.contains("a labelled block cannot hold a wait point"),
+        "{labelled}"
+    );
+    let waits: syn::ItemImpl = parse_quote! { impl Cell {
+        async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            loop {
+                self.fill(s).await?;
+                loop {
+                    s.next_cycle().await;
+                    if self.ready {
+                        break;
+                    }
+                }
+            }
+        }
+        async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> {
+            s.until(|me: &Self| me.full).await;
+            Ok(())
+        }
+    } };
+    assert!(crate::sequence::block(&waits).is_ok());
 }

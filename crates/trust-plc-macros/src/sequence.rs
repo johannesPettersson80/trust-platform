@@ -1,8 +1,10 @@
 //! `#[trust_sequence]` (specification 48 §15, RU-71): on the `impl` block that holds a POU's
 //! sequence, it declares the type of the sequence's state, `<Pou>Sequence`, which the POU's
 //! attribute gives the POU as its last variable `_seq`, and lowers the `async fn` to a method of
-//! the same name that runs one activation (see the `lower` module). An attribute on a function
-//! inside the block could not declare the type, which is why the attribute stands on the block.
+//! the same name that runs one activation (see the `lower` module); each child sequence of the
+//! block (RU-72) has a state of its own, `<Pou>Sequence<Child>`, in a field of `_seq`. An attribute
+//! on a function inside the block could not declare the type, which is why the attribute stands on
+//! the block.
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -46,78 +48,96 @@ pub(crate) fn expand(args: &TokenStream, item: &TokenStream) -> TokenStream {
             // The refusal, with the state's type and the sequence as plain methods, so that the
             // compiler names only the refusal.
             let error = error.to_compile_error();
-            let state = pou.map(|pou| state(&pou, "", false, &[], &[]));
+            let state = pou.map(|pou| {
+                let document =
+                    format!("The state of the sequence of `{pou}` (specification 48 RU-71).");
+                declaration(&state_type(&pou), &document, false, &[], &[], &[])
+            });
             stub_sequences(&mut block);
             quote! { #error #state #block }
         }
     }
 }
 
-/// Lowers the block's sequence in place and gives the declaration of its state's type.
+/// Lowers the block's sequences in place, the POU's and its children, and gives the declarations of
+/// their states' types: the POU's, with a field for each child's after its locals, then each
+/// child's, in the block's order (RU-71).
 fn lowered(block: &mut ItemImpl) -> Result<TokenStream, (Error, Option<Ident>)> {
     let pou = pou_of(block).map_err(|error| (error, None))?;
     let fail = |error: Error| (error, Some(pou.clone()));
-    if block.trait_.is_some() {
-        return Err(fail(Error::new(
-            block.impl_token.span(),
-            "`#[trust_sequence]` stands on the POU's own `impl` block, not on a trait's",
-        )));
-    }
-    let sequences: Vec<usize> = block
-        .items
-        .iter()
-        .enumerate()
-        .filter_map(|(index, item)| match item {
-            ImplItem::Fn(function) if function.sig.asyncness.is_some() => Some(index),
-            _ => None,
-        })
-        .collect();
-    let index =
-        match sequences.as_slice() {
-            [index] => *index,
-            [] => {
-                return Err(fail(Error::new(
-                    block.impl_token.span(),
-                    "a `#[trust_sequence]` block holds the POU's sequence, an `async fn name(&mut \
-                 self, s: &mut Seq) -> Result<(), Fault>` (specification 48 RU-70)",
-                )))
-            }
-            [_, second, ..] => return Err(fail(Error::new(
-                block
-                    .items
-                    .get(*second)
-                    .map_or(block.impl_token.span(), Spanned::span),
-                "a `#[trust_sequence]` block holds one sequence: a child sequence (specification \
-                 48 RU-72) is not lowered yet",
-            ))),
+    let read = trust_plc_decl::sequence::block(block).map_err(fail)?;
+    let item = pou.unraw().to_string();
+    let mut children: Vec<(Ident, Ident)> = Vec::new();
+    let mut child_states = TokenStream::new();
+    let mut own = None;
+    for index in 0..block.items.len() {
+        let Some(ImplItem::Fn(function)) = block.items.get(index) else {
+            continue;
         };
-    let Some(ImplItem::Fn(function)) = block.items.get(index) else {
+        if function.sig.asyncness.is_none() {
+            continue;
+        }
+        let name = function.sig.ident.unraw().to_string();
+        let (sequence, role) = if name == read.sequence.name {
+            (&read.sequence, lower::Role::Pou)
+        } else if let Some(child) = read.children.iter().find(|child| child.name == name) {
+            (child, lower::Role::Child(function.sig.ident.clone()))
+        } else {
+            continue;
+        };
+        let context = context_of(function).map_err(fail)?;
+        let hoisted = lower::locals(&function.block);
+        let starts: Vec<TokenStream> = sequence
+            .locals
+            .iter()
+            .map(|local| value(&local.ty, None))
+            .collect();
+        if starts.len() != hoisted.len() {
+            return Err(fail(Error::new(
+                function.sig.ident.span(),
+                "the sequence's locals could not be read alike by the reader and the lowering",
+            )));
+        }
+        let lowered = lower::lower(function, &context, &hoisted, &role).map_err(fail)?;
+        let lowered: ImplItem = syn::parse2(lowered).map_err(fail)?;
+        let all = sequence.holds_all();
+        if let lower::Role::Child(field) = role {
+            let ty = format_ident!(
+                "{}",
+                trust_plc_decl::sequence::child_state_item(&item, &name)
+            );
+            let document = format!(
+                "The state of the child sequence `{name}` of `{pou}`, the field `_seq.{name}` \
+                 (specification 48 RU-71): where it waits and its locals."
+            );
+            child_states.extend(declaration(&ty, &document, all, &hoisted, &starts, &[]));
+            children.push((field, ty));
+        } else {
+            own = Some((name, all, hoisted, starts));
+        }
+        if let Some(slot) = block.items.get_mut(index) {
+            *slot = lowered;
+        }
+    }
+    let Some((name, all, hoisted, starts)) = own else {
         return Err(fail(Error::new(
             block.impl_token.span(),
-            "the sequence went missing",
+            "the POU's sequence went missing",
         )));
     };
-    let sequence = trust_plc_decl::sequence::sequence(function).map_err(fail)?;
-    let context = context_of(function).map_err(fail)?;
-    let hoisted = lower::locals(&function.block);
-    let starts: Vec<TokenStream> = sequence
-        .locals
-        .iter()
-        .map(|local| value(&local.ty, None))
-        .collect();
-    if starts.len() != hoisted.len() {
-        return Err(fail(Error::new(
-            function.sig.ident.span(),
-            "the sequence's locals could not be read alike by the reader and the lowering",
-        )));
-    }
-    let lowered = lower::lower(function, &context, &hoisted).map_err(fail)?;
-    let lowered: ImplItem = syn::parse2(lowered).map_err(fail)?;
-    let name = function.sig.ident.to_string();
-    if let Some(item) = block.items.get_mut(index) {
-        *item = lowered;
-    }
-    Ok(state(&pou, &name, sequence.holds_all(), &hoisted, &starts))
+    let document = format!(
+        "The state of the sequence `{name}` of `{pou}`, its variable `_seq` (specification 48 \
+         RU-71): where it waits, its locals and its child sequences' states."
+    );
+    let state = declaration(
+        &state_type(&pou),
+        &document,
+        all,
+        &hoisted,
+        &starts,
+        &children,
+    );
+    Ok(quote! { #state #child_states })
 }
 
 /// The struct the block's `impl` is for: the POU.
@@ -153,27 +173,31 @@ fn context_of(function: &ImplItemFn) -> Result<Ident, Error> {
     }
 }
 
-/// The declaration of the state's type: the wait point, the time its wait began, the members of an
-/// `s.all` that have completed when the body holds one (`all`), and the locals (RU-71, RU-72), with
-/// the defaults a cold or a warm restart starts it at, its top (RU-73).
-fn state(
-    pou: &Ident,
-    sequence: &str,
+/// The declaration of the type `ty` of a sequence's state, documented by `document`: the wait
+/// point, the time its wait began, the members of an `s.all` that have completed when the body holds
+/// one (`all`), the locals, and for the POU's sequence the state of each child, `children` as the
+/// field and its type (RU-71, RU-72), with the defaults a cold or a warm restart starts it at, its
+/// top (RU-73).
+fn declaration(
+    ty: &Ident,
+    document: &str,
     all: bool,
     locals: &[Hoisted],
     starts: &[TokenStream],
+    children: &[(Ident, Ident)],
 ) -> TokenStream {
-    let state = state_type(pou);
     let names: Vec<&Ident> = locals.iter().map(|local| &local.name).collect();
     let types: Vec<&Type> = locals.iter().map(|local| &local.ty).collect();
     let documents: Vec<String> = names
         .iter()
         .map(|name| format!("The sequence's local `{name}`."))
         .collect();
-    let document = format!(
-        "The state of the sequence `{sequence}` of `{pou}`, its variable `_seq` (specification 48 \
-         RU-71): where it waits and its locals."
-    );
+    let (fields, child_types): (Vec<&Ident>, Vec<&Ident>) =
+        children.iter().map(|(field, ty)| (field, ty)).unzip();
+    let child_documents: Vec<String> = fields
+        .iter()
+        .map(|field| format!("The state of the child sequence `{}`.", field.unraw()))
+        .collect();
     let began = value(&DataType::Elementary(Elementary::Time), None);
     let (done, done_start) = if all {
         (
@@ -190,7 +214,7 @@ fn state(
     quote! {
         #[doc = #document]
         #[derive(Clone, Copy, Debug)]
-        pub struct #state {
+        pub struct #ty {
             /// The wait point the sequence waits at: 0 at its top, then the wait point's number
             /// among the body's wait points, from 1 (specification 48 RU-72).
             pub point: u16,
@@ -201,13 +225,23 @@ fn state(
                 #[doc = #documents]
                 pub #names: #types,
             )*
+            #(
+                #[doc = #child_documents]
+                pub #fields: #child_types,
+            )*
         }
 
-        impl ::trust_plc::Declared for #state {
-            const DEFAULT: Self = Self { point: 0, began: #began, #done_start #(#names: #starts),* };
+        impl ::trust_plc::Declared for #ty {
+            const DEFAULT: Self = Self {
+                point: 0,
+                began: #began,
+                #done_start
+                #(#names: #starts,)*
+                #(#fields: <#child_types as ::trust_plc::Declared>::DEFAULT,)*
+            };
         }
 
-        impl ::trust_plc::Value for #state {}
+        impl ::trust_plc::Value for #ty {}
     }
 }
 

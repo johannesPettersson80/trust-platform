@@ -79,13 +79,12 @@ struct Walk<'a> {
     errors: Vec<RustPouError>,
 }
 
-/// A sequence a `#[trust_sequence]` block declares (specification 48 RU-71), before the walk gives
-/// its state to the POU that runs it.
+/// The sequences a `#[trust_sequence]` block declares (specification 48 RU-71, RU-72), the POU's
+/// and its children, before the walk gives their states to the POU that runs them.
 struct SequenceFound {
-    /// The name of the block's struct.
-    owner: String,
-    sequence: trust_plc_decl::sequence::Sequence,
+    block: trust_plc_decl::sequence::Block,
     file: String,
+    /// Where the POU's sequence's name stands.
     span: Span,
     module: Module,
 }
@@ -409,43 +408,31 @@ impl Walk<'_> {
         }
     }
 
-    /// The sequence of the `#[trust_sequence]` block `item` of `module` (specification 48 RU-71): its
-    /// `async fn` as `trust-plc-decl` reads it, for the POU that runs it.
+    /// The sequences of the `#[trust_sequence]` block `item` of `module` (specification 48 RU-71,
+    /// RU-72): the POU's and its children as `trust-plc-decl` reads them, for the POU that runs
+    /// them.
     fn sequence(&mut self, label: &str, module: &Module, item: &ItemImpl) {
-        let owner = match (&item.trait_, &*item.self_ty) {
-            (None, Type::Path(path)) if path.qself.is_none() => path
-                .path
-                .segments
-                .last()
-                .map(|segment| segment.ident.unraw().to_string()),
-            _ => None,
-        };
-        let functions: Vec<&syn::ImplItemFn> = item
-            .items
-            .iter()
-            .filter_map(|member| match member {
-                ImplItem::Fn(function) if function.sig.asyncness.is_some() => Some(function),
-                _ => None,
-            })
-            .collect();
-        let (Some(owner), [function]) = (owner, functions.as_slice()) else {
-            self.error(
-                label,
-                item.impl_token.span,
-                "a `#[trust_sequence]` block is the `impl` block of a POU's struct and holds the \
-                 POU's sequence, one `async fn` (specification 48 RU-71)"
-                    .to_string(),
-            );
-            return;
-        };
-        match trust_plc_decl::sequence::sequence(function) {
-            Ok(sequence) => self.sequences.push(SequenceFound {
-                owner,
-                sequence,
-                file: label.to_string(),
-                span: function.sig.ident.span(),
-                module: module.clone(),
-            }),
+        match trust_plc_decl::sequence::block(item) {
+            Ok(block) => {
+                let span = item
+                    .items
+                    .iter()
+                    .find_map(|member| match member {
+                        ImplItem::Fn(function)
+                            if function.sig.ident.unraw() == block.sequence.name =>
+                        {
+                            Some(function.sig.ident.span())
+                        }
+                        _ => None,
+                    })
+                    .unwrap_or(item.impl_token.span);
+                self.sequences.push(SequenceFound {
+                    block,
+                    file: label.to_string(),
+                    span,
+                    module: module.clone(),
+                });
+            }
             Err(error) => self.error(label, error.span(), error.to_string()),
         }
     }
@@ -633,17 +620,29 @@ impl Walk<'_> {
             let Some(name) = &pou.pou.sequence else {
                 continue;
             };
-            let Some(index) = sequences
-                .iter()
-                .position(|found| found.owner == pou.pou.item && found.sequence.name == *name)
-            else {
+            let Some(index) = sequences.iter().position(|found| {
+                found.block.owner == pou.pou.item && found.block.sequence.name == *name
+            }) else {
                 let item = &pou.pou.item;
-                let message = format!(
-                    "{} runs the sequence `{name}`, which no `#[trust_sequence]` block of `{item}` \
-                     holds: `#[trust_sequence] impl {item} {{ async fn {name}(&mut self, s: &mut \
-                     Seq) -> Result<(), Fault> {{ .. }} }}` (specification 48 RU-71)",
-                    pou.pou.name
-                );
+                let child_of = sequences.iter().find(|found| {
+                    found.block.owner == *item
+                        && found.block.children.iter().any(|child| child.name == *name)
+                });
+                let message = match child_of {
+                    Some(found) => format!(
+                        "{} runs `{name}`, a child sequence of `{item}`'s block: a POU runs the \
+                         block's sequence that no other awaits, `sequence = \"{}\"` (specification \
+                         48 RU-71, RU-72)",
+                        pou.pou.name, found.block.sequence.name
+                    ),
+                    None => format!(
+                        "{} runs the sequence `{name}`, which no `#[trust_sequence]` block of \
+                         `{item}` holds: `#[trust_sequence] impl {item} {{ async fn {name}(&mut \
+                         self, s: &mut Seq) -> Result<(), Fault> {{ .. }} }}` (specification 48 \
+                         RU-71)",
+                        pou.pou.name
+                    ),
+                };
                 self.error(&pou.file.clone(), *span, message);
                 pou.pou
                     .variables
@@ -651,28 +650,30 @@ impl Walk<'_> {
                 continue;
             };
             let found = sequences.remove(index);
-            let structure =
-                trust_plc_decl::sequence::state(&pou.pou.name, &pou.pou.item, &found.sequence);
-            let mut path = found.module.path.clone();
-            path.push(structure.item.clone());
             let line = found.span.start().line;
-            self.structures.push((
-                RustStructure {
-                    structure,
-                    file: found.file,
-                    line,
-                    path,
-                },
-                found.module.public,
-                found.module.path,
-                found.span,
-            ));
+            for structure in
+                trust_plc_decl::sequence::states(&pou.pou.name, &pou.pou.item, &found.block)
+            {
+                let mut path = found.module.path.clone();
+                path.push(structure.item.clone());
+                self.structures.push((
+                    RustStructure {
+                        structure,
+                        file: found.file.clone(),
+                        line,
+                        path,
+                    },
+                    found.module.public,
+                    found.module.path.clone(),
+                    found.span,
+                ));
+            }
         }
         for found in sequences {
             let message = format!(
                 "the sequence `{}` of `{}` runs in no POU: name it in the POU's attribute, \
                  `sequence = \"{}\"` (specification 48 RU-71)",
-                found.sequence.name, found.owner, found.sequence.name
+                found.block.sequence.name, found.block.owner, found.block.sequence.name
             );
             self.error(&found.file, found.span, message);
         }

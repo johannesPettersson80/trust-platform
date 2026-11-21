@@ -137,3 +137,102 @@ fn a_sequence_that_holds_an_all_declares_done_in_its_state() {
         "{text}"
     );
 }
+
+/// A filler whose sequence awaits the child `fill`, which awaits the child `settle`.
+const FILLER: &str = "use trust_plc::prelude::*;
+
+#[trust_program(name = \"FILLER\", sequence = \"run\")]
+#[budget(\"60us\")]
+pub struct Filler {
+    #[input] pub bottle: bool,
+    #[input] pub full: bool,
+    #[output] pub valve: bool,
+}
+
+#[trust_sequence]
+impl Filler {
+    async fn run(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        loop {
+            s.until(|me: &Self| me.bottle).await;
+            self.fill(s).await?;
+        }
+    }
+
+    async fn fill(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        self.valve = true;
+        s.until(|me: &Self| me.full).await;
+        self.valve = false;
+        self.settle(s).await?;
+        Ok(())
+    }
+
+    async fn settle(&mut self, s: &mut Seq) -> Result<(), Fault> {
+        let mut ticks: i16 = 0;
+        while ticks < 2 {
+            ticks = checked::add(s, ticks, 1)?;
+            s.next_cycle().await;
+        }
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_sequence_with_children_declares_a_state_for_each() {
+    // RU-71 and RU-72: the POU's state FILLER_SEQ holds a field for each child after its locals,
+    // in the block's order, of the child's state, FILLER_SEQ_FILL and FILLER_SEQ_SETTLE, each a
+    // structure of the crate the generated code builds from its Rust type. Catches a child's state
+    // the declaration leaves out, whose program would pass the POU's state one structure short.
+    let root = project(&[("rust/Cargo.toml", MANIFEST), ("rust/src/lib.rs", FILLER)]);
+    let krate = read(&root).expect("the crate reads").expect("a crate");
+    let state: Vec<(&str, Vec<String>)> = krate
+        .structures
+        .iter()
+        .map(|found| (found.structure.name.as_str(), found.path.clone()))
+        .collect();
+    assert_eq!(
+        state,
+        [
+            ("FILLER_SEQ", vec!["FillerSequence".to_string()]),
+            ("FILLER_SEQ_FILL", vec!["FillerSequenceFill".to_string()]),
+            (
+                "FILLER_SEQ_SETTLE",
+                vec!["FillerSequenceSettle".to_string()]
+            ),
+        ]
+    );
+    let text = declarations_text(&krate);
+    for declared in [
+        "TYPE\n    FILLER_SEQ :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
+         fill : FILLER_SEQ_FILL;\n        settle : FILLER_SEQ_SETTLE;\n    END_STRUCT;\nEND_TYPE\n",
+        "TYPE\n    FILLER_SEQ_FILL :\n    STRUCT\n        point : UINT;\n        began : TIME;\n    \
+         END_STRUCT;\nEND_TYPE\n",
+        "TYPE\n    FILLER_SEQ_SETTLE :\n    STRUCT\n        point : UINT;\n        began : TIME;\n        \
+         ticks : INT;\n    END_STRUCT;\nEND_TYPE\n",
+    ] {
+        assert!(text.contains(declared), "expected\n{declared}\nin\n{text}");
+    }
+}
+
+#[test]
+fn a_pou_that_names_a_child_sequence_is_refused() {
+    // RU-71: a POU runs its block's sequence that no other awaits; naming a child says which one
+    // to name. Catches a POU that would run a child as its body, starting and leaving the child's
+    // state at random.
+    let named_a_child = FILLER.replace("sequence = \"run\"", "sequence = \"fill\"");
+    assert_ne!(named_a_child, FILLER);
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        ("rust/src/lib.rs", &named_a_child),
+    ]);
+    let found = errors(&root);
+    assert!(
+        found.iter().any(|error| {
+            error.starts_with(
+            "rust/src/lib.rs:5:12: FILLER runs `fill`, a child sequence of `Filler`'s block: a POU \
+             runs the block's sequence that no other awaits, `sequence = \"run\"`"
+        )
+        }),
+        "{found:#?}"
+    );
+}

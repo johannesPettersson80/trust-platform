@@ -13,3 +13,9 @@
   converge, and `s.race(..)` until the first of them completes, the earlier one in the list winning
   a tie, as an SFC's selection does. `let won: u16 = s.race(..).await;` tells which wait ended it,
   and the state's `done` shows which waits of an `s.all` have completed.
+- A Rust sequence awaits another `async fn` of its block as a child sequence, `self.fill(s).await?`
+  (specification 48 RU-72): the child runs as a call would, from the activation that reaches it, so
+  moving part of a sequence into a child changes nothing about when anything happens, and it keeps
+  a state of its own, which the debugger shows as `<instance>._seq.fill`. A loop whose only wait is
+  a child that can return without waiting, or an inner loop that can `break` before its wait, is now
+  refused, as it could keep a scan from ending.
