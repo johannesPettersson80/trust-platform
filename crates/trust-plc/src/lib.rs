@@ -4,12 +4,12 @@
 //! module with the generated Structured Text, and keeps the scan's rules (specification 48 §5): it
 //! returns faults instead of panicking, allocates nothing and runs without the standard library.
 //! This crate gives it the attributes that declare it (`#[trust_fb]`, `#[trust_function]`,
-//! `#[trust_method]` and `#[budget]`, §6.1; `#[trust_program]`, §7), its own context of a call
-//! ([`Cx`]: the task's logical time, the wall clock and its faults, RU-11), and what it needs from
-//! the two crates every module already links: the faults of the kernel interface (`trust-plc-abi`),
-//! and the standard's arithmetic and mathematics of the program library (`trust-plc-lib`). A Rust
-//! POU therefore computes and faults as the Structured Text beside it does: both call the same
-//! functions.
+//! `#[trust_method]`, `#[budget]` and `#[bench_case]`, §6.1 and §10; `#[trust_program]`, §7),
+//! its own context of a call ([`Cx`]: the task's logical time, the wall clock and its faults,
+//! RU-11), and what it needs from the two crates every module already links: the faults of the
+//! kernel interface (`trust-plc-abi`), and the standard's arithmetic and mathematics of the
+//! program library (`trust-plc-lib`). A Rust POU therefore computes and faults as the Structured
+//! Text beside it does: both call the same functions.
 //!
 //! The crate holds no `unsafe` code; the `unsafe` of a module stays in the interface crate
 //! (specification 44 §6.9).
@@ -41,8 +41,8 @@ pub use refs::{InOut, Ref};
 pub use strings::{Str, WStr};
 pub use trust_plc_abi::{Fault, FaultCode};
 pub use trust_plc_macros::{
-    budget, trust_enum, trust_fb, trust_function, trust_method, trust_program, trust_sequence,
-    trust_struct,
+    bench_case, budget, trust_enum, trust_fb, trust_function, trust_method, trust_program,
+    trust_sequence, trust_struct,
 };
 pub use types::{
     declared_default, Byte, Char, Declared, Dword, LTime, Lword, Placed, Stored, Time, Value,

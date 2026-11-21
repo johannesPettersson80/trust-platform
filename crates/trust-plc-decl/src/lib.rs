@@ -11,6 +11,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod bench;
 mod budget;
 mod dates;
 mod enumeration;
@@ -30,6 +31,7 @@ use syn::{
     Visibility,
 };
 
+pub use bench::Case;
 pub use enumeration::{enumeration, is_enumeration, Enumeration};
 pub use literal::Value;
 pub use method::{method, Access, Method};
@@ -91,6 +93,9 @@ pub struct Pou {
     pub item: String,
     /// The longest one call may take, in nanoseconds (`#[budget]`, RU-46).
     pub budget_ns: u64,
+    /// The cases with which `trust-dev rust bench` measures it (`#[bench_case]`, RU-48); none
+    /// measures it with its declared initial values.
+    pub bench: Vec<Case>,
     /// The variables in declaration order: a function block's fields, a function's parameters
     /// after its context.
     pub variables: Vec<Variable>,
@@ -157,6 +162,13 @@ pub fn is_budget(attribute: &Attribute) -> bool {
     last_segment_is(attribute, "budget")
 }
 
+/// Whether `attribute` is `#[bench_case(...)]`, also written `#[trust_plc::bench_case(...)]`
+/// (RU-48).
+#[must_use]
+pub fn is_bench_case(attribute: &Attribute) -> bool {
+    last_segment_is(attribute, "bench_case")
+}
+
 /// The kind of POU `attribute` declares: `#[trust_fb]` a function block, `#[trust_function]` a
 /// function, also written with their crate's path.
 #[must_use]
@@ -215,11 +227,13 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
     if sequence.is_some() {
         variables.push(sequence::state_variable(&item.ident.unraw().to_string()));
     }
+    let bench = bench::cases(&item.attrs, &variables, true)?;
     Ok(Pou {
         kind: Kind::FunctionBlock,
         name,
         item: item.ident.unraw().to_string(),
         budget_ns: budget::of(&item.attrs, item.ident.span())?,
+        bench,
         variables,
         result: None,
         methods: Vec::new(),
@@ -273,11 +287,13 @@ pub fn program(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
     if sequence.is_some() {
         variables.push(sequence::state_variable(&item.ident.unraw().to_string()));
     }
+    let bench = bench::cases(&item.attrs, &variables, false)?;
     Ok(Pou {
         kind: Kind::Program,
         name,
         item: item.ident.unraw().to_string(),
         budget_ns: budget::of(&item.attrs, item.ident.span())?,
+        bench,
         variables,
         result: None,
         methods: Vec::new(),
@@ -361,11 +377,13 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
         };
         add(&mut variables, variable, ident.span())?;
     }
+    let bench = bench::cases(&item.attrs, &variables, true)?;
     Ok(Pou {
         kind: Kind::Function,
         name,
         item: signature.ident.unraw().to_string(),
         budget_ns: budget::of(&item.attrs, signature.ident.span())?,
+        bench,
         variables,
         result: result(&signature.output, signature.ident.span())?,
         methods: Vec::new(),
@@ -768,3 +786,7 @@ mod interface_tests;
 #[cfg(test)]
 #[path = "sequence_tests.rs"]
 mod sequence_tests;
+
+#[cfg(test)]
+#[path = "bench_tests.rs"]
+mod bench_tests;
