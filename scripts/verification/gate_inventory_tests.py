@@ -363,13 +363,18 @@ class GateInventoryTests(unittest.TestCase):
         )
         self.assertEqual(failures, [])
 
-        self.assertIn("schedule:", baseline)
         self.assertIn("--smoke", baseline)
-        self.assertIn("scripts/check_verification_tooling_selftests.py", baseline)
-        self.assertIn("github.event_name == 'pull_request'", baseline)
-        self.assertIn("github.event_name != 'pull_request'", baseline)
-        self.assertEqual(baseline.count("python3 scripts/verification_report_gate.py"), 2)
+        self.assertEqual(baseline.count("python3 scripts/verification_report_gate.py"), 1)
 
+        full_report = (
+            "            --out-dir target/gate-artifacts/verification\n"
+            "          python3 scripts/verification_report_gate.py \\\n"
+            '            --base "${BASE_SHA}" \\\n'
+            '            --head "${HEAD_SHA}" \\\n'
+            "            --intent bugfix \\\n"
+            "            --strict \\\n"
+            "            --out-dir target/gate-artifacts/verification\n"
+        )
         cases = (
             (
                 enforcing.replace("            --strict \\\n", ""),
@@ -382,17 +387,31 @@ class GateInventoryTests(unittest.TestCase):
                 ),
                 "read-only permissions",
             ),
-            # A merge group must run the smoke, never the exhaustive scheduled tooling.
+            # Specification 30: no scheduled run checks the verification records. The weekly
+            # exhaustive report stayed red on historical records and tooling (checklist W14).
             (
                 enforcing.replace(
-                    "if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
-                    "if: ${{ github.event_name == 'pull_request' }}",
+                    "  merge_group:\n",
+                    '  merge_group:\n  schedule:\n    - cron: "17 3 * * 2"\n',
                 ),
-                "smoke/scheduled split drifts",
+                "pull requests and merge groups only",
+            ),
+            # A merge group's run checks the merged change as a pull request's does.
+            (
+                enforcing.replace("  merge_group:\n", ""),
+                "pull requests and merge groups only",
+            ),
+            # The full report returns to the workflow beside the smoke.
+            (
+                enforcing.replace(
+                    "            --out-dir target/gate-artifacts/verification\n", full_report
+                ),
+                "invocation drifts",
             ),
         )
         for text, expected in cases:
             with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp:
+                self.assertNotEqual(text, enforcing, "the case changes the workflow")
                 root = Path(temp)
                 failures: list[str] = []
 

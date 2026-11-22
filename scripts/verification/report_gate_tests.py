@@ -72,6 +72,7 @@ class VerificationReportGateTests(unittest.TestCase):
                     "scripts.verification.report_gate_tests",
                     "scripts.verification.focused_test_suite_tests",
                     "scripts.verification.governance_tests",
+                    "scripts.verification.gate_inventory_tests",
                 ],
                 [
                     "python3",

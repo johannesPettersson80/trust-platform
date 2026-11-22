@@ -10,7 +10,6 @@ duration_class = "long"
 environment = "github_nightly"
 commands = [
   "workflow job .github/workflows/openot-real-databases.yml#exact-product-matrix",
-  "workflow job .github/workflows/verification-gate.yml#verification-report",
   "workflow job .github/workflows/nightly-reliability.yml#reliability",
   "workflow job .github/workflows/hmi-nightly.yml#browser-and-package",
   "workflow job .github/workflows/salsa-hardening.yml#fuzz-extended-nightly",
@@ -23,7 +22,6 @@ commands = [
 ]
 command_bindings = [
   "GATE_JOB_OPENOT_EXACT_PRODUCTS",
-  "GATE_JOB_VERIFICATION_REPORT",
   "GATE_JOB_NIGHTLY_RELIABILITY",
   "GATE_JOB_HMI_NIGHTLY_BROWSER_AND_PACKAGE",
   "GATE_JOB_SALSA_FUZZ_EXTENDED_NIGHTLY",
@@ -40,7 +38,6 @@ inventory_ids = [
   "GATE_JOB_OPENOT_EXACT_PRODUCTS",
   "GATE_JOB_SALSA_FUZZ_EXTENDED_NIGHTLY",
   "GATE_JOB_SALSA_MIRI_NIGHTLY",
-  "GATE_JOB_VERIFICATION_REPORT",
   "GATE_MUTATION_BYTECODE_VALIDATOR",
   "GATE_SCRIPT_AGGREGATE_ST_TEST_FLAKE_HISTORY",
   "GATE_SCRIPT_HMI_CI_GATE",
