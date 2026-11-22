@@ -6,4 +6,4 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-trust-plc = "=0.44.0"
+trust-plc = "=0.44.1"
