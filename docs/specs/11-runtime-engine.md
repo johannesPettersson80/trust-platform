@@ -7587,6 +7587,14 @@ Rules:
   `tcp://host:port` or `tls://host:port` that a control endpoint also takes, or a Zenoh locator
   `tcp/host:port` or `tls/host:port`; with `tls = true` a `tcp` endpoint becomes `tls`. A
   subscription `"<peer>:<path>"` names the publishing runtime by its resource name.
+- **A mesh links only to the peers it names.** A mesh connects to the endpoints of its `connect`
+  entries and accepts connections on its `listen` endpoint, and it looks for no other mesh: it
+  neither scouts the network (Zenoh's multicast scouting) nor connects to the peers that a linked
+  peer knows (Zenoh's gossip). So the `connect` entries decide which runtimes link, and a
+  subscription reaches its publisher only over such a link, made by either side, or through a
+  router that both connect to. Discovery (mDNS) lists runtimes and links no mesh. A mesh that
+  listens on a network address accepts every runtime that connects to it unless `auth_token` is
+  set, and then only the runtimes that present the same token.
 - **A mesh that does not start says so.** When its session does not open, the runtime runs on
   without the mesh, logs the warning event `mesh_unavailable` with the reason and reports the
   mesh as degraded with it in its fleet topology.

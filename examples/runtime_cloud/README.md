@@ -63,3 +63,7 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/rollouts \
 - `runtime-wan.toml` ships with sample allowlist rules; tighten these per site and action.
 - Mesh examples pin `runtime.mesh.zenohd_version = "1.7.2"` and include explicit
   `runtime.mesh.role/connect/plugin_versions` keys to match the runtime-cloud baseline policy.
+- A mesh links only to the peers its `runtime.mesh.connect` entries name and to the runtimes that
+  connect to its `listen` endpoint; it does not look for other meshes on the network. The dev
+  profiles link runtime-a to runtime-b. `runtime-plant.toml` and `runtime-wan.toml` only listen:
+  name the peers each one exchanges values with in its `connect`, or in theirs.
