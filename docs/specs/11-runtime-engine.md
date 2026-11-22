@@ -3678,8 +3678,9 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   §2), the forces and queued writes, faults, the safe state and restarts, as a run has them. A
   project without `simulation.toml` runs its program alone.
 - Its clock is manual. The logical time starts at 0 and moves only by `simulator.advance` (below);
-  no wall clock paces the scans, and the scheduler waits between them for the next request. The
-  program starts cold before its first cycle, at the logical time 0. The wall clock that the program
+  no wall clock paces the scans, and the scheduler waits between them for the next request. While
+  the time is held it answers every other request, reads and writes among them, between the scans
+  as a run does. The program starts cold before its first cycle, at the logical time 0. The wall clock that the program
   reads (`CURRENT_DT`) is the logical time from 1 January 1970 UTC.
 - Its control link is its standard input and output: one request per line in and one response per
   line out (the runtime protocol annex, E0.1), and nothing else on its standard output; its log goes
@@ -3692,11 +3693,12 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   metrics export. Its retained values stay in its memory: a warm restart keeps them, and it writes
   nothing into the project.
 - `simulator.advance` (Engineer) runs the scans that are due from the current logical time. With
-  `cycles` (a count) it runs that many cycles, each at the next logical time at which a task of the
-  resource is due (specification 10 §4.3); with `duration_ns` it runs the cycles due within that
-  duration and moves the logical time to its end. It answers when they have run, with
+  `cycles` (a count) it runs that many cycles of the resource, one every `cycle_interval_ms` of
+  logical time as a run's cycles come, each with the tasks due then (specification 10 §4.3); with
+  `duration_ns` it runs the cycles due within that duration and moves the logical time to its end. It answers when they have run, with
   `{"time_ns": t, "cycles": n, "state": "..."}`: the logical time, the cycles run and the resource's
-  state. A cycle that faults ends it early, and the answer adds the fault as `faults` lists it. A
+  state. A cycle that faults ends it early, the answer adds the fault as `faults` lists it, and the
+  project's fault policy acts as in a run (`[runtime.fault]`). A
   runtime on the wall clock, every runtime but a simulator, refuses it as `clock_not_manual`, so
   that every runtime answers it alike (specification 34 STATE-08).
 

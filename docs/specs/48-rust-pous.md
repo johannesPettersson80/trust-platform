@@ -1075,10 +1075,10 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   in a test process however many of its tests open the project. A build that fails is the test's
   error, with the build's messages.
 - **Time and cycles.** The simulator starts the program cold at the logical time 0. A cycle is one
-  scan of the scheduler at the next logical time at which a task of the resource is due
-  (specification 10 §4.3), the due tasks in priority order. `run_cycles(n)` runs `n` cycles;
-  `run_for(t)` runs the cycles due within `t` of the current logical time and ends at its end;
-  `now()` is the logical time. The wall clock that `CURRENT_DT` reads is the logical time from
+  cycle of the resource, as `trust-runtime run` runs it: one every `cycle_interval_ms` of logical
+  time (`runtime.toml`), with the tasks due then in priority order (specification 10 §4.3) and then
+  the programs without a task. `run_cycles(n)` runs `n` cycles; `run_for(t)` runs the cycles due
+  within `t` of the current logical time and ends at its end; `now()` is the logical time. The wall clock that `CURRENT_DT` reads is the logical time from
   1 January 1970 UTC, so that it too is the same on every run.
 - **Values.** A path names a variable as the debugger and Live Values name it (`P1.level`, a global
   by its name), and a value is a Rust value of the variable's type: `bool`, the integers, `f32` and
@@ -1088,9 +1088,10 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   no variable, or a value its variable's type does not take, is an error that names the path, the
   value and the type.
 - **Faults.** A cycle that faults ends `run_cycles` or `run_for` with an error that names the fault
-  and, when the image has them, its POU and statement. The simulator then holds the program faulted
-  with its safe state applied, as the runtime does: a test that expects the fault matches the
-  error, reads the values, and restarts the program warm or cold.
+  and, when the image has them, its POU and statement, and the project's fault policy then acts as
+  in a run (`[runtime.fault]`): a halting fault leaves the resource faulted, with its safe state
+  applied for `safe_halt`, until the test restarts it warm or cold, and a test that expects the
+  fault matches the error and reads the values.
 - **Documentation and examples.** The crate's API reference shows each of these in a whole example
   that runs as a doc test, and the user guide teaches, step by step, a machine test of a realistic
   example project, whose machine tests CI runs.
