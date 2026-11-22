@@ -487,7 +487,9 @@ Important control subcommands:
   control token, time server, trusted keys; they apply at the chip's next boot)
 - `shutdown [--exit]`
 - `config-get`
-- `config-set`
+- `config-set <key> <value>` (a value that begins with `[` or `{` is sent as the JSON
+  it is; a key that takes effect only after a restart is named, with `runtime.toml`, which
+  `config-set` does not write)
 
 `shutdown` stops the program and leaves the runtime running in the Stopped state, with its
 control server, web UI and other services; `restart cold` or `restart warm` starts the
