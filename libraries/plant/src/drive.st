@@ -4,7 +4,7 @@
 NAMESPACE Plant
 USING Alarm;
 
-FUNCTION_BLOCK FB_VariableSpeedMotor EXTENDS FB_RunDevice IMPLEMENTS ISpeedDevice
+FUNCTION_BLOCK FB_VariableSpeedMotor EXTENDS FB_RunDevice IMPLEMENTS ISpeedDevice, IControlledDevice
 VAR_INPUT
     (* The program's speed in %, followed in Auto while running. *)
     AutoSpeed : LREAL;
@@ -95,6 +95,17 @@ END_VAR
         GetAlarm := SUPER.GetAlarm(Index);
     END_IF;
 END_METHOD
+
+(* The drive follows its Auto speed while in Auto and running (§6.2); a controller that drives it
+   tracks Speed otherwise (§8.1). *)
+METHOD PUBLIC FollowsAuto : BOOL
+    FollowsAuto := Mode = E_Mode#Auto AND RunCommand;
+END_METHOD
+
+METHOD PUBLIC GetActualValue : LREAL
+    GetActualValue := Speed;
+END_METHOD
+
 END_FUNCTION_BLOCK
 
 FUNCTION_BLOCK FB_VariableSpeedPump EXTENDS FB_VariableSpeedMotor

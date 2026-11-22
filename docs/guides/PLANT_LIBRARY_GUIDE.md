@@ -87,6 +87,14 @@ END_VAR
 END_PROGRAM
 ```
 
+A control valve, a variable-speed motor and a heater are also controlled devices
+(`IControlledDevice`): a controller drives each through its `Auto…` value. `FollowsAuto()` is
+`TRUE` while the device follows that value now: in Auto, in service, not held by its interlock or
+a fault, running, and for a valve released by its permissive. `GetActualValue()` is what the device
+does: its position, speed or power. A controller that drives the device tracks `GetActualValue()`
+while `FollowsAuto()` is `FALSE`, so it does not wind up while, for example, an interlock holds
+the valve closed, and it takes over without a bump when the valve follows again.
+
 ## Equipment
 
 ### Motors, pumps, fans, blowers, agitators and conveyors
