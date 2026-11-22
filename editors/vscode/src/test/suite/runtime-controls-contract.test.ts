@@ -10,6 +10,7 @@ import {
 import {
   normalizeIoState,
 } from "../../runtimeLifecycle";
+import { statusRefresher, type StatusBarView } from "../../runtimeControls";
 
 // Regression guard for the v3 UX RESET (vscode-ux-overhaul-plan.md §0/§6/§8/§9): ONE run surface — a
 // truST sidebar WebviewView with a target selector and a SINGLE state-specific action. Literal verbs
@@ -791,5 +792,62 @@ suite("truST sidebar — control surface contract", () => {
         homeSource.includes("return value.message.trim();"),
       "sidebar must clear or explain pending Update state from the shared reload result"
     );
+  });
+});
+
+// Specification 25 §6.9: the status bar names a runtime connected while a debug session is attached to it. Its reads ask the
+// language server, so two reads that overlapped could answer out of order (W51: the rust-service journey's bar still said
+// "not connected" 20 s after Connect had attached the session that Live Values showed).
+suite("Status bar — refresh order", () => {
+  const view = (text: string): StatusBarView => ({ text, simulatorRunning: false, speedBehind: false });
+
+  // Catches reads that run side by side: the first read, slow and older, would answer last and leave "not connected".
+  test("an older read that answers later never replaces a newer read's view", async () => {
+    const shown: string[] = [];
+    let answerFirst: (value: StatusBarView) => void = () => undefined;
+    const answers = [
+      new Promise<StatusBarView>((resolve) => {
+        answerFirst = resolve;
+      }),
+      Promise.resolve(view("$(plug) truST: This project's runtime connected")),
+    ];
+    let reads = 0;
+    const refresh = statusRefresher(() => answers[reads++], (next) => {
+      shown.push(next.text);
+    });
+
+    const whileConnecting = refresh();
+    const afterAttach = refresh();
+    answerFirst(view("$(circle-outline) truST: This project's runtime not connected"));
+    await Promise.all([whileConnecting, afterAttach]);
+
+    assert.strictEqual(reads, 2, "the second ask reads again once the first read has answered");
+    assert.deepStrictEqual(shown, [
+      "$(circle-outline) truST: This project's runtime not connected",
+      "$(plug) truST: This project's runtime connected",
+    ]);
+  });
+
+  // Catches a burst that reads once per change: three asks while a read runs come to one more read, of the newest state.
+  test("asks while a read runs come to one more read", async () => {
+    let answerFirst: (value: StatusBarView) => void = () => undefined;
+    let reads = 0;
+    const refresh = statusRefresher(
+      () => {
+        reads += 1;
+        return reads === 1
+          ? new Promise<StatusBarView>((resolve) => {
+            answerFirst = resolve;
+          })
+          : Promise.resolve(view(`read ${reads}`));
+      },
+      () => undefined
+    );
+
+    const asked = [refresh(), refresh(), refresh(), refresh()];
+    answerFirst(view("read 1"));
+    await Promise.all(asked);
+
+    assert.strictEqual(reads, 2);
   });
 });

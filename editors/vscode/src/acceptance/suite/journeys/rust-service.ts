@@ -27,6 +27,8 @@ const writeTemperature = String.raw`var r=[...d.querySelectorAll('.row')].find(f
 
 /** The heater's values in Live Values, or null while its rows are missing. */
 async function read(s: Session, live: string): Promise<Heater | null> {
+  // The first step attaches Live Values; a step after it failed reports that, not the protocol's error for an empty session.
+  expect(live.length > 0, "Live Values is attached: the step runtime-alone attaches it");
   const shown = JSON.parse(await cdp.evalWebview(s.wb, live, rows)) as Record<string, { name: string; value: string }>;
   const at = (address: string) => shown[address];
   const wanted = ["%MD0", "%MD4", "%MX8.0", "%ID0", "%QX0.0"];
