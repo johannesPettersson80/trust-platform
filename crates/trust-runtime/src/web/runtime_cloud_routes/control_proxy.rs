@@ -178,6 +178,7 @@ pub(super) fn handle_post_control_proxy(
         ctx.profile.requires_secure_transport(),
     ) {
         let agent_config = ureq::Agent::config_builder()
+            .tls_config(ctx.peer_tls.clone())
             .timeout_connect(Some(Duration::from_millis(500)))
             .timeout_recv_response(Some(Duration::from_millis(1500)))
             .http_status_as_error(false)

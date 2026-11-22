@@ -184,12 +184,14 @@ pub(super) fn config_ui_live_target_remove(
 }
 
 fn fetch_runtime_cloud_state(
+    peer_tls: &ureq::tls::TlsConfig,
     target: &str,
     token: Option<&str>,
 ) -> Result<serde_json::Value, RuntimeError> {
     let target = normalize_live_target(target)?;
     let state_url = format!("{target}/api/runtime-cloud/state");
     let config = ureq::Agent::config_builder()
+        .tls_config(peer_tls.clone())
         .timeout_connect(Some(Duration::from_millis(800)))
         .timeout_recv_response(Some(Duration::from_millis(1500)))
         .http_status_as_error(false)
@@ -230,6 +232,7 @@ fn fetch_runtime_cloud_state(
 }
 
 pub(super) fn config_ui_live_connect(
+    peer_tls: &ureq::tls::TlsConfig,
     target: Option<&str>,
     token: Option<&str>,
 ) -> Result<serde_json::Value, RuntimeError> {
@@ -275,7 +278,7 @@ pub(super) fn config_ui_live_connect(
         .map(ToOwned::to_owned)
         .or_else(|| guard.active_token.clone());
 
-    match fetch_runtime_cloud_state(&chosen_target, guard.active_token.as_deref()) {
+    match fetch_runtime_cloud_state(peer_tls, &chosen_target, guard.active_token.as_deref()) {
         Ok(value) => {
             guard.connected = true;
             guard.last_error = None;
@@ -308,6 +311,7 @@ pub(super) fn config_ui_live_connect(
 }
 
 pub(super) fn config_ui_live_state(
+    peer_tls: &ureq::tls::TlsConfig,
     target: Option<&str>,
 ) -> Result<serde_json::Value, RuntimeError> {
     let target = target
@@ -330,7 +334,7 @@ pub(super) fn config_ui_live_state(
         }));
     };
 
-    match fetch_runtime_cloud_state(&chosen, guard.active_token.as_deref()) {
+    match fetch_runtime_cloud_state(peer_tls, &chosen, guard.active_token.as_deref()) {
         Ok(value) => {
             guard.active_target = Some(chosen.clone());
             guard.connected = true;

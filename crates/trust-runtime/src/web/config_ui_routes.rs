@@ -33,6 +33,8 @@ pub(super) struct ConfigUiRouteContext<'a> {
     pub pairing: Option<&'a PairingStore>,
     pub control_state: &'a Arc<ControlState>,
     pub bundle_root: &'a Option<PathBuf>,
+    /// What a call to another runtime trusts (specification 11, G280).
+    pub peer_tls: &'a ureq::tls::TlsConfig,
 }
 
 pub(super) enum ConfigUiRouteOutcome {
