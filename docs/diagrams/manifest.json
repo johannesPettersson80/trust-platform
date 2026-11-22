@@ -31,7 +31,7 @@
   "docs/diagrams/debug/debug-state-machine.puml": "ef205c54e5cab922882cc640d0fda0687a11151cbdb8c17c4906ad0eea3a6ad6",
   "docs/diagrams/debug/debug-step-sequence.puml": "5ca64ecc44fe88ba9c41602a9eb935a3e0aa83d414d5f7aab07eacd967a9f336",
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
-  "docs/diagrams/hir/hir-semantics.puml": "e512fd535dc61ff43c59b223bb4051ef7d9fccf8468569121af4a737543ff003",
+  "docs/diagrams/hir/hir-semantics.puml": "6bb2514282c0946c3454c7f1e67618b2109c95db1a8944adb7f4dbdefd023c6d",
   "docs/diagrams/lsp/compiled-binding-sources.puml": "d239446b9578abb6b71b07ac1ad450e4c89374464a284ae232787f28eb1909c5",
   "docs/diagrams/lsp/lsp-request-flow.puml": "888560dff0d9986d59f08ac34bdc478d081f60e3a7d47969aaa6d73c1de9870a",
   "docs/diagrams/syntax/syntax-pipeline.puml": "39672e333417f35ec69e272440da72aa4de3b9aefcd9075bc34b7dfc0eebfb01"
