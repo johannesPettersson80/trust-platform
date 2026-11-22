@@ -45,6 +45,9 @@ SMOKE_TEST_MODULES = (
     "scripts.verification.report_gate_tests",
     "scripts.verification.focused_test_suite_tests",
     "scripts.verification.governance_tests",
+    # Every gate script and workflow job has its inventory record (specification 30, "Gate and
+    # workflow surface proof contract"), checked in the pull request that adds or changes one.
+    "scripts.verification.gate_inventory_tests",
 )
 
 

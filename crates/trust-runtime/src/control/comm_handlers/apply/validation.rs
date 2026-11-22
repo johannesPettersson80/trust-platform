@@ -424,9 +424,10 @@ mod tests {
     }
 
     /// Specification 32 §2 and 11 §6.5: a connection form takes what a hand-written `io.toml` runs with, the driver's own bounds. An
-    /// MQTT reconnect delay of 2 minutes and a keep alive of 0, which the driver reads as 1 s, and a Modbus timeout of 2 minutes are
-    /// taken; a keep alive of 65,536 s and a timeout of 0 ms are refused. Catches a form whose bounds are narrower than the driver's,
-    /// so that a device's settings that run are refused on the form's next save.
+    /// MQTT reconnect delay of 2 minutes, a keep alive of 0, which the driver reads as 1 s, a `stale_after_ms` of 0, no limit, and a
+    /// Modbus timeout of 2 minutes are taken; a keep alive of 65,536 s, a `stale_after_ms` of -1 and a timeout of 0 ms are refused,
+    /// each marking its own field. Catches a form whose bounds are narrower than the driver's, so that a device's settings that run are
+    /// refused on the form's next save.
     #[test]
     fn the_form_takes_the_settings_the_driver_runs_with() {
         let errors = mqtt_errors(
@@ -434,6 +435,7 @@ mod tests {
                 broker = "127.0.0.1:1883"
                 reconnect_ms = 120000
                 keep_alive_s = 0
+                stale_after_ms = 0
             }
             .into(),
         );
@@ -442,6 +444,7 @@ mod tests {
             toml::toml! {
                 broker = "127.0.0.1:1883"
                 keep_alive_s = 65536
+                stale_after_ms = -1
             }
             .into(),
         );
@@ -450,7 +453,7 @@ mod tests {
                 .iter()
                 .map(|(field, _)| field.as_str())
                 .collect::<Vec<_>>(),
-            ["keep_alive_s"],
+            ["keep_alive_s", "stale_after_ms"],
             "{errors:?}"
         );
         let errors = modbus_errors(

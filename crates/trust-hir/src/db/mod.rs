@@ -28,6 +28,6 @@ mod queries;
 mod symbol_import;
 
 pub use queries::{
-    Database, FileAnalysis, FileId, GlobalOwner, GlobalOwnership, SalsaEventSnapshot,
-    SemanticDatabase, SourceDatabase,
+    Database, FileAnalysis, FileId, GlobalOwner, GlobalOwnership, ProjectId, ProjectLayout,
+    SalsaEventSnapshot, SemanticDatabase, SourceDatabase,
 };

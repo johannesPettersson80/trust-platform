@@ -41,10 +41,13 @@ Sparkplug support is intentionally bounded today: outbound node metrics only.
 Commands, device-level DBIRTH/DDATA topics, aliases, templates, and
 store-and-forward are not part of this profile.
 
-At runtime, MQTT exchange is worker-backed. Scan-cycle reads copy the latest
-fresh worker snapshot or return the configured `on_error` policy result, and
-scan-cycle writes hand off the latest desired output without waiting for broker
-readiness or publish latency. The MQTT worker owns broker connect/poll/publish,
+At runtime, MQTT exchange is worker-backed. Scan-cycle reads copy the newest
+message the worker received; while the broker is connected an input keeps the
+value of its last message until a new one comes, unless `stale_after_ms` limits
+its age. A lost session, a stale input and a payload that does not convert
+return the configured `on_error` policy result. Scan-cycle writes hand off the
+latest desired output without waiting for broker readiness or publish
+latency. The MQTT worker owns broker connect/poll/publish,
 reconnect backoff, Sparkplug birth/data publishing, and stale/degraded health
 reporting through the normal driver status surface.
 

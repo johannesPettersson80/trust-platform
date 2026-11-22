@@ -77,7 +77,10 @@ impl SalsaDatabase {
 pub(super) struct SalsaState {
     pub(super) db: SalsaDatabase,
     pub(super) sources: FxHashMap<FileId, SourceInput>,
-    pub(super) project_inputs: Option<ProjectInputs>,
+    /// The inputs of each project with a file of its own (`project_layout`).
+    pub(super) projects: FxHashMap<ProjectId, ProjectInputs>,
+    /// Which project each file belongs to (`Database::set_project_layout`).
+    pub(super) layout: ProjectLayout,
     pub(super) synced_revision: u64,
     /// The language rules of the project (`Database::set_dialect`).
     pub(super) dialect: Dialect,
@@ -91,7 +94,8 @@ impl SalsaState {
         Self {
             db: SalsaDatabase::with_event_observability(collect_events, log_events),
             sources: FxHashMap::default(),
-            project_inputs: None,
+            projects: FxHashMap::default(),
+            layout: ProjectLayout::default(),
             synced_revision: 0,
             dialect: Dialect::Iec,
             project_sync_count: 0,
@@ -196,23 +200,37 @@ pub(super) fn sync_project_inputs(state: &mut SalsaState) {
     {
         state.project_sync_count = state.project_sync_count.saturating_add(1);
     }
-    let mut files: Vec<(FileId, SourceInput)> = state
+    let files: Vec<(FileId, SourceInput)> = state
         .sources
         .iter()
         .map(|(file_id, source)| (*file_id, *source))
         .collect();
-    files.sort_by_key(|(file_id, _)| file_id.0);
-    if let Some(project) = state.project_inputs {
-        project.set_files(&mut state.db).to(files);
-    } else {
-        state.project_inputs = Some(ProjectInputs::new(&state.db, files, state.dialect));
+    let visible = state.layout.visible_files(&files);
+    state
+        .projects
+        .retain(|project, _| visible.contains_key(project));
+    for (project, files) in visible {
+        match state.projects.get(&project).copied() {
+            Some(inputs) => {
+                if inputs.files(&state.db) != &files {
+                    inputs.set_files(&mut state.db).to(files);
+                }
+            }
+            None => {
+                let inputs = ProjectInputs::new(&state.db, files, state.dialect);
+                state.projects.insert(project, inputs);
+            }
+        }
     }
 }
 
-pub(super) fn project_inputs(state: &SalsaState) -> ProjectInputs {
+/// The inputs of the project that `file_id` belongs to, which its analysis reads (specification
+/// 14 §10.2).
+pub(super) fn project_of(state: &SalsaState, file_id: FileId) -> Option<ProjectInputs> {
     state
-        .project_inputs
-        .expect("project inputs should be initialized")
+        .projects
+        .get(&state.layout.project_of(file_id))
+        .copied()
 }
 
 #[salsa::input]

@@ -9,24 +9,20 @@ Goal: bring two runtimes online, verify discovery/state projection, and perform 
 - `curl` and `jq`
 - Linux/macOS shell
 
-## 2) Bootstrap Two Runtime Projects
+## 2) Create Two Runtime Projects From the Dev Profiles
 
-Create project folders once (first run creates bundle layout):
-
-```bash
-mkdir -p ~/trust-cloud-demo
-trust-runtime play --project ~/trust-cloud-demo/runtime-a
-# Stop with Ctrl+C after startup messages appear.
-trust-runtime play --project ~/trust-cloud-demo/runtime-b
-# Stop with Ctrl+C after startup messages appear.
-```
-
-## 3) Apply Known-Good Dev Profile Configs
+Each project starts as an empty folder with its dev profile as `runtime.toml`:
 
 ```bash
+mkdir -p ~/trust-cloud-demo/runtime-a ~/trust-cloud-demo/runtime-b
 cp examples/runtime_cloud/runtime-a-dev.toml ~/trust-cloud-demo/runtime-a/runtime.toml
 cp examples/runtime_cloud/runtime-b-dev.toml ~/trust-cloud-demo/runtime-b/runtime.toml
 ```
+
+The profiles name the resources `runtime_a` and `runtime_b`, which are also the runtimes' IDs in the
+runtime cloud. A resource name is an IEC identifier (letters, digits and underscores), and a build
+refuses a `runtime.toml` resource that is not the `RESOURCE` its program declares, so the first start
+below writes each program for its profile's resource.
 
 If ports `18081`, `18082`, `5201`, or `5202` are already in use on your host, update
 `listen` values in the copied `runtime.toml` files before startup.
@@ -41,7 +37,9 @@ The example configs include explicit mesh baseline keys:
 
 If you change runtime-b's mesh `listen` port, change runtime-a's `connect` entry with it.
 
-## 4) Start Both Runtimes
+## 3) Start Both Runtimes
+
+The first start creates each project's program (`src/` and `io.toml`) and builds it.
 
 Terminal 1:
 
@@ -55,7 +53,7 @@ Terminal 2:
 trust-runtime play --project ~/trust-cloud-demo/runtime-b
 ```
 
-## 5) Verify Runtime Cloud State
+## 4) Verify Runtime Cloud State
 
 ```bash
 curl -s http://127.0.0.1:18081/api/runtime-cloud/state | jq '{context: .context, nodes: .topology.nodes, edges: .topology.edges}'
@@ -64,10 +62,10 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/state | jq '{context: .context,
 Expected:
 
 - `context.connected_via` exists
-- `topology.nodes` contains `runtime-a` and `runtime-b`
+- `topology.nodes` contains `runtime_a` and `runtime_b`
 - `topology.edges` shows communication links
 
-## 6) Preflight a Cross-Runtime Read
+## 5) Preflight a Cross-Runtime Read
 
 ```bash
 curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/preflight \
@@ -80,7 +78,7 @@ Expected:
 - `allowed: true`
 - no `denial_code`
 
-## 7) Dispatch Cross-Runtime Read and Verify Audit Link
+## 6) Dispatch Cross-Runtime Read and Verify Audit Link
 
 ```bash
 curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/dispatch \
@@ -91,10 +89,10 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/dispatch \
 Expected:
 
 - top-level `ok: true`
-- `results[0].runtime_id == "runtime-b"`
+- `results[0].runtime_id == "runtime_b"`
 - `results[0].audit_id` present
 
-## 8) Optional: Local Config Apply Through Runtime Cloud Dispatch
+## 7) Optional: Local Config Apply Through Runtime Cloud Dispatch
 
 ```bash
 curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/dispatch \
@@ -102,8 +100,8 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/actions/dispatch \
   -d '{
     "api_version": "1.0",
     "request_id": "req-quickstart-cfg-1",
-    "connected_via": "runtime-a",
-    "target_runtimes": ["runtime-a"],
+    "connected_via": "runtime_a",
+    "target_runtimes": ["runtime_a"],
     "actor": "spiffe://trust/default-site/engineer-1",
     "action_type": "cfg_apply",
     "dry_run": false,
@@ -116,7 +114,7 @@ Expected:
 - `ok: true`
 - per-target `audit_id` present
 
-## 9) Next Steps
+## 8) Next Steps
 
 - `docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md`
 - `docs/guides/RUNTIME_CLOUD_FEDERATION_GUIDE.md`

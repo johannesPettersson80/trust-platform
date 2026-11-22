@@ -20,7 +20,7 @@ impl SourceDatabase for Database {
         let new_revision = self.source_revision.fetch_add(1, Ordering::Relaxed) + 1;
 
         self.with_salsa_state(|state| {
-            let mut file_set_changed = state.project_inputs.is_none();
+            let mut file_set_changed = state.projects.is_empty();
             if let Some(source) = state.sources.get(&file_id).copied() {
                 source.set_text(&mut state.db).to(text.as_ref().clone());
             } else {
@@ -38,12 +38,7 @@ impl SourceDatabase for Database {
 
 impl SemanticDatabase for Database {
     fn file_symbols(&self, file_id: FileId) -> Arc<SymbolTable> {
-        let Some((db, project)) = self.with_synced_salsa_state(|state| {
-            state
-                .sources
-                .contains_key(&file_id)
-                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
-        }) else {
+        let Some((db, project)) = self.salsa_project(file_id) else {
             return Arc::new(SymbolTable::default());
         };
 

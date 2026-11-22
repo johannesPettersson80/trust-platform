@@ -184,8 +184,8 @@ fn mqtt_config_rejects_unknown_top_level_parameter() {
             "mapppings",
             "unknown key; the mqtt driver takes allow_insecure_remote, broker, client_id, \
              input_points, keep_alive_s, mappings, on_error, output_points, password, \
-             reconnect_ms, sparkplug, tls, tls_alpn, tls_ca_path, tls_client_cert_path, \
-             tls_client_key_path, topic_in, topic_out and username"
+             reconnect_ms, sparkplug, stale_after_ms, tls, tls_alpn, tls_ca_path, \
+             tls_client_cert_path, tls_client_key_path, topic_in, topic_out and username"
         )
     );
 }

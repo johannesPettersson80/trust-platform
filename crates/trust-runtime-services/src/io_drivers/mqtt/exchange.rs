@@ -208,6 +208,8 @@ pub struct MqttExchange {
     limits: MqttLimits,
     /// Messages dropped from `queue` since the exchange started.
     dropped: u64,
+    /// The input reads that took messages since the exchange started.
+    batches_read: u64,
     snapshot: Snapshot,
     /// The Sparkplug B sequence number of the next payload, wrapping after 255.
     sparkplug_seq: u8,
@@ -248,6 +250,12 @@ struct Session {
     awaiting_pingresp: bool,
     /// A topic whose subscription the broker refused.
     refused: Option<SmolStr>,
+    /// When the input's last accepted message came, or the subscription when none came since: the
+    /// age that `stale_after_ms` limits (specification 32 §8).
+    input_since_ms: u64,
+    /// The condition of the newest input message when it did not convert, which holds until a
+    /// message converts.
+    input_failure: Option<String>,
 }
 
 /// A received message for the scan.
@@ -348,6 +356,7 @@ impl MqttExchange {
             queued_bytes: 0,
             limits: MqttLimits::COMPUTER,
             dropped: 0,
+            batches_read: 0,
             snapshot,
             sparkplug_seq: 0,
             bd_seq: next_bd_seq,
@@ -432,6 +441,14 @@ impl MqttExchange {
     #[must_use]
     pub fn on_error(&self) -> OnError {
         self.params.on_error
+    }
+
+    /// The input reads that took messages since the exchange started, whether the messages
+    /// converted or not: a read without a new message holds the input and counts nothing
+    /// (specification 32 §8).
+    #[must_use]
+    pub fn batches_read(&self) -> u64 {
+        self.batches_read
     }
 
     /// Whether the session runs: CONNACK accepted it and it has not ended.
@@ -886,6 +903,8 @@ impl MqttExchange {
             next_ping_ms: now_ms.saturating_add(keep_alive_ms),
             awaiting_pingresp: false,
             refused: None,
+            input_since_ms: now_ms,
+            input_failure: None,
         });
         for packet in packets.iter().chain(birth.iter()) {
             self.queue_bytes(now_ms, packet);

@@ -50,6 +50,9 @@ pub struct IoSnapshot {
     pub inputs: Vec<IoSnapshotEntry>,
     pub outputs: Vec<IoSnapshotEntry>,
     pub memory: Vec<IoSnapshotEntry>,
+    /// Whether the outputs are those that a stop's or a fault's safe state drove after the scan
+    /// `scan` (specification 11, "Safe state in the reads").
+    pub safe_state: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -83,6 +86,7 @@ impl From<&IoSnapshot> for trust_runtime_services::live_values::io_snapshot::IoS
             inputs: snapshot.inputs.iter().map(portable_entry).collect(),
             outputs: snapshot.outputs.iter().map(portable_entry).collect(),
             memory: snapshot.memory.iter().map(portable_entry).collect(),
+            safe_state: snapshot.safe_state,
         }
     }
 }
@@ -161,6 +165,7 @@ mod portable_snapshot_tests {
     #[test]
     fn portable_conversion_names_scalar_and_enum_types() {
         let snapshot = IoSnapshot {
+            safe_state: false,
             scan: Some(3),
             forced: vec![IoAddress::parse("%QX0.0").expect("forced address")],
             inputs: Vec::new(),
