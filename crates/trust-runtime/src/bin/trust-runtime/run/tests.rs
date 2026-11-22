@@ -82,6 +82,7 @@ fn test_bundle() -> trust_runtime::config::RuntimeBundle {
                 subscribe: indexmap::IndexMap::new(),
                 zenohd_version: smol_str::SmolStr::new("1.7.2"),
                 plugin_versions: indexmap::IndexMap::new(),
+                site: None,
             },
             runtime_cloud_profile: trust_runtime::config::RuntimeCloudProfile::Dev,
             runtime_cloud_site: None,

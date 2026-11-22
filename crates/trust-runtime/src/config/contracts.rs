@@ -175,6 +175,9 @@ pub struct MeshConfig {
     pub subscribe: IndexMap<SmolStr, SmolStr>,
     pub zenohd_version: SmolStr,
     pub plugin_versions: IndexMap<SmolStr, SmolStr>,
+    /// The Runtime Cloud site whose keys the mesh publishes under, `None` for the default site
+    /// (specification 11, "Runtime Cloud sites").
+    pub site: Option<SmolStr>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

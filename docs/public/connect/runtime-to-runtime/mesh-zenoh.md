@@ -46,6 +46,11 @@ a subscription names the publisher by its `[resource] name` (here `PlcB`) and a
 path it publishes. An endpoint is `host:port` or a Zenoh locator such as
 `tcp/host:port`.
 
+A runtime's mesh keys are under its site (`[runtime.cloud] site`, see
+[Runtime Cloud Profiles](../../reference/config/runtime-cloud.md#sites-and-runtime-ids)). A
+subscription names a publisher of its own site by its resource name, as above, and a publisher of
+another site by `<site>/<resource>`, for example `"site-b/PlcB:P1.LampOut"`.
+
 A mesh links only to the peers its `connect` entries name and to the runtimes
 that connect to its `listen` endpoint: it does not look for other meshes on the
 network, and it does not link to the peers of its peers. A mesh that listens on

@@ -48,10 +48,10 @@ pub(super) fn mesh_peer_is_live(
     if !evidence.is_ready() {
         return false;
     }
+    // The mesh names its peers relative to its own site (specification 11, "Runtime Cloud sites").
+    let named = entry.cloud_id(evidence.site());
     evidence.liveliness_snapshot().peers.iter().any(|peer| {
-        peer == entry.name.as_str()
-            || peer == entry.id.as_str()
-            || entry.id.as_str().contains(peer.as_str())
+        *peer == named || peer == entry.id.as_str() || entry.id.as_str().contains(peer.as_str())
     })
 }
 

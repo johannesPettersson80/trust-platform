@@ -311,6 +311,7 @@ fn parse_mesh_section(
                     ))
                 })
                 .collect::<Result<IndexMap<_, _>, RuntimeError>>()?,
+            site: None,
         },
     })
 }

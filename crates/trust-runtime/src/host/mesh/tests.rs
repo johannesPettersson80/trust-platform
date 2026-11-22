@@ -178,6 +178,7 @@ fn mesh_cloud_ready_wait_times_out_for_degraded_state() {
             catalog_queryable_ready: true,
         },
         degraded_reason: Some(SmolStr::new("missing liveliness token")),
+        site: SmolStr::new("default-site"),
         peer_registry: Arc::new(Mutex::new(MeshPeerRegistry {
             peers: Default::default(),
             history: Default::default(),
@@ -287,7 +288,12 @@ fn identity_answer_of_a_started_mesh_gives_its_stable_runtime_id() {
         .cloned()
         .expect("the mesh has a session");
     let answers =
-        super::query_identities(&session, &["line-a".to_string()], StdDuration::from_secs(5));
+        super::query_identities(
+            &session,
+            "default-site",
+            &["line-a".to_string()],
+            StdDuration::from_secs(5),
+        );
     let (_, answer) = answers
         .into_iter()
         .next()
@@ -315,6 +321,7 @@ fn mesh_config() -> MeshConfig {
         subscribe: IndexMap::new(),
         zenohd_version: SmolStr::new(ZENOHD_BASELINE_VERSION),
         plugin_versions: IndexMap::new(),
+        site: None,
     }
 }
 
