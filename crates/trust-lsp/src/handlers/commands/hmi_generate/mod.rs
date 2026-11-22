@@ -964,3 +964,6 @@ pub(super) fn declaration_of(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod example_tests;

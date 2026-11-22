@@ -64,7 +64,7 @@ VAR
     (* end of truST plant declarations *)
 END_VAR
 VAR RETAIN
-    (* truST plant: retained declarations sha256:e99945f6bf371c2d1f07a36c30fb024b66e0123914f5d525b8aa4293d3a24850 *)
+    (* truST plant: retained declarations sha256:aeab89f59074d137de98c1738225d74ca524d76cd4932583efe19d4802e96390 *)
     TIC101_Parameters : Control.PIDParameters := (
         ProportionalGain := 33.3,
         IntegralGain := 1.334,
@@ -136,6 +136,10 @@ END_VAR
     ValveProtection.Text1 := 'TV-101 positioner fault';
     ValveProtection.Condition2 := TT102.Quality = E_Quality#Good;
     ValveProtection.Text2 := 'TT-102 signal bad';
+    // TV-101 stays closed while the sequence does not heat the room: without the pump's flow an open
+    // valve would only cool the tank, and TIC-102 tracks the closed valve instead of winding up.
+    ValveProtection.Condition3 := Heating.RoomHeating;
+    ValveProtection.Text3 := 'Room heating off';
     FanProtection.Condition1 := TT102.Quality = E_Quality#Good;
     FanProtection.Text1 := 'TT-102 signal bad';
     // The sequence starts and stops the plant.
@@ -165,7 +169,7 @@ END_VAR
         Message := 'No circulation: P-101 runs but FS-101 sees no flow', Priority := AlarmPriority#High);
     PositionerAlarm(Condition := TV101_PositionerFault, Message := 'TV-101 positioner fault',
         Priority := AlarmPriority#Medium);
-    (* truST plant: calls sha256:7fb4aa57e3e64e16ab32318683da07367d02fdd98bdaf65527390197e8e5f81f *)
+    (* truST plant: calls sha256:45911744002d734ef4def843e4e07c222a782d3299c0801eca9bc9c63ce792d9 *)
     FS101(Input := FS101_Flow);
     LSL101(Input := LSL101_LowWater);
     TT101(Raw := TT101_Signal, SignalFault := TT101_ChannelFault);
@@ -200,8 +204,13 @@ END_VAR
         TIC101_Input.Mode := PIDMode#Manual;
         TIC101_Initialized := FALSE;
     END_IF;
+    IF TIC101_Input.Mode = PIDMode#Auto AND NOT EH101.FollowsAuto() THEN
+        (* While the equipment does not follow this loop in Auto, the loop follows what it does: no windup, no bump. *)
+        TIC101_Input.Mode := PIDMode#Track;
+        TIC101_Input.TrackingOutput := EH101.GetActualValue();
+    END_IF;
     TIC101_Output := TIC101.Update(Input := TIC101_Input);
-    IF TIC101_Input.Mode = PIDMode#Auto THEN
+    IF TIC101_Input.Mode = PIDMode#Auto OR TIC101_Input.Mode = PIDMode#Track THEN
         (* Manual takes over from the output as it is. *)
         TIC101_ManualOutput := TIC101_Output;
     END_IF;
@@ -232,8 +241,13 @@ END_VAR
         TIC102_Input.Mode := PIDMode#Manual;
         TIC102_Initialized := FALSE;
     END_IF;
+    IF TIC102_Input.Mode = PIDMode#Auto AND NOT TV101.FollowsAuto() THEN
+        (* While the equipment does not follow this loop in Auto, the loop follows what it does: no windup, no bump. *)
+        TIC102_Input.Mode := PIDMode#Track;
+        TIC102_Input.TrackingOutput := TV101.GetActualValue();
+    END_IF;
     TIC102_Output := TIC102.Update(Input := TIC102_Input);
-    IF TIC102_Input.Mode = PIDMode#Auto THEN
+    IF TIC102_Input.Mode = PIDMode#Auto OR TIC102_Input.Mode = PIDMode#Track THEN
         (* Manual takes over from the output as it is. *)
         TIC102_ManualOutput := TIC102_Output;
     END_IF;
