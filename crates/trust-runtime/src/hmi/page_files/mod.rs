@@ -54,6 +54,8 @@ mod tests;
 #[cfg(test)]
 mod texts_tests;
 #[cfg(test)]
+mod tracking_tests;
+#[cfg(test)]
 mod write_tests;
 
 pub use control_keys::{control_time, control_time_error, MAX_CONTROL_TIME};
@@ -67,7 +69,7 @@ pub(crate) use load::{error_at, line_at};
 pub use load::{parse_page, parse_screen, PageFileError, SUPPORTED_FORMAT};
 pub use pairs::{
     beside_instance, is_pair_member, pair_member_path, parse_pair, write_pair, HmiCallPosition,
-    HmiChoice, HmiDependency, HmiPair, HmiPairProgram, HmiSetting, HmiTerminal,
+    HmiChoice, HmiDependency, HmiPair, HmiPairProgram, HmiPairTracking, HmiSetting, HmiTerminal,
     HmiTerminalDirection, INSTANCE_PLACEHOLDER,
 };
 pub use popups::parse_popup;

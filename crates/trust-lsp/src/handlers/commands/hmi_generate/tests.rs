@@ -595,6 +595,8 @@ fn the_generated_loop_runs_bumpless_and_holds_on_a_bad_measurement() {
         1.0,
         "a loop starts in Manual"
     );
+    // The heater runs in Auto, so it follows the loop (Plant §6.3.3).
+    set(&mut harness, "EH101.AutoRun", StValue::Bool(true));
     set(&mut harness, "TIC101_ManualOutput", StValue::LReal(35.0));
     set(&mut harness, "TIC101_Setpoint", StValue::LReal(50.0));
     scan(&mut harness);
@@ -639,27 +641,45 @@ fn the_generated_loop_runs_bumpless_and_holds_on_a_bad_measurement() {
         "it resumes from the held output: {} after {held}",
         read(&harness, "TIC101_Output")
     );
-    // A warm restart keeps what was set and the output; the loop starts again from it.
+    // A warm restart keeps what was set and the output.
     harness
         .restart(trust_runtime::RestartMode::Warm)
         .expect("a warm restart");
-    let kept = read(&harness, "TIC101_Output");
     assert_eq!(
         read(&harness, "TIC101_Setpoint"),
         50.0,
         "the setpoint is retained"
     );
     assert_eq!(read(&harness, "TIC101_Manual"), 0.0, "the mode is retained");
-    scan(&mut harness);
-    // The test program's input starts again at 11.2 mA (45 °C): initialised from that measurement
-    // and the retained output, only the integral step Ki·dt·e acts, no jump of Kp·e.
-    let resumed = read(&harness, "TIC101_Output");
-    assert!(
-        (resumed - (kept + 0.1 * 0.1 * 5.0)).abs() < 1e-9,
-        "after the restart the loop continues from its output: {kept} -> {resumed}"
-    );
+    // §10.5 item 3: after the restart the heater stands until its program starts it (its run
+    // demand is not retained), so the loop in Auto tracks what it gives, 0 % (Plant §6.3.3), not
+    // its retained output: each scan starts again from 0 % plus one integral step
+    // Ki·dt·e = 0.1·0.1·5 at 11.2 mA, 45 °C (spec 45 §3.7), however long the heater stands.
+    for _ in 0..5 {
+        scan(&mut harness);
+        assert!(
+            (read(&harness, "TIC101_Output") - 0.1 * 0.1 * 5.0).abs() < 1e-9,
+            "a standing heater is tracked: {}",
+            read(&harness, "TIC101_Output")
+        );
+        assert_eq!(
+            read(&harness, "TIC101_ManualOutput"),
+            read(&harness, "TIC101_Output"),
+            "while tracking the manual output follows"
+        );
+    }
     assert_eq!(
         read(&harness, "EH101.AutoPower"),
+        read(&harness, "TIC101_Output")
+    );
+    // Started, the heater follows, and the loop continues from the tracked output without a bump:
+    // the scan that starts it still tracks, the next one adds one integral step.
+    set(&mut harness, "EH101.AutoRun", StValue::Bool(true));
+    scan(&mut harness);
+    scan(&mut harness);
+    assert!(
+        (read(&harness, "TIC101_Output") - 2.0 * 0.1 * 0.1 * 5.0).abs() < 1e-9,
+        "no bump when the heater follows again: {}",
         read(&harness, "TIC101_Output")
     );
 }
@@ -749,5 +769,76 @@ fn an_empty_screens_file_left_by_an_unsaved_run_is_written_again() {
             .as_ref()
             .is_err_and(|error| error.contains("src/screens.st already exists")),
         "{refused:?}"
+    );
+}
+
+#[test]
+fn a_loop_tracks_the_equipment_it_drives_while_the_equipment_does_not_follow_it() {
+    // §10.5 item 3 (Plant §5, §8.1): a loop whose output drives equipment that implements the
+    // interface its definition's `[program.tracking]` names tracks what the equipment does while
+    // the equipment does not follow it, and in Auto and while tracking its manual output follows
+    // its output. Catches the tracking left out, tracking of equipment that cannot say whether it
+    // follows, and tracking that the generator writes without the definition asking for it.
+    let design = "format = 2\n\n[equipment.\"Main.TIC102\"]\nblock = \"Control.PID\"\n\n[equipment.\"Main.TIC102\".dependencies]\n\"{instance}_Input.ProcessValue\" = \"Main.TT102\"\n\"{instance}_Output\" = \"Main.TV101\"\n\n[equipment.\"Main.TT102\"]\nblock = \"Plant.FB_TemperatureInput\"\n\n[equipment.\"Main.TV101\"]\nblock = \"Plant.FB_ControlValve\"\n";
+    let shown = loop_shown(&[
+        ("Main.TT102", "Plant.FB_TemperatureInput"),
+        ("Main.TV101", "Plant.FB_ControlValve"),
+        ("Main.TIC102", "Control.PID"),
+    ]);
+    let generated = |definition: Option<String>| {
+        let fixture = loop_fixture(MAIN, design);
+        if let Some(definition) = definition {
+            std::fs::write(
+                fixture.root.path().join("hmi/pairs/plant-pid.toml"),
+                definition,
+            )
+            .expect("the definition");
+        }
+        new_main(&create_from(&fixture.inputs(), &shown, &plain_request()).expect("created"))
+            .expect("the program")
+    };
+    let text = generated(None);
+    for expected in [
+        "    IF TIC102_Input.Mode = PIDMode#Auto AND NOT TV101.FollowsAuto() THEN\n",
+        "        TIC102_Input.Mode := PIDMode#Track;\n",
+        "        TIC102_Input.TrackingOutput := TV101.GetActualValue();\n",
+        "    IF TIC102_Input.Mode = PIDMode#Auto OR TIC102_Input.Mode = PIDMode#Track THEN\n        (* Manual takes over from the output as it is. *)\n        TIC102_ManualOutput := TIC102_Output;\n",
+        "    TV101.AutoPosition := TIC102_Output;\n",
+    ] {
+        assert!(text.contains(expected), "missing {expected:?} in\n{text}");
+    }
+    assert!(
+        text.find("NOT TV101.FollowsAuto()").expect("the tracking")
+            < text
+                .find("TIC102_Output := TIC102.Update")
+                .expect("the update"),
+        "the loop tracks before it updates:\n{text}"
+    );
+
+    let definition = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../libraries/plant/hmi/pairs/plant-pid.toml"),
+    )
+    .expect("the PID definition");
+    assert!(definition.contains("interface = \"Plant.IControlledDevice\""));
+    let other_interface = generated(Some(definition.replace(
+        "interface = \"Plant.IControlledDevice\"",
+        "interface = \"Plant.IServiceable\"",
+    )));
+    assert!(
+        !other_interface.contains("FollowsAuto"),
+        "a valve that does not implement the named interface is not tracked:\n{other_interface}"
+    );
+    let untracked = definition
+        .split("\n# While the equipment the loop's output drives")
+        .next()
+        .expect("the definition before its tracking")
+        .to_string()
+        + "\n";
+    assert!(!untracked.contains("[program.tracking]"));
+    let without = generated(Some(untracked));
+    assert!(
+        !without.contains("FollowsAuto") && !without.contains("_Input.Mode := PIDMode#Track"),
+        "without [program.tracking] nothing is tracked:\n{without}"
     );
 }

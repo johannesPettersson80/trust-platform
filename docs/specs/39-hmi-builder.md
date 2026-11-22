@@ -1119,7 +1119,7 @@ A component definition `pairs/<name>.toml` (`format = 1`) names:
 | `[[settings]]` | `member`, `title`, `unit`, `min`, `max`, `step` or `choices`, `help`: the settings metadata (Plant §10), read by the inspector, the Settings dialog and the runtime's validation. |
 | `[[io]]` | Hardware terminals: `member`, `title`, `direction` (`input`/`output`), `required` (default TRUE) or `required_when` (a BOOL input such as `HasFeedback`). A `required_when` terminal is needed while its member is TRUE, taking the block's default when the instance does not set it; connecting it sets the member TRUE in the generated declaration unless the design sets it (refined on 7 October 2026, when a connected valve feedback was ignored). |
 | `[[dependencies]]` | References to other instances: `member`, `title`, `interface` (`Plant.IMeasurement`), `required`. A member may repeat, one entry per interface it can drive (a controller's `Output` drives `AutoPosition`, `AutoPower` or `AutoSpeed`); the chosen instance's interface selects the entry (refined on 7 October 2026). |
-| `[program]` | `position` (`measurements`, `controllers`, `actuators`: call order), `initial` (instance initial values), `cycle` (task period range, ms). |
+| `[program]` | `position` (`measurements`, `controllers`, `actuators`: call order), `initial` (instance initial values), `cycle` (task period range, ms), `tracking` (a controller's: `interface`, `follows` and `value`, how it tracks the equipment its output drives, §10.5 item 3; each an identifier, the interface possibly qualified). |
 
 One parser in `trust-runtime` reads definitions for the runtime, the language server and
 `hmi check`.
@@ -1297,8 +1297,16 @@ course loop (Plant §8.1). For a controller `Main.TIC101` (`block = "Control.PID
    take `TT101.GetValue()` as the measurement, initialise the PID from it and from the present
    output when it has not started, and select Manual or Auto by `TIC101_Manual`; otherwise hold
    the output in Manual and clear `TIC101_Initialized`, so the loop starts again without a bump
-   from the next good measurement; update the PID into `TIC101_Output`; in Auto let the manual
-   output follow the output; then, as for any dependency with `drives`,
+   from the next good measurement; when the equipment the output drives implements the interface
+   the definition's `[program.tracking]` names (the PID's names `Plant.IControlledDevice`, Plant
+   §5), track what it does while the loop is in Auto and the equipment does not follow it,
+   `IF TIC101_Input.Mode = PIDMode#Auto AND NOT EH101.FollowsAuto() THEN` `PIDMode#Track` with
+   `TIC101_Input.TrackingOutput := EH101.GetActualValue();`, so the loop neither winds up while the
+   equipment is interlocked, in Manual, stopped or not released nor bumps it when it follows again
+   (external reset feedback); in Manual the operator's output stands, as there is no windup
+   there; update the PID into `TIC101_Output`;
+   in Auto and while tracking let the manual output follow the output, so Manual takes over where
+   the loop, or the equipment it tracked, is; then, as for any dependency with `drives`,
    `EH101.AutoPower := TIC101_Output;`;
 4. **a cascade** when the controller's output is connected to another controller: the drives
    assignment is that loop's setpoint, `TIC201_Setpoint := TIC200_Output;`, and while the inner

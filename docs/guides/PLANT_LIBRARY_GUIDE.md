@@ -268,8 +268,12 @@ hand it is the same code. Its values are variables beside the PID, named after i
 | `LIC401_Manual` | yes | The operator's mode: `TRUE` is Manual, `FALSE` Auto |
 | `LIC401_Setpoint`, `LIC401_ManualOutput`, `LIC401_Output` | yes | The setpoint, the manual output and the output |
 
-In Auto the manual output follows the output, so Manual takes over where the loop is; from Manual
-the PID continues from the manual output, so Auto starts without a bump. While the measurement is
+While the loop is in Auto and the valve it drives does not follow it (the valve is interlocked, in
+Manual, out of service or not yet released by its permissive), the loop tracks the valve's position
+(`LV401.FollowsAuto()`, see controlled devices above), so it does not wind up and takes over without
+a bump when the valve follows again; in Manual the operator's output stands. In Auto and while tracking the manual output follows the output,
+so Manual takes over where the loop, or the valve, is; from Manual the PID continues from the manual
+output, so Auto starts without a bump. While the measurement is
 bad the loop holds its output in Manual, and it starts again, without a bump, from the next good
 measurement. The three gains share one sign: negative gains make the output rise while the
 measurement is above the setpoint, as for a pump emptying a tank. The library's PID panel shows
@@ -328,8 +332,13 @@ END_VAR
         LIC401_Input.Mode := PIDMode#Manual;
         LIC401_Initialized := FALSE;
     END_IF;
+    IF LIC401_Input.Mode = PIDMode#Auto AND NOT LV401.FollowsAuto() THEN
+        (* While the valve does not follow the loop in Auto, the loop follows what the valve does. *)
+        LIC401_Input.Mode := PIDMode#Track;
+        LIC401_Input.TrackingOutput := LV401.GetActualValue();
+    END_IF;
     LIC401_Output := LIC401.Update(Input := LIC401_Input);
-    IF LIC401_Input.Mode = PIDMode#Auto THEN
+    IF LIC401_Input.Mode = PIDMode#Auto OR LIC401_Input.Mode = PIDMode#Track THEN
         LIC401_ManualOutput := LIC401_Output;
     END_IF;
     LV401(AutoPosition := LIC401_Output, FailPosition := 0.0);

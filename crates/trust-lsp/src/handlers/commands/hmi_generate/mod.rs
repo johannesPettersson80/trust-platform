@@ -310,6 +310,13 @@ fn render_program(
             None => initial,
         };
         let resolved = equipment::with_chosen_alternatives(project.index, planned, item, design);
+        // Whether the planned instance at `path` implements `interface` (§10.5 item 3).
+        let implements = |path: &str, interface: &str| {
+            planned
+                .iter()
+                .find(|other| other.path.eq_ignore_ascii_case(path))
+                .is_some_and(|other| project.index.implements_capability(&other.block, interface))
+        };
         let (text, missing) = equipment::call(
             &resolved,
             &target.instance,
@@ -318,6 +325,7 @@ fn render_program(
             addressed,
             &known_paths,
             interval,
+            &implements,
         );
         calls.push_str(&text);
         notes.extend(missing);

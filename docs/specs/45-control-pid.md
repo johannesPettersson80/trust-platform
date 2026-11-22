@@ -347,6 +347,11 @@ PreviousNominalOutput = Input.TrackingOutput
 Track is not a direct-output branch. Calculation continues through either the
 positional or incremental controller equation.
 
+While a simulated plant holds the controller's measurement (specification 46,
+section 13.2), a `Track` that the program passes runs as `Auto`: the plant is a
+model of the loop that takes the controller's output as its input, as the
+equipment the program tracks does when it follows the controller.
+
 ### 3.8 Manual branch
 
 When `Input.Mode = Manual`:

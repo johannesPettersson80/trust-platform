@@ -1754,7 +1754,12 @@ record (numerical annex):
   would start at time zero from the plant's configured state and the program's
   initial state (A2.6), not from the operating point. On the model, each run
   starts at the model's operating point, with the controller's states
-  initialized there (B6.2).
+  initialized there (B6.2). The model takes the controller's output as its
+  plant input, as the loop's equipment does at the operating point, so a
+  program that tracks its equipment while the equipment does not follow
+  (specification 39, §10.5 item 3) does not hold the controller under test: a
+  controller whose measurement a model holds runs `Track` as `Auto`
+  (specification 46, section 13.2).
 
 Validate tests the candidate at the operating point Apply starts from (B6.2):
 the selected model's operating point. An isolated run of the configured plant

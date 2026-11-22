@@ -1275,7 +1275,12 @@ controller's measurement itself, through a transmitter block's scaling, a
 filter or a fault hold, so no program variable or input carries it unchanged.
 Each time the plant publishes, the value is held for that instance; whenever the
 program calls that instance's `Update`, the `Input` it passes reaches the
-controller with `ProcessValue` replaced by the held value. Nothing else changes:
+controller with `ProcessValue` replaced by the held value, and with `Mode` set to
+`Auto` where the program passes `Track`. The model takes the controller's output
+as its plant input, as the equipment that a program tracks (specification 39,
+§10.5 item 3) does when it follows the controller, so the program's tracking
+does not hold the controller under test; `Manual` stays `Manual`. Nothing else
+changes:
 the program's own variables keep what the program wrote, other fields of
 `Input` and other instances are untouched, and the controller's
 `StateValue.ProcessValue` afterwards shows the value it used. Reading the target
@@ -1290,8 +1295,9 @@ simulation extension: `HeldMeasurement : LREAL` and `MeasurementHeld : BOOL`,
 declared `VAR NON_RETAIN`. The plant writes both between scans, before the
 program runs, through the runtime's checked writes (specification 44 §13.3): the
 value, then `MeasurementHeld := TRUE`. `Update` works on a local copy of its
-`Input` whose `ProcessValue` is `HeldMeasurement` while `MeasurementHeld` is
-TRUE; while it is FALSE the copy is `Input` unchanged, so a controller without a
+`Input` whose `ProcessValue` is `HeldMeasurement`, and whose `Mode` is `Auto` in
+place of `Track`, while `MeasurementHeld` is TRUE; while it is FALSE the copy is
+`Input` unchanged, so a controller without a
 plant computes exactly as before. A restart gives both members their initial
 values, FALSE and 0.0, also in an instance declared `RETAIN` (IEC 61131-3 Ed.3
 §6.5.6.2; specification 10 §4.8). An online change carries an instance's members

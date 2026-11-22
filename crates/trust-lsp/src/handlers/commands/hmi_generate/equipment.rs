@@ -236,7 +236,9 @@ fn local(path: &str, program: &str) -> String {
 
 /// The call of an instance, the assignments of its outputs that drive other instances, and the
 /// notes for what is still missing. A loop (§10.5) has its code instead of a call; `interval` is
-/// the period of its program's task.
+/// the period of its program's task, and `implements` tells whether the instance at a path
+/// implements an interface, so that a loop tracks the equipment it drives when the equipment can
+/// say whether it follows (§10.5 item 3).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn call(
     planned: &Planned,
@@ -246,6 +248,7 @@ pub(super) fn call(
     own_addresses: &BTreeSet<String>,
     known_paths: &BTreeSet<String>,
     interval: Option<&str>,
+    implements: &dyn Fn(&str, &str) -> bool,
 ) -> (String, Vec<Value>) {
     let mut parameters = Vec::new();
     let mut drives = Vec::new();
@@ -257,6 +260,12 @@ pub(super) fn call(
     let is_loop = super::loops::is_loop(&planned.block);
     // The loop whose setpoint this loop's output drives: a cascade.
     let mut follows: Option<String> = None;
+    // The equipment this loop's output drives, when the loop tracks it.
+    let mut tracks: Option<String> = None;
+    let tracking = definition
+        .program
+        .as_ref()
+        .and_then(|program| program.tracking.as_ref());
     for terminal in &definition.io {
         let chosen = design.and_then(|entry| {
             entry
@@ -323,6 +332,7 @@ pub(super) fn call(
             ));
             continue;
         }
+        let full_target = target.clone();
         let target = local(&target, program);
         if is_loop
             && dependency
@@ -331,6 +341,11 @@ pub(super) fn call(
                 .is_some_and(trust_runtime::hmi::page_files::beside_instance)
         {
             follows = Some(target.clone());
+        } else if is_loop
+            && dependency.drives.is_some()
+            && tracking.is_some_and(|tracking| implements(&full_target, &tracking.interface))
+        {
+            tracks = Some(target.clone());
         }
         match &dependency.drives {
             // A member beside an instance (`{instance}_Setpoint`, §8.5) is the variable named
@@ -351,6 +366,7 @@ pub(super) fn call(
             known_paths,
             interval,
             follows.as_deref(),
+            tracks.as_deref().zip(tracking),
         );
         notes.extend(missing);
         code
@@ -473,6 +489,7 @@ mod tests {
             &BTreeSet::new(),
             &paths,
             None,
+            &|_, _| false,
         );
         assert_eq!(text, "    P101(RunCommand => PumpRun);\n");
         assert_eq!(
@@ -489,6 +506,7 @@ mod tests {
             &BTreeSet::new(),
             &paths,
             None,
+            &|_, _| false,
         );
         assert!(notes.is_empty(), "no feedback is needed without it");
     }
