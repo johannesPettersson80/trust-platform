@@ -761,7 +761,9 @@ program execution or an IEC 61131-3 deviation.
   workspace folder is a project, with the documented defaults when it holds no config file, and so is every folder
   below it that holds a config file. A file belongs to the deepest project folder that holds it, so one workspace
   folder may hold any number of projects: a folder of examples, a repository, a user's folder of several PLC
-  projects. A file outside every project folder belongs to the project whose library folder holds it (§7.6.4).
+  projects. A file outside every project folder belongs to the project whose library folder holds it (§7.6.4),
+  and a file that no library folder holds either, a file opened from another folder, belongs while it is open
+  (§7.2.1) to the root project of the first workspace folder.
 - **Each project is analyzed on its own**, as each PLC project of a TwinCAT or CODESYS solution is compiled on its
   own: a file's names resolve among the files of its own project and of the project's library folders (below),
   never among another project's files (§10.2), and its configuration (`[diagnostics]`, `stdlib`, its library

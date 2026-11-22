@@ -75,7 +75,10 @@ impl ServerState {
     }
 
     /// The layout of the indexed files over the configured projects, numbered in the order of
-    /// their resolved folders from 1; a file that no project holds stays in the default project.
+    /// their resolved folders from 1. A file that neither a project folder nor a library folder
+    /// holds, a file opened from another folder, belongs while it is open to the root project of
+    /// the first workspace folder (§7.2.1), as it belonged to the one project before folders held
+    /// several.
     fn project_layout(&self) -> ProjectLayout {
         let mut roots: Vec<(PathBuf, Url)> = self
             .workspace_configs
@@ -113,6 +116,11 @@ impl ServerState {
             })
             .collect();
 
+        // The root project of the first workspace folder, which takes a file opened from elsewhere.
+        let first_root = self.workspace_folders().first().and_then(|folder| {
+            let path = canonicalize_through_existing_ancestor(&uri_to_path(folder)?);
+            ids.get(&path).copied()
+        });
         let mut layout = ProjectLayout::default();
         // The depth of the project folder that holds each file, so that a library folder leaves
         // out the files of a project nested below it.
@@ -124,7 +132,7 @@ impl ServerState {
             if let Some((id, depth)) = holder {
                 layout.files.insert(*file_id, id);
                 held_at.insert(*file_id, depth);
-            } else if let Some(id) = library_owner(&libraries, path) {
+            } else if let Some(id) = library_owner(&libraries, path).or(first_root) {
                 layout.files.insert(*file_id, id);
             }
         }

@@ -138,6 +138,7 @@ handlers::tests::lsp_trace_cases::lsp_position_encoding_trace_cases: test
 handlers::tests::mod_part_01::mod_part_01_part_01::lsp_golden_multi_root_protocol_snapshot: test
 handlers::tests::mod_part_02::lsp_code_action_namespace_disambiguation_non_call: test
 handlers::tests::nested_projects::a_file_follows_its_own_project_also_when_opened_later: test
+handlers::tests::nested_projects::a_file_from_another_folder_belongs_to_the_first_folders_root_project: test
 handlers::tests::nested_projects::a_project_sees_its_library_folder_and_not_its_neighbour: test
 handlers::tests::nested_projects::each_project_of_a_folder_is_analyzed_on_its_own: test
 handlers::tests::rename_trace_cases::editor_rename_local_trace_cases: test

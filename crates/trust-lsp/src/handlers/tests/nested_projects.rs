@@ -210,3 +210,31 @@ async fn a_file_follows_its_own_project_also_when_opened_later() {
         errors(&state, "line_a/src/Second.st")
     );
 }
+
+/// Catches a file opened from another folder analyzed on its own (§7.2.1 with §7.6): it belongs,
+/// while it is open, to the root project of the first workspace folder, so its program collides
+/// with that project's program of the same name, as it collided with the one project before a
+/// folder held several; and it joins no nested project, so its `Main` meets neither line's.
+#[tokio::test]
+async fn a_file_from_another_folder_belongs_to_the_first_folders_root_project() {
+    let base = plant("nested-projects-elsewhere-root", true);
+    std::fs::write(base.join("Shared.st"), "PROGRAM Shared\nEND_PROGRAM\n")
+        .expect("the root's program");
+    let state = index_folder(&base).await;
+    let file = temp_dir("nested-projects-elsewhere").join("Outside.st");
+    let text = "PROGRAM Shared\nEND_PROGRAM\n\nPROGRAM Main\nEND_PROGRAM\n";
+    std::fs::write(&file, text).expect("the file from elsewhere");
+    let uri = Url::from_file_path(&file).expect("its uri");
+    state.open_document(uri, 1, text.to_string());
+    let outside = errors(&state, "/Outside.st");
+    assert!(
+        outside
+            .iter()
+            .any(|error| error.starts_with("E104") && error.contains("Shared")),
+        "the file from elsewhere is in the root project while open: {outside:?}"
+    );
+    assert!(
+        !outside.iter().any(|error| error.contains("Main")),
+        "it joins no nested project: {outside:?}"
+    );
+}
