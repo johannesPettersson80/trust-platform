@@ -34,8 +34,12 @@ If ports `18081`, `18082`, `5201`, or `5202` are already in use on your host, up
 The example configs include explicit mesh baseline keys:
 
 - `runtime.mesh.role = "peer"`
-- `runtime.mesh.connect = []`
+- `runtime.mesh.connect = ["127.0.0.1:5202"]` in runtime-a and `[]` in runtime-b: a mesh links
+  only to the peers its `connect` entries name and to the runtimes that connect to its `listen`
+  endpoint, so runtime-a links to runtime-b's mesh port and runtime-b accepts it
 - `runtime.mesh.zenohd_version = "1.7.2"`
+
+If you change runtime-b's mesh `listen` port, change runtime-a's `connect` entry with it.
 
 ## 4) Start Both Runtimes
 

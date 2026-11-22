@@ -41,3 +41,5 @@ include!("client_worker.rs");
 mod lifecycle_cases;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod url_version_tests;

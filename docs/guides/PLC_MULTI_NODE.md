@@ -70,8 +70,11 @@ publish = ["P1.LampOut"]
 "PlcB:P1.LampOut" = "P1.RemoteLamp"
 ```
 
-A mesh also finds the other meshes on its network by multicast and connects to
-them. Give every PLC of one mesh the same `auth_token`, so that no other device
+A mesh links only to the peers its `connect` entries name and to the PLCs that
+connect to its `listen` endpoint; discovery lists runtimes but links no mesh, so
+name every peer a PLC exchanges values with in one of the two PLCs' `connect`.
+A mesh that listens on a network address accepts every device that connects to
+it: give every PLC of one mesh the same `auth_token`, so that no other device
 can join it. Restart the runtime after editing `runtime.toml`.
 
 ## Troubleshooting
@@ -82,9 +85,11 @@ If PLCs don't appear:
 - confirm that each listens on a network address and advertises itself;
 - `[runtime.discovery] interfaces` names the interfaces discovery uses, such as
   `["eth0"]`; an empty list means every interface but the loopback;
-- connect the mesh by address (`connect`) where discovery is blocked.
+- discovery only lists runtimes; a mesh links through `connect` entries, with
+  or without discovery.
 
 If shared values don't arrive:
 
+- one of the two PLCs must name the other's mesh endpoint in `connect`;
 - the subscription must name the publisher's resource name and a published path;
 - both meshes need the same `auth_token`, or none.

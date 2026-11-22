@@ -321,6 +321,11 @@ Accepted keys:
 - `zenohd_version`
 - `plugin_versions`
 
+A mesh links only to the endpoints in `connect` and to the runtimes that connect to its `listen`
+endpoint; it does not look for other meshes on the network, and `[runtime.discovery]` links no
+mesh. A mesh that listens on a network address accepts every runtime that connects to it unless
+`auth_token` is set.
+
 Validation constraints:
 
 | Condition | Requirement | Example |
