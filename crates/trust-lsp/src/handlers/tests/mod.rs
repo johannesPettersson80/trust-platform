@@ -73,6 +73,7 @@ mod hmi_pair_diagnostics;
 mod hmi_rename_handlers;
 mod library_surface_diagnostics;
 mod lsp_trace_cases;
+mod nested_projects;
 mod rename_trace_cases;
 mod rust_sources;
 mod trace_support;

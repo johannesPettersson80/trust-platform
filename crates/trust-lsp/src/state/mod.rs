@@ -28,6 +28,7 @@ mod cache;
 mod documents;
 mod library_surface;
 mod path;
+mod projects;
 
 pub(crate) use library_surface::library_holds;
 use library_surface::DiagnosticScope;
@@ -156,6 +157,8 @@ pub struct ServerState {
     project_folders: RwLock<FxHashMap<Url, Arc<library_surface::ProjectFolders>>>,
     /// Cached external library docs per workspace root.
     library_docs: RwLock<FxHashMap<Url, Arc<FxHashMap<String, String>>>>,
+    /// The roots of the projects nested below each workspace folder (specification 14 §7.6).
+    nested_projects: RwLock<FxHashMap<Url, Vec<Url>>>,
     /// Telemetry collector (opt-in).
     telemetry: TelemetryCollector,
     /// The Devices & Connections panel engine (design §1.4.1): the five `trust-lsp.devices*`
@@ -195,6 +198,7 @@ impl ServerState {
             config_load_options: RwLock::new(LoadOptions::default()),
             project_folders: RwLock::new(FxHashMap::default()),
             library_docs: RwLock::new(FxHashMap::default()),
+            nested_projects: RwLock::new(FxHashMap::default()),
             telemetry: TelemetryCollector::new(),
             devices: Arc::new(DevicesEngine::new()),
             request_limiter: RequestLimiter::new(BACKGROUND_REQUEST_LIMIT),
@@ -332,11 +336,7 @@ impl ServerState {
 
     /// Returns the highest-priority workspace configuration, if any.
     pub fn primary_workspace_config(&self) -> Option<ProjectConfig> {
-        self.workspace_configs
-            .read()
-            .values()
-            .cloned()
-            .max_by_key(|config| config.workspace.priority)
+        projects::primary_workspace_config(self)
     }
 
     /// Returns the best-matching workspace configuration for a document URI.
