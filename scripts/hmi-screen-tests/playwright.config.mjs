@@ -1,6 +1,7 @@
 // Screen tests of the HMI (specification 39, §18 phase 3; §19.2 Browser): the operator journey runs
 // against the tank-level example in simulation, tutorial 24's alarm journey against a tank-level
-// runtime of its own, the role locks against the equipment example; the
+// runtime of its own, room heating's Try it steps 1 and 4 against that example, the role locks
+// against the equipment example; the
 // reference page compares the drawing with its approved screenshots. CHROMIUM may name a browser of
 // its own.
 import { defineConfig } from "@playwright/test";
@@ -12,6 +13,8 @@ const RANGES_PORT = Number(process.env.HMI_SCREEN_RANGES_PORT || 18482);
 const RANGES_CONTROL_PORT = Number(process.env.HMI_SCREEN_RANGES_CONTROL_PORT || 19482);
 const TUTORIAL_PORT = Number(process.env.HMI_SCREEN_TUTORIAL_PORT || 18485);
 const TUTORIAL_CONTROL_PORT = Number(process.env.HMI_SCREEN_TUTORIAL_CONTROL_PORT || 19485);
+const ROOM_HEATING_PORT = Number(process.env.HMI_SCREEN_ROOM_HEATING_PORT || 18486);
+const ROOM_HEATING_CONTROL_PORT = Number(process.env.HMI_SCREEN_ROOM_HEATING_CONTROL_PORT || 19486);
 
 export default defineConfig({
   testDir: "tests",
@@ -66,6 +69,13 @@ export default defineConfig({
       // does not share.
       command: `node serve-example.mjs hmi_tank_level ${TUTORIAL_PORT} ${TUTORIAL_CONTROL_PORT}`,
       url: `http://127.0.0.1:${TUTORIAL_PORT}/hmi/overview`,
+      timeout: 240_000,
+      reuseExistingServer: false,
+    },
+    {
+      // Room heating's Try it steps start, trip and recover the plant on a runtime of their own.
+      command: `node serve-example.mjs room_heating ${ROOM_HEATING_PORT} ${ROOM_HEATING_CONTROL_PORT}`,
+      url: `http://127.0.0.1:${ROOM_HEATING_PORT}/hmi/overview`,
       timeout: 240_000,
       reuseExistingServer: false,
     },
