@@ -31,6 +31,8 @@ pub(super) struct RuntimeCloudRouteContext<'a> {
     pub rollouts_state: &'a Arc<Mutex<RuntimeCloudRolloutManagerState>>,
     pub rollouts_path: Option<&'a Path>,
     pub ha_state: &'a Arc<Mutex<RuntimeCloudHaCoordinator>>,
+    /// What a call to another runtime trusts (specification 11, G280).
+    pub peer_tls: &'a ureq::tls::TlsConfig,
 }
 
 pub(super) enum RuntimeCloudRouteOutcome {

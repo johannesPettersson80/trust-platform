@@ -7,11 +7,13 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use zenoh::{Session, Wait};
 
-fn key(runtime: &str) -> String {
-    format!("truST/default-site/{runtime}/hmi/operate")
+/// The HMI operation key of the runtime `runtime` of the site `site`.
+fn key(site: &str, runtime: &str) -> String {
+    format!("truST/{site}/{runtime}/hmi/operate")
 }
 pub(super) fn install(
     session: &Session,
+    own_site: &str,
     runtime: &str,
     config: &MeshConfig,
     resource: &ResourceControl<StdClock>,
@@ -26,7 +28,7 @@ pub(super) fn install(
     }
     let owner = Arc::downgrade(&exchange);
     let _ = session
-        .declare_queryable(key(runtime))
+        .declare_queryable(key(own_site, runtime))
         .callback(move |query| {
             let answer = (|| {
                 let bytes = query.payload()?.to_bytes();
@@ -46,6 +48,9 @@ pub(super) fn install(
         .background()
         .wait();
     let session = session.clone();
+    // A peer is named as this runtime names its peers, relative to its own site (specification
+    // 11, "Runtime Cloud sites").
+    let own_site = own_site.to_string();
     exchange
         .remote_operations
         .transport(Arc::new(move |peer, request| {
@@ -56,8 +61,9 @@ pub(super) fn install(
             {
                 return Err("the owning runtime is unreachable".into());
             }
+            let (site, name) = super::mapping::peer_site_and_name(peer, own_site.as_str());
             let replies = session
-                .get(key(peer))
+                .get(key(site, name))
                 .payload(request.to_string())
                 .timeout(Duration::from_secs(4))
                 .wait()

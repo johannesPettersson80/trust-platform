@@ -40,6 +40,9 @@ package "Database Layer" as dbLayer #LightGreen {
         Projects (project_layout.rs): one
         ProjectInputs per project of the layout,
         holding its own files and its libraries';
+        a library file's symbol table comes from
+        the library's own project unless that
+        project reaches the user (project_sharing.rs);
         each query below takes the inputs of its
         file's project, so another project's
         declarations never resolve or collide.

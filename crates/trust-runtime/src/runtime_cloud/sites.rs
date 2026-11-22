@@ -56,6 +56,17 @@ pub fn runtime_cloud_site_of<'a>(id: &'a str, own_site: &'a str) -> &'a str {
     }
 }
 
+/// The resource name that `id` names: the part after its site, or the whole of a bare ID.
+#[must_use]
+pub fn runtime_cloud_resource_of(id: &str) -> &str {
+    match id.split_once('/') {
+        Some((site, runtime)) if !site.trim().is_empty() && !runtime.trim().is_empty() => {
+            runtime.trim()
+        }
+        _ => id,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,5 +144,7 @@ mod tests {
         );
         assert_eq!(runtime_cloud_site_of("/runtime_a", "site-a"), "site-a");
         assert_eq!(runtime_cloud_site_of("site-b/", "site-a"), "site-a");
+        assert_eq!(runtime_cloud_resource_of("site-b/runtime_b"), "runtime_b");
+        assert_eq!(runtime_cloud_resource_of("runtime_c"), "runtime_c");
     }
 }

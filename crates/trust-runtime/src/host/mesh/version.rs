@@ -74,6 +74,7 @@ mod tests {
             subscribe: IndexMap::new(),
             zenohd_version: SmolStr::new(ZENOHD_BASELINE_VERSION),
             plugin_versions: IndexMap::new(),
+            site: None,
         }
     }
 

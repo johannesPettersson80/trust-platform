@@ -13,12 +13,21 @@ use crate::scheduler::{ResourceControl, StdClock};
 
 const TIMEOUT: Duration = Duration::from_millis(750);
 const MAX_REPLY: usize = 2 * 1024 * 1024;
-fn key(runtime: &str) -> String {
-    format!("truST/default-site/{runtime}/hmi/read")
+/// The HMI read key of the runtime `runtime` of the site `site`.
+fn key(site: &str, runtime: &str) -> String {
+    format!("truST/{site}/{runtime}/hmi/read")
+}
+
+/// The HMI read key of `peer`, named as a runtime of the site `own_site` names it (specification
+/// 11, "Runtime Cloud sites").
+fn peer_key(own_site: &str, peer: &str) -> String {
+    let (site, name) = super::mapping::peer_site_and_name(peer, own_site);
+    key(site, name)
 }
 
 pub(super) fn declare(
     session: &Session,
+    own_site: &str,
     runtime: &str,
     publish: &[SmolStr],
     resource: &ResourceControl<StdClock>,
@@ -29,7 +38,7 @@ pub(super) fn declare(
         .collect();
     let exchange = resource.hmi_exchange();
     let _ = session
-        .declare_queryable(key(runtime))
+        .declare_queryable(key(own_site, runtime))
         .callback(move |query| {
             let result = (|| -> Result<Vec<u8>, String> {
                 let payload = query
@@ -84,6 +93,7 @@ pub(super) fn declare(
 /// Called by the existing background mesh worker, never by the runtime task.
 pub(super) fn poll(
     session: &Session,
+    own_site: &str,
     resource: &ResourceControl<StdClock>,
     known_peers: &[String],
 ) {
@@ -95,11 +105,9 @@ pub(super) fn poll(
             .iter()
             .take(32)
             .filter_map(|peer| {
+                let (site, name) = super::mapping::peer_site_and_name(peer, own_site);
                 session
-                    .get(crate::runtime_cloud::keyspace::meta_catalog_key(
-                        "default-site",
-                        peer,
-                    ))
+                    .get(crate::runtime_cloud::keyspace::meta_catalog_key(site, name))
                     .timeout(TIMEOUT)
                     .wait()
                     .ok()
@@ -141,7 +149,7 @@ pub(super) fn poll(
         .filter_map(|(peer, entries)| {
             let names: Vec<_> = entries.iter().map(|(_, name)| name).collect();
             session
-                .get(key(&peer))
+                .get(peer_key(own_site, &peer))
                 .payload(json!(names).to_string())
                 .timeout(TIMEOUT)
                 .wait()

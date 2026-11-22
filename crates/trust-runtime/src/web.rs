@@ -79,6 +79,7 @@ mod ide_routes;
 mod ide_tasks;
 mod models;
 mod ops_routes;
+mod peer_tls;
 mod request_dispatch;
 pub mod pairing {
     pub use crate::security::pairing::*;

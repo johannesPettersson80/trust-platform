@@ -264,6 +264,12 @@ Validation constraints:
 | `mode != "disabled"` | set both `cert_path` and `key_path` | `mode = "self-managed"` with PEM files |
 | `mode = "provisioned"` | set `ca_path` in addition to cert/key | provisioned PKI bundle |
 
+`ca_path` names the CA bundle (PEM) of your site. When the runtime calls another runtime over
+HTTPS (a Runtime Cloud dispatch, its control and I/O proxies, and the web UI's probe, proxies and
+remote state view), it trusts the certificates of this bundle alone, not the public roots, and the
+other runtime's certificate must name the address the call goes to. Without `ca_path`, such a call
+trusts the public roots. A bundle that holds no certificate stops the runtime's start.
+
 ### `[runtime.deploy]`
 
 | Key | Type | Default | Notes |
@@ -323,7 +329,9 @@ Accepted keys:
 
 A mesh links only to the endpoints in `connect` and to the runtimes that connect to its `listen`
 endpoint; it does not look for other meshes on the network, and `[runtime.discovery]` links no
-mesh. A mesh that listens on a network address accepts every runtime that connects to it unless
+mesh. A `subscribe` entry `"<peer>:<path>"` names a peer of the runtime's own site by its resource
+name and a peer of another site by `<site>/<resource>`; the runtime's mesh keys are under its own
+`[runtime.cloud] site`. A mesh that listens on a network address accepts every runtime that connects to it unless
 `auth_token` is set.
 
 Validation constraints:
