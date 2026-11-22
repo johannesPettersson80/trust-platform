@@ -1788,7 +1788,6 @@ name = "trust-runtime-services"
 version = "0.44.0"
 dependencies = [
  "base64",
- "indexmap",
  "serde",
  "serde_json",
  "smol_str",

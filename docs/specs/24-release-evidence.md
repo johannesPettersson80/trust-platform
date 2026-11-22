@@ -98,6 +98,20 @@ network: the live audits are those of CI, the release build and the preflight
 (8 November 2026: a macOS runner's failed name lookup failed the trace's test
 when it ran `npm audit` itself).
 
+## Unused Dependencies
+
+The supply chain check runs `cargo-machete` over the repository's own crates,
+the manifests below `crates/`, `examples/`, `firmware/`, `fuzz/` and `xtask/`;
+the vendored crates of `third_party/` keep their upstream manifests and are not
+read. A direct dependency that no source of its crate names fails the check. A
+dependency that a crate needs although no source names it, such as one that
+only switches on a feature of another, is listed under
+`[package.metadata.cargo-machete] ignored` in that crate's manifest, with a
+comment that says why. The full map records no tool results of its own: the
+supply chain check in CI is the result (21 November 2026: the full map's
+record said `cargo machete` passed while eight direct dependencies that no
+source named had come in since April).
+
 ## Vendored Dependency Provenance
 
 Every source fact owned by an externally maintained vendored dependency is

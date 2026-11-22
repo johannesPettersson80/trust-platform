@@ -51,9 +51,10 @@ fi
 
 /// Specification 24, "Dependency Exceptions": the root, the two standalone firmware workspaces and
 /// the two fuzz harnesses are independent locked graphs, each checked by `cargo deny` and `cargo
-/// audit`, and a failure of any one fails the gate after every other check ran. Catches a graph
-/// left out, such as a fuzz harness whose lock its manifests have left behind, and one graph's
-/// failure hiding another's result.
+/// audit`; "Unused Dependencies": `cargo machete` reads the repository's own crates; a failure of
+/// any one check fails the gate after every other check ran. Catches a graph left out, such as a
+/// fuzz harness whose lock its manifests have left behind, unused dependencies left unchecked, and
+/// one check's failure hiding another's result.
 #[test]
 fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
     for exceptions in [true, false] {
@@ -71,6 +72,7 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             "audit --json --file firmware/trust-stm32u5a9/",
             "audit --json --file fuzz/",
             "audit --json --file crates/trust-ads-server/fuzz/",
+            "machete --skip-target-dir",
         ] {
             let fixture = fixture();
             let log = fixture.0.join("commands.txt");
@@ -98,7 +100,7 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             );
             let commands = fs::read_to_string(log).unwrap();
             let commands: Vec<_> = commands.lines().collect();
-            assert_eq!(commands.len(), 10, "every independent graph check must run");
+            assert_eq!(commands.len(), 11, "every independent check must run");
             assert_eq!(
                 commands[0],
                 "deny --locked check advisories licenses bans sources"
@@ -125,7 +127,7 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             } else {
                 ""
             };
-            for (command, lock) in commands[5..].iter().zip([
+            for (command, lock) in commands[5..10].iter().zip([
                 "Cargo.lock",
                 "firmware/trust-esp32c6/Cargo.lock",
                 "firmware/trust-stm32u5a9/Cargo.lock",
@@ -134,6 +136,10 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             ]) {
                 assert_eq!(*command, format!("audit --json --file {lock}{suffix}"));
             }
+            assert_eq!(
+                commands[10],
+                "machete --skip-target-dir crates examples firmware fuzz xtask"
+            );
         }
     }
 }
@@ -143,8 +149,12 @@ fn cached_ci_tools_are_replaced_by_the_selected_versions() {
     for (workflow, step, expected) in [
         (
             include_str!("../../../.github/workflows/ci.yml"),
-            "Install cargo-deny and cargo-audit",
-            &[("cargo-deny", "0.20.2"), ("cargo-audit", "0.22.2")][..],
+            "Install cargo-deny, cargo-audit and cargo-machete",
+            &[
+                ("cargo-deny", "0.20.2"),
+                ("cargo-audit", "0.22.2"),
+                ("cargo-machete", "0.9.2"),
+            ][..],
         ),
         (
             include_str!("../../../.github/workflows/ci.yml"),

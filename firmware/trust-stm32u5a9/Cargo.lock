@@ -627,7 +627,6 @@ name = "trust-runtime-services"
 version = "0.44.0"
 dependencies = [
  "base64",
- "indexmap",
  "serde",
  "serde_json",
  "smol_str",
@@ -642,7 +641,6 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "serde_json",
  "smol_str",
  "stm32u5",
  "trust-platform-memory",

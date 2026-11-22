@@ -63,6 +63,10 @@ Completion evidence (2026-04-29):
 - [x] `DEPHYG-P4-001` Add a canned `cargo audit --json` report with an unallowlisted advisory and assert the policy check fails.
 - [x] `DEPHYG-P4-002` Add a canned audit allowlist entry missing owner, rationale, review date, or removal condition and assert policy validation fails.
 - [x] `DEPHYG-P4-003` Add a canned `cargo machete` unused-dependency finding and assert unallowlisted findings fail.
+  Superseded 21 November 2026: `cargo machete` runs in `scripts/supply_chain_gate.sh` in CI over the repository's own
+  crates (specification 24, "Unused Dependencies"). The full map's hand-written tool results (cargo audit, cargo
+  machete and cargo deny, each `pass` with April's evidence) and its machete allowlist were removed with the
+  canned-report test, and the eight unused dependencies they hid were removed.
 - [x] `DEPHYG-P4-004` Add a deny-policy validation test that fails for missing policy sections or malformed allowlist metadata.
 - [x] `DEPHYG-P4-005` Add a workspace-membership fixture or unit test that catches the `third_party/tiverse-mmap` include/exclude mismatch class.
 - [x] `DEPHYG-P4-006` Add a full-map doctor fixture proving failed dependency hygiene cannot be reported as `pass`.

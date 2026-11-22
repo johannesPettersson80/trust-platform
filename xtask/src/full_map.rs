@@ -9,8 +9,8 @@ use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 
 use crate::software_map::{
-    CliActionSummary, DependencyEdge, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge,
-    DiagramFact, FunctionSummary, HostSurfaceSummary, ImportEdge, ModuleSummary, PackageSummary,
+    CliActionSummary, DependencyEdge, DependencyHygieneSummary, DiagramEdge, DiagramFact,
+    FunctionSummary, HostSurfaceSummary, ImportEdge, ModuleSummary, PackageSummary,
     ParserRecoverySummary, RuntimeRouteHandlerSummary, SafetyToolGateSummary, SoftwareMap,
     SourceFileSummary, SourcePatternSummary, TargetSummary, ToolResult, ToolStatus, UnsafeSummary,
     WorkspaceEdge,
@@ -82,7 +82,6 @@ struct FullMapPolicy {
     runtime_workbench_command_migrations: Vec<RuntimeWorkbenchCommandMigration>,
     host_surface: HostSurfacePolicy,
     kiss: KissPolicy,
-    dependency_hygiene_tools: Vec<PolicyToolStatus>,
     dependency_hygiene: DependencyHygienePolicy,
     unsafe_concurrency: UnsafeConcurrencyPolicy,
     diagram_policy: DiagramPolicy,
@@ -264,24 +263,14 @@ struct PublicApiSnapshotPolicy {
     review_date: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct PolicyToolStatus {
-    name: String,
-    status: String,
-    owner: String,
-    rationale: String,
-    review_date: String,
-    evidence: String,
-}
-
-/// The full map's dependency hygiene policy. It keeps no advisory exceptions: specification 24
-/// ("Dependency Exceptions") owns them in `deny.toml` alone, so an unknown field, such as a list of
-/// its own, is refused rather than kept unread.
+/// The full map's dependency hygiene policy. It keeps no list of its own: specification 24 owns the
+/// advisory exceptions in `deny.toml` ("Dependency Exceptions") and runs `cargo machete` in the
+/// supply chain check ("Unused Dependencies"), so an unknown field, such as a list of its own, is
+/// refused rather than kept unread.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DependencyHygienePolicy {
     third_party_tiverse_mmap: ThirdPartyWorkspacePolicy,
-    machete_allowlist: Vec<DependencyAllowlistEntry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -291,16 +280,6 @@ struct ThirdPartyWorkspacePolicy {
     owner: String,
     rationale: String,
     review_date: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct DependencyAllowlistEntry {
-    id: String,
-    package: String,
-    owner: String,
-    rationale: String,
-    review_date: String,
-    removal_condition: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -654,18 +633,6 @@ fn build_software_map(root: &Path, policy: &FullMapPolicy) -> Result<SoftwareMap
                 .to_string(),
         ],
     });
-    for tool in &policy.dependency_hygiene_tools {
-        map.tool_results.push(ToolResult {
-            name: tool.name.clone(),
-            status: policy_tool_status(&tool.status),
-            details: vec![
-                format!("owner: {}; {}", tool.owner, tool.rationale),
-                format!("review date: {}", tool.review_date),
-                format!("evidence: {}", tool.evidence),
-            ],
-        });
-    }
-
     Ok(map)
 }
 
@@ -692,24 +659,7 @@ fn collect_dependency_hygiene_summary(
         deny_policy_present: root.join("deny.toml").is_file(),
         workspace_excludes,
         third_party_tiverse_mmap_status: third_party_status,
-        machete_allowlist: policy
-            .dependency_hygiene
-            .machete_allowlist
-            .iter()
-            .map(dependency_policy_entry)
-            .collect(),
     })
-}
-
-fn dependency_policy_entry(entry: &DependencyAllowlistEntry) -> DependencyPolicyEntry {
-    DependencyPolicyEntry {
-        id: entry.id.clone(),
-        package: entry.package.clone(),
-        owner: entry.owner.clone(),
-        rationale: entry.rationale.clone(),
-        review_date: entry.review_date.clone(),
-        removal_condition: entry.removal_condition.clone(),
-    }
 }
 
 fn workspace_excludes_from_manifest_source(source: &str) -> Result<Vec<String>> {
@@ -743,16 +693,6 @@ fn classify_workspace_path(
         "ambiguous".to_string()
     } else {
         "missing".to_string()
-    }
-}
-
-fn policy_tool_status(status: &str) -> ToolStatus {
-    match status {
-        "pass" => ToolStatus::Pass,
-        "finding" => ToolStatus::Finding,
-        "partial" => ToolStatus::Partial,
-        "failed" => ToolStatus::Failed,
-        _ => ToolStatus::NotRun,
     }
 }
 
@@ -953,27 +893,6 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             ));
         }
     }
-    for tool in &policy.dependency_hygiene_tools {
-        if tool.owner.trim().is_empty()
-            || tool.rationale.trim().is_empty()
-            || tool.review_date.trim().is_empty()
-            || tool.evidence.trim().is_empty()
-        {
-            failures.push(format!(
-                "dependency hygiene tool '{}' is missing owner/rationale/review_date/evidence",
-                tool.name
-            ));
-        }
-        if !matches!(
-            tool.status.as_str(),
-            "pass" | "finding" | "partial" | "failed" | "not_run"
-        ) {
-            failures.push(format!(
-                "dependency hygiene tool '{}' has unsupported status '{}'",
-                tool.name, tool.status
-            ));
-        }
-    }
     let third_party = &policy.dependency_hygiene.third_party_tiverse_mmap;
     if third_party.path.trim().is_empty()
         || third_party.expected_status.trim().is_empty()
@@ -986,10 +905,6 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
                 .to_string(),
         );
     }
-    failures.extend(dependency_allowlist_metadata_failures(
-        "machete",
-        &policy.dependency_hygiene.machete_allowlist,
-    ));
     if policy.unsafe_concurrency.owner.trim().is_empty()
         || policy.unsafe_concurrency.status.trim().is_empty()
     {
@@ -1699,43 +1614,12 @@ fn host_surface_path_matches(path: &str, prefix: &str) -> bool {
     }
 }
 
-fn dependency_allowlist_metadata_failures(
-    list_name: &str,
-    entries: &[DependencyAllowlistEntry],
-) -> Vec<String> {
-    entries
-        .iter()
-        .filter(|entry| {
-            entry.id.trim().is_empty()
-                || entry.package.trim().is_empty()
-                || entry.owner.trim().is_empty()
-                || entry.rationale.trim().is_empty()
-                || entry.review_date.trim().is_empty()
-                || entry.removal_condition.trim().is_empty()
-        })
-        .map(|entry| {
-            format!(
-                "{list_name} dependency allowlist entry '{}' is missing id/package/owner/rationale/review_date/removal_condition",
-                entry.id
-            )
-        })
-        .collect()
-}
-
 fn check_dependency_hygiene_status(map: &SoftwareMap, policy: &FullMapPolicy) -> FullMapCheck {
     let mut failed = Vec::new();
-    let mut details = Vec::new();
-    for tool in &policy.dependency_hygiene_tools {
-        let detail = format!(
-            "{} status={} owner={} rationale={}",
-            tool.name, tool.status, tool.owner, tool.rationale
-        );
-        if tool.status == "failed" {
-            failed.push(detail);
-        } else {
-            details.push(detail);
-        }
-    }
+    // The tools run in the supply chain check in CI, whose result is theirs (specification 24).
+    let mut details = vec![
+        "cargo deny, cargo audit and cargo machete run in scripts/supply_chain_gate.sh".to_string(),
+    ];
     let third_party = &policy.dependency_hygiene.third_party_tiverse_mmap;
     details.push(format!(
         "{} status={} expected={}",
@@ -1746,10 +1630,6 @@ fn check_dependency_hygiene_status(map: &SoftwareMap, policy: &FullMapPolicy) ->
     details.push(format!(
         "deny.toml present={}",
         map.dependency_hygiene.deny_policy_present
-    ));
-    details.push(format!(
-        "machete allowlist entries={}",
-        map.dependency_hygiene.machete_allowlist.len()
     ));
     if !map.dependency_hygiene.deny_policy_present {
         failed.push("deny.toml policy is missing".to_string());
@@ -1765,27 +1645,15 @@ fn check_dependency_hygiene_status(map: &SoftwareMap, policy: &FullMapPolicy) ->
     if !failed.is_empty() {
         return FullMapCheck::fail(
             "FULLMAP-CHECK-08",
-            "dependency hygiene policy contains failed tool status",
+            "dependency hygiene policy is not met",
             failed,
         );
     }
-    if policy
-        .dependency_hygiene_tools
-        .iter()
-        .any(|tool| tool.status != "pass")
-    {
-        FullMapCheck::partial(
-            "FULLMAP-CHECK-08",
-            "dependency hygiene status is emitted but not all tools have passing evidence yet",
-            details,
-        )
-    } else {
-        FullMapCheck::pass(
-            "FULLMAP-CHECK-08",
-            "dependency hygiene policy status is passing",
-            details,
-        )
-    }
+    FullMapCheck::pass(
+        "FULLMAP-CHECK-08",
+        "dependency hygiene policy is met",
+        details,
+    )
 }
 
 fn check_unsafe_concurrency_summary(map: &SoftwareMap) -> FullMapCheck {
@@ -3948,36 +3816,6 @@ mod tests {
         )));
     }
 
-    fn machete_report_policy_failures(
-        report: &str,
-        allowlist: &[DependencyAllowlistEntry],
-    ) -> Vec<String> {
-        let mut current_package = None;
-        let mut failures = Vec::new();
-        for raw_line in report.lines() {
-            let line = raw_line.trim();
-            if let Some((package, manifest)) = line.split_once(" -- ") {
-                if manifest.ends_with("Cargo.toml:") {
-                    current_package = Some(package.to_string());
-                }
-                continue;
-            }
-            if !(raw_line.starts_with('\t') || raw_line.starts_with("    ")) || line.is_empty() {
-                continue;
-            }
-            let package = current_package.as_deref().unwrap_or("<unknown-package>");
-            let is_allowed = allowlist
-                .iter()
-                .any(|entry| entry.id == package && entry.package == line);
-            if !is_allowed {
-                failures.push(format!(
-                    "cargo machete finding {package}:{line} is not in machete_allowlist"
-                ));
-            }
-        }
-        failures
-    }
-
     fn deny_policy_metadata_failures_from_source(source: &str) -> Vec<String> {
         let manifest: toml::Value = match toml::from_str(source) {
             Ok(value) => value,
@@ -4707,71 +4545,6 @@ mod tests {
     }
 
     #[test]
-    fn known_bad_failed_dependency_tool_status_fails() {
-        let map = base_map();
-        let mut policy = base_policy();
-        policy.dependency_hygiene_tools[0].status = "failed".to_string();
-
-        assert!(check_dependency_hygiene_status(&map, &policy).is_fail());
-    }
-
-    #[test]
-    fn known_bad_dependency_allowlist_without_metadata_fails() {
-        let mut policy = base_policy();
-        policy
-            .dependency_hygiene
-            .machete_allowlist
-            .push(DependencyAllowlistEntry {
-                id: "trust-runtime".to_string(),
-                package: "unused-demo".to_string(),
-                owner: String::new(),
-                rationale: "test fixture".to_string(),
-                review_date: "2026-04-29".to_string(),
-                removal_condition: "remove after fixture".to_string(),
-            });
-
-        assert!(check_policy_metadata(&policy).is_fail());
-    }
-
-    #[test]
-    fn known_bad_unallowlisted_machete_report_fails() {
-        let report = "cargo-machete found the following unused dependencies in this directory:\n\
-trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
-\tunused-demo\n";
-
-        assert!(!machete_report_policy_failures(
-            report,
-            &base_policy().dependency_hygiene.machete_allowlist,
-        )
-        .is_empty());
-    }
-
-    #[test]
-    fn machete_report_allowlist_accepts_documented_dependency() {
-        let report = "cargo-machete found the following unused dependencies in this directory:\n\
-trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
-\tunused-demo\n";
-        let mut policy = base_policy();
-        policy
-            .dependency_hygiene
-            .machete_allowlist
-            .push(DependencyAllowlistEntry {
-                id: "trust-runtime".to_string(),
-                package: "unused-demo".to_string(),
-                owner: "runtime".to_string(),
-                rationale: "test fixture".to_string(),
-                review_date: "2026-04-29".to_string(),
-                removal_condition: "remove after fixture".to_string(),
-            });
-
-        assert!(machete_report_policy_failures(
-            report,
-            &policy.dependency_hygiene.machete_allowlist,
-        )
-        .is_empty());
-    }
-
-    #[test]
     fn current_deny_policy_has_required_sections_and_metadata() {
         let failures = deny_policy_metadata_failures_from_source(include_str!("../../deny.toml"));
 
@@ -5292,7 +5065,6 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             deny_policy_present: true,
             workspace_excludes: vec!["third_party/tiverse-mmap".to_string()],
             third_party_tiverse_mmap_status: "workspace_exclude".to_string(),
-            machete_allowlist: Vec::new(),
         };
         map
     }
@@ -5474,14 +5246,6 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                 function_size_allowlist: Vec::new(),
                 public_api_snapshots: Vec::new(),
             },
-            dependency_hygiene_tools: vec![PolicyToolStatus {
-                name: "cargo audit".to_string(),
-                status: "not_run".to_string(),
-                owner: "release".to_string(),
-                rationale: "board owns it".to_string(),
-                review_date: "2026-04-29".to_string(),
-                evidence: "target/gate-artifacts".to_string(),
-            }],
             dependency_hygiene: DependencyHygienePolicy {
                 third_party_tiverse_mmap: ThirdPartyWorkspacePolicy {
                     path: "third_party/tiverse-mmap".to_string(),
@@ -5490,7 +5254,6 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                     rationale: "vendored patch crate is not a workspace member".to_string(),
                     review_date: "2026-04-29".to_string(),
                 },
-                machete_allowlist: Vec::new(),
             },
             unsafe_concurrency: UnsafeConcurrencyPolicy {
                 owner: "runtime".to_string(),

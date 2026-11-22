@@ -1129,13 +1129,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: clippy, rustfmt, rust-src
-      - name: Install cargo-deny and cargo-audit
+      - name: Install cargo-deny, cargo-audit and cargo-machete
         run: |
           cargo install cargo-deny --version 0.20.2 --locked --force
           cargo install cargo-audit --version 0.22.2 --locked --force
+          cargo install cargo-machete --version 0.9.2 --locked --force
           export PATH="$HOME/.cargo/bin:$PATH"
           cargo deny --version
           cargo audit --version
+          cargo machete --version
       - name: Run shared supply-chain gate
         run: bash scripts/supply_chain_gate.sh
       - name: Mark gate success
