@@ -8,8 +8,8 @@ cycle_interval_ms = 100
 [runtime.control]
 mode = "production"
 debug_enabled = false
-# Token auth on the web needs the control token: replace the placeholder before the first start.
-auth_token = "REPLACE_WITH_LONG_RANDOM_TOKEN"
+# Token authentication on the web needs runtime.control.auth_token: add your own before the first
+# start. The examples commit no token.
 
 [runtime.web]
 enabled = true

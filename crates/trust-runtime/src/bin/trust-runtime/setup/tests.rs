@@ -85,9 +85,10 @@ fn generated_resource_names_are_valid_for_numeric_and_reserved_folders() {
 }
 
 /// The runtime cloud example pack (examples/runtime_cloud): each profile is copied into an empty
-/// folder with the TLS files the secure profiles name (the dev profiles name none), and `play`'s
-/// first start writes the program for the profile's resource and builds it, as the quickstart's
-/// steps 2 and 3 and the federation guide do. Catches a profile resource that is not an IEC
+/// folder with the TLS files the secure profiles name (the dev profiles name none) and, where its
+/// web authenticates by token, the control token a user adds (the examples commit none, spec 11
+/// section 6.8.0a); then `play`'s first start writes the program for the profile's resource and
+/// builds it, as the quickstart's steps 2 and 3 and the federation guide do. Catches a profile resource that is not an IEC
 /// identifier, or not the program's `RESOURCE` (specification 11 §6.7.1), as the profiles'
 /// `runtime-a`, `runtime-plant` and `runtime-wan` were (checklist G245): their runtimes could not
 /// start. A profile added to the pack must be added to the table.
@@ -117,7 +118,15 @@ fn every_runtime_cloud_example_profile_creates_a_project_that_builds() {
     );
     for (profile, resource) in profiles {
         let root = temp_dir(&format!("cloud-profile-{resource}"));
-        std::fs::copy(examples.join(profile), root.join("runtime.toml")).expect("copy the profile");
+        let mut text = std::fs::read_to_string(examples.join(profile)).expect("the profile");
+        if text.contains("auth = \"token\"") {
+            text = text.replacen(
+                "[runtime.control]\n",
+                "[runtime.control]\nauth_token = \"profile-test-token\"\n",
+                1,
+            );
+        }
+        std::fs::write(root.join("runtime.toml"), text).expect("write the profile");
         std::fs::create_dir(root.join("certs")).expect("the certificate folder");
         for (file, fixture) in [
             ("runtime.crt", "server-cert.pem"),

@@ -60,7 +60,9 @@ curl -s http://127.0.0.1:18081/api/runtime-cloud/rollouts \
 
 ## Notes
 
-- Replace placeholder tokens/cert paths in `runtime-plant.toml` and `runtime-wan.toml` before production use.
+- `runtime-plant.toml` and `runtime-wan.toml` use token authentication: add your own
+  `runtime.control.auth_token`, replace the mesh token placeholder and give the certificate paths
+  before the first start. The examples commit no token.
 - `runtime-wan.toml` ships with sample allowlist rules; tighten these per site and action.
 - Mesh examples pin `runtime.mesh.zenohd_version = "1.7.2"` and include explicit
   `runtime.mesh.role/connect/plugin_versions` keys to match the runtime-cloud baseline policy.

@@ -8,9 +8,8 @@ cycle_interval_ms = 100
 [runtime.control]
 mode = "production"
 debug_enabled = false
-# One token for every runtime of the federation: a dispatch passes the caller's token to its
-# target. Replace the placeholder, as RUNTIME_CLOUD_FEDERATION_GUIDE.md step 3 does.
-auth_token = "REPLACE_WITH_THE_SHARED_TOKEN"
+# The examples commit no token: step 3 of RUNTIME_CLOUD_FEDERATION_GUIDE.md adds auth_token here,
+# one token for every runtime of the federation, because a dispatch passes the caller's token on.
 
 [runtime.web]
 enabled = true

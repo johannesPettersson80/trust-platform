@@ -56,8 +56,8 @@ network, name each runtime's address or host name instead (`IP:<address>` or `DN
 ```bash
 token=$(openssl rand -hex 32)
 for runtime in runtime-a runtime-b; do
-  sed "s/REPLACE_WITH_THE_SHARED_TOKEN/$token/" "examples/runtime_cloud/$runtime-wan.toml" \
-    > ~/trust-cloud-demo/$runtime/runtime.toml
+  TOKEN="$token" awk '{ print } $0 == "[runtime.control]" { print "auth_token = \"" ENVIRON["TOKEN"] "\"" }' \
+    "examples/runtime_cloud/$runtime-wan.toml" > ~/trust-cloud-demo/$runtime/runtime.toml
 done
 printf 'X-Trust-Token: %s\n' "$token" > ~/trust-cloud-demo/token.header
 chmod 600 ~/trust-cloud-demo/token.header ~/trust-cloud-demo/runtime-*/runtime.toml \
@@ -71,7 +71,8 @@ quickstart's dev profiles with:
 - `[runtime.web] auth = "token"` and `tls = true`, and a mesh with TLS;
 - `[runtime.tls] mode = "provisioned"` with the runtime's `certs/runtime.crt` and
   `certs/runtime.key` and the site CA `certs/ca.crt`, relative to the project;
-- `auth_token`, the token every runtime of the federation accepts;
+- in `[runtime.control]`, the `auth_token` that the loop above adds: the token every runtime of the
+  federation accepts (the examples commit no token);
 - `[runtime.cloud.wan] allow_write = []`: no cross-site write yet.
 
 Start both runtimes again, as in the quickstart:
@@ -164,11 +165,13 @@ Expected:
 - `ok: true` and `request_id: "req-tutorial-cross-site-cfg-apply-1"`
 - `results[0].runtime_id == "site-b/runtime_b"`, with `ok: true` and an `audit_id`
 
-`runtime_b` now logs at `debug`:
+`runtime_b` now logs at `debug`: the answer of
 
 ```bash
-trust-runtime ctl --project ~/trust-cloud-demo/runtime-b config-get | jq '.result["log.level"]'
+trust-runtime ctl --project ~/trust-cloud-demo/runtime-b config-get
 ```
+
+holds `"log.level":"debug"`.
 
 ## 7) Security Guardrails
 
