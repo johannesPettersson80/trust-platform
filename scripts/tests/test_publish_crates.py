@@ -5,6 +5,7 @@ crates.io's transient answers. cargo and crates.io are stood in for, so the test
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import unittest
@@ -117,3 +118,16 @@ class PublishCratesTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DocTestsInCiTests(unittest.TestCase):
+    def test_ci_runs_the_doc_tests_of_every_crate_it_publishes(self) -> None:
+        # Specification 48 RU-89: the SDK's crates are its API reference on docs.rs, and CI runs the documentation
+        # examples of every crate RU-12 publishes. CI's Test job runs nextest, which runs no doc tests, so a published
+        # crate that the doc-test step does not name has examples that no test runs. Catches a crate added to the
+        # publication (trust-sim among them, when it joins) without its doc tests, and a step that no longer runs them.
+        text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        steps = [line for line in text.replace("\\\n", " ").splitlines() if "cargo test --locked --doc" in line]
+        self.assertEqual(len(steps), 1, "the one doc-test step of ci.yml")
+        named = set(re.findall(r"-p ([a-z0-9-]+)", steps[0]))
+        self.assertEqual([name for name in publish_crates.CRATES if name not in named], [])
