@@ -38,8 +38,9 @@ drivers = [
 ]
 ```
 
-The MQTT entry takes `on_error = "warn"`: a scan that finds no new message on `topic_in` keeps the
-last input instead of faulting the runtime, as `../mqtt` explains.
+The MQTT entry takes `on_error = "warn"`: the runtime keeps running while the broker cannot be
+reached, as `../mqtt` explains; a scan without a new message keeps the last input under every
+policy.
 
 Why this pattern:
 

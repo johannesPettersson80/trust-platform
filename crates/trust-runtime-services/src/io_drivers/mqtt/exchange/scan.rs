@@ -30,16 +30,19 @@ impl MqttExchange {
     /// (specification 32 §4 and §8). Every message since the last read is one batch: in raw mode
     /// the newest payload of `topic_in` fills the image, zero past its end; with typed points each
     /// message converts to its point, and a batch with one failure changes neither the snapshot
-    /// nor the image. Bytes of the image that no point uses are left as they are. A driver without
-    /// inputs leaves the image as it is.
+    /// nor the image. Bytes of the image that no point uses are left as they are. A read without a
+    /// new message on a connected session copies the last accepted snapshot, or leaves the image
+    /// as it is before the first message. A driver without inputs leaves the image as it is.
     ///
     /// # Errors
     ///
     /// Under `on_error = "fault"`, with the image unchanged: [`RuntimeError::IoFreshness`] with
-    /// `mqtt input not fresh` for a read without a new message and with the link condition while
-    /// the session is down, and [`RuntimeError::IoDriver`] with the text of a payload that does not
-    /// convert. Under `warn` and `ignore` the same conditions degrade the health, the last
-    /// accepted snapshot is copied, and the read succeeds.
+    /// the link condition while the session is down, and with `mqtt input not fresh` for a read
+    /// without a new message while the broker has refused a subscription or once the input is
+    /// older than `stale_after_ms`; [`RuntimeError::IoDriver`] with the text of a payload that
+    /// does not convert, on its read and on every read without a new message after it. Under
+    /// `warn` and `ignore` the same conditions degrade the health, the last accepted snapshot is
+    /// copied, and the read succeeds.
     pub fn read_inputs(&mut self, now_ms: u64, image: &mut [u8]) -> Result<(), RuntimeError> {
         if !self.params.input_enabled() {
             return Ok(());
@@ -54,23 +57,51 @@ impl MqttExchange {
             return self.held_inputs(RuntimeError::IoFreshness(SmolStr::from(text)), image);
         };
         let refused = session.refused.clone();
+        let since_ms = session.input_since_ms;
+        let failure = session.input_failure.clone();
         if self.params.output_enabled() {
             self.paths.link = IoDriverHealth::Ok;
         }
         let batch: Vec<Message> = self.queue.drain(..).collect();
         self.queued_bytes = 0;
         if batch.is_empty() {
-            let text = match refused {
-                Some(topic) => format!(
-                    "{NOT_FRESH}; the broker refused the subscription to {}",
-                    quoted(&topic)
-                ),
-                None => String::from(NOT_FRESH),
-            };
-            self.paths.input = self.policy_health(&text);
-            return self.held_inputs(RuntimeError::IoFreshness(SmolStr::from(text)), image);
+            if let Some(text) = failure {
+                self.paths.input = self.policy_health(&text);
+                return self.held_inputs(RuntimeError::IoDriver(SmolStr::from(text)), image);
+            }
+            let too_old = self
+                .params
+                .stale_after_ms
+                .is_some_and(|limit| now_ms.saturating_sub(since_ms) > limit);
+            if refused.is_some() || too_old {
+                let text = match refused {
+                    Some(topic) => format!(
+                        "{NOT_FRESH}; the broker refused the subscription to {}",
+                        quoted(&topic)
+                    ),
+                    None => String::from(NOT_FRESH),
+                };
+                self.paths.input = self.policy_health(&text);
+                return self.held_inputs(RuntimeError::IoFreshness(SmolStr::from(text)), image);
+            }
+            // The last accepted message's values hold until a new message replaces them; before
+            // the first message the image stays as it is.
+            self.paths.input = IoDriverHealth::Ok;
+            self.copy_snapshot(image);
+            return Ok(());
         }
-        match self.accept(batch, image.len()) {
+        self.batches_read = self.batches_read.saturating_add(1);
+        let accepted = self.accept(batch, image.len());
+        if let Link::Connected(session) = &mut self.link {
+            match &accepted {
+                Ok(()) => {
+                    session.input_since_ms = now_ms;
+                    session.input_failure = None;
+                }
+                Err(text) => session.input_failure = Some(text.clone()),
+            }
+        }
+        match accepted {
             Ok(()) => {
                 self.paths.input = IoDriverHealth::Ok;
                 self.copy_snapshot(image);

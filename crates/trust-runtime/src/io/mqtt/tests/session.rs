@@ -11,8 +11,8 @@ use trust_runtime_services::io_drivers::mqtt::MAX_PACKET_BYTES;
 
 use super::broker::{Answer, Broker, Connect};
 use super::{
-    at, degraded, eventually, faulted, faulted_with, nothing_listens, read_fresh, start, SCAN_WAIT,
-    TIMING_SLACK,
+    at, degraded, eventually, faulted, faulted_with, nothing_listens, read_fresh, start,
+    PAST_STALE_AFTER, SCAN_WAIT, TIMING_SLACK,
 };
 use crate::error::RuntimeError;
 use crate::io::{IoDriver, IoDriverHealth};
@@ -342,9 +342,9 @@ fn cycle_impact_test_driver_calls_are_non_blocking_without_session() {
     );
 }
 
-/// A read with no message since the last one returns at once, under `warn` with the health
-/// degraded: before any snapshot, `mqtt input snapshot unavailable` (specification 32 §8).
-/// Catches a read that waits for the broker's next message.
+/// A read with no message since the subscription returns at once and holds the input: without
+/// `stale_after_ms` the health stays `Ok` (specification 32 §8). Catches a read that waits for the
+/// broker's next message.
 #[test]
 fn mqtt_read_inputs_returns_within_scan_bound_without_fresh_payload() {
     let broker = Broker::start();
@@ -358,7 +358,7 @@ fn mqtt_read_inputs_returns_within_scan_bound_without_fresh_payload() {
         elapsed < SCAN_WAIT + TIMING_SLACK,
         "the read took {elapsed:?}"
     );
-    assert_eq!(driver.health(), degraded("mqtt input snapshot unavailable"));
+    assert_eq!(driver.health(), IoDriverHealth::Ok);
 }
 
 /// While the session waits for its CONNACK a write waits for it at most [`SCAN_WAIT`] (the shared
@@ -382,19 +382,23 @@ fn mqtt_write_outputs_returns_within_scan_bound_while_session_connecting() {
     assert_eq!(driver.output_health(), degraded("mqtt connecting"));
 }
 
-/// Under `warn` a read without a message since the last one returns the last snapshot, at once,
-/// with the health degraded by `mqtt input not fresh` (specification 32 §8). Catches a warned
-/// stale read that loses the last known input image.
+/// Under `warn`, a read whose last message is older than `stale_after_ms` returns the last
+/// snapshot, at once, with the health degraded by `mqtt input not fresh` (specification 32 §8).
+/// Catches a warned stale read that loses the last known input image.
 #[test]
 fn mqtt_stale_snapshot_is_returned_without_fresh_payload() {
     let broker = Broker::start();
-    let mut driver = start(&at(&broker, "topic_in = \"line/in\"\non_error = \"warn\""));
+    let mut driver = start(&at(
+        &broker,
+        "topic_in = \"line/in\"\non_error = \"warn\"\nstale_after_ms = 1",
+    ));
     broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
     broker.deliver(&[("line/in", &[7, 8, 9])]);
     let mut first = [0_u8; 4];
     eventually("first message in the image", || {
         driver.read_inputs(&mut first).is_ok() && first == [7, 8, 9, 0]
     });
+    thread::sleep(PAST_STALE_AFTER);
     let mut stale = [0_u8; 4];
     let started = Instant::now();
     assert_eq!(driver.read_inputs(&mut stale), Ok(()));
@@ -407,21 +411,20 @@ fn mqtt_stale_snapshot_is_returned_without_fresh_payload() {
     assert_eq!(driver.health(), degraded("mqtt input not fresh"));
 }
 
-/// Under the default `fault` a read without a message since the last one fails with `mqtt input not
-/// fresh` and leaves the image as it was, even with a snapshot held (specification 32 §8: "A
-/// faulted stale read leaves the caller's input image unchanged"). The computer's earlier driver
-/// waited for a refresh round trip and reported `mqtt input refresh pending`; the shared exchange
-/// reads what the worker received without waiting ("the worker checks for new input without
-/// waiting"), so a stale read is `mqtt input not fresh`. Catches a faulted read that exposes old
-/// bytes as fresh input.
+/// Under the default `fault`, a read whose last message is older than `stale_after_ms` fails with
+/// `mqtt input not fresh` and leaves the image as it was, even with a snapshot held
+/// (specification 32 §8: "A faulted stale read leaves the caller's input image unchanged"). The
+/// shared exchange reads what the worker received without waiting ("the worker checks for new
+/// input without waiting"). Catches a faulted read that exposes old bytes as fresh input.
 #[test]
 fn mqtt_default_fault_rejects_stale_snapshot() {
     let broker = Broker::start();
-    let mut driver = start(&at(&broker, "topic_in = \"line/in\""));
+    let mut driver = start(&at(&broker, "topic_in = \"line/in\"\nstale_after_ms = 1"));
     broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
     broker.deliver(&[("line/in", &[7, 8, 9])]);
     let mut first = [0_u8; 4];
     assert_eq!(read_fresh(&mut driver, &mut first), Ok(()));
+    thread::sleep(PAST_STALE_AFTER);
     let mut stale = [0xA5; 4];
     assert_eq!(
         driver.read_inputs(&mut stale),
@@ -431,15 +434,46 @@ fn mqtt_default_fault_rejects_stale_snapshot() {
     assert_eq!(driver.health(), faulted("mqtt input not fresh"));
 }
 
-/// A read with no message follows `on_error`: an error and a faulted health under `fault`, success
-/// and a degraded health under `warn` and `ignore`, each at once (specification 32 §8). Catches a
-/// policy that is not applied to the freshness of input.
+/// Without `stale_after_ms`, under the default `fault`, a connected input keeps its last value:
+/// a read before the first message leaves the image as it is, and reads long after the last message
+/// copy it, all healthy (specification 32 §8). Catches the earlier rule, under which every read
+/// without a new message was stale, so that a topic that publishes on change faulted the runtime
+/// at its first scan (checklist G239).
+#[test]
+fn a_connected_input_keeps_its_last_value_without_stale_after_ms() {
+    let broker = Broker::start();
+    let mut driver = start(&at(&broker, "topic_in = \"line/in\""));
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+    let mut inputs = [0xA5; 2];
+    assert_eq!(driver.read_inputs(&mut inputs), Ok(()));
+    assert_eq!(inputs, [0xA5; 2]);
+    assert_eq!(driver.health(), IoDriverHealth::Ok);
+    broker.deliver(&[("line/in", &[7])]);
+    assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
+    assert_eq!(inputs, [7, 0]);
+    for _ in 0..3 {
+        thread::sleep(PAST_STALE_AFTER);
+        let mut held = [0xA5; 2];
+        assert_eq!(driver.read_inputs(&mut held), Ok(()));
+        assert_eq!(held, [7, 0]);
+        assert_eq!(driver.health(), IoDriverHealth::Ok);
+    }
+}
+
+/// A stale read, with no message since a subscription older than `stale_after_ms`, follows
+/// `on_error`: an error and a faulted health under `fault`, success and a degraded health under
+/// `warn` and `ignore`, each at once (specification 32 §8). Catches a policy that is not applied
+/// to the freshness of input.
 #[test]
 fn mqtt_no_fresh_payload_follows_on_error_policy() {
     for (policy, fails) in [("fault", true), ("warn", false), ("ignore", false)] {
         let broker = Broker::start();
-        let mut driver = start(&at(&broker, &format!("on_error = \"{policy}\"")));
+        let mut driver = start(&at(
+            &broker,
+            &format!("on_error = \"{policy}\"\nstale_after_ms = 1"),
+        ));
         broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+        thread::sleep(PAST_STALE_AFTER);
         let mut inputs = [0_u8; 4];
         let started = Instant::now();
         let result = driver.read_inputs(&mut inputs);

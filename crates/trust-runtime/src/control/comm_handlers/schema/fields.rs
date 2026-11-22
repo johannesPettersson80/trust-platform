@@ -265,7 +265,7 @@ pub(super) fn mqtt_fields() -> Vec<CommFieldSchema> {
             "On error",
             "fault",
             vec!["fault", "warn", "ignore"],
-            "Runtime behavior when the MQTT broker is unreachable or no fresh message is available.",
+            "Runtime behavior when the MQTT broker is unreachable, a message does not convert, or an input is older than Stale after.",
         ),
         advanced(optional(field(
             "tls_ca_path",
@@ -299,6 +299,14 @@ pub(super) fn mqtt_fields() -> Vec<CommFieldSchema> {
             false,
             "Optional ALPN protocol list.",
         ))),
+        advanced(number_field(
+            "stale_after_ms",
+            "Stale after (ms)",
+            0,
+            toml_integer(MqttParams::STALE_AFTER_MS_RANGE.0),
+            toml_integer(MqttParams::STALE_AFTER_MS_RANGE.1),
+            "0 keeps an input's last value while the broker is connected; a larger value makes an input whose last message is older stale, and it follows On error.",
+        )),
     ]
 }
 

@@ -124,6 +124,13 @@ fn wall_clock_ms() -> u64 {
 }
 
 impl MqttIoDriver {
+    /// The input reads that took messages since the driver started (specification 32 §8): a test
+    /// waits for a delivered message by it, because a read without one holds the input.
+    #[cfg(test)]
+    fn batches_read(&self) -> u64 {
+        self.shared.lock().exchange.batches_read()
+    }
+
     /// Checks `value`, the driver's `params` table in `io.toml`, by the shared rules of
     /// specification 32, as a chip checks it (specification 34 §5.1.1, section 8), and builds the
     /// TLS client from the files that it names, so that the configuration is checked completely

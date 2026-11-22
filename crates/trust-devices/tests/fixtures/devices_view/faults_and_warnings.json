@@ -1013,6 +1013,11 @@
                         "wide": false
                       },
                       {
+                        "label": "Stale after (ms)",
+                        "value": "0",
+                        "wide": false
+                      },
+                      {
                         "label": "State",
                         "value": "Degraded · Broker connection refused.",
                         "tone": "warning",
