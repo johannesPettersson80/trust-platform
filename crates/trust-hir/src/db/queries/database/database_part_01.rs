@@ -274,9 +274,28 @@ impl Database {
         }
     }
 
-    /// Returns a symbol table augmented with project-wide symbols.
+    /// The file's analyzed symbols: its own, with the declarations of the other files that it
+    /// names and those their declarations name (specification 14 §10.2).
     pub fn file_symbols_with_project(&self, file_id: FileId) -> Arc<SymbolTable> {
         self.analyze(file_id).symbols.clone()
+    }
+
+    /// The file's own symbols with every declaration of the project's other files, computed for
+    /// each call: what completion, the learner's suggestions and rename's conflict check read,
+    /// since they must see every name a position can reach, whether the file names it yet or not.
+    /// [`Database::file_symbols_with_project`] holds only the declarations the file names, with
+    /// those their declarations name (specification 14 §6.1, §10.2).
+    pub fn file_symbols_with_every_declaration(&self, file_id: FileId) -> Arc<SymbolTable> {
+        let Some((db, project)) = self.with_synced_salsa_state(|state| {
+            state
+                .sources
+                .contains_key(&file_id)
+                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
+        }) else {
+            return Arc::default();
+        };
+        salsa::Cancelled::catch(|| salsa_backend::merged_with_every_unit(&db, project, file_id))
+            .unwrap_or_default()
     }
 
     /// Returns a symbol table augmented with project symbols filtered to a file set.

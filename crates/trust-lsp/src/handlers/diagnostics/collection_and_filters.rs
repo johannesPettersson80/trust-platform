@@ -63,7 +63,9 @@ struct LearnerContext {
 
 fn build_learner_context(state: &ServerState, file_id: FileId) -> LearnerContext {
     state.with_database(|db| {
-        let symbols = db.file_symbols_with_project(file_id);
+        // Every declaration the file may have meant, whether it names it yet or not
+        // (specification 14 §10.2).
+        let symbols = db.file_symbols_with_every_declaration(file_id);
         let mut value_map = BTreeMap::<String, String>::new();
         let mut type_map = BTreeMap::<String, String>::new();
 

@@ -26,6 +26,7 @@ package "Database Layer" as dbLayer #LightGreen {
         +file_symbols(file_id) → Arc<SymbolTable>
         +diagnostics(file_id) → Arc<Vec<Diagnostic>>
         +analyze(file_id) → FileAnalysis
+        +file_symbols_with_every_declaration(file_id) → Arc<SymbolTable>
         +global_owners(file_id) → Arc<Vec<GlobalOwnership>>
         +type_of(file_id, expr_id) → TypeId
     }
@@ -40,7 +41,13 @@ package "Database Layer" as dbLayer #LightGreen {
         -> project_type_catalog_query
         -> file_symbols_query(project, file)
         -> project_symbol_tables_query
-        -> merged_project_symbols
+        -> file_units_query -> project_unit_index_query
+        -> unit_selection_query (the other files'
+           units a file names, with those their
+           declarations name; every unit for a
+           file that declares globals)
+        -> merged_project_symbols (the file's own
+           symbols and its selected units only)
         -> checked_file_query (the type check;
            the arguments calls write, W012's)
         -> analyze_query (reads other files'

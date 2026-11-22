@@ -1,3 +1,4 @@
+use super::queries::{unit_of, UnitSelection};
 use super::*;
 use crate::diagnostics::DiagnosticCode;
 use crate::semantic::{SemanticOutcome, LEGACY_UNKNOWN_TYPE_ID};
@@ -39,6 +40,8 @@ pub(super) struct SymbolImporter<'a> {
     /// target for every imported table, which made one merge quadratic in the number of
     /// project files.
     namespace_targets: Option<FxHashMap<Vec<SmolStr>, SymbolId>>,
+    /// The units to import (`queries::project_units`); `None` imports every unit.
+    selection: Option<&'a UnitSelection>,
 }
 
 impl<'a> SymbolImporter<'a> {
@@ -52,7 +55,14 @@ impl<'a> SymbolImporter<'a> {
             type_map: FxHashMap::default(),
             importing: FxHashSet::default(),
             namespace_targets: None,
+            selection: None,
         }
+    }
+
+    /// Imports only the selected units of each table, and every namespace.
+    pub(super) fn with_selection(mut self, selection: &'a UnitSelection) -> Self {
+        self.selection = Some(selection);
+        self
     }
 
     fn take_namespace_targets(&mut self) -> FxHashMap<Vec<SmolStr>, SymbolId> {
@@ -93,6 +103,16 @@ impl<'a> SymbolImporter<'a> {
             current
         };
 
+        let selection = self.selection;
+        let mut unit_cache: FxHashMap<SymbolId, Option<SymbolId>> = FxHashMap::default();
+        let mut selected = |id: SymbolId| -> bool {
+            let Some(selection) = selection else {
+                return true;
+            };
+            unit_of(source, id, &mut unit_cache)
+                .is_none_or(|unit| selection.contains(&(source_file, unit)))
+        };
+
         let mut importable_roots: FxHashSet<SymbolId> = FxHashSet::default();
         for symbol in source_symbols.iter().filter(|sym| sym.parent.is_none()) {
             if symbol.range.is_empty() {
@@ -100,6 +120,9 @@ impl<'a> SymbolImporter<'a> {
             }
             if matches!(symbol.kind, SymbolKind::Namespace) {
                 importable_roots.insert(symbol.id);
+                continue;
+            }
+            if !selected(symbol.id) {
                 continue;
             }
             if let Some(existing_id) = self.target.lookup(symbol.name.as_str()) {
@@ -119,7 +142,7 @@ impl<'a> SymbolImporter<'a> {
         let mut id_map: FxHashMap<SymbolId, SymbolId> = FxHashMap::default();
         for symbol in source_symbols.iter().copied() {
             let root_id = root_for(symbol.id);
-            if !importable_roots.contains(&root_id) {
+            if !importable_roots.contains(&root_id) || !selected(symbol.id) {
                 continue;
             }
 

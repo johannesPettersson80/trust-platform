@@ -64,6 +64,8 @@ mod pointer_param_write_through;
 mod pointer_target_lenient_bindings;
 #[path = "semantic_type_checking/project_diagnostics_stability.rs"]
 mod project_diagnostics_stability;
+#[path = "semantic_type_checking/project_imports.rs"]
+mod project_imports;
 #[path = "semantic_type_checking/reference_contract_acceptance.rs"]
 mod reference_contract_acceptance;
 #[path = "semantic_type_checking/reference_contract_rejection.rs"]
