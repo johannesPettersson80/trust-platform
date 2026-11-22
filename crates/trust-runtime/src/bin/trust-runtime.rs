@@ -169,6 +169,7 @@ fn run() -> anyhow::Result<()> {
     }
     match cli.command {
         None => run::run_default(cli.verbose),
+        Some(Command::Simulate { project }) => run::run_simulator(project),
         Some(Command::Run {
             project,
             config,

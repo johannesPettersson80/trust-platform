@@ -23,7 +23,7 @@
   "docs/diagrams/architecture/runtime-native-execution.puml": "bdeb5bad38b0401d3e65d8a24669184e6c8d9019a8c982e39eb6c914578bb887",
   "docs/diagrams/architecture/simulation-plant-system.puml": "bd32187952f40fb212aa828afa626482fc4255caf41978e68b90e90bbb4e6fcf",
   "docs/diagrams/architecture/st-test-source-selection.puml": "1cc3a7be343a6af0dc54325867e3635ca374f01dd94c085914dfa809d5952179",
-  "docs/diagrams/architecture/system-architecture.puml": "52a8b573b144643151da12df85dc02515a17f4c88816d6a3f7cb3493b24bb1f2",
+  "docs/diagrams/architecture/system-architecture.puml": "f1149453e8749e996e3e7686ad23b1219fae79201bce90d3796626690e37e846",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
   "docs/diagrams/debug/debug-architecture.puml": "db5dc51c1899e7f6183d56218107fee2bbb212967e6ea1a22c682d313a0c059d",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",

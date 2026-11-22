@@ -16,6 +16,7 @@ them before `new` was added; the table below lists `new`.
 | Command | Purpose |
 | --- | --- |
 | `run` / `play` | start a runtime instance |
+| `simulate` | run a project's program and its simulation for a machine test, on a clock its test moves |
 | `ui` | interactive terminal UI |
 | `ctl` | send control requests to a running runtime |
 | `new` | create a project folder with the files a new project starts from |
@@ -215,6 +216,23 @@ project it accepts is a project `run` accepts. That includes the identify load
 check: with `[runtime.identify] output` set, a program that uses the output, an
 `io.toml` that maps the GPIO line, or an output beyond the output image is
 refused with the error `run` prints.
+
+### Simulate
+
+```text
+Usage: trust-runtime simulate --project <PROJECT>
+```
+
+`simulate` runs the project's program and its simulation (`simulation.toml`) for a machine test,
+which a test process starts (specification 48 RU-58). Its time moves only when
+the test asks with `simulator.advance`, which runs a number of cycles or the cycles due within a
+duration, so every run of a test gives the same result.
+
+It answers the control protocol on its standard input and output, one JSON object per line each
+way, as `trust-runtime ctl` sends it, and writes its log to standard error. It opens no endpoint and
+takes no token: the process that started it is its only client. It starts no web server,
+discovery, mesh or I/O driver, keeps retained values in memory, and ends when its input closes
+(specification 11 §6.8.1, "Simulator for machine tests").
 
 ### HMI check
 

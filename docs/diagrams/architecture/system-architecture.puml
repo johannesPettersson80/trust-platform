@@ -229,6 +229,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "RetainManager" as retainMgr
     component "Watchdog" as watchdog
     component "Control Server\n(IPC)" as controlServer
+    component "Simulator\n(trust-runtime simulate: a machine test's\nprocess, stepped clock, control requests\non its standard input and output)" as simulator
     component "Communication Control Handlers\n(control/comm_handlers/*)" as commControlHandlers
     component "Fleet Topology Handlers\n(control/fleet_handlers/*)" as fleetControlHandlers
     component "ADS Control Handlers\n(control/ads_handlers/*)" as adsControlHandlers
@@ -304,6 +305,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     ioRegistry --> mqttDriver : mqtt
     launcher --> retainMgr
     launcher --> runtime
+    launcher --> simulator : simulate\n(no endpoint, web,\ndiscovery or drivers)
     runtimeConfig --> runtime
     runtimeConfig --> tlsMaterials : runtime.tls
     runtimeConfig --> historianSvc : runtime.observability
