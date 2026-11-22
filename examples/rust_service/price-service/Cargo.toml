@@ -8,5 +8,5 @@ description = "The price service of the truST example rust_service: it writes th
 
 [dependencies]
 serde_json = "1"
-trust-service = "=0.44.0"
+trust-service = "=0.44.1"
 ureq = "3.4.2"

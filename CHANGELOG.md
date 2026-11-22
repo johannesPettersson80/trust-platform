@@ -6,6 +6,26 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-11-22
+
+### Fixed
+
+- The status bar names the runtime connected once Connect attaches its session. Two of its refreshes could
+  answer out of order and leave it on "not connected" while Live Values showed the runtime connected
+  (specification 25 §6.9).
+- The language server no longer gives every file of a project a copy of every other file's declarations: a file's
+  analysis holds the declarations it names, with those they need in turn (specification 14 §10.2). On a 767-file
+  workspace its memory halved (about 3.5 GB to 1.8 GB) and its work after a burst of edits took a third less time;
+  a 100-file project with every file open needs 170 MB instead of 231 MB. Completion, the learner's suggestions and
+  rename's conflict check still see every declaration of the project.
+- `trust-lsp` ends when its client sends `exit`, with status 0 after `shutdown` and 1 without it,
+  also while the client keeps the server's input open. It kept running until that input closed,
+  so an editor that leaves the pipe open after `exit` left the server behind (specification 14
+  §7.9).
+- `trust-lsp` no longer writes a line to its log, the language server's output in an editor, for
+  every analysis query it runs: Salsa's query events are logged only when `RUST_LOG` names
+  `salsa` (specification 14 §7.10). Ten edited documents wrote about 5,600 such lines.
+
 ## [0.44.0] - 2026-11-21
 
 ### Added
