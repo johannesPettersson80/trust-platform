@@ -10,6 +10,17 @@ if [[ -f "${dest}/Cargo.toml" ]]; then
   exit 0
 fi
 
+# On a runner the job's token authenticates the clone: GitHub refuses anonymous clones from shared
+# runners at times, with 403, three times in a row on 22 November 2026 (specification 22, "CI
+# reliability"). The token reaches git through its environment configuration, never through a
+# command line or the log.
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  index=${GIT_CONFIG_COUNT:-0}
+  export "GIT_CONFIG_KEY_${index}=http.https://github.com/.extraheader"
+  export "GIT_CONFIG_VALUE_${index}=AUTHORIZATION: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 | tr -d '\n')"
+  export GIT_CONFIG_COUNT=$((index + 1))
+fi
+
 mkdir -p "$(dirname "${dest}")"
 tmp="${dest}.tmp.$$"
 trap 'rm -rf "${tmp}"' EXIT
