@@ -1324,6 +1324,13 @@ file's memory grows with what it uses, not with the size of its project.
 Two files that declare the same name are reported where the name is declared or used; a file that neither declares
 nor uses the name does not report it.
 
+**Projects of the analysis.** The analysis groups the files into projects. A file belongs to one project and is
+analyzed among the files of its own project and of that project's libraries and dependencies, never among another
+project's files: another project's declarations neither resolve, collide, complete nor rename in it, and the
+project-wide parts of the analysis (types, constants, the unit index and the owners of globals) are each project's
+own. A library is judged in its own project, which does not see the projects that use it. The server forms the
+projects (§7.6); until it does, every file belongs to one project.
+
 #### 10.3 Optimization Strategies
 
 1. **Incremental parsing** - Salsa invalidation on changed files (file-level granularity)

@@ -22,6 +22,7 @@ package "Database Layer" as dbLayer #LightGreen {
         +new() → Database
         +set_source_text(file_id, text)
         +set_dialect(dialect)
+        +set_project_layout(layout)
         +dialect() → Dialect
         +file_symbols(file_id) → Arc<SymbolTable>
         +diagnostics(file_id) → Arc<Vec<Diagnostic>>
@@ -36,6 +37,14 @@ package "Database Layer" as dbLayer #LightGreen {
     }
 
     note right of db
+        Projects (project_layout.rs): one
+        ProjectInputs per project of the layout,
+        holding its own files and its libraries';
+        each query below takes the inputs of its
+        file's project, so another project's
+        declarations never resolve or collide.
+        Without a layout every file is in one.
+
         Salsa-backed query path:
         parse_green -> file_type_prelude_query
         -> project_type_catalog_query
