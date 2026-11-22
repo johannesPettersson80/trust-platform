@@ -358,9 +358,7 @@ pub fn project_runtime_cloud_state(
         FleetNode {
             runtime_id: local_runtime_id.to_string(),
             site: local_site.to_string(),
-            // A runtime is shown by its resource name, as its peers show it (specification 11,
-            // "Runtime Cloud sites").
-            display_name: super::sites::runtime_cloud_resource_of(local_runtime_id).to_string(),
+            display_name: local_runtime_id.to_string(),
             role: FleetRole::Active,
             lifecycle_state: LifecycleState::Online,
             health_state: HealthState::Healthy,

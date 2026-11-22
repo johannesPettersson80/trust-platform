@@ -494,7 +494,7 @@ This section shapes runtime-cloud policy inside `runtime.toml`.
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `profile` | string | `dev` | `dev`, `plant`, or `wan` |
-| `site` | string | `default-site` | The runtime's site; outside the default site the runtime's cloud ID is `<site>/<resource>` (see [Runtime Cloud Profiles](runtime-cloud.md#sites-and-runtime-ids)) |
+| `site` | string | `default-site` | The runtime's site; a runtime of another site names it `<site>/<resource>` (see [Runtime Cloud Profiles](runtime-cloud.md#sites-and-runtime-ids)) |
 
 Optional subsections:
 

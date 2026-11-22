@@ -45,8 +45,8 @@ fn the_configured_site_goes_to_the_cloud_and_to_the_announcement() {
     assert_eq!(config.discovery.site.as_deref(), Some("site-b"));
 }
 
-/// Catches `default-site` treated as a site of its own, which would give the runtime the ID
-/// `default-site/runtime_b` and change every default-site runtime's ID.
+/// Catches `default-site` treated as a site of its own, which would set the runtime apart from
+/// every runtime that names no site.
 #[test]
 fn no_site_and_default_site_are_the_default_site() {
     for extra in [
@@ -60,8 +60,8 @@ fn no_site_and_default_site_are_the_default_site() {
     }
 }
 
-/// Catches a site the cloud ID and the keyspace cannot carry: a `/` would make the cloud ID name
-/// another site, and an empty or spaced value no site at all.
+/// Catches a site that the IDs and the keyspace cannot carry: a `/` would make an ID name another
+/// site, and an empty or spaced value no site at all.
 #[test]
 fn a_site_that_is_no_identifier_is_refused_naming_the_setting() {
     for site in ["", "site/b", "site b", "-site", "sité"] {

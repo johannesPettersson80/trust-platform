@@ -41,11 +41,22 @@ pub struct DiscoveryEntry {
 }
 
 impl DiscoveryEntry {
-    /// The runtime's cloud ID: its name, qualified by its site outside the default site
-    /// (specification 11, "Runtime Cloud sites").
+    /// The runtime's site: the one it announced, or the default site (specification 11, "Runtime
+    /// Cloud sites").
     #[must_use]
-    pub fn cloud_id(&self) -> String {
-        crate::runtime_cloud::sites::runtime_cloud_id(self.site.as_deref(), self.name.as_str())
+    pub fn site_or_default(&self) -> &str {
+        crate::runtime_cloud::sites::runtime_cloud_site_or_default(self.site.as_deref())
+    }
+
+    /// The ID by which a runtime of the site `own_site` names this runtime: its name in that site,
+    /// and `<site>/<name>` in another (specification 11, "Runtime Cloud sites").
+    #[must_use]
+    pub fn cloud_id(&self, own_site: &str) -> String {
+        crate::runtime_cloud::sites::runtime_cloud_id(
+            own_site,
+            self.site_or_default(),
+            self.name.as_str(),
+        )
     }
 
     /// What the runtime cloud's presence reads of this announcement (specification 11, "Runtime

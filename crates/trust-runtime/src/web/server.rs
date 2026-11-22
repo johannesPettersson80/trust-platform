@@ -294,7 +294,9 @@ pub fn start_web_server_with_mode(
                     discovery: &discovery,
                     bundle_root: &bundle_root,
                     profile: runtime_cloud_profile,
-                    site: runtime_cloud_site.as_deref(),
+                    site: crate::runtime_cloud::sites::runtime_cloud_site_or_default(
+                        runtime_cloud_site.as_deref(),
+                    ),
                     wan_allow_write: runtime_cloud_wan_allow_write.as_slice(),
                     config_state: &runtime_cloud_config,
                     config_path: runtime_cloud_config_path.as_deref(),

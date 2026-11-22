@@ -19,17 +19,18 @@ Important:
 
 Use consistent identities:
 
-- Runtime IDs: `<site>/<runtime>` (example: `site-b/runtime_b`). Each runtime names its site in
-  `runtime.toml`, and a runtime in the default site keeps its bare resource name:
+- Runtime IDs: each runtime names its site in `runtime.toml`, and names the runtimes of its own
+  site by their resource names and those of another site by `<site>/<runtime>` (example:
+  `site-b/runtime_b`):
 
   ```toml
-  # Overlay only, on the runtime `runtime_b` of site B
+  # Overlay only, on every runtime of site B
   [runtime.cloud]
   site = "site-b"
   ```
 
 - Actor identities: `spiffe://trust/<site>/<principal>`. The actor's site names who acts; whether
-  a target is cross-site is decided by the sites of the runtimes' IDs.
+  a target is cross-site is decided by the runtime's own site and the site of the target's ID.
 
 ## 3) Baseline WAN Configuration
 

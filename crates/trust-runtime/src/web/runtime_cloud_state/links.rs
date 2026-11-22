@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use super::*;
 use crate::runtime_cloud::link_policy;
-use crate::runtime_cloud::projection::RuntimeCloudUiState;
+use crate::runtime_cloud::projection::{RuntimeCloudUiState, RUNTIME_CLOUD_DEFAULT_SITE};
 
 pub(in crate::web) fn runtime_cloud_links_state_path(
     bundle_root: Option<&PathBuf>,
@@ -112,6 +112,14 @@ pub(in crate::web) fn runtime_cloud_apply_link_transport_preferences(
         return;
     };
     let local_runtime_id = ui_state.context.connected_via.clone();
+    // The state's site scope is the runtime's own site, which its IDs are relative to
+    // (specification 11, "Runtime Cloud sites").
+    let own_site = ui_state
+        .context
+        .site_scope
+        .first()
+        .cloned()
+        .unwrap_or_else(|| RUNTIME_CLOUD_DEFAULT_SITE.to_string());
     link_policy::runtime_cloud_apply_link_transport_preferences(
         ui_state,
         &guard,
@@ -120,6 +128,7 @@ pub(in crate::web) fn runtime_cloud_apply_link_transport_preferences(
                 .map(|discovery_state| {
                     runtime_cloud_link_is_same_host_from_local(
                         discovery_state,
+                        own_site.as_str(),
                         local_runtime_id.as_str(),
                         source,
                         target,
@@ -136,17 +145,27 @@ pub(in crate::web) fn runtime_cloud_link_is_same_host(
     source: &str,
     target: &str,
 ) -> bool {
-    runtime_cloud_link_is_same_host_with_local(discovery, None, source, target)
+    runtime_cloud_link_is_same_host_with_local(
+        discovery,
+        RUNTIME_CLOUD_DEFAULT_SITE,
+        None,
+        source,
+        target,
+    )
 }
 
+/// Whether `source` and `target`, named as a runtime of the site `own_site` names runtimes, run on
+/// one host.
 pub(in crate::web) fn runtime_cloud_link_is_same_host_from_local(
     discovery: &DiscoveryState,
+    own_site: &str,
     local_runtime_id: &str,
     source: &str,
     target: &str,
 ) -> bool {
     runtime_cloud_link_is_same_host_with_local(
         discovery,
+        own_site,
         Some(local_runtime_id.trim()),
         source,
         target,
@@ -155,6 +174,7 @@ pub(in crate::web) fn runtime_cloud_link_is_same_host_from_local(
 
 fn runtime_cloud_link_is_same_host_with_local(
     discovery: &DiscoveryState,
+    own_site: &str,
     local_runtime_id: Option<&str>,
     source: &str,
     target: &str,
@@ -167,13 +187,14 @@ fn runtime_cloud_link_is_same_host_with_local(
     if source == target {
         return true;
     }
-    let host_groups_by_runtime = runtime_cloud_discovery_host_groups_by_runtime(discovery);
+    let host_groups_by_runtime =
+        runtime_cloud_discovery_host_groups_by_runtime(discovery, own_site);
     if let Some(match_by_host_group) =
         runtime_cloud_host_group_match(source, target, &host_groups_by_runtime)
     {
         return match_by_host_group;
     }
-    let addresses_by_runtime = runtime_cloud_discovery_addresses_by_runtime(discovery);
+    let addresses_by_runtime = runtime_cloud_discovery_addresses_by_runtime(discovery, own_site);
     let source_addresses = addresses_by_runtime
         .get(source)
         .cloned()
@@ -213,12 +234,20 @@ pub(in crate::web) fn runtime_cloud_compute_host_groups(
         return groups;
     };
 
-    let local_runtime_id = nodes
+    let local = nodes
         .iter()
-        .find(|node| node.role == crate::runtime_cloud::projection::FleetRole::Active)
-        .map(|node| node.runtime_id.as_str());
+        .find(|node| node.role == crate::runtime_cloud::projection::FleetRole::Active);
+    let local_runtime_id = local.map(|node| node.runtime_id.as_str());
+    // The local node carries the runtime's own site, which the node IDs are relative to.
+    let own_site = local.map_or(RUNTIME_CLOUD_DEFAULT_SITE, |node| node.site.as_str());
     link_policy::runtime_cloud_compute_host_groups(nodes, |source, target| {
-        runtime_cloud_link_is_same_host_with_local(discovery, local_runtime_id, source, target)
+        runtime_cloud_link_is_same_host_with_local(
+            discovery,
+            own_site,
+            local_runtime_id,
+            source,
+            target,
+        )
     })
 }
 
@@ -230,11 +259,12 @@ pub(in crate::web) fn runtime_cloud_topology_feature_flags(
 
 fn runtime_cloud_discovery_addresses_by_runtime(
     discovery: &DiscoveryState,
+    own_site: &str,
 ) -> BTreeMap<String, Vec<IpAddr>> {
     let mut by_runtime = BTreeMap::<String, Vec<IpAddr>>::new();
     for entry in discovery.snapshot() {
         by_runtime
-            .entry(entry.cloud_id())
+            .entry(entry.cloud_id(own_site))
             .or_default()
             .extend(entry.addresses.iter().copied());
     }
@@ -247,6 +277,7 @@ fn runtime_cloud_discovery_addresses_by_runtime(
 
 fn runtime_cloud_discovery_host_groups_by_runtime(
     discovery: &DiscoveryState,
+    own_site: &str,
 ) -> BTreeMap<String, BTreeSet<String>> {
     let mut by_runtime = BTreeMap::<String, BTreeSet<String>>::new();
     for entry in discovery.snapshot() {
@@ -258,7 +289,7 @@ fn runtime_cloud_discovery_host_groups_by_runtime(
             continue;
         }
         by_runtime
-            .entry(entry.cloud_id())
+            .entry(entry.cloud_id(own_site))
             .or_default()
             .insert(host_group.to_ascii_lowercase());
     }

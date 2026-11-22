@@ -1,5 +1,5 @@
 //! Runtime Cloud sites (specification 11, "Runtime Cloud sites"): the site a runtime belongs to,
-//! and the cloud ID that names a runtime by its site and its resource name.
+//! and the ID by which a runtime names another, relative to its own site.
 
 use smol_str::SmolStr;
 
@@ -27,37 +27,32 @@ pub fn parse_runtime_cloud_site(value: &str) -> Result<Option<SmolStr>, String> 
     Ok((value != RUNTIME_CLOUD_DEFAULT_SITE).then(|| SmolStr::new(value)))
 }
 
-/// The cloud ID of the resource `resource` of the site `site`: the resource name in the default
-/// site (`None`), and `<site>/<resource>` in any other site.
+/// The site of a runtime whose configured site is `site`: that site, or the default site.
 #[must_use]
-pub fn runtime_cloud_id(site: Option<&str>, resource: &str) -> String {
-    match site {
-        Some(site) if site != RUNTIME_CLOUD_DEFAULT_SITE => format!("{site}/{resource}"),
-        _ => resource.to_string(),
+pub fn runtime_cloud_site_or_default(site: Option<&str>) -> &str {
+    site.unwrap_or(RUNTIME_CLOUD_DEFAULT_SITE)
+}
+
+/// The ID by which a runtime of the site `own_site` names the resource `resource` of the site
+/// `site`: the resource name when both are in one site, and `<site>/<resource>` otherwise.
+#[must_use]
+pub fn runtime_cloud_id(own_site: &str, site: &str, resource: &str) -> String {
+    if site == own_site {
+        resource.to_string()
+    } else {
+        format!("{site}/{resource}")
     }
 }
 
-/// The site that the cloud ID `cloud_id` names: the part before its `/`, or the default site for
-/// a bare ID.
+/// The site that `id`, as a runtime of the site `own_site` names a runtime, names: the part
+/// before its `/`, or `own_site` for a bare ID.
 #[must_use]
-pub fn runtime_cloud_site_of(cloud_id: &str) -> &str {
-    match cloud_id.split_once('/') {
+pub fn runtime_cloud_site_of<'a>(id: &'a str, own_site: &'a str) -> &'a str {
+    match id.split_once('/') {
         Some((site, runtime)) if !site.trim().is_empty() && !runtime.trim().is_empty() => {
             site.trim()
         }
-        _ => RUNTIME_CLOUD_DEFAULT_SITE,
-    }
-}
-
-/// The resource name that the cloud ID `cloud_id` names: the part after its site, or the whole of
-/// a bare ID.
-#[must_use]
-pub fn runtime_cloud_resource_of(cloud_id: &str) -> &str {
-    match cloud_id.split_once('/') {
-        Some((site, runtime)) if !site.trim().is_empty() && !runtime.trim().is_empty() => {
-            runtime.trim()
-        }
-        _ => cloud_id,
+        _ => own_site,
     }
 }
 
@@ -65,8 +60,8 @@ pub fn runtime_cloud_resource_of(cloud_id: &str) -> &str {
 mod tests {
     use super::*;
 
-    /// Catches a site setting that takes a value the keyspace and the cloud ID cannot carry, or
-    /// that gives `default-site` an ID of its own.
+    /// Catches a site setting that takes a value the keyspace and the IDs cannot carry, or that
+    /// gives `default-site` a site of its own.
     #[test]
     fn a_site_is_a_short_identifier_and_default_site_is_the_default() {
         assert_eq!(
@@ -97,32 +92,46 @@ mod tests {
             let error = parse_runtime_cloud_site(refused).expect_err(refused);
             assert!(error.starts_with("runtime.cloud.site must be"), "{error}");
         }
+        assert_eq!(runtime_cloud_site_or_default(None), "default-site");
+        assert_eq!(runtime_cloud_site_or_default(Some("site-b")), "site-b");
     }
 
-    /// Catches a cloud ID that qualifies a runtime of the default site, which would change every
-    /// existing ID, or that loses the site of any other.
+    /// Catches an ID that qualifies a runtime of the naming runtime's own site, which would make
+    /// every reference inside a project change when the project is given a site, or that loses
+    /// the site of a runtime of another site.
     #[test]
-    fn the_cloud_id_qualifies_a_resource_outside_the_default_site() {
-        assert_eq!(runtime_cloud_id(None, "runtime_a"), "runtime_a");
+    fn a_runtime_names_its_own_sites_runtimes_by_resource_and_others_by_site() {
         assert_eq!(
-            runtime_cloud_id(Some("default-site"), "runtime_a"),
+            runtime_cloud_id("default-site", "default-site", "runtime_a"),
             "runtime_a"
         );
         assert_eq!(
-            runtime_cloud_id(Some("site-b"), "runtime_b"),
+            runtime_cloud_id("site-b", "site-b", "runtime_c"),
+            "runtime_c"
+        );
+        assert_eq!(
+            runtime_cloud_id("default-site", "site-b", "runtime_b"),
             "site-b/runtime_b"
+        );
+        assert_eq!(
+            runtime_cloud_id("site-b", "default-site", "runtime_a"),
+            "default-site/runtime_a"
         );
     }
 
-    /// Catches a bare ID read as a runtime of some other site than the default site, and a
-    /// resource name that keeps its site.
+    /// Catches a bare ID read in another site than the naming runtime's own.
     #[test]
-    fn a_cloud_id_names_its_site_and_a_bare_id_the_default_site() {
-        assert_eq!(runtime_cloud_site_of("site-b/runtime_b"), "site-b");
-        assert_eq!(runtime_cloud_site_of("runtime_a"), "default-site");
-        assert_eq!(runtime_cloud_site_of("/runtime_a"), "default-site");
-        assert_eq!(runtime_cloud_site_of("site-b/"), "default-site");
-        assert_eq!(runtime_cloud_resource_of("site-b/runtime_b"), "runtime_b");
-        assert_eq!(runtime_cloud_resource_of("runtime_a"), "runtime_a");
+    fn an_id_names_its_site_and_a_bare_id_the_own_site() {
+        assert_eq!(
+            runtime_cloud_site_of("site-b/runtime_b", "site-a"),
+            "site-b"
+        );
+        assert_eq!(runtime_cloud_site_of("runtime_c", "site-a"), "site-a");
+        assert_eq!(
+            runtime_cloud_site_of("runtime_a", "default-site"),
+            "default-site"
+        );
+        assert_eq!(runtime_cloud_site_of("/runtime_a", "site-a"), "site-a");
+        assert_eq!(runtime_cloud_site_of("site-b/", "site-a"), "site-a");
     }
 }

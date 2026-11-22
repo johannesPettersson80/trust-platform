@@ -19,11 +19,13 @@ profile = "dev"
 
 ## Sites and Runtime IDs
 
-Every runtime belongs to one site. A runtime in the default site is named by its resource name,
-for example `runtime_a`; a runtime in any other site by `<site>/<resource>`, for example
-`site-b/runtime_b`. This cloud ID names the runtime in action requests (`connected_via`,
-`target_runtimes`), in the Runtime Cloud state and in the WAN allowlist's targets. Discovery
-announces the site, so the runtimes that discover a runtime know its cloud ID.
+Every runtime belongs to one site. A runtime names the runtimes of its own site, itself among them,
+by their resource names, for example `runtime_c`, and a runtime of another site by
+`<site>/<resource>`, for example `site-b/runtime_b`; a runtime of the default site is
+`default-site/<resource>` to a runtime of another site. These IDs appear in action requests
+(`connected_via`, `target_runtimes`), in the Runtime Cloud state and in the WAN allowlist's targets.
+Discovery announces each runtime's site, so every runtime knows the site of the runtimes it
+discovers.
 
 ```toml
 [runtime.cloud]
@@ -31,8 +33,9 @@ profile = "wan"
 site = "site-b"
 ```
 
-A target is cross-site when its site differs from the site of the runtime the request is
-connected through. The site is read when the runtime starts; `config.get` reports it as
+Because the names are relative to the runtime's own site, a project whose runtimes are given a site
+keeps the names it already uses for its own runtimes. A target is cross-site when its site differs
+from the runtime's own site. The site is read when the runtime starts; `config.get` reports it as
 `runtime_cloud.site`, and changing it takes an edit of `runtime.toml` and a restart.
 
 Accepted profiles:

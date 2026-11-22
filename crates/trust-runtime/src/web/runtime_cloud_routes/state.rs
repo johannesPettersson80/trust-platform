@@ -37,14 +37,14 @@ pub(super) fn handle_get_state(request: tiny_http::Request, ctx: &RuntimeCloudRo
     }
     let now_ns = now_ns();
     let local_runtime_text = local_runtime_id(ctx);
-    let site = ctx.site.unwrap_or(RUNTIME_CLOUD_DEFAULT_SITE);
+    let site = ctx.site;
     let mut peers_by_runtime = BTreeMap::<String, RuntimePresenceRecord>::new();
     for entry in ctx.discovery.snapshot() {
-        // The state keys a peer by its cloud ID, in the site it announced (specification 11,
-        // "Runtime Cloud sites"); the search keys it by its runtime ID.
+        // The state keys a peer by the ID this runtime names it by, in the site it announced
+        // (specification 11, "Runtime Cloud sites"); the search keys it by its runtime ID.
         let observation = presence_observation_from_discovery(
-            entry.site.as_deref().unwrap_or(RUNTIME_CLOUD_DEFAULT_SITE),
-            entry.cloud_id().as_str(),
+            entry.site_or_default(),
+            entry.cloud_id(site).as_str(),
             entry.name.as_str(),
             entry.presence_sighting(),
             now_ns,

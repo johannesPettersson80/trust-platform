@@ -7798,17 +7798,22 @@ and `_`, beginning with a letter or a digit. Without the setting, the runtime is
 `default-site`, and setting `default-site` is the same as leaving it out. Any other value is
 refused when the configuration is loaded, naming `runtime.cloud.site`.
 
-A runtime's cloud ID is its resource name in the default site, and `<site>/<resource>` in any other
-site: `site-b/runtime_b` is the resource `runtime_b` of the site `site-b`. A bare ID names a runtime
-of the default site. Every Runtime Cloud surface names a runtime by its cloud ID:
+A runtime names the runtimes of its own site, itself among them, by their resource names, and a
+runtime of another site by `<site>/<resource>`: for a runtime of `site-a`, `runtime_c` is the
+resource `runtime_c` of `site-a`, and `site-b/runtime_b` the resource `runtime_b` of `site-b`; a
+runtime of the default site is `default-site/<resource>` to a runtime of another site. So the names
+inside a project stay the same when the project's runtimes are given a site, as the names in one
+Kubernetes namespace do. Every Runtime Cloud surface of a runtime names runtimes this way:
 
-- an action request's `connected_via` and `target_runtimes`, and each target's result;
+- an action request's `connected_via`, which is the runtime's own resource name, and its
+  `target_runtimes`, with each target's result;
 - the state's `connected_via`, `acting_on`, topology nodes and links;
 - the presence records.
 
-The state's `site_scope` names the runtime's own site. Discovery announces the site in the TXT
-property `site`, which is absent in the default site, so that every runtime that discovers a peer
-knows its cloud ID, and a target named by its cloud ID is reached at the peer that announced it.
+The state's `site_scope` names the runtime's own site, and each topology node carries the site of
+its runtime. Discovery announces a runtime's site in the TXT property `site`, which is absent in the
+default site, so that every runtime that discovers a peer names it as above, and a target is reached
+at the peer that announced the site and the resource name its ID gives.
 
 The site is read when the runtime starts. `config.get` reports it as `runtime_cloud.site`, with
 `default-site` when none is set, and `config.set` refuses it as a startup-only key:
@@ -7869,9 +7874,9 @@ denied with stable per-target reasons. A dispatch whose `dry_run` flag is true
 returns the preflight result without performing the mapped control operation.
 
 Profile policy is applied after the common contract, role, freshness, and
-reachability checks. A target is cross-site when the site its cloud ID names
-differs from the site of `connected_via` ("Runtime Cloud sites"); the actor's
-identity does not choose a site. By profile:
+reachability checks. A target is cross-site when the site its ID names differs
+from the runtime's own site ("Runtime Cloud sites"); the actor's identity does
+not choose a site. By profile:
 
 - `dev` does not use `runtime.cloud.wan.allow_write`; cross-site writes remain
   governed by the ordinary role and target checks.

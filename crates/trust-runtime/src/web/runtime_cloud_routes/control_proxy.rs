@@ -93,6 +93,7 @@ pub(super) fn handle_post_control_proxy(
         local_runtime.as_str(),
         ctx.discovery.as_ref(),
         RuntimeCloudPreflightPolicy {
+            site: ctx.site,
             role: web_role,
             local_supports_secure_transport: ctx.web_tls_enabled,
             profile: ctx.profile,
@@ -173,6 +174,7 @@ pub(super) fn handle_post_control_proxy(
     } else if let Some(url) = runtime_cloud_target_control_url(
         ctx.discovery.as_ref(),
         target_runtime.as_str(),
+        ctx.site,
         ctx.profile.requires_secure_transport(),
     ) {
         let agent_config = ureq::Agent::config_builder()
