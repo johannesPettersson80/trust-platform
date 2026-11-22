@@ -605,6 +605,7 @@ fn fleet_io_contract_timestamp_without_snapshot_has_no_live_evidence() {
 #[test]
 fn fleet_io_contract_snapshot_live_reports_counts_timestamp_and_sample() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: Some(7),
         forced: Vec::new(),
         inputs: vec![snapshot_entry(
@@ -659,6 +660,7 @@ fn fleet_io_contract_snapshot_live_reports_counts_timestamp_and_sample() {
 #[test]
 fn fleet_io_contract_snapshot_sample_is_capped_at_eight_in_direction_order() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: None,
         forced: Vec::new(),
         inputs: (0..5)
@@ -698,6 +700,7 @@ fn fleet_io_contract_snapshot_sample_is_capped_at_eight_in_direction_order() {
 #[test]
 fn fleet_io_contract_names_each_address_as_the_parser_reads_it() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: None,
         forced: Vec::new(),
         inputs: vec![snapshot_entry(

@@ -119,6 +119,23 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        trust_runtime::debug::RuntimeEvent::SafeStateApplied { outputs, time } => {
+            logger.log(
+                LogLevel::Warn,
+                "runtime_safe_state_applied",
+                json!({
+                    "event_id": "TRUST-RT-SAFE-STATE-002",
+                    "outputs": outputs
+                        .iter()
+                        .map(|(address, value)| json!({
+                            "address": address.to_string(),
+                            "value": value.as_str(),
+                        }))
+                        .collect::<Vec<_>>(),
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         trust_runtime::debug::RuntimeEvent::SafeStateFailed { root, error, time } => {
             logger.log(
                 LogLevel::Error,

@@ -111,8 +111,11 @@ timeout_ms = 2000
 action = "safe_halt"
 
 [runtime.fault]
-policy = "halt"
+policy = "safe_halt"
 ```
+
+`safe_halt` drives the outputs of `[[io.safe_state]]` before it halts the resource; `halt` halts it
+and leaves the outputs as the last scan drove them.
 
 Expected result:
 - runtime halts on fault
@@ -145,11 +148,15 @@ Why: this is the core commissioning evidence.
 
 - set `%IX0.1 = TRUE` (`FaultTrigger`)
 - observe runtime transitions to fault/halt
-- verify `%QX0.0` is forced to `FALSE`
+- verify `%QX0.0` reads `FALSE` in Live Values, or with `trust-runtime ctl --project . io-read`,
+  whose snapshot is marked `"safe_state": true` and keeps the number of the last scan that
+  completed
+- verify the event log names the safe state: `trust-runtime ctl --project . events` lists
+  `safe_state_applied` with `%QX0.0` and `Bool(false)`
 
 Expected result:
 - runtime stops executing logic
-- safe-state output is applied immediately
+- safe-state output is applied immediately, and the reads and the event log show it
 
 ## Step 7: Recover with cold restart
 

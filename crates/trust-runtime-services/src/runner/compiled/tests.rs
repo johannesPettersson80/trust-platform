@@ -720,8 +720,19 @@ fn the_safe_outputs_are_driven_from_the_output_image() {
             .expect("the scan runs");
     }
     assert_eq!(driven.borrow().outputs.last(), Some(&vec![0b10]));
-    cycle.apply_safe_outputs().expect("the safe outputs drive");
+    let applied = cycle.apply_safe_outputs().expect("the safe outputs drive");
     assert_eq!(driven.borrow().safe, [vec![0]]);
+    // Specification 11, "Safe state in the reads" (checklist G228): the safe state names what it
+    // drove, and its image is the committed output image that the reads between scans answer from,
+    // not the scan's 0b10 any more.
+    assert_eq!(
+        applied,
+        [(
+            IoAddress::parse("%QX0.1").expect("the address parses"),
+            Value::Bool(false)
+        )]
+    );
+    assert_eq!(cycle.images().outputs, vec![0]);
 }
 
 #[test]

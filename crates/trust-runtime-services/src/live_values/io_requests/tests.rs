@@ -182,6 +182,7 @@ fn a_snapshot_projection_failure_answers_its_error() {
 #[test]
 fn io_list_answers_the_published_snapshot_json() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: Some(7),
         forced: Vec::new(),
         inputs: Vec::new(),
@@ -214,6 +215,7 @@ fn io_list_answers_the_published_snapshot_json() {
 #[test]
 fn io_read_wraps_the_published_snapshot() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: Some(8),
         forced: vec![address("%QW0")],
         inputs: Vec::new(),
