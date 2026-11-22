@@ -178,11 +178,19 @@ pub fn start_mesh_with_tls(
     }))
 }
 
-fn build_zenoh_config(config: &MeshConfig) -> Result<ZenohConfig, String> {
+pub(super) fn build_zenoh_config(config: &MeshConfig) -> Result<ZenohConfig, String> {
     let mut zenoh_config = ZenohConfig::default();
     zenoh_config
         .insert_json5("mode", &format!("\"{}\"", mesh_role_text(config.role)))
         .map_err(|error| format!("mode set failed: {error}"))?;
+    // Specification 11, "A mesh links only to the peers it names": Zenoh's scouting is on by
+    // default, and would link the mesh to every mesh that answers its multicast on the network and
+    // to every peer that a linked peer knows.
+    for scouting in ["scouting/multicast/enabled", "scouting/gossip/enabled"] {
+        zenoh_config
+            .insert_json5(scouting, "false")
+            .map_err(|error| format!("{scouting} set failed: {error}"))?;
+    }
 
     if !config.connect.is_empty() {
         let endpoints = config
