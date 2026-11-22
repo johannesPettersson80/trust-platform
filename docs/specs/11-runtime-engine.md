@@ -3666,6 +3666,40 @@ variable, or that names one of several programs, refuses the step before its sca
 step that loads a program finds its names in the loaded program); a value that its variable or
 address does not take ends the step before the scan, and the values written before it stay written.
 
+###### Simulator for machine tests (`trust-runtime simulate`)
+
+`trust-runtime simulate --project <path>` runs a project's program with its simulation for a test
+that drives it, on a clock that only the test moves: the simulator of a machine test (specification
+48 RU-58).
+
+- It loads the project's build and its `simulation.toml` (specification 46) as `trust-runtime run
+  --simulation` loads them, whatever the file's `enabled` says, and runs the resource on the
+  runtime's own scan loop: the scans, the plants' work before and after each scan (specification 46
+  §2), the forces and queued writes, faults, the safe state and restarts, as a run has them. A
+  project without `simulation.toml` runs its program alone.
+- Its clock is manual. The logical time starts at 0 and moves only by `simulator.advance` (below);
+  no wall clock paces the scans, and the scheduler waits between them for the next request. The
+  program starts cold before its first cycle, at the logical time 0. The wall clock that the program
+  reads (`CURRENT_DT`) is the logical time from 1 January 1970 UTC.
+- Its control link is its standard input and output: one request per line in and one response per
+  line out (the runtime protocol annex, E0.1), and nothing else on its standard output; its log goes
+  to its standard error. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
+  the process that started it holds its standard input and has the Admin role, which includes every
+  other. It ends when its
+  standard input closes or on `shutdown`.
+- It starts nothing that a test does not drive: no web server or HMI, no discovery, mesh or Runtime
+  Cloud link, no I/O driver (the simulation is the process image's only source), no historian or
+  metrics export. Its retained values stay in its memory: a warm restart keeps them, and it writes
+  nothing into the project.
+- `simulator.advance` (Engineer) runs the scans that are due from the current logical time. With
+  `cycles` (a count) it runs that many cycles, each at the next logical time at which a task of the
+  resource is due (specification 10 §4.3); with `duration_ns` it runs the cycles due within that
+  duration and moves the logical time to its end. It answers when they have run, with
+  `{"time_ns": t, "cycles": n, "state": "..."}`: the logical time, the cycles run and the resource's
+  state. A cycle that faults ends it early, and the answer adds the fault as `faults` lists it. A
+  runtime on the wall clock, every runtime but a simulator, refuses it as `clock_not_manual`, so
+  that every runtime answers it alike (specification 34 STATE-08).
+
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is read into one request and dispatched
@@ -7066,7 +7100,7 @@ The explicit operation matrix is:
 |---|---|
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `service.heartbeat` (section 6.8.1, "Service heartbeats"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
-| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, `simulator.advance`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:

@@ -1038,10 +1038,9 @@ run with `trust-dev test`, which builds the project with its crate through the b
 tests in the simulator (specification 22). A Rust test of the project's crate that needs the whole
 program uses `trust-sim` (RU-58).
 
-**RU-58. Machine tests in `cargo test`.** `trust-sim` builds the project through the installed
-trust-runtime and its bundle and runs it in the simulator's kernel inside the test, under a Rust
-API: set inputs, run cycles or logical time, read outputs and any variable by path, force, see
-faults:
+**RU-58. Machine tests in `cargo test`.** `trust-sim` runs a project's program with its simulated
+plant under a Rust test: the test writes and forces values, runs cycles or logical time, reads
+outputs and any variable by its path, and sees faults:
 
 ```rust
 #[test]
@@ -1054,8 +1053,47 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
 }
 ```
 
-`trust-sim` needs trust-runtime (the VS Code extension's or one installed on its own) and finds it as
-the extension does; a user's own `cargo` runs the test, truST's bundle builds the program.
+- **The runtime that runs it.** The installed trust-runtime runs the program, in a simulator process
+  of the test's own (`trust-runtime simulate`, specification 11 §6.8.1, "Simulator for machine
+  tests"): the project's build and its simulation (`simulation.toml`, specification 46) on the
+  runtime's own scan loop, as `trust-runtime run --simulation` runs them, with the plants' work
+  before and after each scan (specification 46 §2) and the writes, forces, faults and restarts of a
+  run. Its logical time moves only when the test asks, so a test gives the same result on every run
+  and every computer, and an hour of plant time takes only the time its scans take. `trust-sim`
+  holds no runtime code: it is a client of the simulator over the process's standard input and
+  output (`trust-runtime-client`), and needs no port, socket or token. Each simulator is a process
+  of its own, which ends when the test drops it, so the tests of one `cargo test`, which run in
+  parallel, never share one (§21, decision 15).
+- **Finding the runtime.** `Project::open` takes the runtime that the environment variable
+  `TRUST_RUNTIME` names, else `trust-runtime` on the `PATH`, else the runtime of the newest truST
+  extension in the extension folders of VS Code and its editions. It refuses a runtime whose version
+  is not `trust-sim`'s own, naming both versions and the runtime's path, since the SDK's crates and
+  the runtime are released together (RU-12); a runtime it cannot find is an error that names the
+  places it looked.
+- **The build.** `Project::open` builds the project with `trust-runtime build`, the build the
+  extension runs (the generated Structured Text and the project's crate through the bundle), once
+  in a test process however many of its tests open the project. A build that fails is the test's
+  error, with the build's messages.
+- **Time and cycles.** The simulator starts the program cold at the logical time 0. A cycle is one
+  scan of the scheduler at the next logical time at which a task of the resource is due
+  (specification 10 §4.3), the due tasks in priority order. `run_cycles(n)` runs `n` cycles;
+  `run_for(t)` runs the cycles due within `t` of the current logical time and ends at its end;
+  `now()` is the logical time. The wall clock that `CURRENT_DT` reads is the logical time from
+  1 January 1970 UTC, so that it too is the same on every run.
+- **Values.** A path names a variable as the debugger and Live Values name it (`P1.level`, a global
+  by its name), and a value is a Rust value of the variable's type: `bool`, the integers, `f32` and
+  `f64`, text, and `trust_plc`'s times and dates. `write` writes before the next cycle, as the
+  control link's write does (specification 11 §6.8.1, "Writing variables"); `force` holds a value
+  until `release`, as Live Values' force does; `read` reads after the last cycle. A path that names
+  no variable, or a value its variable's type does not take, is an error that names the path, the
+  value and the type.
+- **Faults.** A cycle that faults ends `run_cycles` or `run_for` with an error that names the fault
+  and, when the image has them, its POU and statement. The simulator then holds the program faulted
+  with its safe state applied, as the runtime does: a test that expects the fault matches the
+  error, reads the values, and restarts the program warm or cold.
+- **Documentation and examples.** The crate's API reference shows each of these in a whole example
+  that runs as a doc test, and the user guide teaches, step by step, a machine test of a realistic
+  example project, whose machine tests CI runs.
 
 **RU-59. Cycle traces.** The runtime records a cycle trace on demand (`trust-runtime ctl record
 --task <task> --cycles <n>` or `--duration`) and, when `runtime.toml` `[trace] flight_recorder`
@@ -1069,8 +1107,8 @@ gives.
 the trace's first cycle with its inputs, writes and logical times, and compares the outputs cycle by
 cycle; a difference is reported with the cycle, the variable, the trace's value and the build's.
 Specification 44 NX-04 makes a replay of an unchanged image bit-identical on every device;
-`trust_sim::Replay` does the same in `cargo test`, so a trace from commissioning becomes a test of
-the next change.
+`trust_sim::Replay` does the same in `cargo test`, in a simulator as RU-58 runs one, so a trace from
+commissioning becomes a test of the next change.
 
 ## 13. Rust services (tier 3)
 
@@ -1644,7 +1682,11 @@ catch (specification 22, `trust-test-authoring`), among them:
 (owner, 30 October 2026): `examples/rust_function_block` (a Structured Text project with one Rust
 function block), `examples/rust_first_cell` (a Rust-first project with a sequence and machine tests)
 and `examples/rust_service` (a service with its heartbeat gate). Their pictures come from captures
-(specification 22, "Docs Captures").
+(specification 22, "Docs Captures"). `examples/room_heating` gains machine tests of its two loops
+against its plant and a cycle trace recorded from a run of it, replayed as a regression test (the
+owner, 22 November 2026: "machine tests for room_heating plus a trace recorded from it and
+replayed"). A user runs them as the example's README says, and CI runs them too, so that they
+cannot go stale.
 
 ### 20.3 Milestones
 
@@ -1706,6 +1748,16 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
     printing the commands; it needs root or an administrator and otherwise names the command that
     has them; it builds nothing and takes the release binary; and the service runs as the project
     folder's owner, or a virtual account on Windows, never as root or LocalSystem.
+
+15. **Machine tests run the installed runtime in a simulator process of their own** (RU-58), not
+    in the test's own process as the draft had it. A program runs on trust-runtime's scan loop with
+    its simulated plants (specification 46), which `trust-runtime` holds and which cannot be
+    published to crates.io with its dependencies; a `trust-sim` that ran the program in the test's
+    process would run it without its plant, or would need the runtime published. A process of the
+    test's own runs the very runtime that runs the project in VS Code, needs nothing of `trust-sim`
+    but the control client, and costs the start of a process for each simulator. The owner
+    delegated the choice on 22 November 2026 ("do whats most professional and best for us and the
+    users").
 
 ## Appendix A — Fault and event
 
