@@ -71,7 +71,7 @@ You can express preferred transports between runtimes:
 ```toml
 [runtime.cloud.links]
 transports = [
-  { source = "runtime-a", target = "runtime-b", transport = "zenoh" }
+  { source = "runtime_a", target = "runtime_b", transport = "zenoh" }
 ]
 ```
 
@@ -102,6 +102,8 @@ The repository includes ready-to-read examples:
 
 - `examples/runtime_cloud/runtime-a-dev.toml`
 - `examples/runtime_cloud/runtime-b-dev.toml`
+- `examples/runtime_cloud/runtime-a-wan.toml`
+- `examples/runtime_cloud/runtime-b-wan.toml`
 - `examples/runtime_cloud/runtime-plant.toml`
 - `examples/runtime_cloud/runtime-wan.toml`
 

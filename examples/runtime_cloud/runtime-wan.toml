@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "runtime-wan"
+name = "runtime_wan"
 cycle_interval_ms = 100
 
 [runtime.control]
@@ -16,14 +16,15 @@ auth = "token"
 tls = true
 
 [runtime.tls]
-mode = "self-managed"
+mode = "provisioned"
 cert_path = "./certs/runtime.crt"
 key_path = "./certs/runtime.key"
+ca_path = "./certs/ca.crt"
 require_remote = true
 
 [runtime.discovery]
 enabled = true
-service_name = "site-a/runtime-wan"
+service_name = "runtime_wan"
 advertise = true
 interfaces = ["eth0"]
 
@@ -41,11 +42,12 @@ subscribe = {}
 
 [runtime.cloud]
 profile = "wan"
+site = "site-a"
 
 [runtime.cloud.wan]
 allow_write = [
   { action = "cfg_apply", target = "site-b/*" },
-  { action = "cmd_invoke", target = "site-b/runtime-boiler-1" }
+  { action = "cmd_invoke", target = "site-b/boiler_1" }
 ]
 
 [runtime.log]

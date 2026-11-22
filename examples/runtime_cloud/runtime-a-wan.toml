@@ -1,0 +1,67 @@
+[bundle]
+version = 1
+
+[resource]
+name = "runtime_a"
+cycle_interval_ms = 100
+
+[runtime.control]
+mode = "production"
+debug_enabled = false
+# One token for every runtime of the federation: a dispatch passes the caller's token to its
+# target. Replace the placeholder, as RUNTIME_CLOUD_FEDERATION_GUIDE.md step 3 does.
+auth_token = "REPLACE_WITH_THE_SHARED_TOKEN"
+
+[runtime.web]
+enabled = true
+listen = "127.0.0.1:18081"
+auth = "token"
+tls = true
+
+# The certificate the site CA issued for this runtime, and the site CA, which this runtime trusts
+# for its calls to other runtimes (RUNTIME_CLOUD_FEDERATION_GUIDE.md step 2).
+[runtime.tls]
+mode = "provisioned"
+cert_path = "certs/runtime.crt"
+key_path = "certs/runtime.key"
+ca_path = "certs/ca.crt"
+require_remote = false
+
+[runtime.discovery]
+enabled = true
+service_name = "runtime_a"
+advertise = true
+interfaces = ["lo"]
+
+[runtime.mesh]
+enabled = true
+role = "peer"
+listen = "127.0.0.1:5201"
+connect = ["127.0.0.1:5202"]
+tls = true
+zenohd_version = "1.7.2"
+plugin_versions = {}
+publish = []
+subscribe = {}
+
+[runtime.cloud]
+profile = "wan"
+site = "site-a"
+
+[runtime.cloud.wan]
+allow_write = []
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

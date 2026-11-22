@@ -9,6 +9,7 @@ This example pack supports the runtime cloud guides in `docs/guides/`.
 Runtime profile configs:
 - `examples/runtime_cloud/runtime-a-dev.toml`
 - `examples/runtime_cloud/runtime-b-dev.toml`
+- `examples/runtime_cloud/runtime-a-wan.toml` and `runtime-b-wan.toml` (the federation guide's two sites)
 - `examples/runtime_cloud/runtime-plant.toml`
 - `examples/runtime_cloud/runtime-wan.toml`
 - `examples/runtime_cloud/multi_host_topology_demo/` (5-runtime topology demo pack)
@@ -19,6 +20,7 @@ Dispatch/preflight payloads:
 - `examples/runtime_cloud/dispatch-ha-cmd-seq.json`
 - `examples/runtime_cloud/preflight-cross-site-deny.json`
 - `examples/runtime_cloud/preflight-cross-site-allow.json`
+- `examples/runtime_cloud/dispatch-cross-site-cfg-apply.json`
 - `examples/runtime_cloud/rollout-create.json`
 
 ## Typical Usage
@@ -27,7 +29,6 @@ Use these files with:
 - `docs/guides/RUNTIME_CLOUD_QUICKSTART.md`
 - `docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md`
 - `docs/guides/RUNTIME_CLOUD_FEDERATION_GUIDE.md`
-- `docs/guides/RUNTIME_CLOUD_UI_WALKTHROUGH.md`
 - `docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md`
 
 For a richer local topology visual demo (5 runtimes + explicit mesh links +

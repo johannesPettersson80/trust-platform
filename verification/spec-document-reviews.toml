@@ -6460,23 +6460,6 @@ last_reviewed = "2026-07-19"
 
 [[document_reviews]]
 schema_version = 1
-document_id = "SPEC_DOC_F4F75DAD7FE45CD90C90CE52"
-path = "docs/guides/RUNTIME_CLOUD_UI_WALKTHROUGH.md"
-content_sha256 = "48e702c12be1fb025f99a2888a22e0e9fe364529fc1b4419cd4403a123016acc"
-areas = ["protocols"]
-authority_levels = ["implementation_guide"]
-owners = ["trust-runtime"]
-freshness = "current"
-visibility = "public"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "not_oracle_authority"
-checklist_staleness = "not_applicable"
-removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
-
-[[document_reviews]]
-schema_version = 1
 document_id = "SPEC_DOC_F5818B6B7A34F2F808DE5847"
 path = "docs/public/concepts/deterministic-harness.md"
 content_sha256 = "39d6087c9aa34d9c10e0289f64edb706d86298217bd2757cd4d8baec7ec0fab4"

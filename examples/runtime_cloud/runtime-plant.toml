@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "runtime-plant"
+name = "runtime_plant"
 cycle_interval_ms = 100
 
 [runtime.control]
@@ -16,14 +16,15 @@ auth = "token"
 tls = true
 
 [runtime.tls]
-mode = "self-managed"
+mode = "provisioned"
 cert_path = "./certs/runtime.crt"
 key_path = "./certs/runtime.key"
+ca_path = "./certs/ca.crt"
 require_remote = true
 
 [runtime.discovery]
 enabled = true
-service_name = "site-a/runtime-plant"
+service_name = "runtime_plant"
 advertise = true
 interfaces = ["eth0"]
 
@@ -41,6 +42,7 @@ subscribe = {}
 
 [runtime.cloud]
 profile = "plant"
+site = "site-a"
 
 [runtime.cloud.wan]
 allow_write = []

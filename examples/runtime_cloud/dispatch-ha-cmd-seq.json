@@ -1,9 +1,9 @@
 {
   "api_version": "1.0",
   "request_id": "req-ha-cmd-17",
-  "connected_via": "site-a/runtime-a",
-  "target_runtimes": ["site-a/runtime-a"],
-  "actor": "spiffe://trust/site-a/operator-1",
+  "connected_via": "runtime_a",
+  "target_runtimes": ["runtime_a"],
+  "actor": "spiffe://trust/default-site/operator-1",
   "action_type": "cmd_invoke",
   "dry_run": false,
   "payload": {
@@ -17,11 +17,11 @@
       "active_namespace": true,
       "command_seq": 17,
       "targets": {
-        "site-a/runtime-a": {
+        "runtime_a": {
           "role": "active",
           "lease_consistent_authority": true,
           "lease_available": true,
-          "lease_owner_runtime_id": "site-a/runtime-a",
+          "lease_owner_runtime_id": "runtime_a",
           "fence_valid": true
         }
       }
