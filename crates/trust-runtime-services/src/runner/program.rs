@@ -8,11 +8,13 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::cycle::CycleHooks;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::retain::RetainApplyEvent;
-use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
@@ -154,10 +156,17 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
-    fn apply_safe_outputs(&mut self) -> Result<(), RuntimeError> {
+    fn apply_safe_outputs(&mut self) -> Result<Vec<(IoAddress, Value)>, RuntimeError> {
         match self {
             Self::Installed(cycle) => cycle.apply_safe_outputs(),
-            Self::Missing(_) => Ok(()),
+            Self::Missing(_) => Ok(Vec::new()),
+        }
+    }
+
+    fn scan_images(&self) -> Option<&FlatImages> {
+        match self {
+            Self::Installed(cycle) => cycle.scan_images(),
+            Self::Missing(_) => None,
         }
     }
 

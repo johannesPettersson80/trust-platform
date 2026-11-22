@@ -37,6 +37,11 @@ fn io_list(id: u64) -> Value {
     json!({"id": id, "type": "io.list"})
 }
 
+/// `io.read`.
+fn io_read(id: u64) -> Value {
+    json!({"id": id, "type": "io.read"})
+}
+
 /// `restart` in `mode`.
 fn restart(id: u64, mode: &str) -> Value {
     json!({"id": id, "type": "restart", "params": {"mode": mode}})
@@ -347,4 +352,78 @@ fn a_loop_takes_the_generation_of_a_program_the_composition_restarted_warm() {
     let fixture = Fixture::board_probe();
     let runner = fixture.power_on_restarted_warm();
     assert_eq!(generations(&runner), (Generation(1), Generation(1)));
+}
+
+/// Spec 11, "Safe state in the reads" (checklist G228): after a fault's safe state, `io.read`
+/// answers with the outputs as the safe state drove them, marked `safe_state`, with the number of
+/// the last scan that completed, and the event `safe_state_applied` records each output with its
+/// value.
+///
+/// A forced `%IX0.0` makes the probe's `led := button` TRUE in the scan at 10 ms, the scan at 20 ms
+/// faults under `safe_halt`, the fault policy that applies the safe state, and `[[io.safe_state]]`
+/// drives `%QX0.0` FALSE. Catches the G228 finding, a
+/// snapshot that still shows the faulted program's last outputs (`ctl io-read` answered TRUE), a
+/// safe state without its mark, and one that no event records.
+#[test]
+fn a_faults_safe_state_is_what_io_read_shows_and_an_event_records() {
+    let fixture = Fixture::board_probe();
+    fixture.script.borrow_mut().fault_policy = FaultPolicy::SafeHalt;
+    fixture.script.borrow_mut().safe_outputs = alloc::vec![(
+        trust_runtime_core::io_address::IoAddress::parse("%QX0.0").expect("the address parses"),
+        trust_runtime_core::value::Value::Bool(false),
+    )];
+    let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
+    let reply = fixture.call_at(&mut runner, 0, &io_force(1, "%IX0.0", "TRUE"));
+    assert_eq!(reply["result"], json!({"status": "forced"}));
+    fixture.pass_at(&mut runner, 10);
+    let before = fixture.call(&mut runner, &io_read(2));
+    let before = &before["result"]["snapshot"];
+    assert_eq!(
+        before["outputs"][0]["value"],
+        json!("Bool(true)"),
+        "{before}"
+    );
+    assert_eq!(
+        before.get("safe_state"),
+        None,
+        "a scan's snapshot has no mark: {before}"
+    );
+
+    fixture
+        .script
+        .borrow_mut()
+        .failing_scans
+        .push_back(RuntimeError::DivisionByZero);
+    fixture.pass_at(&mut runner, 20);
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
+    let after = fixture.call(&mut runner, &io_read(3));
+    let after = &after["result"]["snapshot"];
+    assert_eq!(
+        after["outputs"][0]["value"],
+        json!("Bool(false)"),
+        "the outputs as the safe state drove them: {after}"
+    );
+    assert_eq!(after["safe_state"], json!(true), "{after}");
+    assert_eq!(
+        after["scan"], before["scan"],
+        "the number of the last scan that completed"
+    );
+
+    let events = fixture.call(
+        &mut runner,
+        &json!({"id": 4, "type": "events.tail", "params": {"limit": 10}}),
+    );
+    let applied: Vec<&Value> = events["result"]["events"]
+        .as_array()
+        .expect("the events")
+        .iter()
+        .filter(|event| event["type"] == "safe_state_applied")
+        .collect();
+    assert_eq!(applied.len(), 1, "{events}");
+    assert_eq!(
+        applied[0]["outputs"],
+        json!([{"address": "%QX0.0", "value": "Bool(false)"}])
+    );
 }
