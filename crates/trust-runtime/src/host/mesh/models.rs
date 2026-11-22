@@ -14,7 +14,7 @@ use crate::config::MeshRole;
 use crate::runtime_cloud::contracts::IdentityPayload;
 use crate::runtime_cloud::keyspace::meta_identity_key;
 
-use super::mapping::DEFAULT_SITE;
+use super::mapping::peer_site_and_name;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MeshQosProfile {
@@ -42,11 +42,19 @@ pub struct MeshLivelinessSnapshot {
 pub struct MeshTopologyEvidence {
     ready: bool,
     degraded_reason: Option<SmolStr>,
+    site: SmolStr,
     peer_registry: Arc<Mutex<MeshPeerRegistry>>,
     session: Option<Session>,
 }
 
 impl MeshTopologyEvidence {
+    /// The runtime's own site, relative to which the peers are named (specification 11, "Runtime
+    /// Cloud sites").
+    #[must_use]
+    pub fn site(&self) -> &str {
+        self.site.as_str()
+    }
+
     #[must_use]
     pub const fn is_ready(&self) -> bool {
         self.ready
@@ -91,6 +99,7 @@ impl MeshTopologyEvidence {
         Self {
             ready,
             degraded_reason: None,
+            site: SmolStr::new(crate::runtime_cloud::projection::RUNTIME_CLOUD_DEFAULT_SITE),
             peer_registry: Arc::new(Mutex::new(registry)),
             session: None,
         }
@@ -154,6 +163,9 @@ pub struct MeshService {
     pub(crate) listen: SmolStr,
     pub(crate) readiness: MeshReadiness,
     pub(crate) degraded_reason: Option<SmolStr>,
+    /// The runtime's own site, whose keys it publishes under and relative to which it names its
+    /// peers (specification 11, "Runtime Cloud sites").
+    pub(crate) site: SmolStr,
     pub(crate) peer_registry: Arc<Mutex<MeshPeerRegistry>>,
     pub(crate) stop_flag: Arc<AtomicBool>,
     pub(crate) publisher_thread: Option<thread::JoinHandle<()>>,
@@ -162,6 +174,13 @@ pub struct MeshService {
 }
 
 impl MeshService {
+    /// The runtime's own site, relative to which [`MeshService::liveliness_snapshot`] names the
+    /// peers (specification 11, "Runtime Cloud sites").
+    #[must_use]
+    pub fn site(&self) -> &str {
+        self.site.as_str()
+    }
+
     #[must_use]
     pub fn is_ready(&self) -> bool {
         self.readiness.cloud_ready()
@@ -207,6 +226,7 @@ impl MeshService {
         MeshTopologyEvidence {
             ready: self.is_ready(),
             degraded_reason: self.degraded_reason.clone(),
+            site: self.site.clone(),
             peer_registry: self.peer_registry.clone(),
             session: self.session.clone(),
         }
@@ -261,16 +281,19 @@ pub(crate) struct MeshIdentityReply {
 /// Asks the identity queryable of every peer in `peers` at once, and reads the answers until
 /// `timeout` (specification 11, "Sources"). The query only reads, and no peer is written to. A peer
 /// that does not answer gives no entry. Each answer gives its peer's entry: the identity it sent,
-/// or the reason that the answer is not the identity of the peer that was asked.
+/// or the reason that the answer is not the identity of the peer that was asked. A peer is named
+/// as a runtime of the site `own_site` names it (specification 11, "Runtime Cloud sites").
 pub(crate) fn query_identities(
     session: &Session,
+    own_site: &str,
     peers: &[String],
     timeout: StdDuration,
 ) -> Vec<(String, Result<MeshIdentityReply, String>)> {
     let queries: Vec<_> = peers
         .iter()
         .map(|peer| {
-            let key = meta_identity_key(DEFAULT_SITE, peer);
+            let (site, name) = peer_site_and_name(peer, own_site);
+            let key = meta_identity_key(site, name);
             (peer, session.get(key.as_str()).timeout(timeout).wait())
         })
         .collect();
@@ -279,7 +302,8 @@ pub(crate) fn query_identities(
         match query {
             Ok(replies) => {
                 while let Ok(Some(reply)) = replies.recv_timeout(timeout) {
-                    answers.push((peer.clone(), decode_identity_answer(peer, reply)));
+                    let (site, name) = peer_site_and_name(peer, own_site);
+                    answers.push((peer.clone(), decode_identity_answer(site, name, reply)));
                 }
             }
             Err(error) => answers.push((
@@ -291,17 +315,22 @@ pub(crate) fn query_identities(
     answers
 }
 
-fn decode_identity_answer(peer: &str, reply: Reply) -> Result<MeshIdentityReply, String> {
+/// The identity answer `reply` of the runtime `name` of the site `site`.
+fn decode_identity_answer(
+    site: &str,
+    name: &str,
+    reply: Reply,
+) -> Result<MeshIdentityReply, String> {
     let sample = reply
         .into_result()
         .map_err(|error| format!("the identity query was refused: {error}"))?;
     let payload = sample.payload().to_bytes();
     let answer: MeshIdentityReply = serde_json::from_slice(&payload)
         .map_err(|error| format!("the identity answer could not be read: {error}"))?;
-    if answer.identity.runtime_id != peer {
+    if answer.identity.runtime_id != name || answer.identity.site != site {
         return Err(format!(
-            "the identity answer names runtime {}, not {peer}",
-            answer.identity.runtime_id
+            "the identity answer names runtime {} of site {}, not {name} of site {site}",
+            answer.identity.runtime_id, answer.identity.site
         ));
     }
     Ok(answer)

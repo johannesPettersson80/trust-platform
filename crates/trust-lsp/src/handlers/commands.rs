@@ -810,15 +810,25 @@ fn resolve_hmi_bindings_project_root(
         return doc_path.parent().map(Path::to_path_buf);
     }
 
-    if let Some((_root_uri, config)) = context.workspace_configs().into_iter().next() {
-        return Some(config.root);
-    }
-
-    context
+    // The first workspace folder's own project, never one nested below it (specification 14 §7.6).
+    if let Some(root) = context
         .workspace_folders()
         .into_iter()
         .next()
-        .and_then(|uri| uri_to_path(&uri))
+        .and_then(|uri| {
+            context
+                .workspace_config_for_uri(&uri)
+                .map(|config| config.root)
+                .or_else(|| uri_to_path(&uri))
+        })
+    {
+        return Some(root);
+    }
+    context
+        .workspace_configs()
+        .into_iter()
+        .next()
+        .map(|(_root_uri, config)| config.root)
 }
 
 fn load_hmi_sources_edited<C: ServerContext>(

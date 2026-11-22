@@ -97,6 +97,17 @@ INTERFACE IPositionDevice EXTENDS IDevice
     END_METHOD
 END_INTERFACE
 
+(* A device that a controller drives through its Auto value (§5): FollowsAuto is TRUE while the
+   device follows that value now, GetActualValue is what the device does. A loop tracks
+   GetActualValue while FollowsAuto is FALSE (§8.1), so it neither winds up nor bumps when the
+   device follows it again. *)
+INTERFACE IControlledDevice
+    METHOD FollowsAuto : BOOL
+    END_METHOD
+    METHOD GetActualValue : LREAL
+    END_METHOD
+END_INTERFACE
+
 (* An Engineer confirms that the service is done (§4.7). *)
 INTERFACE IServiceable
     METHOD ServiceDone : BOOL

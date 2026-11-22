@@ -22,6 +22,7 @@ pub(super) fn config(listen: String, connect: Vec<String>, token: Option<&str>) 
         subscribe: IndexMap::new(),
         zenohd_version: super::ZENOHD_BASELINE_VERSION.into(),
         plugin_versions: IndexMap::new(),
+        site: None,
     }
 }
 

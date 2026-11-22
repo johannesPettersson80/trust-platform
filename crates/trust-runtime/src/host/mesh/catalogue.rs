@@ -11,15 +11,17 @@ use crate::runtime_cloud::contracts::{CatalogEntry, RUNTIME_CLOUD_API_VERSION};
 use crate::runtime_cloud::keyspace::meta_catalog_key;
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
-use super::mapping::{mesh_snapshot_timeout, DEFAULT_SITE};
+use super::mapping::mesh_snapshot_timeout;
 
+/// Declares the catalogue query of the runtime `runtime` of the site `site`.
 pub(super) fn declare(
     session: &Session,
+    site: &str,
     runtime: &str,
     publish: &[SmolStr],
     resource: &ResourceControl<StdClock>,
 ) -> bool {
-    let key = meta_catalog_key(DEFAULT_SITE, runtime);
+    let key = meta_catalog_key(site, runtime);
     let names: Vec<String> = publish.iter().map(ToString::to_string).collect();
     let resource = resource.clone();
     session

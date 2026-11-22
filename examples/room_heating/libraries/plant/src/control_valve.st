@@ -4,7 +4,7 @@
 NAMESPACE Plant
 USING Alarm;
 
-FUNCTION_BLOCK FB_ControlValve EXTENDS FB_Device IMPLEMENTS IPositionDevice, IAlarmSource
+FUNCTION_BLOCK FB_ControlValve EXTENDS FB_Device IMPLEMENTS IPositionDevice, IAlarmSource, IControlledDevice
 VAR_INPUT
     (* The program's position in % open, followed in Auto. *)
     AutoPosition : LREAL;
@@ -118,6 +118,17 @@ END_VAR
         GetAlarm := NULL;
     END_IF;
 END_METHOD
+
+(* The valve follows its Auto position while in Auto and released from its fail position
+   (§6.9); a controller that drives it tracks Position otherwise (§8.1). *)
+METHOD PUBLIC FollowsAuto : BOOL
+    FollowsAuto := Mode = E_Mode#Auto AND Released;
+END_METHOD
+
+METHOD PUBLIC GetActualValue : LREAL
+    GetActualValue := Position;
+END_METHOD
+
 END_FUNCTION_BLOCK
 
 FUNCTION_BLOCK FB_ModulatingDamper EXTENDS FB_ControlValve

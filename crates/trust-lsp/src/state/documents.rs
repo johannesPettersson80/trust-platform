@@ -52,6 +52,7 @@ pub(super) fn open_document(
         .get(&uri)
         .and_then(|entry| project.key_for_file_id(entry.file_id()).cloned())
         .unwrap_or_else(|| source_key_for_uri(&uri));
+    let new_file = project.file_id_for_key(&key).is_none();
     let file_id = project.set_source_text(key, content.clone());
     let access = next_document_access(state);
     docs.insert(
@@ -62,6 +63,11 @@ pub(super) fn open_document(
     drop(docs);
     drop(project);
     invalidate_project_caches(state);
+    // A file the server did not know is placed in its project before it is analyzed
+    // (specification 14 §7.6).
+    if new_file {
+        state.refresh_project_layout();
+    }
     file_id
 }
 

@@ -458,3 +458,17 @@ fn fleet_host_contract_container_id_rejects_short_or_non_hex_components() {
         assert_eq!(parse_container_id(cgroup), None, "{cgroup}");
     }
 }
+
+/// Specification 11, "Runtime Cloud sites": the fleet view finds a discovered runtime among the
+/// mesh's peers by the name the mesh gives it, relative to the mesh's own site. Catches a live
+/// runtime of another site, which the mesh sees as `site-b/<name>`, shown as not live, and a
+/// runtime of the own site with that name taken for it.
+#[test]
+fn fleet_host_contract_mesh_peer_is_live_by_the_name_the_mesh_gives_it() {
+    let evidence = crate::mesh::MeshTopologyEvidence::for_test(true, &["site-b/line_b"], 1);
+    let mut of_site_b = discovery_entry("id-b", "line_b", Vec::new(), 1);
+    of_site_b.site = Some(SmolStr::new("site-b"));
+    assert!(mesh_peer_is_live(&of_site_b, Some(&evidence)));
+    let of_own_site = discovery_entry("id-own", "line_b", Vec::new(), 1);
+    assert!(!mesh_peer_is_live(&of_own_site, Some(&evidence)));
+}

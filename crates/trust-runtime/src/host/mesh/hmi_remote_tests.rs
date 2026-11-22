@@ -35,6 +35,7 @@ fn config(address: String, connect: Vec<String>, publish: Vec<&str>) -> MeshConf
         subscribe: IndexMap::new(),
         zenohd_version: super::ZENOHD_BASELINE_VERSION.into(),
         plugin_versions: IndexMap::new(),
+        site: None,
     }
 }
 struct Worker {

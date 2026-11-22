@@ -33,6 +33,30 @@ fn collect_st_files(root: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+/// The folders below `root`, `root` itself left out, that hold a project config (specification 14
+/// §7.6), in path order; the folders the indexer skips are not searched.
+fn nested_project_folders(root: &Path) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !entry.file_type().is_ok_and(|kind| kind.is_dir()) || should_skip_dir(&path) {
+                continue;
+            }
+            if CONFIG_FILES.iter().any(|name| path.join(name).is_file()) {
+                found.push(path.clone());
+            }
+            stack.push(path);
+        }
+    }
+    found.sort();
+    found
+}
+
 fn should_skip_dir(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
@@ -222,6 +246,10 @@ pub async fn did_rename_files(
         }
     }
 
+    if indexed > 0 {
+        // A created file is placed in its project (specification 14 §7.6).
+        state.refresh_project_layout();
+    }
     let mut diagnostics_refresh = indexed > 0 || removed > 0;
     if diagnostics_refresh {
         client
@@ -311,6 +339,10 @@ pub async fn did_change_watched_files(
         }
     }
 
+    if indexed > 0 {
+        // A created file is placed in its project (specification 14 §7.6).
+        state.refresh_project_layout();
+    }
     let mut diagnostics_refresh = indexed > 0 || removed > 0;
     if diagnostics_refresh {
         client

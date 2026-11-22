@@ -20,8 +20,8 @@ use crate::runtime_id::platform;
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
 use super::mapping::{
-    build_mesh_payload, decode_mesh_payload, mesh_data_key, mesh_liveliness_expr,
-    mesh_qos_profile_for_key, now_ns, parse_subscribe_mapping, snapshot_globals, DEFAULT_SITE,
+    build_mesh_payload, decode_mesh_payload, liveliness_peer, mesh_data_key, mesh_liveliness_expr,
+    mesh_qos_profile_for_key, now_ns, parse_subscribe_mapping, peer_data_key, snapshot_globals,
 };
 use super::models::{
     MeshIdentityReply, MeshPeerRegistry, MeshQosProfile, MeshReadiness, MeshService,
@@ -57,6 +57,11 @@ pub fn start_mesh_with_tls(
     validate_zenoh_version_policy(config)?;
 
     let listen = config.listen.clone();
+    // The runtime's keys are under its own site, and it names its peers relative to that site
+    // (specification 11, "Runtime Cloud sites").
+    let own_site = SmolStr::new(crate::runtime_cloud::sites::runtime_cloud_site_or_default(
+        config.site.as_deref(),
+    ));
     let peer_registry = Arc::new(Mutex::new(MeshPeerRegistry {
         peers: Default::default(),
         history: Default::default(),
@@ -85,6 +90,7 @@ pub fn start_mesh_with_tls(
                     catalog_queryable_ready: false,
                 },
                 degraded_reason: Some(SmolStr::new(format!("zenoh session unavailable: {error}"))),
+                site: own_site,
                 peer_registry,
                 stop_flag,
                 publisher_thread: None,
@@ -94,7 +100,7 @@ pub fn start_mesh_with_tls(
         }
     };
 
-    let liveliness_key = svc_liveliness_key(DEFAULT_SITE, name.as_str(), name.as_str());
+    let liveliness_key = svc_liveliness_key(own_site.as_str(), name.as_str(), name.as_str());
     let liveliness_token = session
         .liveliness()
         .declare_token(liveliness_key.as_str())
@@ -104,20 +110,22 @@ pub fn start_mesh_with_tls(
 
     let liveliness_registry = peer_registry.clone();
     let local_runtime_id = name.clone();
+    let liveliness_site = own_site.clone();
     let liveliness_subscriber_ready = session
         .liveliness()
         .declare_subscriber(mesh_liveliness_expr())
         .history(true)
         .callback(move |sample| {
-            let Some(runtime_id) = liveliness_runtime_id(sample.key_expr().as_str()) else {
+            let Some(peer) = liveliness_peer(sample.key_expr().as_str(), liveliness_site.as_str())
+            else {
                 return;
             };
-            if runtime_id == local_runtime_id.as_str() {
+            if peer == local_runtime_id.as_str() {
                 return;
             }
             let joined = sample.kind() == SampleKind::Put;
             if let Ok(mut guard) = liveliness_registry.lock() {
-                guard.record(runtime_id, joined, now_ns());
+                guard.record(peer.as_str(), joined, now_ns());
             }
         })
         .background()
@@ -127,18 +135,27 @@ pub fn start_mesh_with_tls(
     let (identity_queryable_ready, catalog_queryable_ready) =
         declare_identity_and_catalog_queryables(
             &session,
+            own_site.as_str(),
             name.as_str(),
             stable_runtime_id.as_str(),
             config,
             &resource,
         );
-    let _shm_queryable_ready = declare_meta_shm_queryable(&session, name.as_str());
-    let _cfg_queryable_ready = declare_cfg_queryable(&session, name.as_str());
-    let _cmd_queryable_ready = declare_cmd_queryable(&session, name.as_str());
-    declare_subscribers(&session, &resource, config);
-    super::hmi_reads::declare(&session, name.as_str(), &config.publish, &resource);
+    let _shm_queryable_ready =
+        declare_meta_shm_queryable(&session, own_site.as_str(), name.as_str());
+    let _cfg_queryable_ready = declare_cfg_queryable(&session, own_site.as_str(), name.as_str());
+    let _cmd_queryable_ready = declare_cmd_queryable(&session, own_site.as_str(), name.as_str());
+    declare_subscribers(&session, own_site.as_str(), &resource, config);
+    super::hmi_reads::declare(
+        &session,
+        own_site.as_str(),
+        name.as_str(),
+        &config.publish,
+        &resource,
+    );
     super::hmi_operations::install(
         &session,
+        own_site.as_str(),
         name.as_str(),
         config,
         &resource,
@@ -147,6 +164,7 @@ pub fn start_mesh_with_tls(
 
     let publisher_thread = spawn_publish_loop(
         &session,
+        own_site.as_str(),
         name.as_str(),
         resource.clone(),
         config.publish.clone(),
@@ -170,6 +188,7 @@ pub fn start_mesh_with_tls(
         listen,
         readiness,
         degraded_reason,
+        site: own_site,
         peer_registry,
         stop_flag,
         publisher_thread,
@@ -262,19 +281,20 @@ pub(super) fn normalize_endpoint(endpoint: &str, tls: bool) -> Result<String, St
 
 fn declare_identity_and_catalog_queryables(
     session: &zenoh::Session,
+    own_site: &str,
     runtime_id: &str,
     stable_runtime_id: &str,
     config: &MeshConfig,
     resource: &ResourceControl<StdClock>,
 ) -> (bool, bool) {
-    let identity_key = meta_identity_key(DEFAULT_SITE, runtime_id);
+    let identity_key = meta_identity_key(own_site, runtime_id);
     // The mesh names a runtime by the resource name that keys its queryables, so that name is also
     // the name in its identity answer (specification 11, "Sources").
     let identity_payload = serde_json::to_string(&MeshIdentityReply {
         identity: IdentityPayload {
             api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
             runtime_id: runtime_id.to_string(),
-            site: DEFAULT_SITE.to_string(),
+            site: own_site.to_string(),
             catalog_epoch: 1,
             build: "runtime-cloud-mesh".to_string(),
             capabilities: vec![
@@ -300,13 +320,14 @@ fn declare_identity_and_catalog_queryables(
         .wait()
         .is_ok();
 
-    let catalog_ready = super::catalogue::declare(session, runtime_id, &config.publish, resource);
+    let catalog_ready =
+        super::catalogue::declare(session, own_site, runtime_id, &config.publish, resource);
 
     (identity_ready, catalog_ready)
 }
 
-fn declare_meta_shm_queryable(session: &zenoh::Session, runtime_id: &str) -> bool {
-    let key = meta_shm_channels_key(DEFAULT_SITE, runtime_id);
+fn declare_meta_shm_queryable(session: &zenoh::Session, own_site: &str, runtime_id: &str) -> bool {
+    let key = meta_shm_channels_key(own_site, runtime_id);
     let payload = serde_json::to_string(&BTreeMap::<String, String>::new())
         .unwrap_or_else(|_| "{}".to_string());
     session
@@ -321,8 +342,8 @@ fn declare_meta_shm_queryable(session: &zenoh::Session, runtime_id: &str) -> boo
         .is_ok()
 }
 
-fn declare_cfg_queryable(session: &zenoh::Session, runtime_id: &str) -> bool {
-    let key = format!("truST/{}/{}/cfg/**", DEFAULT_SITE, runtime_id);
+fn declare_cfg_queryable(session: &zenoh::Session, own_site: &str, runtime_id: &str) -> bool {
+    let key = format!("truST/{own_site}/{runtime_id}/cfg/**");
     let payload = "{\"ok\":false,\"reason\":\"read-only via desired/apply contracts\"}";
     session
         .declare_queryable(key.as_str())
@@ -334,8 +355,8 @@ fn declare_cfg_queryable(session: &zenoh::Session, runtime_id: &str) -> bool {
         .is_ok()
 }
 
-fn declare_cmd_queryable(session: &zenoh::Session, runtime_id: &str) -> bool {
-    let key = format!("truST/{}/{}/cmd/**", DEFAULT_SITE, runtime_id);
+fn declare_cmd_queryable(session: &zenoh::Session, own_site: &str, runtime_id: &str) -> bool {
+    let key = format!("truST/{own_site}/{runtime_id}/cmd/**");
     let payload = "{\"ok\":false,\"reason\":\"command endpoint unavailable in direct mesh query\"}";
     session
         .declare_queryable(key.as_str())
@@ -347,8 +368,11 @@ fn declare_cmd_queryable(session: &zenoh::Session, runtime_id: &str) -> bool {
         .is_ok()
 }
 
+/// Subscribes each `peer:key` of `config.subscribe`, `peer` named as the runtime of the site
+/// `own_site` names its peers (specification 11, "Runtime Cloud sites").
 fn declare_subscribers(
     session: &zenoh::Session,
+    own_site: &str,
     resource: &ResourceControl<StdClock>,
     config: &MeshConfig,
 ) {
@@ -356,7 +380,7 @@ fn declare_subscribers(
         let Some((peer, remote_key)) = parse_subscribe_mapping(remote.as_str()) else {
             continue;
         };
-        let key_expr = mesh_data_key(DEFAULT_SITE, peer.as_str(), remote_key.as_str());
+        let key_expr = peer_data_key(own_site, peer.as_str(), remote_key.as_str());
         let local_name = local.clone();
         let resource = resource.clone();
         let _ = session
@@ -395,8 +419,13 @@ fn declare_subscribers(
     }
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the session, the runtime's site and name, its program, its publish list, its peers and the loop's flags are one publisher"
+)]
 fn spawn_publish_loop(
     session: &zenoh::Session,
+    own_site: &str,
     runtime_id: &str,
     resource: ResourceControl<StdClock>,
     publish: Vec<SmolStr>,
@@ -405,6 +434,7 @@ fn spawn_publish_loop(
     sequence: Arc<AtomicU64>,
 ) -> Option<thread::JoinHandle<()>> {
     let session = session.clone();
+    let own_site = own_site.to_string();
     let runtime_id = runtime_id.to_string();
     Some(thread::spawn(move || {
         while !stop_flag.load(Ordering::Relaxed) {
@@ -419,7 +449,7 @@ fn spawn_publish_loop(
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
-            super::hmi_reads::poll(&session, &resource, &known);
+            super::hmi_reads::poll(&session, own_site.as_str(), &resource, &known);
             if publish.is_empty() {
                 thread::sleep(MESH_PUBLISH_INTERVAL);
                 continue;
@@ -434,7 +464,7 @@ fn spawn_publish_loop(
             };
             for (name, value) in snapshot {
                 let sequence_value = sequence.fetch_add(1, Ordering::Relaxed);
-                let key_expr = mesh_data_key(DEFAULT_SITE, runtime_id.as_str(), name.as_str());
+                let key_expr = mesh_data_key(own_site.as_str(), runtime_id.as_str(), name.as_str());
                 let Some(payload) = build_mesh_payload(runtime_id.as_str(), sequence_value, &value)
                 else {
                     continue;
@@ -465,11 +495,4 @@ fn mesh_congestion(profile: MeshQosProfile) -> CongestionControl {
         MeshQosProfile::Active | MeshQosProfile::Config => CongestionControl::Block,
         MeshQosProfile::Diagnostics | MeshQosProfile::Fast => CongestionControl::Drop,
     }
-}
-
-fn liveliness_runtime_id(key_expr: &str) -> Option<&str> {
-    key_expr
-        .rsplit('/')
-        .next()
-        .filter(|value| !value.is_empty())
 }

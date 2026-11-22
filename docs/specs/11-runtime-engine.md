@@ -7597,7 +7597,15 @@ Rules:
 - **Mesh endpoints.** A `[runtime.mesh]` `listen` or `connect` entry is `host:port`, the URL form
   `tcp://host:port` or `tls://host:port` that a control endpoint also takes, or a Zenoh locator
   `tcp/host:port` or `tls/host:port`; with `tls = true` a `tcp` endpoint becomes `tls`. A
-  subscription `"<peer>:<path>"` names the publishing runtime by its resource name.
+  subscription `"<peer>:<path>"` names the publishing runtime as the runtime names its peers
+  ("Runtime Cloud sites"): by its resource name in its own site, and by `<site>/<resource>` in
+  another.
+- **A mesh keys a runtime under its site.** A runtime's mesh keys are under its own site,
+  `truST/<site>/<resource>`, so that two runtimes of one resource name in two sites never share a
+  key: its data, its liveliness token, its identity, catalogue and HMI queryables. Its identity
+  answer names its site, the peers it has seen are named relative to its own site from their
+  liveliness keys, and every query of a peer, for its identity, catalogue or HMI values, goes to
+  the keys under the peer's site.
 - **A mesh links only to the peers it names.** A mesh connects to the endpoints of its `connect`
   entries and accepts connections on its `listen` endpoint, and it looks for no other mesh: it
   neither scouts the network (Zenoh's multicast scouting) nor connects to the peers that a linked
