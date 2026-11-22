@@ -7928,7 +7928,7 @@ not choose a site. By profile:
 - `wan` has the same secure transport preconditions and additionally denies
   every nonlocal `cfg_apply` or `cmd_invoke` unless an explicit
   action-and-target `runtime.cloud.wan.allow_write` rule matches. `*`, a prefix
-  such as `site-b/*`, a suffix such as `*/runtime-b`, and exact target IDs have
+  such as `site-b/*`, a suffix such as `*/runtime_b`, and exact target IDs have
   their documented meanings; other embedded-wildcard shapes do not match.
 
 The runtime communications conformance gate must execute every named native

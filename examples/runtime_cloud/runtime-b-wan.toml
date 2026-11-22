@@ -1,0 +1,66 @@
+[bundle]
+version = 1
+
+[resource]
+name = "runtime_b"
+cycle_interval_ms = 100
+
+[runtime.control]
+mode = "production"
+debug_enabled = false
+# The examples commit no token: step 3 of RUNTIME_CLOUD_FEDERATION_GUIDE.md adds auth_token here,
+# one token for every runtime of the federation, because a dispatch passes the caller's token on.
+
+[runtime.web]
+enabled = true
+listen = "127.0.0.1:18082"
+auth = "token"
+tls = true
+
+# The certificate the site CA issued for this runtime, and the site CA, which this runtime trusts
+# for its calls to other runtimes (RUNTIME_CLOUD_FEDERATION_GUIDE.md step 2).
+[runtime.tls]
+mode = "provisioned"
+cert_path = "certs/runtime.crt"
+key_path = "certs/runtime.key"
+ca_path = "certs/ca.crt"
+require_remote = false
+
+[runtime.discovery]
+enabled = true
+service_name = "runtime_b"
+advertise = true
+interfaces = ["lo"]
+
+[runtime.mesh]
+enabled = true
+role = "peer"
+listen = "127.0.0.1:5202"
+connect = []
+tls = true
+zenohd_version = "1.7.2"
+plugin_versions = {}
+publish = []
+subscribe = {}
+
+[runtime.cloud]
+profile = "wan"
+site = "site-b"
+
+[runtime.cloud.wan]
+allow_write = []
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

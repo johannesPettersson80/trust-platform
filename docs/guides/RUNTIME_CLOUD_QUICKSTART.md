@@ -118,4 +118,3 @@ Expected:
 
 - `docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md`
 - `docs/guides/RUNTIME_CLOUD_FEDERATION_GUIDE.md`
-- `docs/guides/RUNTIME_CLOUD_UI_WALKTHROUGH.md`

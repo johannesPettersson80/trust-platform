@@ -1,9 +1,9 @@
 {
   "api_version": "1.0",
   "request_id": "req-cmd-restart-1",
-  "connected_via": "site-a/runtime-a",
-  "target_runtimes": ["site-a/runtime-b"],
-  "actor": "spiffe://trust/site-a/operator-1",
+  "connected_via": "runtime_a",
+  "target_runtimes": ["runtime_b"],
+  "actor": "spiffe://trust/default-site/operator-1",
   "action_type": "cmd_invoke",
   "dry_run": false,
   "payload": {

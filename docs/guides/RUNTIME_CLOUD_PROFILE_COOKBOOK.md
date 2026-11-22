@@ -54,28 +54,26 @@ auth = "token"
 tls = true
 
 [runtime.tls]
-mode = "self-managed"
+mode = "provisioned"
 cert_path = "./certs/runtime.crt"
 key_path = "./certs/runtime.key"
+ca_path = "./certs/ca.crt"
 
 [runtime.cloud]
 profile = "plant"
+site = "site-a"
 ```
 
-Generate local test certificates (self-managed profile) before first start:
-
-```bash
-mkdir -p certs
-openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
-  -keyout certs/runtime.key \
-  -out certs/runtime.crt \
-  -subj "/CN=$(hostname)"
-```
+Before the first start, give each runtime a certificate of the site's CA and the CA itself, as
+`docs/guides/RUNTIME_CLOUD_FEDERATION_GUIDE.md` step 2 does. Each certificate names the address or
+host name other runtimes reach the runtime at.
 
 Required behavior:
 
 - runtime cloud endpoints deny requests if token auth/TLS preconditions are not met
 - remote targets without secure transport metadata are denied in preflight/dispatch
+- a call to another runtime trusts the CA bundle `ca_path` names, and only that bundle: a target
+  whose certificate another CA issued is `target_unreachable`
 
 ## 4) `wan` Profile
 
@@ -91,12 +89,14 @@ auth = "token"
 tls = true
 
 [runtime.tls]
-mode = "self-managed"
+mode = "provisioned"
 cert_path = "./certs/runtime.crt"
 key_path = "./certs/runtime.key"
+ca_path = "./certs/ca.crt"
 
 [runtime.cloud]
 profile = "wan"
+site = "site-a"
 
 [runtime.cloud.wan]
 allow_write = []
@@ -105,6 +105,7 @@ allow_write = []
 Important default:
 
 - cross-runtime write actions (`cfg_apply`, `cmd_invoke`) are denied unless explicitly allowlisted
+- a runtime reads its allowlist when it starts: restart it after you change `allow_write`
 
 ## 5) WAN Allowlist Rules
 
@@ -112,15 +113,16 @@ Important default:
 [runtime.cloud.wan]
 allow_write = [
   { action = "cfg_apply", target = "site-b/*" },
-  { action = "cmd_invoke", target = "site-b/runtime-boiler-1" }
+  { action = "cmd_invoke", target = "site-b/boiler_1" }
 ]
 ```
 
-Target matching semantics:
+A target is the ID the runtime gives the other runtime: its resource name in the runtime's own
+site, and `<site>/<resource>` in another site (`site-b/boiler_1`). Target matching semantics:
 
 - `*` matches all targets
 - `site-b/*` prefix match
-- `*/runtime-1` suffix match
+- `*/boiler_1` suffix match
 - exact string is exact match
 
 ## 6) Promotion Path (`dev -> plant -> wan`)
@@ -139,7 +141,9 @@ trust-runtime ctl --project <project> config-get
 curl -s http://<host>:<port>/api/runtime-cloud/state | jq '.context'
 ```
 
-For `wan`, run dry-run preflight before dispatch.
+For `plant` and `wan`, reach the runtime over `https://`, verify it with `--cacert <site-ca>` and
+send the token from a file that holds the line `X-Trust-Token: <token>` (`-H @<header-file>`), as
+the federation guide does. For `wan`, run dry-run preflight before dispatch.
 
 ## 8) HardRT Host Readiness (PREEMPT_RT Recommended)
 

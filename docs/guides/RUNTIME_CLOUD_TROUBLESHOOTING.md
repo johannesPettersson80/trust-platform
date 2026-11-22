@@ -10,6 +10,9 @@ trust-runtime ctl --project <project> config-get
 curl -s http://<host>:<port>/api/runtime-cloud/state | jq
 ```
 
+For `plant` and `wan`, use `https://` with `--cacert <site-ca>` and the token header
+(`-H @<header-file>`), as `docs/guides/RUNTIME_CLOUD_FEDERATION_GUIDE.md` does.
+
 Confirm:
 
 - runtime is healthy
@@ -28,12 +31,13 @@ HardRT truth (non-negotiable):
 | Peer runtime not visible | discovery disabled or blocked | enable `[runtime.discovery]`, verify network/mDNS, check service name uniqueness |
 | Peer visible but stale/degraded | mesh metadata/path unavailable | verify `[runtime.mesh]` listen/auth/tls and peer reachability |
 | `not_configured` deny on preflight | profile preconditions not met | for `plant`/`wan`, enforce `runtime.web.auth = "token"` and `runtime.web.tls = true` |
-| `permission_denied` on cross-site write | WAN allowlist missing | add `runtime.cloud.wan.allow_write` rule for action+target and retry dry-run preflight |
+| `permission_denied` on cross-site write | WAN allowlist missing | add `runtime.cloud.wan.allow_write` rule for action+target, restart the runtime and retry dry-run preflight |
+| `target_unreachable` with `invalid peer certificate` | the target's certificate is not of the CA the caller's `[runtime.tls] ca_path` names, or does not name the address it is reached at | give the target a certificate of the site CA that names its address, and set `ca_path` on the caller |
 | `acl_denied_cfg_write` | actor role too low for config write | use actor with required role (`operator`/`admin` by policy) |
 | `contract_violation` with T0 + mesh/IP route text | attempted non-HardRT fallback | re-bind handles to `T0_HardRt`; keep mesh path for ops/diag only |
 | revision/etag conflict | concurrent config write | re-fetch config snapshot, rebase change, retry |
 | dispatch lacks `audit_id` | outdated runtime or failed dispatch path | verify runtime version and inspect per-target result |
-| UI shows healthy when peer unreachable | stale transition not applied yet | re-check `/api/runtime-cloud/state` status and mesh liveliness metadata |
+| state shows healthy when peer unreachable | stale transition not applied yet | re-check `/api/runtime-cloud/state` status and mesh liveliness metadata |
 
 ## 3) Profile-Specific Checks
 
@@ -60,30 +64,18 @@ Use `/api/runtime-cloud/actions/preflight` and inspect:
 
 Do not skip preflight for cross-site or multi-target writes.
 
-## 5) Reliability and Stability Gates
-
-```bash
-cargo test -p trust-runtime --test runtime_reliability
-./scripts/runtime_load_test.sh tests/fixtures/runtime_reliability_bundle
-./scripts/runtime_mesh_tls_stability_gate.sh --iterations 3
-./scripts/runtime_comms_conformance_gate.sh
-./scripts/check_zenoh_baseline.sh
-```
-
-## 6) Evidence Capture Pattern
+## 5) Evidence Capture Pattern
 
 Store:
 
 - request payload (`request_id` retained)
 - preflight/dispatch responses
 - relevant `/api/runtime-cloud/state` snapshot
-- runtime logs and gate logs
+- runtime logs
 
-Recommended location:
+Keep them with the record of the change, one folder per incident or change.
 
-- `target/gate-artifacts/<timestamp>/...`
-
-## 7) Escalation Criteria
+## 6) Escalation Criteria
 
 Escalate immediately if:
 
