@@ -84,21 +84,57 @@ fn generated_resource_names_are_valid_for_numeric_and_reserved_folders() {
     );
 }
 
-/// The runtime cloud quickstart (docs/guides/RUNTIME_CLOUD_QUICKSTART.md, steps 2 and 3): each dev
-/// profile is copied into an empty folder, and `play`'s first start writes the program for the
-/// profile's resource and builds it. Catches a profile resource that is not an IEC identifier, or not
-/// the program's `RESOURCE` (specification 11 §6.7.1), as the profiles' `runtime-a` was (checklist
-/// G245): the quickstart's runtimes could not start.
+/// The runtime cloud example pack (examples/runtime_cloud): each profile is copied into an empty
+/// folder with the TLS files the secure profiles name (the dev profiles name none) and, where its
+/// web authenticates by token, the control token a user adds (the examples commit none, spec 11
+/// section 6.8.0a); then `play`'s first start writes the program for the profile's resource and
+/// builds it, as the quickstart's steps 2 and 3 and the federation guide do. Catches a profile resource that is not an IEC
+/// identifier, or not the program's `RESOURCE` (specification 11 §6.7.1), as the profiles'
+/// `runtime-a`, `runtime-plant` and `runtime-wan` were (checklist G245): their runtimes could not
+/// start. A profile added to the pack must be added to the table.
 #[test]
-fn the_runtime_cloud_quickstart_profiles_create_projects_that_build() {
-    let examples =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/runtime_cloud");
-    for (profile, resource) in [
+fn every_runtime_cloud_example_profile_creates_a_project_that_builds() {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let examples = manifest.join("../../examples/runtime_cloud");
+    let tls = manifest.join("tests/fixtures/tls");
+    let profiles = [
         ("runtime-a-dev.toml", "runtime_a"),
+        ("runtime-a-wan.toml", "runtime_a"),
         ("runtime-b-dev.toml", "runtime_b"),
-    ] {
-        let root = temp_dir(&format!("cloud-quickstart-{resource}"));
-        std::fs::copy(examples.join(profile), root.join("runtime.toml")).expect("copy the profile");
+        ("runtime-b-wan.toml", "runtime_b"),
+        ("runtime-plant.toml", "runtime_plant"),
+        ("runtime-wan.toml", "runtime_wan"),
+    ];
+    let mut shipped = std::fs::read_dir(&examples)
+        .expect("the example pack")
+        .map(|entry| entry.expect("an entry").file_name().to_string_lossy().into_owned())
+        .filter(|name| name.ends_with(".toml"))
+        .collect::<Vec<_>>();
+    shipped.sort();
+    assert_eq!(
+        shipped,
+        profiles.map(|(profile, _)| profile.to_string()),
+        "every shipped profile is in the table"
+    );
+    for (profile, resource) in profiles {
+        let root = temp_dir(&format!("cloud-profile-{resource}"));
+        let mut text = std::fs::read_to_string(examples.join(profile)).expect("the profile");
+        if text.contains("auth = \"token\"") {
+            text = text.replacen(
+                "[runtime.control]\n",
+                "[runtime.control]\nauth_token = \"profile-test-token\"\n",
+                1,
+            );
+        }
+        std::fs::write(root.join("runtime.toml"), text).expect("write the profile");
+        std::fs::create_dir(root.join("certs")).expect("the certificate folder");
+        for (file, fixture) in [
+            ("runtime.crt", "server-cert.pem"),
+            ("runtime.key", "server-key.pem"),
+            ("ca.crt", "server-cert.pem"),
+        ] {
+            std::fs::copy(tls.join(fixture), root.join("certs").join(file)).expect("a TLS file");
+        }
         wizard::create_bundle_auto(Some(root.clone()))
             .unwrap_or_else(|error| panic!("{profile}: {error:#}"));
         let config = std::fs::read_to_string(root.join("src").join("config.st"))

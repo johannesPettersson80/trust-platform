@@ -2,12 +2,14 @@
 version = 1
 
 [resource]
-name = "runtime-plant"
+name = "runtime_plant"
 cycle_interval_ms = 100
 
 [runtime.control]
 mode = "production"
 debug_enabled = false
+# Token authentication on the web needs runtime.control.auth_token: add your own before the first
+# start. The examples commit no token.
 
 [runtime.web]
 enabled = true
@@ -16,14 +18,15 @@ auth = "token"
 tls = true
 
 [runtime.tls]
-mode = "self-managed"
+mode = "provisioned"
 cert_path = "./certs/runtime.crt"
 key_path = "./certs/runtime.key"
+ca_path = "./certs/ca.crt"
 require_remote = true
 
 [runtime.discovery]
 enabled = true
-service_name = "site-a/runtime-plant"
+service_name = "runtime_plant"
 advertise = true
 interfaces = ["eth0"]
 
@@ -41,6 +44,7 @@ subscribe = {}
 
 [runtime.cloud]
 profile = "plant"
+site = "site-a"
 
 [runtime.cloud.wan]
 allow_write = []

@@ -593,8 +593,13 @@ contract:
   is cloned up to three times, after pauses of 15 and 30 seconds, each time
   into an empty folder, and the step fails when the third clone fails. On
   18 November 2026 GitHub answered one clone with 403 and failed `main`'s
-  Documentation job, which had no fault of its own
-  (`scripts/tests/test_workflow_downloads.py` pins the rule);
+  Documentation job, which had no fault of its own. On a runner the clone
+  carries the job's token: every step that runs the script sets `GITHUB_TOKEN`
+  to `${{ github.token }}`, and the script gives it to git as its authorization
+  header for github.com through git's environment configuration, never on a
+  command line or in the log. GitHub had refused three anonymous clones in a
+  row on 22 November 2026 (`scripts/tests/test_workflow_downloads.py` pins the
+  rule);
 - every Python test module under `scripts/tests` runs in CI: a workflow, or a
   script that a workflow runs, names it, because a module that nothing names
   never runs. On 13 November 2026 five of the 34 ran nowhere, and the comms

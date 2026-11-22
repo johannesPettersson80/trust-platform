@@ -2,26 +2,28 @@
 
 This manual covers cloud-plane runtime communication for multi-runtime operation.
 
-Use this pack for onboarding, profile selection, cross-site federation, fleet UI operation, and troubleshooting.
+Use this pack for onboarding, profile selection, cross-site federation, and troubleshooting.
 
 ## Read in Order
 
 1. Quickstart: `docs/guides/RUNTIME_CLOUD_QUICKSTART.md`
 2. Profile cookbook (`dev`, `plant`, `wan`): `docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md`
 3. Federation guide: `docs/guides/RUNTIME_CLOUD_FEDERATION_GUIDE.md`
-4. UI walkthrough: `docs/guides/RUNTIME_CLOUD_UI_WALKTHROUGH.md`
-5. Troubleshooting: `docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md`
+4. Troubleshooting: `docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md`
 
 ## Example Pack
 
 - `examples/runtime_cloud/README.md`
 - `examples/runtime_cloud/runtime-a-dev.toml`
 - `examples/runtime_cloud/runtime-b-dev.toml`
+- `examples/runtime_cloud/runtime-a-wan.toml`
+- `examples/runtime_cloud/runtime-b-wan.toml`
 - `examples/runtime_cloud/runtime-plant.toml`
 - `examples/runtime_cloud/runtime-wan.toml`
 - `examples/runtime_cloud/dispatch-status-read.json`
 - `examples/runtime_cloud/preflight-cross-site-deny.json`
 - `examples/runtime_cloud/preflight-cross-site-allow.json`
+- `examples/runtime_cloud/dispatch-cross-site-cfg-apply.json`
 
 ## Scope Notes
 

@@ -2,14 +2,19 @@
 and change detection" and "CI reliability"). GitHub's release server answered 504 to the actionlint download once and
 failed a Format job that had no fault of its own, and GitHub answered 403 to a clone of the OpenOT reference once and
 failed `main`'s Documentation job. Wrong behaviour caught: a `curl` in a workflow without `--retry`, and a clone of the
-OpenOT reference that is tried once."""
+OpenOT reference that is tried once. GitHub refused three anonymous clones in a row on 22 November 2026 (G281), so on
+a runner the clone carries the job's token: caught too, a checkout step without the token and a token that reaches the
+log."""
 
+import base64
 import os
 import re
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -19,6 +24,7 @@ CHECKOUT_OPENOT = ROOT / "scripts" / "checkout_openot_ref.sh"
 # manifest into the folder it is given; each clone is counted in `$STUB_STATE/clones`.
 STUB_GIT = """#!/usr/bin/env bash
 if [ "$1" = clone ]; then
+  env | grep '^GIT_CONFIG_' | sort > "$STUB_STATE/git-config"
   count=$(( $(cat "$STUB_STATE/clones" 2>/dev/null || echo 0) + 1 ))
   echo "$count" > "$STUB_STATE/clones"
   if [ "$count" -le "$STUB_FAILURES" ]; then
@@ -46,16 +52,24 @@ def curl_lines_without_retry() -> list[str]:
     return offenders
 
 
-def checkout_openot(folder: Path, failures: int) -> tuple[subprocess.CompletedProcess[str], int]:
+def checkout_openot(
+    folder: Path, failures: int, token: str | None = None
+) -> tuple[subprocess.CompletedProcess[str], int]:
     """The OpenOT checkout of `folder/open-ot-ref` with a `git` whose first `failures` clones fail and a `sleep` that
-    returns at once; the run and the number of clones it made."""
+    returns at once, with `token` as the job's token or none; the run and the number of clones it made."""
     stubs = folder / "stubs"
     stubs.mkdir()
     for name, text in (("git", STUB_GIT), ("sleep", "#!/usr/bin/env bash\nexit 0\n")):
         (stubs / name).write_text(text, encoding="utf-8")
         (stubs / name).chmod(0o755)
+    inherited = {
+        name: value
+        for name, value in os.environ.items()
+        if name != "GITHUB_TOKEN" and not name.startswith("GIT_CONFIG_")
+    }
     environment = {
-        **os.environ,
+        **inherited,
+        **({"GITHUB_TOKEN": token} if token else {}),
         "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}",
         "STUB_STATE": str(folder),
         "STUB_FAILURES": str(failures),
@@ -98,6 +112,55 @@ class WorkflowDownloadsTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(clones, 3)
             self.assertFalse((folder / "open-ot-ref").exists())
+
+
+    def test_the_openot_checkout_authenticates_with_the_jobs_token(self) -> None:
+        # G281: with the job's token the clone sends it as git's authorization header for github.com, through git's
+        # environment configuration, and the token reaches neither the output nor the log. Catches an anonymous clone
+        # on a runner, which GitHub refused three times in a row, and a token printed or put on a command line.
+        token = "ghs_ExampleJobToken0123456789"
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            result, clones = checkout_openot(folder, failures=0, token=token)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(clones, 1)
+            expected = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+            self.assertEqual(
+                (folder / "git-config").read_text(encoding="utf-8").splitlines(),
+                [
+                    "GIT_CONFIG_COUNT=1",
+                    "GIT_CONFIG_KEY_0=http.https://github.com/.extraheader",
+                    f"GIT_CONFIG_VALUE_0=AUTHORIZATION: basic {expected}",
+                ],
+            )
+            self.assertNotIn(token, result.stdout + result.stderr)
+            self.assertNotIn(expected, result.stdout + result.stderr)
+
+    def test_the_openot_checkout_without_a_token_clones_anonymously(self) -> None:
+        # Outside a runner there is no job token: the clone sets no git configuration. Catches a header with an
+        # empty token, which GitHub refuses.
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            result, clones = checkout_openot(folder, failures=0)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(clones, 1)
+            self.assertEqual((folder / "git-config").read_text(encoding="utf-8"), "")
+
+    def test_every_workflow_step_that_runs_the_openot_checkout_gives_it_the_jobs_token(self) -> None:
+        # G281: each step that runs scripts/checkout_openot_ref.sh sets GITHUB_TOKEN to the job's token. Catches a
+        # step, new or old, whose clone stays anonymous.
+        steps, missing = 0, []
+        for workflow in sorted(WORKFLOWS.glob("*.yml")):
+            document = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+            for job_name, job in (document.get("jobs") or {}).items():
+                for step in job.get("steps") or []:
+                    if "checkout_openot_ref.sh" not in str(step.get("run", "")):
+                        continue
+                    steps += 1
+                    if (step.get("env") or {}).get("GITHUB_TOKEN") != "${{ github.token }}":
+                        missing.append(f"{workflow.name}: {job_name}: {step.get('name', step.get('run'))}")
+        self.assertGreater(steps, 0)
+        self.assertEqual(missing, [])
 
 
 if __name__ == "__main__":

@@ -514,7 +514,7 @@ allow_write = [
 
 [runtime.cloud.links]
 transports = [
-  { source = "runtime-a", target = "runtime-b", transport = "zenoh" }
+  { source = "runtime_a", target = "runtime_b", transport = "zenoh" }
 ]
 ```
 

@@ -1,0 +1,14 @@
+{
+  "api_version": "1.0",
+  "request_id": "req-tutorial-cross-site-cfg-apply-1",
+  "connected_via": "runtime_a",
+  "target_runtimes": ["site-b/runtime_b"],
+  "actor": "spiffe://trust/site-a/operator-1",
+  "action_type": "cfg_apply",
+  "dry_run": false,
+  "payload": {
+    "params": {
+      "log.level": "debug"
+    }
+  }
+}
