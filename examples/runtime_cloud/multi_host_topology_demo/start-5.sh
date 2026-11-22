@@ -100,7 +100,7 @@ wait_for_topology_convergence() {
     local node_count
     node_count="$(curl -fsS "${state_url}" 2>/dev/null | jq -r '.topology.nodes | length' 2>/dev/null || true)"
     if [[ "${node_count}" == "5" ]]; then
-      echo "[start] topology converged: 5 runtime nodes visible from runtime-a."
+      echo "[start] topology converged: 5 runtime nodes visible from runtime_a."
       return 0
     fi
     sleep 1
@@ -143,14 +143,14 @@ done
 wait_for_topology_convergence || true
 
 echo "[start] mesh pattern (explicit runtime.mesh.connect):"
-echo "  runtime-a -> runtime-b, runtime-d, runtime-e"
-echo "  runtime-b -> runtime-a, runtime-c"
-echo "  runtime-c -> runtime-b, runtime-d"
-echo "  runtime-d -> runtime-a, runtime-c, runtime-e"
-echo "  runtime-e -> runtime-a, runtime-d"
+echo "  runtime_a -> runtime_b, runtime_d, runtime_e"
+echo "  runtime_b -> runtime_a, runtime_c"
+echo "  runtime_c -> runtime_b, runtime_d"
+echo "  runtime_d -> runtime_a, runtime_c, runtime_e"
+echo "  runtime_e -> runtime_a, runtime_d"
 echo "[start] link transports configured in runtime-a.toml:"
-echo "  realtime: runtime-a->runtime-b"
-echo "  zenoh:    runtime-a->runtime-c, runtime-a->runtime-d, runtime-a->runtime-e"
+echo "  realtime: runtime_a->runtime_b"
+echo "  zenoh:    runtime_a->runtime_c, runtime_a->runtime_d, runtime_a->runtime_e"
 echo "[start] dashboards:"
 for id in "${runtime_ids[@]}"; do
   port="$(runtime_web_port "${id}")"

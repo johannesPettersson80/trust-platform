@@ -1,29 +1,29 @@
 {
   "links": {
-    "runtime-a->runtime-b": {
-      "source": "runtime-a",
-      "target": "runtime-b",
+    "runtime_a->runtime_b": {
+      "source": "runtime_a",
+      "target": "runtime_b",
       "transport": "realtime",
       "actor": "local://topology-demo-bootstrap",
       "updated_at_ns": 1760000000000000000
     },
-    "runtime-a->runtime-c": {
-      "source": "runtime-a",
-      "target": "runtime-c",
+    "runtime_a->runtime_c": {
+      "source": "runtime_a",
+      "target": "runtime_c",
       "transport": "zenoh",
       "actor": "local://topology-demo-bootstrap",
       "updated_at_ns": 1760000000100000000
     },
-    "runtime-a->runtime-d": {
-      "source": "runtime-a",
-      "target": "runtime-d",
+    "runtime_a->runtime_d": {
+      "source": "runtime_a",
+      "target": "runtime_d",
       "transport": "realtime",
       "actor": "local://topology-demo-bootstrap",
       "updated_at_ns": 1760000000200000000
     },
-    "runtime-a->runtime-e": {
-      "source": "runtime-a",
-      "target": "runtime-e",
+    "runtime_a->runtime_e": {
+      "source": "runtime_a",
+      "target": "runtime_e",
       "transport": "zenoh",
       "actor": "local://topology-demo-bootstrap",
       "updated_at_ns": 1760000000300000000

@@ -1,7 +1,7 @@
 [io]
 drivers = [
-  { name = "mqtt", params = { broker = "10.24.10.50:1883", topic_in = "cell-a/telemetry/in", topic_out = "cell-a/telemetry/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true } },
-  { name = "mqtt", params = { broker = "10.42.0.30:1883", topic_in = "dmz/bridge/in", topic_out = "dmz/bridge/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true } },
+  { name = "mqtt", params = { broker = "10.24.10.50:1883", topic_in = "cell-a/telemetry/in", topic_out = "cell-a/telemetry/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true, on_error = "warn" } },
+  { name = "mqtt", params = { broker = "10.42.0.30:1883", topic_in = "dmz/bridge/in", topic_out = "dmz/bridge/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true, on_error = "warn" } },
   { name = "modbus-tcp", params = { address = "10.42.0.20:1502", unit_id = 2, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" } }
 ]
 

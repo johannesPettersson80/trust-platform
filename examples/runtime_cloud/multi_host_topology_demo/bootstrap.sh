@@ -21,7 +21,10 @@ copy_runtime() {
   cp "${SCRIPT_DIR}/io-${id}.toml" "${project_dir}/io.toml"
   cp "${TEMPLATE_DIR}/trust-lsp.toml" "${project_dir}/trust-lsp.toml"
   cp "${TEMPLATE_DIR}/src/main.st" "${project_dir}/src/main.st"
-  cp "${TEMPLATE_DIR}/src/config.st" "${project_dir}/src/config.st"
+  # The program declares the profile's resource: a build refuses a runtime.toml resource that is
+  # not the program's RESOURCE, so multi_driver's configuration is copied with its name.
+  sed "s/^RESOURCE CommMultiDriverRes ON /RESOURCE runtime_${id//-/_} ON /" \
+    "${TEMPLATE_DIR}/src/config.st" > "${project_dir}/src/config.st"
   # Each project is compiled for this computer with its own runtime.toml and io.toml.
   "${BIN}" build --project "${project_dir}" >/dev/null
 

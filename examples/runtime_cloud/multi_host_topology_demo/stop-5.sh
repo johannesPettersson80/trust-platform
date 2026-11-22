@@ -19,6 +19,5 @@ for id in "${runtime_ids[@]}"; do
 done
 
 # Fallback: kill any runtime started from this demo root path.
-pkill -f "trust-runtime play --no-console --project ${ROOT}/runtime-" 2>/dev/null || true
 
 echo "[stop] done."

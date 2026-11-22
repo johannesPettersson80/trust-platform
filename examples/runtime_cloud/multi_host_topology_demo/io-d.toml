@@ -2,7 +2,7 @@
 drivers = [
   { name = "loopback", params = {} },
   { name = "modbus-tcp", params = { address = "10.42.0.20:1502", unit_id = 2, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" } },
-  { name = "mqtt", params = { broker = "10.42.0.30:1883", topic_in = "trust/demo/dmz/in", topic_out = "trust/demo/dmz/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true } },
+  { name = "mqtt", params = { broker = "10.42.0.30:1883", topic_in = "trust/demo/dmz/in", topic_out = "trust/demo/dmz/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true, on_error = "warn" } },
   { name = "ethercat", params = { adapter = "mock", timeout_ms = 250, cycle_warn_ms = 5, on_error = "warn", modules = [ { model = "EK1100", slot = 0 }, { model = "EL1008", slot = 1, channels = 8 } ] } }
 ]
 
