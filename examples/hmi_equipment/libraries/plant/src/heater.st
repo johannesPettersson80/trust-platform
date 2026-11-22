@@ -3,7 +3,7 @@
    starts at 0 %: the operator's power is 0 % after a restart and after every stop. *)
 NAMESPACE Plant
 
-FUNCTION_BLOCK FB_Heater EXTENDS FB_RunDevice IMPLEMENTS IPowerDevice
+FUNCTION_BLOCK FB_Heater EXTENDS FB_RunDevice IMPLEMENTS IPowerDevice, IControlledDevice
 VAR_INPUT
     (* The program's power in %, followed in Auto while running. *)
     AutoPower : LREAL;
@@ -78,6 +78,17 @@ END_VAR
         ManualPower := LIMIT(0.0, Value, MAX(MaxPower, 0.0));
     END_IF;
 END_METHOD
+
+(* The heater follows its Auto power while in Auto and running (§6.3); a controller that drives
+   it tracks PowerOutput otherwise (§8.1). *)
+METHOD PUBLIC FollowsAuto : BOOL
+    FollowsAuto := Mode = E_Mode#Auto AND RunCommand;
+END_METHOD
+
+METHOD PUBLIC GetActualValue : LREAL
+    GetActualValue := PowerOutput;
+END_METHOD
+
 END_FUNCTION_BLOCK
 
 END_NAMESPACE

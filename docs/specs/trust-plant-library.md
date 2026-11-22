@@ -173,6 +173,7 @@ Every method an HMI button calls belongs to an interface the block implements (�
 | `ITravelStop` | `StopTravel() : BOOL` |
 | `IExtendRetractDevice EXTENDS IDevice` | `Extend() : BOOL`, `Retract() : BOOL`, `IsExtended() : BOOL`, `IsRetracted() : BOOL` |
 | `IPositionDevice EXTENDS IDevice` | `SetPosition(Value : LREAL) : BOOL`, `GetPosition() : LREAL` |
+| `IControlledDevice` | `FollowsAuto() : BOOL`, `GetActualValue() : LREAL` |
 | `IServiceable` | `ServiceDone() : BOOL` |
 | `IDutyMember` | `IsAvailable() : BOOL`, `Demand(Run : BOOL)`, `IsRunning() : BOOL`, `GetRunHours() : LREAL` |
 | `IMeasurement` | `GetValue() : LREAL`, `GetQuality() : E_Quality` |
@@ -187,6 +188,16 @@ Every method an HMI button calls belongs to an interface the block implements (�
 | `ISequenceManager` | `StopAll() : BOOL`, `AbortAll() : BOOL` |
 
 Getters have no side effects. An out-of-range `GetAlarm` index returns `NULL`.
+
+`IControlledDevice` is a device that a controller drives through its `Auto…` value: a control
+valve's `AutoPosition`, a drive's `AutoSpeed`, a heater's `AutoPower`. `FollowsAuto()` is TRUE
+while the device follows that value now, and `GetActualValue()` is what the device does: its
+position, speed or power. A controller tracks `GetActualValue()` while `FollowsAuto()` is FALSE
+(§8.1): while the device is in Manual, out of service, held by its interlock or a fault, stopped,
+or not yet released by its permissive, the controller neither winds up against a value the device
+does not take nor bumps the device when it follows again (external reset feedback, the practice of
+*A Practical Guide to PID Controller Implementation*). The interface is separate from the device
+interfaces, so a block that implements those without it keeps working.
 
 ## 6. Equipment
 
@@ -220,8 +231,8 @@ name only.
 
 ### 6.2 Variable-speed motor family
 
-`FB_VariableSpeedMotor EXTENDS FB_RunDevice IMPLEMENTS ISpeedDevice`; `FB_VariableSpeedPump`,
-`FB_VariableSpeedFan` and `FB_DosingPump` extend it.
+`FB_VariableSpeedMotor EXTENDS FB_RunDevice IMPLEMENTS ISpeedDevice, IControlledDevice`;
+`FB_VariableSpeedPump`, `FB_VariableSpeedFan` and `FB_DosingPump` extend it.
 
 1. Additional inputs `AutoSpeed`, `SpeedFeedback`, `HasSpeedFeedback := FALSE`; outputs
    `SpeedSetpoint` (the drive's reference, %), `Speed` (feedback, else the setpoint);
@@ -236,16 +247,20 @@ name only.
    refused.
 5. With speed feedback, running with `|SpeedFeedback − SpeedSetpoint| > SpeedDeviation` for
    `DeviationTime` raises `SpeedDeviationAlarm` (Low); it latches no fault.
+6. **Controlled device (§5):** the drive follows `AutoSpeed` while it is in Auto and running
+   (`RunCommand`), and its actual value is `Speed`.
 
 ### 6.3 Heater
 
-`FB_Heater EXTENDS FB_RunDevice IMPLEMENTS IPowerDevice`.
+`FB_Heater EXTENDS FB_RunDevice IMPLEMENTS IPowerDevice, IControlledDevice`.
 
 1. `RunCommand` drives the main contactor; `Trip` is the over-temperature switch. Additional
    input `AutoPower` (%); outputs `PowerOutput` (% to a thyristor controller) and
    `PulseOutput` (time-proportioned for a solid-state relay); settings `MaxPower := 100.0`,
    `PulsePeriod : TIME := T#10s`.
 2. **A heater starts at 0 %:** as for a drive (§6.2.3), and `PowerOutput` is 0 % while stopped.
+3. **Controlled device (§5):** the heater follows `AutoPower` while it is in Auto and running
+   (`RunCommand`), and its actual value is `PowerOutput`.
 
 ### 6.4 Reversing motor
 
@@ -315,7 +330,7 @@ extends it.
 
 ### 6.9 Control valve and modulating damper
 
-`FB_ControlValve EXTENDS FB_Device IMPLEMENTS IPositionDevice, IAlarmSource`;
+`FB_ControlValve EXTENDS FB_Device IMPLEMENTS IPositionDevice, IAlarmSource, IControlledDevice`;
 `FB_ModulatingDamper` extends it.
 
 1. Inputs `AutoPosition` (%), `PositionFeedback` (%), `HasFeedback := FALSE`,
@@ -328,6 +343,8 @@ extends it.
    `DeviationAlarm` (Low) without latching a fault.
 4. Leaving the fail position is the start: it needs the permissive; once released the valve keeps
    following its position when the permissive drops. `StartPermit` gates `SetPosition`.
+5. **Controlled device (§5):** the valve follows `AutoPosition` while it is in Auto and released
+   from its fail position (item 4), and its actual value is `Position`.
 
 ## 7. Instruments and the tank
 
