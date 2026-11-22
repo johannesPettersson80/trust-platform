@@ -135,6 +135,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
 
       - name: Validate workspace/extension version alignment
@@ -189,6 +191,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
 
       - uses: dtolnay/rust-toolchain@1.99.0
@@ -304,6 +308,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
 
       - name: Install Rust toolchain
@@ -368,6 +374,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
 
       - name: Install Rust toolchain

@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: bash scripts/checkout_openot_ref.sh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: clippy, rustfmt, rust-src

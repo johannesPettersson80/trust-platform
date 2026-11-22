@@ -30,6 +30,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
@@ -48,6 +50,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
         # Builds cargo-fuzz; the fuzzing itself runs on nightly (`cargo +nightly fuzz`).
@@ -88,6 +92,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@nightly
         with:
@@ -106,6 +112,8 @@ jobs:
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
         # Builds cargo-fuzz; the fuzzing itself runs on nightly (`cargo +nightly fuzz`).
