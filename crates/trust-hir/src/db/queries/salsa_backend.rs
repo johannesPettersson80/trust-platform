@@ -416,15 +416,6 @@ pub(super) fn unit_selection_query(
         return Arc::default();
     };
     let index = project_unit_index_query(db, project);
-    // The owners of the globals a file declares follow every program's code through the file's
-    // own table (`shared_globals`), so that file imports every unit.
-    let tables = project_symbol_tables_query(db, project);
-    if tables
-        .get(&file_id)
-        .is_some_and(|table| has_owned_global_variables(table, file_id))
-    {
-        return Arc::new(select_all_units(file_id, index));
-    }
     let root = SyntaxNode::new_root(parse_green(db, input).clone());
     Arc::new(select_units(file_id, written_names(&root), index))
 }

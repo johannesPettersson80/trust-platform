@@ -160,3 +160,36 @@ fn every_declaration_of_the_project_stays_reachable_for_completion_and_rename() 
         );
     }
 }
+
+/// Catches a file that declares globals importing every declaration again (the owners of its
+/// globals would then hold `FB_Unused`), and an owner analysis that no longer follows another
+/// file's program through that file's own analysis (the owner of `g_Level` would not be `Fast`).
+#[test]
+fn a_file_that_declares_globals_holds_only_what_it_names_and_still_finds_their_owners() {
+    let mut db = Database::new();
+    let globals = FileId(0);
+    let sources = [
+        "VAR_GLOBAL\n    g_Level : INT;\nEND_VAR\n",
+        "PROGRAM Filler\nVAR_EXTERNAL\n    g_Level : INT;\nEND_VAR\ng_Level := g_Level + 1;\nEND_PROGRAM\n",
+        "CONFIGURATION Cell\nRESOURCE Station ON PLC\n    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);\n    PROGRAM P1 WITH Fast : Filler;\nEND_RESOURCE\nEND_CONFIGURATION\n",
+        UNUSED,
+    ];
+    for (index, source) in sources.iter().enumerate() {
+        db.set_source_text(FileId(index as u32), (*source).to_string());
+    }
+
+    let imported = imported_names(&db.file_symbols_with_project(globals));
+    assert!(
+        !imported.iter().any(|name| name == "FB_Unused"),
+        "the globals' file does not hold FB_Unused, which it does not name: {imported:?}"
+    );
+
+    let owners = db.global_owners(globals);
+    assert_eq!(owners.len(), 1, "{owners:?}");
+    assert_eq!(owners[0].name, "g_Level");
+    assert_eq!(
+        owners[0].owner,
+        trust_hir::db::GlobalOwner::Task("Fast".into()),
+        "only Filler writes g_Level, and only the task Fast runs it"
+    );
+}

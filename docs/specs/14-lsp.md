@@ -1300,8 +1300,6 @@ file's memory grows with what it uses, not with the size of its project.
   a configuration or resource. Every namespace is imported, so that `USING` and qualified names find it.
 - An imported declaration brings the declarations that it names outside its statement bodies (the types of its
   members, its bases and its interfaces), and those bring theirs in turn.
-- A file that declares global variables imports every declaration: the owners of its globals and their cross-task
-  hazards (specification 28 §6) follow the code of every program through that file's analysis.
 - Completion, the learner's suggestions and rename's conflict check read every declaration of the project for each
   request (§6.1.2, §6.4.1).
 
