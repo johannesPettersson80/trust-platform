@@ -36,7 +36,7 @@ pub(super) fn search(runtime: &RuntimeFacts, sink: &SourceSink) {
     while !sink.ended() {
         let peers = mesh.liveliness_snapshot().peers;
         let timeout = sink.remaining().min(MESH_QUERY_TIMEOUT);
-        for (peer, answer) in query_identities(session, &peers, timeout) {
+        for (peer, answer) in query_identities(session, mesh.site(), &peers, timeout) {
             match answer {
                 Ok(reply)
                     if reply.stable_runtime_id.as_deref() == Some(runtime.runtime_id.as_str()) => {}

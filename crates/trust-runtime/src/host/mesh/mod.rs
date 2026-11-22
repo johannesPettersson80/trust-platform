@@ -32,4 +32,7 @@ mod security_tests;
 mod peers_tests;
 
 #[cfg(test)]
+mod site_tests;
+
+#[cfg(test)]
 mod hmi_remote_tests;

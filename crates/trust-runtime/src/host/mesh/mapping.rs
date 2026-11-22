@@ -19,8 +19,6 @@ pub(super) fn mesh_snapshot_timeout() -> StdDuration {
     }
 }
 
-pub(crate) const DEFAULT_SITE: &str = "default-site";
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MeshSnapshotError {
     Command(String),
@@ -55,6 +53,44 @@ pub(crate) fn now_ns() -> u64 {
 #[must_use]
 pub(crate) fn mesh_data_key(site: &str, runtime_id: &str, remote_key: &str) -> String {
     format!("truST/{site}/{runtime_id}/mesh/data/{remote_key}")
+}
+
+/// The site and the resource name of the runtime that `peer` names, as a runtime of the site
+/// `own_site` names its peers: the resource of `own_site` for a bare name, and `<site>/<resource>`
+/// for a runtime of another site (specification 11, "Runtime Cloud sites").
+#[must_use]
+pub(crate) fn peer_site_and_name<'a>(peer: &'a str, own_site: &'a str) -> (&'a str, &'a str) {
+    (
+        crate::runtime_cloud::sites::runtime_cloud_site_of(peer, own_site),
+        crate::runtime_cloud::sites::runtime_cloud_resource_of(peer),
+    )
+}
+
+/// The key of the value `remote_key` that `peer` publishes, `peer` named as a runtime of the site
+/// `own_site` names it.
+#[must_use]
+pub(crate) fn peer_data_key(own_site: &str, peer: &str, remote_key: &str) -> String {
+    let (site, name) = peer_site_and_name(peer, own_site);
+    mesh_data_key(site, name, remote_key)
+}
+
+/// The name by which a runtime of the site `own_site` names the runtime whose liveliness key is
+/// `key_expr`, `truST/<site>/<resource>/svc/liveliness/<id>`: its resource name in `own_site`, and
+/// `<site>/<resource>` otherwise; `None` for a key of another shape.
+#[must_use]
+pub(crate) fn liveliness_peer(key_expr: &str, own_site: &str) -> Option<String> {
+    let mut parts = key_expr.split('/');
+    let (Some("truST"), Some(site), Some(name), Some("svc"), Some("liveliness")) = (
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+    ) else {
+        return None;
+    };
+    (!site.is_empty() && !name.is_empty())
+        .then(|| crate::runtime_cloud::sites::runtime_cloud_id(own_site, site, name))
 }
 
 #[must_use]

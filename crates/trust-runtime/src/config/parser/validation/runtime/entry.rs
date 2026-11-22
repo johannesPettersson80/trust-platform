@@ -136,7 +136,11 @@ impl RuntimeToml {
                 site: parsed_cloud.site.clone(),
                 ..parsed_discovery.config
             },
-            mesh: parsed_mesh.config,
+            // The mesh publishes under the runtime's site (specification 11, "Runtime Cloud sites").
+            mesh: MeshConfig {
+                site: parsed_cloud.site.clone(),
+                ..parsed_mesh.config
+            },
             runtime_cloud_profile: parsed_cloud.profile,
             runtime_cloud_site: parsed_cloud.site,
             runtime_cloud_wan_allow_write: parsed_cloud.wan_allow_write,

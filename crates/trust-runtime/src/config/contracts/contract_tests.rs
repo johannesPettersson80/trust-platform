@@ -363,6 +363,7 @@ fn mesh_config_clone_owns_connection_and_subscription_maps() {
         subscribe: IndexMap::from([("remote/**".into(), "local/".into())]),
         zenohd_version: "1.0.0".into(),
         plugin_versions: IndexMap::from([("storage".into(), "1.0.0".into())]),
+        site: None,
     };
     let copy = original.clone();
     original.connect.clear();
