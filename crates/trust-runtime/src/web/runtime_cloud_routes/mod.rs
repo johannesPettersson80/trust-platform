@@ -21,6 +21,8 @@ pub(super) struct RuntimeCloudRouteContext<'a> {
     pub discovery: &'a Arc<DiscoveryState>,
     pub bundle_root: &'a Option<PathBuf>,
     pub profile: RuntimeCloudProfile,
+    /// The runtime's own site (specification 11, "Runtime Cloud sites").
+    pub site: &'a str,
     pub wan_allow_write: &'a [RuntimeCloudWanAllowRule],
     pub config_state: &'a Arc<Mutex<RuntimeCloudConfigAgentState>>,
     pub config_path: Option<&'a Path>,
@@ -36,6 +38,8 @@ pub(super) enum RuntimeCloudRouteOutcome {
     NotHandled(tiny_http::Request),
 }
 
+/// The runtime's ID as it names itself: its resource name, as every runtime of its own site names
+/// it (specification 11, "Runtime Cloud sites").
 pub(super) fn local_runtime_id(ctx: &RuntimeCloudRouteContext<'_>) -> String {
     crate::control::runtime_resource_name_port(ctx.control_state.as_ref()).to_string()
 }

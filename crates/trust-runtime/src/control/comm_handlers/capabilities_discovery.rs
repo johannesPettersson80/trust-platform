@@ -109,6 +109,7 @@ mod tests {
             mesh_port: None,
             control: None,
             host_group: None,
+            site: None,
             last_seen_ns: 1,
         }
     }

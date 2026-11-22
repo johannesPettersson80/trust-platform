@@ -2961,6 +2961,7 @@ END_PROGRAM
             mesh_port: Some(7447),
             control: Some(SmolStr::new("tcp://10.0.0.2:9900")),
             host_group: Some(SmolStr::new("cell-a")),
+            site: None,
             last_seen_ns: now_ns,
         }]);
     state.io_health.lock().expect("io health lock").extend([

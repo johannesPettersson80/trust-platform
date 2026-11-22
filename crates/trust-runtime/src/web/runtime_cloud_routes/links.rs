@@ -107,6 +107,7 @@ pub(super) fn handle_post_link_transport(
     if payload.transport == RuntimeCloudLinkTransport::Realtime
         && !runtime_cloud_link_is_same_host_from_local(
             ctx.discovery.as_ref(),
+            ctx.site,
             local_runtime.as_str(),
             source,
             target,

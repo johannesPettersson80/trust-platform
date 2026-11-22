@@ -55,7 +55,7 @@ impl PresenceCache {
 /// the projection of that observation. The runtime is named by its runtime ID, as a find names it.
 fn read_presence(entry: &DiscoveryEntry, now_ns: u64) -> RuntimePresenceRecord {
     let observation = presence_observation_from_discovery(
-        RUNTIME_CLOUD_DEFAULT_SITE,
+        entry.site.as_deref().unwrap_or(RUNTIME_CLOUD_DEFAULT_SITE),
         entry.id.as_str(),
         entry.name.as_str(),
         entry.presence_sighting(),

@@ -14,6 +14,7 @@ fn runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host
             mesh_port: Some(5201),
             control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
             host_group: None,
+            site: None,
             last_seen_ns: now_ns(),
         },
         DiscoveryEntry {
@@ -25,6 +26,7 @@ fn runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host
             mesh_port: Some(5202),
             control: Some(SmolStr::new("tcp://10.20.30.40:5202")),
             host_group: None,
+            site: None,
             last_seen_ns: now_ns(),
         },
     ]);

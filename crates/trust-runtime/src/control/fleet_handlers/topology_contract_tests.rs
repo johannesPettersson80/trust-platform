@@ -81,6 +81,7 @@ fn discovery_entry(
         mesh_port: None,
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: last_seen_ms.saturating_mul(1_000_000),
     }
 }

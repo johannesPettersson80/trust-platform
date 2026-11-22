@@ -13,6 +13,7 @@ fn runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates() {
         mesh_port: Some(5200),
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
     let state = control_state_named(source_fixture(), "runtime-a");
@@ -240,6 +241,7 @@ fn runtime_cloud_ha_dual_output_prevention_blocks_standby_dispatch() {
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
     let state_a = control_state_named(source_fixture(), "runtime-a");

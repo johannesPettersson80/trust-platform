@@ -19,6 +19,7 @@ fn runtime_cloud_dispatch_reads_remote_runtime_status_via_connected_runtime() {
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
 
@@ -105,6 +106,7 @@ fn runtime_cloud_control_proxy_reads_remote_runtime_status() {
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
 
@@ -190,6 +192,7 @@ fn runtime_cloud_io_config_proxy_reads_remote_runtime_config() {
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
 

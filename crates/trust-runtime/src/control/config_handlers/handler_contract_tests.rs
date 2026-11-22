@@ -228,6 +228,7 @@ fn config_handler_contract_startup_only_key_set_is_closed() {
     for key in [
         "runtime.execution_backend",
         "runtime.execution_backend_source",
+        "runtime_cloud.site",
         "realtime.profile",
         "realtime.enabled",
         "realtime.require_preempt_rt_kernel",
@@ -583,6 +584,8 @@ fn config_handler_contract_config_get_uses_canonical_enum_spellings() {
     assert_eq!(result["control.mode"], "production");
     assert_eq!(result["mesh.role"], "peer");
     assert_eq!(result["runtime_cloud.profile"], "dev");
+    // Specification 11, "Runtime Cloud sites": a runtime that names no site is in the default site.
+    assert_eq!(result["runtime_cloud.site"], "default-site");
     assert_eq!(result["runtime.execution_backend"], "native");
     assert_eq!(result["runtime.execution_backend_source"], "default");
 }
@@ -737,6 +740,7 @@ fn config_handler_contract_config_get_contains_complete_stable_key_set() {
             "runtime.execution_backend_source",
             "runtime_cloud.links.transports",
             "runtime_cloud.profile",
+            "runtime_cloud.site",
             "runtime_cloud.wan.allow_write",
             "simulation.enabled",
             "simulation.mode",

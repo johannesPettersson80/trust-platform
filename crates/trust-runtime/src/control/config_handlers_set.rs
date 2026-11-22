@@ -342,7 +342,10 @@ fn stage_host_key(
             staged.updated.push("simulation.time_scale");
             return Some(Ok(()));
         }
-        "realtime.profile"
+        // The site is part of the runtime's identity, read at start (specification 11, "Runtime
+        // Cloud sites").
+        "runtime_cloud.site"
+        | "realtime.profile"
         | "realtime.enabled"
         | "realtime.require_preempt_rt_kernel"
         | "realtime.lock_memory"
