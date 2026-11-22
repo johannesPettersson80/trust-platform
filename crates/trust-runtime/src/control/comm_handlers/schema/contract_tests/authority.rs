@@ -89,6 +89,7 @@ pub(super) fn protocol_field_ids(protocol_id: &str) -> &'static [&'static str] {
             "tls_client_cert_path",
             "tls_client_key_path",
             "tls_alpn",
+            "stale_after_ms",
         ],
         "ethercat" => &[
             "adapter",

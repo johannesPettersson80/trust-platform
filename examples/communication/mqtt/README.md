@@ -51,10 +51,11 @@ Field intent:
 - `reconnect_ms`: backoff cadence for broken sessions.
 - `keep_alive_s`: session liveness interval.
 - `allow_insecure_remote`: blocks unsafe remote configuration.
-- `on_error = "warn"`: a scan that finds no new message on `topic_in` keeps the last input and
-  reports the driver degraded. A publisher sends when a value changes, not every scan, so this
-  example takes `warn`. Under the default `fault`, such a scan faults the runtime, which suits
-  only a publisher that sends a new image before every scan (specification 32 §8).
+- `on_error = "warn"`: while the broker cannot be reached, the runtime keeps running and reports
+  the driver degraded; under the default `fault` a lost session faults the runtime. A scan that
+  finds no new message on `topic_in` keeps the last input under every policy, because a publisher
+  sends when a value changes, not every scan; `stale_after_ms` would make an input stale after
+  that long without a message (specification 32 §8).
 
 By default, MQTT payloads are raw process-image bytes. If the broker uses typed
 scalar topics instead, add explicit point maps:

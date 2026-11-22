@@ -7,7 +7,9 @@ use std::time::Instant;
 
 use super::broker::{Answer, Broker};
 use super::safe_state_cases::runtime_with_safe_state;
-use super::{at, degraded, eventually, faulted, faulted_with, read_fresh, start, SCAN_WAIT};
+use super::{
+    at, degraded, eventually, faulted, faulted_with, read_fresh, start, PAST_STALE_AFTER, SCAN_WAIT,
+};
 use crate::error::RuntimeError;
 use crate::io::{IoDriver, IoDriverHealth};
 
@@ -17,15 +19,16 @@ fn not_fresh() -> Result<(), RuntimeError> {
 }
 
 /// A broker and a driver on `line/in` and `line/out` under `on_error`, with a backoff of 60 s, so
-/// that a backoff started during a test cannot end inside it, its session running and its first
-/// message, 7, read.
+/// that a backoff started during a test cannot end inside it, its session running, its first
+/// message, 7, read, and that message older than the driver's `stale_after_ms` of 1 ms, so that
+/// its next read without a message is stale (specification 32 §8).
 fn split_health_driver(on_error: &str) -> (Broker, super::MqttIoDriver) {
     let broker = Broker::start();
     let mut driver = start(&at(
         &broker,
         &format!(
             "topic_in = \"line/in\"\ntopic_out = \"line/out\"\non_error = \"{on_error}\"\n\
-             reconnect_ms = 60000"
+             reconnect_ms = 60000\nstale_after_ms = 1"
         ),
     ));
     broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
@@ -34,6 +37,7 @@ fn split_health_driver(on_error: &str) -> (Broker, super::MqttIoDriver) {
     eventually("first message", || {
         driver.read_inputs(&mut inputs).is_ok() && inputs == [7]
     });
+    std::thread::sleep(PAST_STALE_AFTER);
     (broker, driver)
 }
 

@@ -97,19 +97,24 @@ fn nothing_listens() -> (trust_test_support::RefusedPort, String) {
     (held, address)
 }
 
-/// Reads the inputs into `image` until a read finds the session running and a message since the
-/// last read. Under `on_error = "fault"` a read without one fails with `mqtt input not fresh`, or
-/// with the link's condition, and leaves the image as it was (specification 32 §8), so the reads
-/// before the broker's messages arrive change nothing. Gives the first other result.
+/// How long a test waits for its input to be older than its `stale_after_ms` of 1 ms
+/// (specification 32 §8): many times the limit, so that a slow runner's clock still has passed it.
+const PAST_STALE_AFTER: Duration = Duration::from_millis(20);
+
+/// Reads the inputs into `image` until a read takes a message that arrived since the last read,
+/// and gives that read's result. A read before the broker's messages arrive holds the input
+/// (specification 32 §8): it copies the last accepted message, or fails with the link's condition
+/// or a held conversion failure, so only the driver's count of reads that took messages tells a
+/// fresh read. After [`PATIENCE`] it gives the last read's result.
 fn read_fresh(driver: &mut MqttIoDriver, image: &mut [u8]) -> Result<(), RuntimeError> {
+    let taken = driver.batches_read();
     let deadline = Instant::now() + PATIENCE;
     loop {
-        match driver.read_inputs(image) {
-            Err(RuntimeError::IoFreshness(_)) if Instant::now() < deadline => {
-                thread::sleep(Duration::from_millis(1));
-            }
-            result => return result,
+        let result = driver.read_inputs(image);
+        if driver.batches_read() > taken || Instant::now() >= deadline {
+            return result;
         }
+        thread::sleep(Duration::from_millis(1));
     }
 }
 

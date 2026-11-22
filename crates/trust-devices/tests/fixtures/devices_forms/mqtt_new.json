@@ -159,7 +159,7 @@
               "label": "Ignore"
             }
           ],
-          "help": "Runtime behavior when the MQTT broker is unreachable or no fresh message is available.",
+          "help": "Runtime behavior when the MQTT broker is unreachable, a message does not convert, or an input is older than Stale after.",
           "forget_after_post": false
         }
       ]
@@ -215,6 +215,17 @@
             "item_template": "",
             "properties": []
           },
+          "forget_after_post": false
+        },
+        {
+          "id": "stale_after_ms",
+          "label": "Stale after (ms)",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 0,
+          "options": [],
+          "help": "0 keeps an input's last value while the broker is connected; a larger value makes an input whose last message is older stale, and it follows On error.",
           "forget_after_post": false
         }
       ]

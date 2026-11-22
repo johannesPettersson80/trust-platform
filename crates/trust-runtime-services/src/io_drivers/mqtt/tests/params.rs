@@ -44,7 +44,7 @@ fn endpoint(broker: &str) -> Result<BrokerEndpoint, ParamsError> {
 
 /// A local broker takes trust-runtime's defaults: topics `trust/io/in` and `trust/io/out`
 /// (specification 32 §4), a reconnect backoff of 500 ms, a keep alive of 5 s, `on_error =
-/// "fault"`, no credentials and no TLS, both raw directions on. Catches a default that differs
+/// "fault"`, no `stale_after_ms` (§8), no credentials and no TLS, both raw directions on. Catches a default that differs
 /// from the computer's, which would change a project that moves to a chip.
 #[test]
 fn a_local_broker_takes_the_defaults() {
@@ -64,6 +64,7 @@ fn a_local_broker_takes_the_defaults() {
             reconnect_ms: 500,
             keep_alive_s: 5,
             on_error: OnError::Fault,
+            stale_after_ms: None,
             tls: None,
             mappings: None,
             input_points: vec![],
@@ -77,15 +78,16 @@ fn a_local_broker_takes_the_defaults() {
 }
 
 /// Every key reads into its value: the scheme `mqtts://` turns TLS on, paths and topics are
-/// trimmed, `on_error` is read trimmed and in any case with `warning` for `warn`, and a given 0 for
-/// `reconnect_ms` and `keep_alive_s` is read as 1, as the computer reads them. Catches a key read
+/// trimmed, `on_error` is read trimmed and in any case with `warning` for `warn`, `stale_after_ms`
+/// as it is given, and a given 0 for `reconnect_ms` and `keep_alive_s` is read as 1, as the
+/// computer reads them. Catches a key read
 /// into the wrong field, an untrimmed path, and a busy reconnect loop from a backoff of 0.
 #[test]
 fn a_full_table_reads_into_its_values() {
     let params = MqttParams::from_json(concat!(
         r#"{"broker":" mqtts://broker.example:8883 ","client_id":"line-7","keep_alive_s":0,"#,
         r#""on_error":" Warning ","password":"s3cret","reconnect_ms":0,"tls_alpn":[" mqtt "],"#,
-        r#""tls_ca_path":" /etc/ca.pem ","tls_client_cert_path":"/etc/c.pem","#,
+        r#""stale_after_ms":2500,"tls_ca_path":" /etc/ca.pem ","tls_client_cert_path":"/etc/c.pem","#,
         r#""tls_client_key_path":"/etc/k.pem","topic_in":" in/x ","topic_out":"out/x","#,
         r#""username":"plc"}"#
     ));
@@ -107,6 +109,7 @@ fn a_full_table_reads_into_its_values() {
             reconnect_ms: 1,
             keep_alive_s: 1,
             on_error: OnError::Warn,
+            stale_after_ms: Some(2_500),
             tls: Some(MqttTls {
                 ca_path: "/etc/ca.pem".into(),
                 client_auth: Some(ClientAuth {
@@ -335,9 +338,11 @@ fn credentials_come_together_and_never_show() {
     assert!(shown.contains(r#"password: "<redacted>""#), "{shown}");
 }
 
-/// `keep_alive_s` is 0 to 65,535 and `reconnect_ms` a whole number of milliseconds, and
-/// `on_error` is `fault`, `warn` (or `warning`) or `ignore` in any case. Catches a keep alive that
-/// does not fit CONNECT's two bytes, a negative backoff, and a misspelt policy taken as `fault`.
+/// `keep_alive_s` is 0 to 65,535, `reconnect_ms` a whole number of milliseconds, `stale_after_ms`
+/// one too, 0 meaning no limit (specification 32 §8), and `on_error` is `fault`, `warn` (or
+/// `warning`) or `ignore` in any case. Catches a keep alive that does not fit CONNECT's two bytes, a
+/// negative backoff, a `stale_after_ms` of 0 taken as a limit that makes every read stale, and a
+/// misspelt policy taken as `fault`.
 #[test]
 fn numbers_and_the_policy_are_checked() {
     assert_eq!(
@@ -349,6 +354,21 @@ fn numbers_and_the_policy_are_checked() {
         refused(
             "keep_alive_s",
             "must be an integer from 0 to 65535, not 65536"
+        )
+    );
+    assert_eq!(
+        local_with(r#""stale_after_ms":1"#).map(|params| params.stale_after_ms),
+        Ok(Some(1))
+    );
+    assert_eq!(
+        local_with(r#""stale_after_ms":0"#).map(|params| params.stale_after_ms),
+        Ok(None)
+    );
+    assert_eq!(
+        local_with(r#""stale_after_ms":-1"#),
+        refused(
+            "stale_after_ms",
+            "must be an integer from 0 to 9223372036854775807, not -1"
         )
     );
     for given in ["-1", "2.5", "\"500\""] {
@@ -392,8 +412,8 @@ fn an_unknown_key_is_refused_everywhere() {
             "qos",
             "unknown key; the mqtt driver takes allow_insecure_remote, broker, client_id, \
              input_points, keep_alive_s, mappings, on_error, output_points, password, \
-             reconnect_ms, sparkplug, tls, tls_alpn, tls_ca_path, tls_client_cert_path, \
-             tls_client_key_path, topic_in, topic_out and username"
+             reconnect_ms, sparkplug, stale_after_ms, tls, tls_alpn, tls_ca_path, \
+             tls_client_cert_path, tls_client_key_path, topic_in, topic_out and username"
         )
     );
     assert_eq!(

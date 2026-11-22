@@ -79,57 +79,98 @@ fn raw_mode_reads_the_newest_payload_and_publishes_the_image() {
     assert_eq!(exchange.output_health(), IoDriverHealth::Ok);
 }
 
-/// Under `on_error = "fault"` a read without a new message fails with `mqtt input not fresh` and
-/// leaves the image as it was; the condition is the input path's, so the output path stays `Ok`,
-/// no backoff starts, and the next write publishes at once; a fresh read clears it
-/// (specification 32 §8). Catches a stale read that exposes old bytes, that unconfirms a safe
-/// state, or that holds the outputs back.
+/// With `stale_after_ms = 10` a read without a new message holds the last value while that message
+/// is at most 10 ms old (accepted at 2, read at 12), and under `on_error = "fault"` fails with
+/// `mqtt input not fresh` once it is older (read at 13), leaving the image as it was; the
+/// condition is the input path's, so the output path stays `Ok`, no backoff starts, and the next
+/// write publishes at once; a new message clears it (specification 32 §8). Catches a limit
+/// counted from the wrong time or off by one, a stale read that exposes old bytes, that unconfirms
+/// a safe state, or that holds the outputs back.
 #[test]
-fn a_stale_read_under_fault_fails_without_touching_the_image_or_the_output_path() {
-    let mut exchange =
-        exchange_of(r#"{"broker":"127.0.0.1:1883","topic_in":"line/in","topic_out":"line/out"}"#);
+fn a_read_older_than_stale_after_ms_under_fault_fails_without_touching_the_image_or_the_output_path(
+) {
+    let mut exchange = exchange_of(concat!(
+        r#"{"broker":"127.0.0.1:1883","stale_after_ms":10,"topic_in":"line/in","#,
+        r#""topic_out":"line/out"}"#
+    ));
     connect(&mut exchange, 0);
     deliver(&mut exchange, 1, &[("line/in", &[7])]);
     let mut inputs = [0_u8; 2];
     assert_eq!(exchange.read_inputs(2, &mut inputs), Ok(()));
     assert_eq!(inputs, [7, 0]);
+    let mut held = [0x55; 2];
+    assert_eq!(exchange.read_inputs(12, &mut held), Ok(()));
+    assert_eq!(held, [7, 0]);
+    assert_eq!(exchange.health(), IoDriverHealth::Ok);
     let mut stale = [0x55; 2];
-    assert_eq!(exchange.read_inputs(3, &mut stale), Err(not_fresh()));
+    assert_eq!(exchange.read_inputs(13, &mut stale), Err(not_fresh()));
     assert_eq!(stale, [0x55; 2]);
     assert_eq!(exchange.health(), faulted("mqtt input not fresh"));
     assert_eq!(exchange.output_health(), IoDriverHealth::Ok);
-    assert_eq!(exchange.write_outputs(4, &[2]), Ok(()));
-    assert_eq!(take(&mut exchange, 4), publish("line/out", &[2]));
-    assert_eq!(exchange.poll(5), MqttPoll::Wait);
+    assert_eq!(exchange.write_outputs(14, &[2]), Ok(()));
+    assert_eq!(take(&mut exchange, 14), publish("line/out", &[2]));
+    assert_eq!(exchange.poll(15), MqttPoll::Wait);
     assert_eq!(exchange.health(), faulted("mqtt input not fresh"));
-    deliver(&mut exchange, 6, &[("line/in", &[8])]);
-    assert_eq!(exchange.read_inputs(7, &mut inputs), Ok(()));
+    deliver(&mut exchange, 16, &[("line/in", &[8])]);
+    assert_eq!(exchange.read_inputs(17, &mut inputs), Ok(()));
     assert_eq!(inputs, [8, 0]);
     assert_eq!(exchange.health(), IoDriverHealth::Ok);
 }
 
-/// Under `on_error = "warn"` a read without a new message succeeds with the last accepted snapshot
-/// and degrades the health with `mqtt input not fresh`; before any snapshot it leaves the image and
-/// says `mqtt input snapshot unavailable` (specification 32 §8). Catches a warned read that
-/// faults, invents input bytes, or drops the snapshot.
+/// Without `stale_after_ms`, under the default `on_error = "fault"`, a connected input keeps the
+/// value of its last message however old it is: a read before the first message leaves the image
+/// as it is, and later reads without a new message copy the last one, all healthy (specification
+/// 32 §8). Catches the earlier rule, under which a read that found no message newer than the
+/// previous one was stale, so that a topic that publishes on change faulted the runtime at its
+/// first scan (checklist G239).
 #[test]
-fn a_stale_read_under_warn_keeps_the_last_snapshot() {
-    let mut exchange =
-        exchange_of(r#"{"broker":"127.0.0.1:1883","on_error":"warn","topic_in":"line/in"}"#);
+fn a_connected_input_keeps_its_last_value_without_stale_after_ms() {
+    let mut exchange = exchange_of(r#"{"broker":"127.0.0.1:1883","topic_in":"line/in"}"#);
     connect(&mut exchange, 0);
     let mut inputs = [0x55; 2];
     assert_eq!(exchange.read_inputs(1, &mut inputs), Ok(()));
+    assert_eq!(inputs, [0x55; 2]);
+    assert_eq!(exchange.health(), IoDriverHealth::Ok);
+    deliver(&mut exchange, 2, &[("line/in", &[7])]);
+    assert_eq!(exchange.read_inputs(3, &mut inputs), Ok(()));
+    assert_eq!(inputs, [7, 0]);
+    for now_ms in [4, 1_000, 86_400_000] {
+        let mut held = [0x55; 2];
+        assert_eq!(
+            exchange.read_inputs(now_ms, &mut held),
+            Ok(()),
+            "at {now_ms} ms"
+        );
+        assert_eq!(held, [7, 0], "at {now_ms} ms");
+        assert_eq!(exchange.health(), IoDriverHealth::Ok, "at {now_ms} ms");
+    }
+}
+
+/// Under `on_error = "warn"` with `stale_after_ms = 10`, a stale read succeeds with the last
+/// accepted snapshot and degrades the health with `mqtt input not fresh`; before any message, once
+/// the subscription is older than 10 ms (subscribed at 0, read at 11), it leaves the image and says
+/// `mqtt input snapshot unavailable` (specification 32 §8). Catches a warned read that faults,
+/// invents input bytes, or drops the snapshot, and a subscription without a message never stale.
+#[test]
+fn a_stale_read_under_warn_keeps_the_last_snapshot() {
+    let mut exchange = exchange_of(concat!(
+        r#"{"broker":"127.0.0.1:1883","on_error":"warn","stale_after_ms":10,"#,
+        r#""topic_in":"line/in"}"#
+    ));
+    connect(&mut exchange, 0);
+    let mut inputs = [0x55; 2];
+    assert_eq!(exchange.read_inputs(11, &mut inputs), Ok(()));
     assert_eq!(inputs, [0x55; 2]);
     assert_eq!(
         exchange.health(),
         degraded("mqtt input snapshot unavailable")
     );
-    deliver(&mut exchange, 2, &[("line/in", &[7])]);
-    assert_eq!(exchange.read_inputs(3, &mut inputs), Ok(()));
+    deliver(&mut exchange, 12, &[("line/in", &[7])]);
+    assert_eq!(exchange.read_inputs(13, &mut inputs), Ok(()));
     assert_eq!(inputs, [7, 0]);
     assert_eq!(exchange.health(), IoDriverHealth::Ok);
     let mut stale = [0x55; 2];
-    assert_eq!(exchange.read_inputs(4, &mut stale), Ok(()));
+    assert_eq!(exchange.read_inputs(24, &mut stale), Ok(()));
     assert_eq!(stale, [7, 0]);
     assert_eq!(exchange.health(), degraded("mqtt input not fresh"));
 }
@@ -171,6 +212,14 @@ fn a_typed_batch_with_one_bad_value_changes_nothing() {
         exchange.health(),
         faulted("mqtt numeric payload must be finite")
     );
+    // A read without a new message keeps the refused message's condition (specification 32 §8).
+    assert_eq!(
+        exchange.read_inputs(5, &mut image),
+        Err(RuntimeError::IoDriver(
+            "mqtt numeric payload must be finite".into()
+        ))
+    );
+    assert_eq!(image, [7, 0, 0x00, 0x00, 0xAC, 0x41]);
     deliver(&mut exchange, 5, &[("line/in/temp", b"22.5")]);
     assert_eq!(exchange.read_inputs(6, &mut image), Ok(()));
     assert_eq!(image, [7, 0, 0x00, 0x00, 0xB4, 0x41]);
@@ -325,16 +374,19 @@ fn the_incoming_queue_keeps_the_newest_256_messages_and_counts_drops() {
     );
 }
 
-/// A message on a topic the driver did not subscribe to is not input, and a refused subscription
-/// is named in the stale read's text. Catches another topic's payload copied into the image, and
-/// a broker's refusal hidden behind a bare `not fresh`.
+/// A message on a topic the driver did not subscribe to is not input, and a read without a new
+/// message is stale while the broker has refused a subscription, which its text names, even
+/// without `stale_after_ms` (specification 32 §8). Catches another topic's payload copied into the
+/// image, a refused subscription that holds its input as if nothing were wrong, and a broker's
+/// refusal hidden behind a bare `not fresh`.
 #[test]
 fn other_topics_are_ignored_and_a_refused_subscription_is_named() {
     let mut exchange = exchange_of(r#"{"broker":"127.0.0.1:1883","topic_in":"line/in"}"#);
     connect(&mut exchange, 0);
     deliver(&mut exchange, 1, &[("line/other", &[9])]);
     let mut inputs = [0_u8; 1];
-    assert_eq!(exchange.read_inputs(2, &mut inputs), Err(not_fresh()));
+    assert_eq!(exchange.read_inputs(2, &mut inputs), Ok(()));
+    assert_eq!(inputs, [0]);
     exchange.received(3, &[0x90, 0x03, 0x00, 0x01, 0x80]);
     assert_eq!(
         exchange.read_inputs(4, &mut inputs),
