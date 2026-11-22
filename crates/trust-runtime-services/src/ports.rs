@@ -34,6 +34,7 @@ use crate::loading::install::Checked;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
+use crate::simulator_advance::{Advance, AdvanceRefusal, Advanced};
 use crate::status::{IoDriverStatus, StatusSettings};
 use crate::transfer::{Received, StoredUpload, TransferError, TransferId, TransferSession};
 
@@ -194,6 +195,23 @@ pub trait ResourcePort {
     /// The [`StepRefusal`] of a step that ran no scan or whose values cannot be read.
     fn step_cycle(&self, _request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
         Err(StepRefusal::Unsupported)
+    }
+
+    /// Runs a simulator's cycles (`simulator.advance`, specification 11 §6.8.1, "Simulator for
+    /// machine tests"): each next cycle of the resource at its time, which the test allows, while
+    /// the resource runs; `faulted` ends the advance after a cycle when it holds. A runtime on the
+    /// wall clock refuses it, the default, as every runtime but a simulator does.
+    ///
+    /// # Errors
+    ///
+    /// [`AdvanceRefusal::ClockNotManual`] on the wall clock, and [`AdvanceRefusal::Unavailable`]
+    /// when the scan thread ended, hangs, or does not finish a cycle.
+    fn advance_simulator(
+        &self,
+        _advance: Advance,
+        _faulted: &dyn Fn() -> bool,
+    ) -> Result<Advanced, AdvanceRefusal> {
+        Err(AdvanceRefusal::ClockNotManual)
     }
 }
 

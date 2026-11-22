@@ -32,6 +32,7 @@ use trust_runtime_services::ports::{
     TransferSessionError,
 };
 use trust_runtime_services::resource::commands::CommandSendError;
+use trust_runtime_services::simulator_advance::{runs_cycles, Advance, AdvanceRefusal, Advanced};
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
 use trust_runtime_services::transfer::TransferSession;
 use trust_runtime_services::variables::{ReadRefusal, ReadSet};
@@ -198,6 +199,21 @@ impl ResourcePort for ControlState {
                 STEP_WAIT.as_secs()
             )))
         })
+    }
+
+    fn advance_simulator(
+        &self,
+        advance: Advance,
+        faulted: &dyn Fn() -> bool,
+    ) -> Result<Advanced, AdvanceRefusal> {
+        // Only a simulator's resource runs on a clock that its test moves (specification 11
+        // §6.8.1, "Simulator for machine tests"); every other runs on the computer's clock.
+        let Some(clock) = self.resource.clock().stepped_clock() else {
+            return Err(AdvanceRefusal::ClockNotManual);
+        };
+        let resource = &self.resource;
+        let runs = || runs_cycles(resource.state()) && !resource.is_hung() && !faulted();
+        clock.advance(advance, &runs)
     }
 }
 

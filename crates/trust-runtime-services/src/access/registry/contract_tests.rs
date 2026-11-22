@@ -115,6 +115,7 @@ const ENGINEER: &[&str] = &[
     "plant.save",
     "plant.validate",
     "set",
+    "simulator.advance",
     "step_in",
     "step_out",
     "step_over",

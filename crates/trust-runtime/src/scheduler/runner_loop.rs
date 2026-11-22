@@ -130,6 +130,9 @@ fn run_resource_loop_core<C, F>(
         }
     }
     set_resource_state(&state, ResourceState::Running);
+    // On a clock that holds its time, a simulator's, each cycle waits until the test allows its
+    // time, the first at 0 (specification 11 §6.8.1, "Simulator for machine tests").
+    let mut held = runner.clock.holds_time().then_some(Duration::ZERO);
     loop {
         if let Err(err) =
             supervisor::sync_hang_supervisor(&mut hang_supervisor, &runner, &supervision)
@@ -182,6 +185,13 @@ fn run_resource_loop_core<C, F>(
             continue;
         }
 
+        if let Some(next) = held
+            && !runner.clock.may_run_at(next)
+        {
+            // Woken to answer a request while the time is held: wait again for the cycle's time.
+            runner.clock.sleep_until(next);
+            continue;
+        }
         let now_raw = runner.clock.now();
         if let Some(origin) = runner.take_grid_origin(now_raw) {
             boundary = Some(origin);
@@ -215,6 +225,9 @@ fn run_resource_loop_core<C, F>(
             supervision.publish(wall_start, watchdog.timeout, pause_before_cycle);
         }
         let result = execute_protected_cycle(&mut runner, now, &mut execute_cycle);
+        if held.is_some() {
+            held = Some(Duration::from_nanos(due.as_nanos().saturating_add(pace)));
+        }
         let paused_during_cycle = runner
             .runtime
             .debug_watchdog_pause_elapsed()

@@ -282,6 +282,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("set", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("debug.set", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("cycle.step", RolePolicy::Fixed(AccessRole::Engineer), true),
+    operation(
+        "simulator.advance",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
     operation("var.force", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("var.unforce", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("io.write", RolePolicy::Fixed(AccessRole::Engineer), false),
