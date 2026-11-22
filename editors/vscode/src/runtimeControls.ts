@@ -5,6 +5,7 @@ import {
   type RuntimeLifecycleSnapshot,
 } from "./runtimeLifecycle";
 import { listManagedRuntimes, onDidChangeManagedRuntimes } from "./localRuntime";
+import { LatestRefreshCoordinator } from "./networkCanvas/refreshCoordinator";
 import {
   getSelectedRuntimeId,
   onDidChangeSelectedRuntime,
@@ -48,13 +49,10 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
   context.subscriptions.push(item);
 
   let speedTimer: NodeJS.Timeout | undefined;
-  let refreshing = false;
 
-  async function refresh(): Promise<void> {
-    refreshing = true;
-    try {
-      const snapshot = await runtimeLifecycleService.snapshot();
-      const view = await statusText(context, snapshot);
+  const refresh = statusRefresher(
+    async () => statusText(context, await runtimeLifecycleService.snapshot()),
+    (view) => {
       item.text = view.text;
       item.command = "trust.home.focus";
       item.tooltip = view.simulatorRunning ? "Open the truST sidebar to see or change the simulation speed" : "Open the truST sidebar";
@@ -63,16 +61,14 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
         : undefined;
       item.show();
       followSpeed(view.simulatorRunning);
-    } finally {
-      refreshing = false;
     }
-  }
+  );
 
   // While a simulator runs, its achieved speed is read at the existing 1.5 s canvas cadence; the timer stops with the run.
   function followSpeed(running: boolean): void {
     if (running && speedTimer === undefined) {
       speedTimer = setInterval(() => {
-        if (!refreshing) void refresh();
+        void refresh();
       }, SPEED_REFRESH_INTERVAL_MS);
     } else if (!running && speedTimer !== undefined) {
       clearInterval(speedTimer);
@@ -127,6 +123,18 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
   }
 
   void refresh();
+}
+
+/** Reads the status bar's view with `read` and shows it with `show`, one read at a time: a read asked for while another
+ * runs waits for it, and a burst of asks comes to one more read. So an older read never shows after a newer one, and the
+ * bar ends on the state of the last change. Reads that overlapped could answer out of order and leave the bar on an older
+ * state: "not connected" after Connect had attached a session (specification 25 §6.9; W51). */
+export function statusRefresher(
+  read: () => Promise<StatusBarView>,
+  show: (view: StatusBarView) => void
+): () => Promise<void> {
+  const refreshes = new LatestRefreshCoordinator();
+  return () => refreshes.request(async () => show(await read()));
 }
 
 /** What the status bar shows for a lifecycle snapshot and the shared target selection. */
