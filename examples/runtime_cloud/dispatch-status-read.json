@@ -1,8 +1,8 @@
 {
   "api_version": "1.0",
   "request_id": "req-tutorial-status-read-1",
-  "connected_via": "runtime-a",
-  "target_runtimes": ["runtime-b"],
+  "connected_via": "runtime_a",
+  "target_runtimes": ["runtime_b"],
   "actor": "spiffe://trust/default-site/operator-1",
   "action_type": "status_read",
   "dry_run": false,
