@@ -55,6 +55,9 @@ pub fn start_web_server_with_mode(
         Server::http(&listen)
             .map_err(|err| RuntimeError::ControlError(format!("web bind: {err}").into()))?
     };
+    // A call to another runtime trusts what this runtime's TLS gives (specification 11, "A runtime's
+    // trust in another runtime's certificate").
+    let peer_tls = super::peer_tls::peer_tls_config(tls_materials.as_deref())?;
     // Port 0 lets the system choose the port: the server is reached at the one it chose.
     let listen = match server.server_addr().to_ip() {
         Some(address) if listen.ends_with(":0") => address.to_string(),
@@ -167,6 +170,7 @@ pub fn start_web_server_with_mode(
                 pairing: pairing.as_deref(),
                 control_state: &control_state,
                 bundle_root: &bundle_root,
+                peer_tls: &peer_tls,
             },
         ) {
             ConfigUiRouteOutcome::Handled => return,
@@ -260,6 +264,7 @@ pub fn start_web_server_with_mode(
                 control_state: &control_state,
                 discovery: &discovery,
                 bundle_root: &bundle_root,
+                peer_tls: &peer_tls,
             },
         ) {
             AuxRouteOutcome::Handled => return,
@@ -305,6 +310,7 @@ pub fn start_web_server_with_mode(
                     rollouts_state: &runtime_cloud_rollouts,
                     rollouts_path: runtime_cloud_rollouts_path.as_deref(),
                     ha_state: &runtime_cloud_ha,
+                    peer_tls: &peer_tls,
                 },
             ) {
                 RuntimeCloudRouteOutcome::Handled => return,

@@ -129,19 +129,21 @@ pub(in crate::web::config_ui_routes) fn handle_live_routes(
                 }
             };
         let token = payload.token.or(request_token);
-        let response = match config_ui_live_connect(payload.target.as_deref(), token.as_deref()) {
-            Ok(snapshot) => json_response(
-                200,
-                serde_json::to_value(snapshot).unwrap_or_else(|_| json!({})),
-            ),
-            Err(error) => structured_error_response(
-                400,
-                "live_connect_failed",
-                error.to_string().as_str(),
-                Vec::new(),
-                None,
-            ),
-        };
+        let response =
+            match config_ui_live_connect(ctx.peer_tls, payload.target.as_deref(), token.as_deref())
+            {
+                Ok(snapshot) => json_response(
+                    200,
+                    serde_json::to_value(snapshot).unwrap_or_else(|_| json!({})),
+                ),
+                Err(error) => structured_error_response(
+                    400,
+                    "live_connect_failed",
+                    error.to_string().as_str(),
+                    Vec::new(),
+                    None,
+                ),
+            };
         let _ = request.respond(response);
         return ConfigUiRouteOutcome::Handled;
     }
@@ -161,7 +163,7 @@ pub(in crate::web::config_ui_routes) fn handle_live_routes(
             }
         };
         let target = query_value(url, "target");
-        let response = match config_ui_live_state(target.as_deref()) {
+        let response = match config_ui_live_state(ctx.peer_tls, target.as_deref()) {
             Ok(snapshot) => json_response(
                 200,
                 serde_json::to_value(snapshot).unwrap_or_else(|_| json!({})),

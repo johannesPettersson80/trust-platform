@@ -7830,6 +7830,19 @@ The site is read when the runtime starts. `config.get` reports it as `runtime_cl
 `default-site` when none is set, and `config.set` refuses it as a startup-only key:
 `runtime_cloud.site is startup-only; change it via runtime.toml/service posture and restart`.
 
+##### A runtime's trust in another runtime's certificate (checklist G280)
+
+A runtime calls another runtime over HTTPS for a Runtime Cloud action's dispatch, for the Runtime
+Cloud control and I/O proxies, and for the web UI's probe, control and deploy proxies and its view
+of a remote runtime's Runtime Cloud state. When `[runtime.tls] ca_path` names a CA bundle, as
+provisioned TLS requires, the runtime verifies the other runtime's certificate against that bundle
+alone and not against the public roots, so that the runtimes of a site accept exactly the
+certificates of the site's own authority. Without `ca_path` it verifies against the public roots.
+The certificate must name the address the call goes to. A call to a runtime whose certificate is
+not trusted is not made: a Runtime Cloud target then answers `target_unreachable` with the
+verifier's reason. The runtime reads the bundle when it starts, and a bundle that holds no
+certificate stops the start.
+
 ##### Runtime Cloud state, dispatch, and rollout contract
 
 Runtime Cloud state projects the connected runtime context, discovery
