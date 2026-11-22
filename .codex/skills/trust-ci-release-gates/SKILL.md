@@ -211,9 +211,11 @@ pull request. The release guard's `prepare`, `preflight` and `check-merge` were 
   `scripts/check_regression_test_first.py` finds it (`*_tests.py`, `test_*.py`, `*_tests.rs`, `*_test.rs`,
   `tests.rs`, `tests.py`, or a `test` or `tests` directory). When it proves an existing failing command, add a `Regression-test-first:` line to the
   commit or PR.
-- **Verification report**: pull requests and candidates run
-  `scripts/verification_report_gate.py --strict --smoke`. The exhaustive verification tooling runs
-  only in the scheduled workflow.
+- **Verification report**: pull requests and merge groups run
+  `scripts/verification_report_gate.py --strict --smoke`, which also checks that every gate script
+  and workflow job has its record in `verification/gate-inventory.toml`: a new or renamed workflow
+  job adds its record in the same pull request (specification 30). No scheduled run checks the
+  verification records; the full report is a maintenance command run by hand.
 - **Missing tools**: after fixing a missing tool in one workflow, search `.github/workflows/` for the
   same tool, because `ci.yml` and `release.yml` drift apart.
 - **VS Code CI**: keep `xvfb` in the VS Code CI job.

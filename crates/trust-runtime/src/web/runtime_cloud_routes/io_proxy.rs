@@ -36,6 +36,7 @@ fn runtime_cloud_io_preflight(
         local_runtime,
         ctx.discovery.as_ref(),
         RuntimeCloudPreflightPolicy {
+            site: ctx.site,
             role: web_role,
             local_supports_secure_transport: ctx.web_tls_enabled,
             profile: ctx.profile,
@@ -54,6 +55,7 @@ fn remote_io_config_url(
     runtime_cloud_target_web_base_url(
         ctx.discovery.as_ref(),
         target_runtime,
+        ctx.site,
         ctx.profile.requires_secure_transport(),
     )
     .map(|base| format!("{base}/api/io/config"))

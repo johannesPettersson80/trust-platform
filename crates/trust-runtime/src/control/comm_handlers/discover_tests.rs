@@ -306,6 +306,7 @@ fn comm_discover_never_reports_observed() {
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://10.0.0.5:0")),
         host_group: None,
+        site: None,
         last_seen_ns: 1,
     }]);
     let mut runtime_sink = ConfidenceWords::default();

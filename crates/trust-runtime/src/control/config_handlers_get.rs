@@ -114,6 +114,12 @@ pub(super) fn handle_config_get(id: u64, state: &ControlState) -> ControlRespons
             })
             .collect::<serde_json::Map<_, _>>(),
         "runtime_cloud.profile": settings.runtime_cloud.profile.as_str(),
+        // Specification 11, "Runtime Cloud sites": read at start; `config.set` does not change it.
+        "runtime_cloud.site": settings
+            .runtime_cloud
+            .site
+            .as_deref()
+            .unwrap_or(crate::runtime_cloud::projection::RUNTIME_CLOUD_DEFAULT_SITE),
         "runtime_cloud.wan.allow_write": settings
             .runtime_cloud
             .wan_allow_write

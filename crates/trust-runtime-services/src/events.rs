@@ -16,6 +16,7 @@ use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::fault::{FaultMessage, FaultRecord, FaultSite, NO_TASK};
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::value::{Duration, Value};
@@ -95,6 +96,15 @@ pub enum RuntimeEvent {
         /// MEM-05). The record's code and this shared payload render today's text at reply time.
         message: Option<FaultMessage>,
         /// Time when the fault was recorded.
+        time: Duration,
+    },
+    /// The safe state of a stop or a fault drove the outputs of `[[io.safe_state]]` (specification
+    /// 11, "Safe state in the reads").
+    SafeStateApplied {
+        /// Each output the safe state drove, with the value it took as `io.read` shows a value
+        /// (`Bool(false)`), in the order `[[io.safe_state]]` names them.
+        outputs: Vec<(IoAddress, SmolStr)>,
+        /// Time when the safe state was applied.
         time: Duration,
     },
     /// Safe-state application failed while handling a resource fault.
@@ -385,6 +395,17 @@ pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
         } => json!({
             "type": "fault",
             "error": fault.render(message.as_ref()),
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::SafeStateApplied { outputs, time } => json!({
+            "type": "safe_state_applied",
+            "outputs": outputs
+                .iter()
+                .map(|(address, value)| json!({
+                    "address": format!("{address}"),
+                    "value": value.as_str(),
+                }))
+                .collect::<Vec<_>>(),
             "time_ns": time.as_nanos(),
         }),
         RuntimeEvent::SafeStateFailed { root, error, time } => json!({

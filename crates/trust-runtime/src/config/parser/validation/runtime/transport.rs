@@ -201,6 +201,8 @@ fn parse_discovery_section(
                 .map(|value| parse_nonempty_entry(value, "runtime.discovery.host_group"))
                 .transpose()?
                 .map(SmolStr::new),
+            // `[runtime.cloud] site` names it; the configuration's assembly fills it in.
+            site: None,
         },
     })
 }
@@ -318,10 +320,16 @@ fn parse_runtime_cloud_section(
 ) -> Result<ParsedRuntimeCloud, RuntimeError> {
     let cloud_section = section.unwrap_or(RuntimeCloudSection {
         profile: Some("dev".into()),
+        site: None,
         wan: None,
         links: None,
     });
     let profile = RuntimeCloudProfile::parse(cloud_section.profile.as_deref().unwrap_or("dev"))?;
+    let site = match cloud_section.site.as_deref() {
+        Some(value) => crate::runtime_cloud::sites::parse_runtime_cloud_site(value)
+            .map_err(|error| RuntimeError::InvalidConfig(error.into()))?,
+        None => None,
+    };
     let wan_allow_write = cloud_section
         .wan
         .and_then(|wan| wan.allow_write)
@@ -374,6 +382,7 @@ fn parse_runtime_cloud_section(
 
     Ok(ParsedRuntimeCloud {
         profile,
+        site,
         wan_allow_write,
         link_preferences,
     })

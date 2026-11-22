@@ -29,6 +29,8 @@ struct ParsedMesh {
 
 struct ParsedRuntimeCloud {
     profile: RuntimeCloudProfile,
+    /// The runtime's site, `None` for the default site (specification 11, "Runtime Cloud sites").
+    site: Option<SmolStr>,
     wan_allow_write: Vec<RuntimeCloudWanAllowRule>,
     link_preferences: Vec<RuntimeCloudLinkPreferenceRule>,
 }

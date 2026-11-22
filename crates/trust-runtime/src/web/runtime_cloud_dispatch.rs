@@ -5,6 +5,9 @@
 use super::*;
 
 pub(super) struct RuntimeCloudPreflightPolicy<'a> {
+    /// The runtime's own site, which the request's IDs are relative to (specification 11,
+    /// "Runtime Cloud sites").
+    pub site: &'a str,
     pub role: AccessRole,
     pub local_supports_secure_transport: bool,
     pub profile: RuntimeCloudProfile,
@@ -26,6 +29,7 @@ pub(super) fn runtime_cloud_preflight_for_action(
     let known_targets = runtime_cloud_target_status_map(
         discovery,
         local_runtime_id,
+        policy.site,
         policy.local_supports_secure_transport,
         now_ns(),
     );
@@ -40,6 +44,7 @@ pub(super) fn runtime_cloud_preflight_for_action(
     let preflight = runtime_cloud_apply_profile_policy(
         preflight,
         action,
+        policy.site,
         &known_targets,
         policy.profile,
         policy.wan_allow_write,
@@ -50,18 +55,22 @@ pub(super) fn runtime_cloud_preflight_for_action(
     (preflight, ha_request, known_targets)
 }
 
+/// The control URL of the runtime that `target`, named as a runtime of the site `own_site` names
+/// runtimes, is (specification 11, "Runtime Cloud sites").
 pub(super) fn runtime_cloud_target_control_url(
     discovery: &DiscoveryState,
     target: &str,
+    own_site: &str,
     require_secure_transport: bool,
 ) -> Option<String> {
-    runtime_cloud_target_web_base_url(discovery, target, require_secure_transport)
+    runtime_cloud_target_web_base_url(discovery, target, own_site, require_secure_transport)
         .map(|base| format!("{base}/api/control"))
 }
 
 pub(super) fn runtime_cloud_target_web_base_url(
     discovery: &DiscoveryState,
     target: &str,
+    own_site: &str,
     require_secure_transport: bool,
 ) -> Option<String> {
     let scheme = if require_secure_transport {
@@ -72,7 +81,7 @@ pub(super) fn runtime_cloud_target_web_base_url(
     discovery
         .snapshot()
         .into_iter()
-        .find(|entry| entry.name.as_str() == target || entry.id.as_str() == target)
+        .find(|entry| entry.cloud_id(own_site) == target || entry.id.as_str() == target)
         .and_then(|entry| entry.web_authority())
         .map(|authority| format!("{scheme}://{authority}"))
 }
@@ -107,6 +116,7 @@ fn runtime_cloud_is_stale(last_seen_ns: u64, now_ns: u64, force_stale: bool) -> 
 fn runtime_cloud_target_status_map(
     discovery: &DiscoveryState,
     local_runtime_id: &str,
+    own_site: &str,
     local_supports_secure_transport: bool,
     now_ns: u64,
 ) -> BTreeMap<String, RuntimeCloudTargetStatus> {
@@ -138,7 +148,7 @@ fn runtime_cloud_target_status_map(
             supports_secure_transport: entry.web_tls,
         };
         targets
-            .entry(entry.name.to_string())
+            .entry(entry.cloud_id(own_site))
             .and_modify(|status| runtime_cloud_merge_target_status(status, candidate))
             .or_insert(candidate);
         targets
@@ -279,6 +289,52 @@ mod tests {
         );
     }
 
+    /// Specification 11, "Runtime Cloud sites": a target is reached at the peer that announced
+    /// the site and name its ID gives, relative to the runtime's own site, and its status is kept
+    /// under that ID. Catches a site-qualified target that matches no peer, a bare name that
+    /// reaches the runtime of another site with that name, and a bare name of the own site that
+    /// reaches nothing.
+    #[test]
+    fn a_target_is_reached_at_the_peer_its_id_names_relative_to_the_own_site() {
+        let discovery = DiscoveryState::new();
+        discovery.replace_entries(vec![crate::discovery::DiscoveryEntry {
+            id: "runtime-b-1".into(),
+            name: "runtime_b".into(),
+            addresses: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            web_port: Some(18082),
+            web_tls: false,
+            mesh_port: Some(5202),
+            control: None,
+            host_group: None,
+            site: Some("site-b".into()),
+            last_seen_ns: 1,
+        }]);
+        let url = Some("http://127.0.0.1:18082/api/control");
+        assert_eq!(
+            runtime_cloud_target_control_url(&discovery, "site-b/runtime_b", "default-site", false)
+                .as_deref(),
+            url
+        );
+        assert_eq!(
+            runtime_cloud_target_control_url(&discovery, "runtime_b", "default-site", false),
+            None
+        );
+        assert_eq!(
+            runtime_cloud_target_control_url(&discovery, "runtime_b", "site-b", false).as_deref(),
+            url
+        );
+        let from_default =
+            runtime_cloud_target_status_map(&discovery, "runtime_a", "default-site", false, 2);
+        assert!(
+            from_default.contains_key("site-b/runtime_b"),
+            "{from_default:?}"
+        );
+        assert!(!from_default.contains_key("runtime_b"), "{from_default:?}");
+        let from_site_b =
+            runtime_cloud_target_status_map(&discovery, "runtime_c", "site-b", false, 2);
+        assert!(from_site_b.contains_key("runtime_b"), "{from_site_b:?}");
+    }
+
     #[test]
     fn runtime_cloud_target_status_revalidates_stale_peer_with_live_socket() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
@@ -293,10 +349,12 @@ mod tests {
             mesh_port: Some(5202),
             control: Some("unix:///tmp/trust-runtime-b.sock".into()),
             host_group: None,
+            site: None,
             last_seen_ns: 1,
         }]);
         let now = RUNTIME_CLOUD_STALE_TIMEOUT_NS + 2;
-        let targets = runtime_cloud_target_status_map(&discovery, "runtime-a", false, now);
+        let targets =
+            runtime_cloud_target_status_map(&discovery, "runtime-a", "default-site", false, now);
         let status = targets.get("runtime-b").expect("runtime-b status");
         assert!(status.reachable);
         assert!(!status.stale);

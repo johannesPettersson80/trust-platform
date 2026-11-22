@@ -221,6 +221,7 @@ struct MeshSection {
 #[serde(deny_unknown_fields)]
 struct RuntimeCloudSection {
     profile: Option<String>,
+    site: Option<String>,
     wan: Option<RuntimeCloudWanSection>,
     links: Option<RuntimeCloudLinksSection>,
 }

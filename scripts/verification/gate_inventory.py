@@ -666,18 +666,13 @@ def _validate_verification_workflow_source_contract(
         failures.append(
             "GATE_JOB_VERIFICATION_REPORT: enforcing workflow must pass --strict"
         )
-    if "schedule:" not in workflow:
+    # The smoke checks a pull request's or a merge group's change; no scheduled or manual run checks
+    # the verification records (specification 30, "Gate and workflow surface proof contract").
+    triggers = _workflow_triggers(workflow)
+    if triggers != ("pull_request", "merge_group"):
         failures.append(
-            "GATE_JOB_VERIFICATION_REPORT: exhaustive verification tooling must retain a schedule"
-        )
-    reviewed_fragments = (
-        "if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
-        "if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}",
-        "python3 scripts/check_verification_tooling_selftests.py",
-    )
-    if any(fragment not in block for fragment in reviewed_fragments):
-        failures.append(
-            "GATE_JOB_VERIFICATION_REPORT: verification smoke/scheduled split drifts from the reviewed workflow"
+            "GATE_JOB_VERIFICATION_REPORT: verification workflow must run on pull requests and merge "
+            f"groups only, not {list(triggers)}"
         )
     expected_smoke = (
         "python3 scripts/verification_report_gate.py \\",
@@ -688,19 +683,19 @@ def _validate_verification_workflow_source_contract(
         "--smoke \\",
         "--out-dir target/gate-artifacts/verification",
     )
-    expected_exhaustive = (
-        "python3 scripts/verification_report_gate.py \\",
-        '--base "${BASE_SHA}" \\',
-        '--head "${HEAD_SHA}" \\',
-        "--intent bugfix \\",
-        "--strict \\",
-        "--out-dir target/gate-artifacts/verification",
-    )
     invocations = _continued_commands(block, "python3 scripts/verification_report_gate.py")
-    if invocations != (expected_smoke, expected_exhaustive):
+    if invocations != (expected_smoke,):
         failures.append(
             "GATE_JOB_VERIFICATION_REPORT: enforcing workflow invocation drifts from the reviewed command"
         )
+
+
+def _workflow_triggers(workflow: str) -> tuple[str, ...]:
+    """The events of the workflow's top-level `on:` block, in their written order."""
+    match = re.search(r"(?ms)^on:\n(.*?)(?=^\S)", workflow)
+    if match is None:
+        return ()
+    return tuple(re.findall(r"(?m)^  ([a-z_]+):", match.group(1)))
 
 
 def _continued_commands(block: str, prefix: str) -> tuple[tuple[str, ...], ...]:

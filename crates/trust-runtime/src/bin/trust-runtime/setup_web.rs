@@ -192,6 +192,7 @@ pub fn run_setup_web(options: SetupWebOptions) -> anyhow::Result<()> {
         advertise: true,
         interfaces: Vec::new(),
         host_group: None,
+        site: None,
     };
     let _announce = start_discovery_with_state(
         &discovery,

@@ -35,6 +35,7 @@ pub(super) fn handle_post_preflight(
         local_runtime.as_str(),
         ctx.discovery.as_ref(),
         RuntimeCloudPreflightPolicy {
+            site: ctx.site,
             role: web_role,
             local_supports_secure_transport: ctx.web_tls_enabled,
             profile: ctx.profile,
@@ -85,6 +86,7 @@ pub(super) fn handle_post_dispatch(
         local_runtime.as_str(),
         ctx.discovery.as_ref(),
         RuntimeCloudPreflightPolicy {
+            site: ctx.site,
             role: web_role,
             local_supports_secure_transport: ctx.web_tls_enabled,
             profile: ctx.profile,
@@ -273,6 +275,7 @@ pub(super) fn handle_post_dispatch(
         } else if let Some(url) = runtime_cloud_target_control_url(
             ctx.discovery.as_ref(),
             decision.runtime_id.as_str(),
+            ctx.site,
             ctx.profile.requires_secure_transport(),
         ) {
             let mut remote = agent.post(&url).header("Content-Type", "application/json");

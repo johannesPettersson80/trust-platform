@@ -708,7 +708,42 @@ impl CompiledRuntime {
         // The safe image has no identify bit. Identify goes on (specification 11, "Identify"): the
         // waits of a stopped or faulted resource tick it, and an output with a safe value keeps it.
         self.note_safe_state_delivered();
-        result
+        let outputs = result?;
+        self.publish_safe_state(outputs);
+        Ok(())
+    }
+
+    /// The safe state drove `outputs`: Live Values and `io.read` answer with the outputs as
+    /// driven, marked as the safe state, with the last scan's number, and the event records them
+    /// (specification 11, "Safe state in the reads"). A safe state without outputs drove nothing.
+    fn publish_safe_state(&mut self, outputs: Vec<(IoAddress, Value)>) {
+        if outputs.is_empty() {
+            return;
+        }
+        let Some(debug) = self.debug.clone() else {
+            return;
+        };
+        // The number of the last scan that completed, which published the snapshot before.
+        let scan = debug
+            .latest_io_snapshot()
+            .and_then(|snapshot| snapshot.scan)
+            .unwrap_or(self.cycle_counter);
+        let mut snapshot = observer::io_snapshot(
+            &self.bindings,
+            &self.binding_names,
+            scan,
+            self.cycle.images(),
+            &debug,
+        );
+        snapshot.safe_state = true;
+        debug.push_io_snapshot(snapshot);
+        debug.push_runtime_event(RuntimeEvent::SafeStateApplied {
+            outputs: outputs
+                .into_iter()
+                .map(|(address, value)| (address, smol_str::format_smolstr!("{value:?}")))
+                .collect(),
+            time: self.current_time,
+        });
     }
 
     /// Takes the safe outputs of `[[io.safe_state]]`.

@@ -94,6 +94,7 @@ fn runtime_finds_keep_tls_mesh_id_addresses_last_seen_and_exclude_self() {
             mesh_port: None,
             control: None,
             host_group: None,
+            site: None,
             last_seen_ns: 1,
         },
         DiscoveryEntry {
@@ -105,6 +106,7 @@ fn runtime_finds_keep_tls_mesh_id_addresses_last_seen_and_exclude_self() {
             mesh_port: Some(7443),
             control: Some(SmolStr::new("tls://192.168.1.10:7444")),
             host_group: Some(SmolStr::new("line-a")),
+            site: None,
             last_seen_ns: 1_700_000_000_000_000_000,
         },
     ]);
@@ -173,6 +175,7 @@ fn runtime_source_listens_until_the_search_deadline() {
         mesh_port: None,
         control: Some(SmolStr::new("tcp://10.0.0.5:5680")),
         host_group: None,
+        site: None,
         last_seen_ns: 0,
     }]);
 
@@ -213,6 +216,7 @@ fn presence_entry(id: &str, host: u8, mesh_port: Option<u16>, last_seen_ns: u64)
         mesh_port,
         control: Some(SmolStr::new(format!("tcp://10.1.0.{host}:5680"))),
         host_group: None,
+        site: None,
         last_seen_ns,
     }
 }
@@ -321,6 +325,7 @@ fn cloud_presence_probe_only_connects_and_writes_nothing() {
         mesh_port: Some(7443),
         control: Some(SmolStr::new("tcp://127.0.0.1:5680")),
         host_group: None,
+        site: None,
         last_seen_ns: 1_000_000_000_000_000_000,
     }]);
     let (registry, search_id) = start_runtime_search(runtime_facts(&discovery, "rt-self"), 1_000);
@@ -509,6 +514,7 @@ fn browsed_runtime(id: &str) -> DiscoveryEntry {
         mesh_port: None,
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: 0,
     }
 }

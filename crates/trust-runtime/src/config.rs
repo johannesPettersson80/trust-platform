@@ -50,3 +50,6 @@ mod tests;
 
 #[cfg(test)]
 mod identify_tests;
+
+#[cfg(test)]
+mod cloud_site_tests;

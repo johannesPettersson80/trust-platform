@@ -156,9 +156,41 @@ impl DeviceLiveValues {
         let snapshot = published.get_or_insert_with(|| self.build_snapshot());
         snapshot.scan = Some(scan);
         snapshot.forced.clear();
+        snapshot.safe_state = false;
         snapshot::fill(&self.inner.bindings, snapshot, |address| {
             images.read(address)
         })
+    }
+
+    /// Publishes the outputs of `images` as those that a stop's or a fault's safe state drove: the
+    /// snapshot keeps the last scan's number, inputs and memory, and is marked as the safe state
+    /// (specification 11, "Safe state in the reads"). Nothing is published before the first scan.
+    ///
+    /// # Errors
+    ///
+    /// The error of an output binding that does not decode from `images`.
+    pub(super) fn publish_safe_state(&self, images: &FlatImages) -> Result<(), RuntimeError> {
+        if self.inner.copies {
+            let mut copy = self.inner.images.borrow_mut();
+            if copy.published() {
+                copy.record_safe_outputs(&images.outputs);
+            }
+            return Ok(());
+        }
+        let mut published = self.inner.published.borrow_mut();
+        let Some(snapshot) = published.as_mut() else {
+            return Ok(());
+        };
+        snapshot.safe_state = true;
+        let outputs: Vec<_> = self
+            .inner
+            .bindings
+            .iter()
+            .filter(|binding| binding.address.area == IoArea::Output)
+            .cloned()
+            .collect();
+        // The output bindings in their order refill the output entries alone.
+        snapshot::fill(&outputs, snapshot, |address| images.read(address))
     }
 
     /// The snapshot of every binding, with the value of each entry not sampled yet.

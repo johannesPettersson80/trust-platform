@@ -49,7 +49,7 @@ use crate::runtime_cloud::profile_policy::{
 use crate::runtime_cloud::projection::{
     presence_record_from_observation, project_runtime_cloud_state, runtime_cloud_peer_appears_live,
     ChannelState, ChannelType, FleetEdge, RuntimeCloudUiState, RuntimePresenceRecord, UiContext,
-    UiMode, RUNTIME_CLOUD_DEFAULT_SITE, RUNTIME_CLOUD_STALE_TIMEOUT_NS,
+    UiMode, RUNTIME_CLOUD_STALE_TIMEOUT_NS,
 };
 use crate::runtime_cloud::rollout_policy::{
     RuntimeCloudRolloutActionResponse, RuntimeCloudRolloutConfigView,
