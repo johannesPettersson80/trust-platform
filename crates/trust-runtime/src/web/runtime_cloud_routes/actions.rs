@@ -155,6 +155,7 @@ pub(super) fn handle_post_dispatch(
     let dispatch_budget_ms = action.query_budget_ms.unwrap_or(1_500).min(10_000);
     let dispatch_deadline = std::time::Instant::now() + Duration::from_millis(dispatch_budget_ms);
     let agent_config = ureq::Agent::config_builder()
+        .tls_config(ctx.peer_tls.clone())
         .timeout_connect(Some(Duration::from_millis(500)))
         .timeout_recv_response(Some(Duration::from_millis(1500)))
         .http_status_as_error(false)

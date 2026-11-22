@@ -61,8 +61,9 @@ fn remote_io_config_url(
     .map(|base| format!("{base}/api/io/config"))
 }
 
-fn remote_agent() -> ureq::Agent {
+fn remote_agent(peer_tls: &ureq::tls::TlsConfig) -> ureq::Agent {
     let config = ureq::Agent::config_builder()
+        .tls_config(peer_tls.clone())
         .timeout_connect(Some(Duration::from_millis(500)))
         .timeout_recv_response(Some(Duration::from_millis(1500)))
         .http_status_as_error(false)
@@ -152,7 +153,7 @@ pub(super) fn handle_get_io_config(
         return;
     };
 
-    let mut remote = remote_agent().get(remote_url.as_str());
+    let mut remote = remote_agent(ctx.peer_tls).get(remote_url.as_str());
     if let Some(token) = request_token.as_deref() {
         remote = remote.header("X-Trust-Token", token);
     }
@@ -289,7 +290,7 @@ pub(super) fn handle_post_io_config(
         }
     };
 
-    let mut remote = remote_agent()
+    let mut remote = remote_agent(ctx.peer_tls)
         .post(remote_url.as_str())
         .header("Content-Type", "application/json");
     if let Some(token) = request_token.as_deref() {

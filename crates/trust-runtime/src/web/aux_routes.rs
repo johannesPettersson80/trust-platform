@@ -16,6 +16,8 @@ pub(super) struct AuxRouteContext<'a> {
     pub control_state: &'a Arc<ControlState>,
     pub discovery: &'a Arc<DiscoveryState>,
     pub bundle_root: &'a Option<PathBuf>,
+    /// What a call to another runtime trusts (specification 11, G280).
+    pub peer_tls: &'a ureq::tls::TlsConfig,
 }
 
 pub(super) enum AuxRouteOutcome {
@@ -191,6 +193,7 @@ pub(super) fn handle_aux_route(
             return AuxRouteOutcome::Handled;
         };
         let probe = probe_remote_runtime(
+            ctx.peer_tls,
             target.as_str(),
             payload.username.trim(),
             payload.password.as_str(),
@@ -244,12 +247,12 @@ pub(super) fn handle_aux_route(
             return AuxRouteOutcome::Handled;
         }
         let (status, response_body) = match proxy_remote_post(
+            ctx.peer_tls,
             payload.target.as_str(),
             "/api/control",
             request_token.as_deref(),
             payload.auth_basic.as_ref(),
             &payload.control_request,
-            500,
             2_500,
         ) {
             Ok(value) => value,
@@ -297,12 +300,12 @@ pub(super) fn handle_aux_route(
             }
         };
         let (status, response_body) = match proxy_remote_post(
+            ctx.peer_tls,
             payload.target.as_str(),
             "/api/deploy",
             request_token.as_deref(),
             payload.auth_basic.as_ref(),
             &payload.deploy_request,
-            500,
             30_000,
         ) {
             Ok(value) => value,
@@ -564,9 +567,15 @@ fn probe_error_message(probe: &serde_json::Value) -> String {
 /// Probes the control endpoint of `target` for its status and answers what the web IDE shows
 /// (specification 11, runtime discovery). The credentials are used only while `username` is not
 /// empty, and only as a Basic authorization header to the probed runtime.
-fn probe_remote_runtime(target: &str, username: &str, password: &str) -> serde_json::Value {
+fn probe_remote_runtime(
+    peer_tls: &ureq::tls::TlsConfig,
+    target: &str,
+    username: &str,
+    password: &str,
+) -> serde_json::Value {
     let control_url = format!("{target}/api/control");
     let config = ureq::Agent::config_builder()
+        .tls_config(peer_tls.clone())
         .timeout_connect(Some(Duration::from_millis(500)))
         .timeout_recv_response(Some(Duration::from_millis(800)))
         .http_status_as_error(true)
@@ -655,19 +664,23 @@ fn normalize_proxy_target(raw: &str) -> Result<String, RuntimeError> {
     Ok(normalized)
 }
 
+/// A proxied post connects to the other runtime within this time.
+const PROXY_CONNECT_TIMEOUT_MS: u64 = 500;
+
 fn proxy_remote_post(
+    peer_tls: &ureq::tls::TlsConfig,
     target: &str,
     path: &str,
     request_token: Option<&str>,
     auth_basic: Option<&ProxyBasicAuth>,
     payload: &serde_json::Value,
-    connect_timeout_ms: u64,
     recv_timeout_ms: u64,
 ) -> Result<(u16, serde_json::Value), RuntimeError> {
     let target = normalize_proxy_target(target)?;
     let url = format!("{target}{path}");
     let config = ureq::Agent::config_builder()
-        .timeout_connect(Some(Duration::from_millis(connect_timeout_ms)))
+        .tls_config(peer_tls.clone())
+        .timeout_connect(Some(Duration::from_millis(PROXY_CONNECT_TIMEOUT_MS)))
         .timeout_recv_response(Some(Duration::from_millis(recv_timeout_ms)))
         .http_status_as_error(false)
         .build();
