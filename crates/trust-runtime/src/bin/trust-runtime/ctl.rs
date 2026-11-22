@@ -12,7 +12,10 @@ use trust_runtime::control::ControlEndpoint;
 use trust_runtime_client::{ControlClient, ControlEndpoint as ClientEndpoint, VersionAdvice};
 
 use crate::cli::ControlAction;
+use config_value::parse_config_value;
 
+#[path = "ctl/config_value.rs"]
+mod config_value;
 #[path = "ctl/device.rs"]
 mod device;
 #[path = "ctl/endpoint_command.rs"]
@@ -113,6 +116,9 @@ pub fn run_control(
     if let ControlAction::CompileExpression { expr } = &action {
         return expressions::print_compiled(expr, bundle.as_deref());
     }
+    if let ControlAction::ConfigSet { key, value } = &action {
+        config_value::check_config_value(key, value)?;
+    }
     let project = bundle.clone();
     let target = resolve_control_target(bundle, endpoint, token)?;
     match action {
@@ -209,7 +215,13 @@ fn send_control_request(
         )?,
     };
     ensure_control_response_ok(&response)?;
-    print_control_response(action, &response)
+    print_control_response(action, &response)?;
+    if matches!(action, ControlAction::ConfigSet { .. })
+        && let Some(note) = config_value::restart_required_note(&response)
+    {
+        eprintln!("{note}");
+    }
+    Ok(())
 }
 
 /// The version check and then `request`, over one connection to a chip: a chip serves one control
@@ -618,23 +630,6 @@ fn limited_request(
         request["params"] = json!({ "limit": limit });
     }
     request
-}
-
-fn parse_config_value(value: &str) -> serde_json::Value {
-    let trimmed = value.trim();
-    if trimmed.eq_ignore_ascii_case("null") {
-        return serde_json::Value::Null;
-    }
-    if trimmed.eq_ignore_ascii_case("true") {
-        return serde_json::Value::Bool(true);
-    }
-    if trimmed.eq_ignore_ascii_case("false") {
-        return serde_json::Value::Bool(false);
-    }
-    if let Ok(number) = trimmed.parse::<i64>() {
-        return serde_json::Value::Number(number.into());
-    }
-    serde_json::Value::String(trimmed.to_string())
 }
 
 #[cfg(test)]

@@ -3441,6 +3441,17 @@ higher. The console's `break <file>:<line>` takes its line the same way and
 refuses a line that is no number from 1, and `breaks` lists each breakpoint's
 file and its line counted from 1.
 
+`ctl config-set <key> <value>` sends `config.set` with the one parameter `key`.
+Its value is `null`, `true`, `false` or a whole number as that JSON value; a
+value that begins with `[` or `{` as the JSON array or object it is, as an array
+or object key such as `runtime_cloud.wan.allow_write` or `discovery.interfaces`
+takes it; any other value as a string. A value that begins with `[` or `{` and is
+no JSON is refused, naming the key, before `ctl` connects. When the answer names
+keys in `restart_required`, the running service keeps their values and the next
+start reads `runtime.toml`, which `config-set` does not write, so `ctl` writes to
+its error output that those keys take effect only after a restart and that the
+same value belongs in `runtime.toml` (checklist G279).
+
 `ctl` reads a held program with four more actions, each one request of the
 debug table (section 6.13.3): `location` sends `debug.state`, `stack` sends
 `debug.stack`, `scopes <frame-id>` sends `debug.scopes` with `frame_id`, and
