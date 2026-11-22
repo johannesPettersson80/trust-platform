@@ -6,9 +6,11 @@
   and the example pack name runtimes as specification 11 does (`site-b/runtime_b`). The new
   profiles `runtime-a-wan.toml` and `runtime-b-wan.toml` and the payload
   `dispatch-cross-site-cfg-apply.json` go with it.
-- `examples/runtime_cloud/runtime-plant.toml` and `runtime-wan.toml` name resources a program can
-  declare (`runtime_plant`, `runtime_wan`) instead of `runtime-plant` and `runtime-wan`, which no
-  build accepted. They name their site and trust the site CA.
+- `examples/runtime_cloud/runtime-plant.toml` and `runtime-wan.toml` load and build. They name
+  resources a program can declare (`runtime_plant`, `runtime_wan`) instead of `runtime-plant` and
+  `runtime-wan`, which no build accepted, and they hold the control token placeholder that their
+  token authentication needs: without it, loading them failed with `runtime.web.auth=token
+  requires runtime.control.auth_token`. They name their site and trust the site CA.
 - The profile cookbook and the troubleshooting guide reach `plant` and `wan` runtimes over HTTPS
   with the token, and the troubleshooting guide no longer sends users to the repository's test
   scripts.
