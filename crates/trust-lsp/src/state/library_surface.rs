@@ -59,6 +59,11 @@ impl ProjectFolders {
         }
     }
 
+    /// The project's library folders, resolved on disk.
+    pub(super) fn libraries(&self) -> &[PathBuf] {
+        &self.libraries
+    }
+
     /// Whether the resolved `file` is library surface.
     fn is_library_surface(&self, file: &Path) -> bool {
         library_holds(&self.own, &self.libraries, file)

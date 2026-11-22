@@ -757,7 +757,20 @@ program execution or an IEC 61131-3 deviation.
 
 #### 7.6 Project Configuration & Workspace Indexing
 
-- Per-root project config file: `trust-lsp.toml`, `.trust-lsp.toml`, or `trustlsp.toml`.
+- **Projects.** A project config file is `trust-lsp.toml`, `.trust-lsp.toml`, or `trustlsp.toml`. The root of each
+  workspace folder is a project, with the documented defaults when it holds no config file, and so is every folder
+  below it that holds a config file. A file belongs to the deepest project folder that holds it, so one workspace
+  folder may hold any number of projects: a folder of examples, a repository, a user's folder of several PLC
+  projects. A file outside every project folder belongs to the project whose library folder holds it (§7.6.4).
+- **Each project is analyzed on its own**, as each PLC project of a TwinCAT or CODESYS solution is compiled on its
+  own: a file's names resolve among the files of its own project and of the project's library folders (below),
+  never among another project's files (§10.2), and its configuration (`[diagnostics]`, `stdlib`, its library
+  folders) is its own project's. A library folder's files that belong to a project nested below that folder are
+  not the library's. Two projects that both declare `PROGRAM Main` do not collide, and completion, hover,
+  references and rename in one project never reach another. A nested project's `vendor_profile` does not change
+  the language rules, which follow the workspace folders' configurations (below).
+- The server finds the projects when it indexes a workspace folder, and again when a config file is created,
+  changed or deleted; a file it indexes or opens later is placed in its project before it is analyzed.
 - `[project]` supports `include_paths` (the project's own source folders), `library_paths` (library folders, indexed like `[[libraries]]` entries named after their folder), `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
 - `vendor_profile` selects the language rules of the whole analysis (diagnostics, hover, completion, `trust-lsp check`), and the runtime build, the debugger and the runtime's web IDE take the same rules from the project's `vendor_profile`, with the conversion rules it selects (docs/specs/07-standard-functions.md section 2.10):
   - `iec`, `siemens`, `mitsubishi`, `gxworks3`, an empty name or none: IEC 61131-3 as truST reads it.

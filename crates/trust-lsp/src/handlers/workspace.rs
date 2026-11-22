@@ -90,13 +90,33 @@ pub async fn index_workspace(client: &Client, state: &ServerState) {
         };
         let config = ProjectConfig::load_with(&root, state.config_load_options());
         state.set_workspace_config(folder.clone(), config.clone());
-        let summary = index_workspace_root(client, state, &config, &folder, &mut seen).await;
+        let summary = index_workspace_root(client, state, &config, &folder, &mut seen, true).await;
         indexed_total += summary.indexed;
         skipped_total += summary.skipped;
         if summary.truncated {
             truncated_roots += 1;
         }
+        // The projects nested below the folder, each with its own configuration and files
+        // (specification 14 §7.6); their progress is the folder's.
+        let nested: Vec<(Url, ProjectConfig)> = nested_project_folders(&root)
+            .into_iter()
+            .filter_map(|dir| {
+                let config = ProjectConfig::load_with(&dir, state.config_load_options());
+                Url::from_directory_path(&dir).ok().map(|url| (url, config))
+            })
+            .collect();
+        state.set_nested_projects(&folder, nested.clone());
+        for (project_root, config) in &nested {
+            let summary =
+                index_workspace_root(client, state, config, project_root, &mut seen, false).await;
+            indexed_total += summary.indexed;
+            skipped_total += summary.skipped;
+            if summary.truncated {
+                truncated_roots += 1;
+            }
+        }
     }
+    state.refresh_project_layout();
 
     info!(
         "Indexed {} workspace ST files (skipped={})",
@@ -338,6 +358,7 @@ async fn index_workspace_root(
     config: &ProjectConfig,
     root_uri: &Url,
     seen: &mut FxHashSet<PathBuf>,
+    show_progress: bool,
 ) -> IndexSummary {
     state.reconcile_missing_documents(config);
     let mut files = Vec::new();
@@ -359,7 +380,7 @@ async fn index_workspace_root(
         .as_ref()
         .map(|dir| IndexCache::load_or_default(dir));
 
-    let progress = if state.work_done_progress() {
+    let progress = if show_progress && state.work_done_progress() {
         start_progress(client, root_uri, total).await
     } else {
         None
