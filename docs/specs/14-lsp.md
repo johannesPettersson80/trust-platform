@@ -1201,6 +1201,24 @@ control catalog and process image), `trust-lsp.controlKeepParameters` and
 with `ok: false` included), `2` on a usage error, an unreadable argument or an I/O error,
 with the reason on standard error.
 
+#### 7.9 Shutdown and Exit
+
+`exit` ends the language server's process at once, with exit status `0` when `shutdown`
+came before it and `1` otherwise (LSP 3.17, "Shutdown Request" and "Exit Notification").
+The process waits neither for its standard input to close nor for analysis that is still
+running, so a client that keeps the pipe open after `exit` still sees the server end.
+(21 November 2026: the server kept running after `exit` for as long as its client kept
+the pipe open: tower-lsp's server stops at the next message or at the end of its input.)
+
+#### 7.10 Server Log
+
+The language server logs to standard error, which an editor shows as the server's output:
+its own events at `INFO` (`WARN` for `trust-lsp check` and `trust-lsp command`), and
+Salsa's query events at `WARN` unless `RUST_LOG` names `salsa`. `RUST_LOG` adds
+directives as tracing's `EnvFilter` reads them. The server never logs the messages it
+receives or sends (specification 43, AT-08). (21 November 2026: Salsa logged each query it
+executed at `INFO`, about 5,600 lines for ten edited documents.)
+
 ### 8. Runtime & Debugger
 
 The workspace includes a runtime and debug adapter used for executing and testing ST programs.

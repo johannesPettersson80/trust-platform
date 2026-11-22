@@ -21,6 +21,13 @@ async fn main() {
         tracing::Level::INFO
     };
     let mut filter = tracing_subscriber::EnvFilter::from_default_env().add_directive(level.into());
+    // Salsa logs each query it executes at INFO, thousands of lines for one edit in an editor's
+    // output: its events stay at WARN unless `RUST_LOG` names `salsa` (specification 14 §7.10).
+    if !std::env::var("RUST_LOG").is_ok_and(|directives| directives.contains("salsa"))
+        && let Ok(directive) = "salsa=warn".parse()
+    {
+        filter = filter.add_directive(directive);
+    }
     if command_line_run {
         // a command-line run's client has no peer: its log/progress notifications are dropped on purpose
         if let Ok(directive) = "tower_lsp::service::client=off".parse() {
@@ -59,5 +66,11 @@ async fn main() {
     let stdout = tokio::io::stdout();
 
     let (service, socket) = LspService::new(StLanguageServer::new);
-    Server::new(stdin, stdout, socket).serve(service).await;
+    // `exit` ends the process when it arrives (specification 14 §7.9).
+    Server::new(stdin, stdout, socket)
+        .serve(trust_lsp::lifecycle::ExitAtOnce(service))
+        .await;
+    // The end of standard input ends the process too, without dropping the runtime, which would
+    // wait for any work still running.
+    std::process::exit(trust_lsp::lifecycle::exit_code());
 }

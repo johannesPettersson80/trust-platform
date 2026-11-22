@@ -20,6 +20,7 @@ trust-syntax.workspace = true
 trust-hir.workspace = true
 trust-ide.workspace = true
 tower-lsp.workspace = true
+tower.workspace = true
 lsp-types.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -55,6 +56,5 @@ expect-test.workspace = true
 insta.workspace = true
 verification-cases.workspace = true
 futures-util.workspace = true
-tower.workspace = true
 # The simulator journey's tests serve a fake simulator HMI the way the runtime serves its own.
 tiny_http = "0.12.0"

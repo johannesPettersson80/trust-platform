@@ -358,6 +358,7 @@ impl LanguageServer for StLanguageServer {
     async fn shutdown(&self) -> Result<()> {
         info!("ST Language Server shutting down");
         self.state.flush_telemetry();
+        crate::lifecycle::record_shutdown();
         Ok(())
     }
 
