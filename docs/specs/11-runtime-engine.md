@@ -7791,6 +7791,29 @@ semantics; prompt navigation cannot mutate a read-only view. The rendered
 dashboard keeps its reviewed status, task, I/O, and event regions in a stable
 layout so an operator can compare snapshots without hidden field movement.
 
+##### Runtime Cloud sites (checklist G247)
+
+A runtime belongs to one site. `[runtime.cloud] site` names it: 1 to 63 ASCII letters, digits, `-`
+and `_`, beginning with a letter or a digit. Without the setting, the runtime is in the default site
+`default-site`, and setting `default-site` is the same as leaving it out. Any other value is
+refused when the configuration is loaded, naming `runtime.cloud.site`.
+
+A runtime's cloud ID is its resource name in the default site, and `<site>/<resource>` in any other
+site: `site-b/runtime_b` is the resource `runtime_b` of the site `site-b`. A bare ID names a runtime
+of the default site. Every Runtime Cloud surface names a runtime by its cloud ID:
+
+- an action request's `connected_via` and `target_runtimes`, and each target's result;
+- the state's `connected_via`, `acting_on`, topology nodes and links;
+- the presence records.
+
+The state's `site_scope` names the runtime's own site. Discovery announces the site in the TXT
+property `site`, which is absent in the default site, so that every runtime that discovers a peer
+knows its cloud ID, and a target named by its cloud ID is reached at the peer that announced it.
+
+The site is read when the runtime starts. `config.get` reports it as `runtime_cloud.site`, with
+`default-site` when none is set, and `config.set` refuses it as a startup-only key:
+`runtime_cloud.site is startup-only; change it via runtime.toml/service posture and restart`.
+
 ##### Runtime Cloud state, dispatch, and rollout contract
 
 Runtime Cloud state projects the connected runtime context, discovery
@@ -7846,7 +7869,9 @@ denied with stable per-target reasons. A dispatch whose `dry_run` flag is true
 returns the preflight result without performing the mapped control operation.
 
 Profile policy is applied after the common contract, role, freshness, and
-reachability checks:
+reachability checks. A target is cross-site when the site its cloud ID names
+differs from the site of `connected_via` ("Runtime Cloud sites"); the actor's
+identity does not choose a site. By profile:
 
 - `dev` does not use `runtime.cloud.wan.allow_write`; cross-site writes remain
   governed by the ordinary role and target checks.

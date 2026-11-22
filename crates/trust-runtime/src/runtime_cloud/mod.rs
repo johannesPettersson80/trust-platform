@@ -23,3 +23,4 @@ pub(crate) mod profile_policy;
 pub mod projection;
 pub(crate) mod rollout_policy;
 pub mod routing;
+pub mod sites;

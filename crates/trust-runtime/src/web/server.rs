@@ -90,6 +90,11 @@ pub fn start_web_server_with_mode(
         .ok()
         .map(|settings| settings.runtime_cloud.wan_allow_write.clone())
         .unwrap_or_default();
+    let runtime_cloud_site = control_state
+        .settings
+        .lock()
+        .ok()
+        .and_then(|settings| settings.runtime_cloud.site.clone());
     let runtime_cloud_link_preferences = control_state
         .settings
         .lock()
@@ -289,6 +294,7 @@ pub fn start_web_server_with_mode(
                     discovery: &discovery,
                     bundle_root: &bundle_root,
                     profile: runtime_cloud_profile,
+                    site: runtime_cloud_site.as_deref(),
                     wan_allow_write: runtime_cloud_wan_allow_write.as_slice(),
                     config_state: &runtime_cloud_config,
                     config_path: runtime_cloud_config_path.as_deref(),

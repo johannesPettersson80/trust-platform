@@ -151,6 +151,7 @@ fn mdns_info_to_entry(info: &mdns_sd::ResolvedService) -> DiscoveryEntry {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(smol_str::SmolStr::new),
+        site: crate::discovery::announced_site(info.get_property_val_str("site")),
         last_seen_ns: now_ns(),
     }
 }

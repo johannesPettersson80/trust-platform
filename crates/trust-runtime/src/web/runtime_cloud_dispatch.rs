@@ -72,7 +72,7 @@ pub(super) fn runtime_cloud_target_web_base_url(
     discovery
         .snapshot()
         .into_iter()
-        .find(|entry| entry.name.as_str() == target || entry.id.as_str() == target)
+        .find(|entry| entry.cloud_id() == target || entry.id.as_str() == target)
         .and_then(|entry| entry.web_authority())
         .map(|authority| format!("{scheme}://{authority}"))
 }
@@ -138,7 +138,7 @@ fn runtime_cloud_target_status_map(
             supports_secure_transport: entry.web_tls,
         };
         targets
-            .entry(entry.name.to_string())
+            .entry(entry.cloud_id())
             .and_modify(|status| runtime_cloud_merge_target_status(status, candidate))
             .or_insert(candidate);
         targets
@@ -279,6 +279,38 @@ mod tests {
         );
     }
 
+    /// Specification 11, "Runtime Cloud sites": a target named by its cloud ID is reached at the
+    /// peer that announced it, and its status is kept under that ID. Catches a site-qualified target
+    /// that matches no peer, and a bare name that reaches the runtime of another site with that
+    /// name.
+    #[test]
+    fn a_site_qualified_target_is_reached_at_the_peer_that_announced_it() {
+        let discovery = DiscoveryState::new();
+        discovery.replace_entries(vec![crate::discovery::DiscoveryEntry {
+            id: "runtime-b-1".into(),
+            name: "runtime_b".into(),
+            addresses: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            web_port: Some(18082),
+            web_tls: false,
+            mesh_port: Some(5202),
+            control: None,
+            host_group: None,
+            site: Some("site-b".into()),
+            last_seen_ns: 1,
+        }]);
+        assert_eq!(
+            runtime_cloud_target_control_url(&discovery, "site-b/runtime_b", false).as_deref(),
+            Some("http://127.0.0.1:18082/api/control")
+        );
+        assert_eq!(
+            runtime_cloud_target_control_url(&discovery, "runtime_b", false),
+            None
+        );
+        let targets = runtime_cloud_target_status_map(&discovery, "runtime_a", false, 2);
+        assert!(targets.contains_key("site-b/runtime_b"), "{targets:?}");
+        assert!(!targets.contains_key("runtime_b"), "{targets:?}");
+    }
+
     #[test]
     fn runtime_cloud_target_status_revalidates_stale_peer_with_live_socket() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
@@ -293,6 +325,7 @@ mod tests {
             mesh_port: Some(5202),
             control: Some("unix:///tmp/trust-runtime-b.sock".into()),
             host_group: None,
+            site: None,
             last_seen_ns: 1,
         }]);
         let now = RUNTIME_CLOUD_STALE_TIMEOUT_NS + 2;

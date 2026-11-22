@@ -13,6 +13,7 @@ fn runtime_cloud_state_marks_fresh_mesh_disconnect_as_stale_before_partitioned()
         mesh_port: None,
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
 
@@ -70,6 +71,7 @@ fn runtime_cloud_discovery_endpoint_exposes_secure_transport_metadata() {
             mesh_port: Some(5200),
             control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
             host_group: None,
+            site: None,
             last_seen_ns: now_ns(),
         },
         DiscoveryEntry {
@@ -81,6 +83,7 @@ fn runtime_cloud_discovery_endpoint_exposes_secure_transport_metadata() {
             mesh_port: Some(5200),
             control: None,
             host_group: None,
+            site: None,
             last_seen_ns: now_ns(),
         },
     ]);

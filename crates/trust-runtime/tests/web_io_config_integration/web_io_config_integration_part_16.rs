@@ -16,6 +16,7 @@ fn runtime_cloud_preflight_denies_cmd_invoke_for_viewer_with_permission_denied_c
         mesh_port: None,
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
 
@@ -157,6 +158,7 @@ fn runtime_cloud_dispatch_reaches_remote_runtime_and_propagates_audit_correlatio
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
 

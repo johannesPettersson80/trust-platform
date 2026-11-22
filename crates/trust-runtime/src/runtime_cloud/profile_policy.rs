@@ -9,8 +9,7 @@ use crate::runtime_cloud::contracts::ReasonCode;
 use crate::runtime_cloud::routing::{
     RuntimeCloudActionPreflight, RuntimeCloudActionRequest, RuntimeCloudTargetStatus,
 };
-
-const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";
+use crate::runtime_cloud::sites::runtime_cloud_site_of;
 
 pub(crate) fn runtime_cloud_apply_profile_policy(
     mut preflight: RuntimeCloudActionPreflight,
@@ -127,8 +126,8 @@ fn runtime_cloud_profile_target_denial(
             wan_allow_write,
         )
     {
-        let local_site = runtime_cloud_local_site(action);
-        let target_site = runtime_cloud_target_site(runtime_id, local_site);
+        let local_site = runtime_cloud_site_of(action.connected_via.as_str());
+        let target_site = runtime_cloud_site_of(runtime_id);
         return Some((
             ReasonCode::PermissionDenied,
             format!(
@@ -160,42 +159,13 @@ fn runtime_cloud_is_write_action(action_type: &str) -> bool {
     matches!(action_type, "cfg_apply" | "cmd_invoke")
 }
 
-fn runtime_cloud_site_from_actor(actor: &str) -> Option<&str> {
-    let subject = actor.strip_prefix("spiffe://trust/")?;
-    let site = subject.split('/').next().unwrap_or("").trim();
-    if site.is_empty() {
-        None
-    } else {
-        Some(site)
-    }
-}
-
-fn runtime_cloud_site_from_runtime_id(runtime_id: &str) -> Option<&str> {
-    let (site, runtime) = runtime_id.split_once('/')?;
-    let site = site.trim();
-    let runtime = runtime.trim();
-    if site.is_empty() || runtime.is_empty() {
-        return None;
-    }
-    Some(site)
-}
-
-fn runtime_cloud_local_site(action: &RuntimeCloudActionRequest) -> &str {
-    runtime_cloud_site_from_runtime_id(action.connected_via.as_str())
-        .or_else(|| runtime_cloud_site_from_actor(action.actor.as_str()))
-        .unwrap_or(RUNTIME_CLOUD_DEFAULT_SITE)
-}
-
-fn runtime_cloud_target_site<'a>(runtime_id: &'a str, fallback_site: &'a str) -> &'a str {
-    runtime_cloud_site_from_runtime_id(runtime_id).unwrap_or(fallback_site)
-}
-
+/// Whether `runtime_id` is in another site than the runtime the request is connected through: the
+/// sites their cloud IDs name (specification 11, "Runtime Cloud sites").
 fn runtime_cloud_is_cross_site_target(
     action: &RuntimeCloudActionRequest,
     runtime_id: &str,
 ) -> bool {
-    let local_site = runtime_cloud_local_site(action);
-    runtime_cloud_target_site(runtime_id, local_site) != local_site
+    runtime_cloud_site_of(runtime_id) != runtime_cloud_site_of(action.connected_via.as_str())
 }
 
 fn runtime_cloud_wan_allowlist_allows(
@@ -299,6 +269,56 @@ mod tests {
         );
         assert!(!report.allowed);
         assert_eq!(report.denial_code, Some(ReasonCode::PermissionDenied));
+    }
+
+    /// Specification 11, "Runtime Cloud sites" and the profile contract: a target is cross-site
+    /// when the site its cloud ID names differs from the site of `connected_via`, and the actor's
+    /// identity does not choose a site. Catches a bare target read in the local runtime's site
+    /// instead of the default site, and an actor's site taken for the site of a runtime.
+    #[test]
+    fn the_sites_of_the_cloud_ids_decide_what_is_cross_site() {
+        let denial = |connected_via: &str, actor: &str, target: &str| {
+            let mut action = action_fixture("cfg_apply", vec![target]);
+            action.connected_via = connected_via.to_string();
+            action.actor = actor.to_string();
+            let mut preflight = preflight_fixture(vec![target]);
+            preflight.connected_via = connected_via.to_string();
+            runtime_cloud_apply_profile_policy(
+                preflight,
+                &action,
+                &targets_fixture(target, true),
+                RuntimeCloudProfile::Wan,
+                &[],
+                WebAuthMode::Token,
+                true,
+            )
+            .denial_reason
+            .expect("a write without a rule is denied")
+        };
+        assert_eq!(
+            denial(
+                "site-b/runtime_b",
+                "spiffe://trust/site-b/engineer-1",
+                "runtime_c"
+            ),
+            "cross-site write action 'cfg_apply' from site 'site-b' to runtime 'runtime_c' \
+             (site 'default-site') requires explicit runtime.cloud.wan.allow_write policy"
+        );
+        assert_eq!(
+            denial(
+                "runtime_a",
+                "spiffe://trust/site-a/engineer-1",
+                "site-a/runtime_x"
+            ),
+            "cross-site write action 'cfg_apply' from site 'default-site' to runtime \
+             'site-a/runtime_x' (site 'site-a') requires explicit runtime.cloud.wan.allow_write \
+             policy"
+        );
+        assert_eq!(
+            denial("runtime_a", "spiffe://trust/site-a/engineer-1", "runtime_c"),
+            "runtime cloud profile 'wan' denies action 'cfg_apply' for target 'runtime_c' without \
+             explicit allowlist rule"
+        );
     }
 
     #[test]

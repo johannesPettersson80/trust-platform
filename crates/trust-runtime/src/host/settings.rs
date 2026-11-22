@@ -145,6 +145,7 @@ impl RuntimeSettings {
             username_set: config.opcua.username.is_some(),
         };
         settings.runtime_cloud.profile = config.runtime_cloud_profile;
+        settings.runtime_cloud.site = config.runtime_cloud_site.clone();
         settings.runtime_cloud.wan_allow_write = config.runtime_cloud_wan_allow_write.clone();
         settings.runtime_cloud.link_preferences = config.runtime_cloud_link_preferences.clone();
         settings.realtime = config.realtime.clone();
@@ -195,6 +196,8 @@ pub struct MeshSettings {
 #[derive(Debug, Clone)]
 pub struct RuntimeCloudSettings {
     pub profile: RuntimeCloudProfile,
+    /// The runtime's site, `None` for the default site (specification 11, "Runtime Cloud sites").
+    pub site: Option<SmolStr>,
     pub wan_allow_write: Vec<RuntimeCloudWanAllowRule>,
     pub link_preferences: Vec<RuntimeCloudLinkPreferenceRule>,
 }
@@ -203,6 +206,7 @@ impl Default for RuntimeCloudSettings {
     fn default() -> Self {
         Self {
             profile: RuntimeCloudProfile::Dev,
+            site: None,
             wan_allow_write: Vec::new(),
             link_preferences: Vec::new(),
         }

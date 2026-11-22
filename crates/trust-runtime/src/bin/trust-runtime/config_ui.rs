@@ -96,6 +96,7 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
             advertise: false,
             interfaces: Vec::new(),
             host_group: None,
+            site: None,
         },
         |item| item.discovery.clone(),
     );

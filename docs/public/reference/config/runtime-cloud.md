@@ -15,6 +15,25 @@ profile = "dev"
 | Key | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `profile` | string | yes | `dev`, `plant`, or `wan`. |
+| `site` | string | no | The runtime's site: 1 to 63 letters, digits, `-` and `_`, beginning with a letter or digit. Without it, or with `default-site`, the runtime is in the default site. |
+
+## Sites and Runtime IDs
+
+Every runtime belongs to one site. A runtime in the default site is named by its resource name,
+for example `runtime_a`; a runtime in any other site by `<site>/<resource>`, for example
+`site-b/runtime_b`. This cloud ID names the runtime in action requests (`connected_via`,
+`target_runtimes`), in the Runtime Cloud state and in the WAN allowlist's targets. Discovery
+announces the site, so the runtimes that discover a runtime know its cloud ID.
+
+```toml
+[runtime.cloud]
+profile = "wan"
+site = "site-b"
+```
+
+A target is cross-site when its site differs from the site of the runtime the request is
+connected through. The site is read when the runtime starts; `config.get` reports it as
+`runtime_cloud.site`, and changing it takes an edit of `runtime.toml` and a restart.
 
 Accepted profiles:
 

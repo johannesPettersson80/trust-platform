@@ -69,6 +69,7 @@ fn test_bundle() -> trust_runtime::config::RuntimeBundle {
                 advertise: false,
                 interfaces: Vec::new(),
                 host_group: None,
+                site: None,
             },
             mesh: trust_runtime::config::MeshConfig {
                 enabled: false,
@@ -83,6 +84,7 @@ fn test_bundle() -> trust_runtime::config::RuntimeBundle {
                 plugin_versions: indexmap::IndexMap::new(),
             },
             runtime_cloud_profile: trust_runtime::config::RuntimeCloudProfile::Dev,
+            runtime_cloud_site: None,
             runtime_cloud_wan_allow_write: Vec::new(),
             runtime_cloud_link_preferences: Vec::new(),
             realtime: trust_runtime::linux_rt::LinuxRtConfig::default(),

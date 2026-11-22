@@ -232,7 +232,7 @@ pub const RUNTIME_CLOUD_STALE_TIMEOUT_NS: u64 = 30_000_000_000;
 /// The partition window of runtime cloud presence: a runtime with no mesh endpoint last seen this
 /// long ago is partitioned (specification 11, "Runtime cloud presence").
 pub const RUNTIME_CLOUD_PARTITION_TIMEOUT_NS: u64 = 120_000_000_000;
-/// The site that the runtime cloud projects its peers in.
+/// The default site, of every runtime that names no site (specification 11, "Runtime Cloud sites").
 pub const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";
 /// The thresholds of runtime cloud presence.
 pub const RUNTIME_CLOUD_PRESENCE: PresenceThresholds = PresenceThresholds {
@@ -358,7 +358,9 @@ pub fn project_runtime_cloud_state(
         FleetNode {
             runtime_id: local_runtime_id.to_string(),
             site: local_site.to_string(),
-            display_name: local_runtime_id.to_string(),
+            // A runtime is shown by its resource name, as its peers show it (specification 11,
+            // "Runtime Cloud sites").
+            display_name: super::sites::runtime_cloud_resource_of(local_runtime_id).to_string(),
             role: FleetRole::Active,
             lifecycle_state: LifecycleState::Online,
             health_state: HealthState::Healthy,

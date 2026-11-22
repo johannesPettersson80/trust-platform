@@ -131,9 +131,14 @@ impl RuntimeToml {
             web: parsed_web.config,
             tls: parsed_tls.config,
             deploy: parsed_deploy.config,
-            discovery: parsed_discovery.config,
+            // Discovery announces the runtime's site (specification 11, "Runtime Cloud sites").
+            discovery: DiscoveryConfig {
+                site: parsed_cloud.site.clone(),
+                ..parsed_discovery.config
+            },
             mesh: parsed_mesh.config,
             runtime_cloud_profile: parsed_cloud.profile,
+            runtime_cloud_site: parsed_cloud.site,
             runtime_cloud_wan_allow_write: parsed_cloud.wan_allow_write,
             runtime_cloud_link_preferences: parsed_cloud.link_preferences,
             realtime: parsed_realtime.config,

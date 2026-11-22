@@ -234,7 +234,7 @@ fn runtime_cloud_discovery_addresses_by_runtime(
     let mut by_runtime = BTreeMap::<String, Vec<IpAddr>>::new();
     for entry in discovery.snapshot() {
         by_runtime
-            .entry(entry.name.to_string())
+            .entry(entry.cloud_id())
             .or_default()
             .extend(entry.addresses.iter().copied());
     }
@@ -258,7 +258,7 @@ fn runtime_cloud_discovery_host_groups_by_runtime(
             continue;
         }
         by_runtime
-            .entry(entry.name.to_string())
+            .entry(entry.cloud_id())
             .or_default()
             .insert(host_group.to_ascii_lowercase());
     }
@@ -471,6 +471,7 @@ mod tests {
                 mesh_port: Some(5200),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -482,6 +483,7 @@ mod tests {
                 mesh_port: Some(5201),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -493,6 +495,7 @@ mod tests {
                 mesh_port: Some(5202),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
         ]);
@@ -521,6 +524,7 @@ mod tests {
                 mesh_port: Some(5200),
                 control: None,
                 host_group: Some(SmolStr::new("host-a")),
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -532,6 +536,7 @@ mod tests {
                 mesh_port: Some(5201),
                 control: None,
                 host_group: Some(SmolStr::new("host-b")),
+                site: None,
                 last_seen_ns: 1,
             },
         ]);
@@ -555,6 +560,7 @@ mod tests {
                 mesh_port: Some(5201),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -566,6 +572,7 @@ mod tests {
                 mesh_port: Some(5202),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
         ]);
@@ -598,6 +605,7 @@ mod tests {
                 mesh_port: Some(5200),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -609,6 +617,7 @@ mod tests {
                 mesh_port: Some(5201),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
         ]);
@@ -645,6 +654,7 @@ mod tests {
                 mesh_port: Some(5200),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -656,6 +666,7 @@ mod tests {
                 mesh_port: Some(5201),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -667,6 +678,7 @@ mod tests {
                 mesh_port: Some(5202),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
         ]);
@@ -729,6 +741,7 @@ mod tests {
                 mesh_port: Some(5200),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
             DiscoveryEntry {
@@ -740,6 +753,7 @@ mod tests {
                 mesh_port: Some(5201),
                 control: None,
                 host_group: None,
+                site: None,
                 last_seen_ns: 1,
             },
         ]);

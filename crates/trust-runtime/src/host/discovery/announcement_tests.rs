@@ -54,6 +54,7 @@ fn txt_record_carries_version_platform_auth() {
         web_tls: false,
         mesh_listen: None,
         host_group: None,
+        site: None,
     });
     assert_eq!(props.get("version").map(String::as_str), Some("1.2.3"));
     assert_eq!(props.get("platform").map(String::as_str), Some("stm32f407"));
@@ -153,6 +154,7 @@ fn announcement_omits_local_socket_control_and_disabled_web() {
             web_tls: false,
             mesh_listen: Some("0.0.0.0:5200"),
             host_group: None,
+            site: None,
         });
         assert_eq!(
             props.get("control"),
@@ -180,6 +182,7 @@ fn announcement_omits_local_socket_control_and_disabled_web() {
         web_tls: true,
         mesh_listen: None,
         host_group: None,
+        site: None,
     });
     assert_eq!(
         props.get("control"),
@@ -202,9 +205,53 @@ fn announcement_omits_local_socket_control_and_disabled_web() {
         web_tls: true,
         mesh_listen: None,
         host_group: None,
+        site: None,
     });
     assert_eq!(
         props.get("control").map(String::as_str),
         Some("tcp://192.0.2.10:9000")
     );
+}
+
+/// Specification 11, "Runtime Cloud sites": the announcement names the runtime's site in the TXT
+/// property `site`, absent in the default site, and a peer that reads it knows the runtime's cloud
+/// ID. Wrong behaviour caught: a site that never leaves the runtime, so every peer sees it in the
+/// default site, and a `site` of another program's announcement taken although it is no site.
+#[test]
+fn the_announcement_names_the_site_and_a_peer_reads_the_cloud_id() {
+    let announcement = |site| Announcement {
+        runtime_name: "runtime_b",
+        runtime_id: "id-b",
+        version: "1.2.3",
+        platform: "linux-x86_64",
+        control_endpoint: None,
+        web_listen: Some("0.0.0.0:8080"),
+        web_tls: false,
+        mesh_listen: None,
+        host_group: None,
+        site,
+    };
+    let props = announcement_properties(&announcement(Some("site-b")));
+    assert_eq!(props.get("site").map(String::as_str), Some("site-b"));
+    assert_eq!(
+        announcement_properties(&announcement(None)).get("site"),
+        None
+    );
+
+    let info = build_service_info("truST-runtime_b", "plc-b.local.", 8080, props)
+        .expect("the announcement's service");
+    let entry = info_to_entry(&info);
+    assert_eq!(entry.site.as_deref(), Some("site-b"));
+    assert_eq!(entry.cloud_id(), "site-b/runtime_b");
+
+    let mut props = announcement_properties(&announcement(None));
+    props.insert("site".to_string(), "site/b".to_string());
+    let info = build_service_info("truST-runtime_b", "plc-b.local.", 8080, props)
+        .expect("the announcement's service");
+    let entry = info_to_entry(&info);
+    assert_eq!(
+        entry.site, None,
+        "a site that is no identifier is not taken"
+    );
+    assert_eq!(entry.cloud_id(), "runtime_b");
 }
