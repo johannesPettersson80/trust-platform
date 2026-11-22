@@ -130,10 +130,16 @@ VAR
 END_VAR
 
 (* The input the controller works on: Input, with the measurement a simulated plant holds as
-   ProcessValue while one is held (simulation extension). *)
+   ProcessValue while one is held (simulation extension). Such a plant is a model of the loop that
+   takes the controller's output as its input, as the equipment the program tracks does when it
+   follows: so a Track the program asks for runs as Auto, and the controller under test acts on the
+   model (specification 46, section 13.2). *)
 Applied := Input;
 IF MeasurementHeld THEN
     Applied.ProcessValue := HeldMeasurement;
+    IF Applied.Mode = PIDMode#Track THEN
+        Applied.Mode := PIDMode#Auto;
+    END_IF;
 END_IF;
 
 (* Rate limits are anchored to the actuator-facing saturated history. *)
