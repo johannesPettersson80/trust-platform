@@ -10,6 +10,7 @@ mod located_storage;
 mod project_configuration;
 mod project_constants;
 mod project_layout;
+mod project_sharing;
 mod project_types;
 mod project_units;
 mod salsa_backend;

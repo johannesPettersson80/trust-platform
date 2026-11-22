@@ -209,19 +209,21 @@ pub(super) fn sync_project_inputs(state: &mut SalsaState) {
     state
         .projects
         .retain(|project, _| visible.contains_key(project));
-    for (project, files) in visible {
+    for (&project, files) in &visible {
         match state.projects.get(&project).copied() {
             Some(inputs) => {
-                if inputs.files(&state.db) != &files {
-                    inputs.set_files(&mut state.db).to(files);
+                if inputs.files(&state.db) != files {
+                    inputs.set_files(&mut state.db).to(files.clone());
                 }
             }
             None => {
-                let inputs = ProjectInputs::new(&state.db, files, state.dialect);
+                let inputs =
+                    ProjectInputs::new(&state.db, files.clone(), state.dialect, Vec::new());
                 state.projects.insert(project, inputs);
             }
         }
     }
+    super::project_sharing::share_library_tables(state, &visible);
 }
 
 /// The inputs of the project that `file_id` belongs to, which its analysis reads (specification
@@ -245,6 +247,9 @@ pub(super) struct ProjectInputs {
     pub(super) files: Vec<(FileId, SourceInput)>,
     /// The language rules the project is analyzed under.
     pub(super) dialect: Dialect,
+    /// The library files whose symbol table comes from their own project (`project_sharing`).
+    #[returns(ref)]
+    pub(super) shared: Vec<(FileId, ProjectInputs)>,
 }
 
 #[salsa::tracked(returns(ref))]
@@ -361,9 +366,17 @@ pub(super) fn project_symbol_tables_query(
     };
     let constants = project_constant_expressions(db, files);
     let declared = declared_size_expressions(db, project, files);
+    let shared: FxHashMap<FileId, ProjectInputs> = project.shared(db).iter().copied().collect();
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (file_id, input) in files.iter().copied() {
         cancellation_checkpoint(db);
+        let owner = shared.get(&file_id).copied();
+        if let Some(table) =
+            owner.and_then(|owner| project_symbol_tables_query(db, owner).get(&file_id))
+        {
+            project_tables.insert(file_id, Arc::clone(table));
+            continue;
+        }
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
             .with_dialect(*project.dialect(db))

@@ -1343,8 +1343,11 @@ nor uses the name does not report it.
 analyzed among the files of its own project and of that project's libraries and dependencies, never among another
 project's files: another project's declarations neither resolve, collide, complete nor rename in it, and the
 project-wide parts of the analysis (types, constants, the unit index and the owners of globals) are each project's
-own. A library is judged in its own project, which does not see the projects that use it. The server forms the
-projects (§7.6); until it does, every file belongs to one project.
+own. A library is judged in its own project, which does not see the projects that use it. The library's own project
+collects the declarations of the library's files once, and every project that uses the library reads them from
+there, so a library's memory does not grow with the number of projects that use it; a library that can reach a
+project using it, as mutual libraries can, is collected in that project too. The server forms the projects (§7.6);
+until it does, every file belongs to one project.
 
 #### 10.3 Optimization Strategies
 
