@@ -21,7 +21,10 @@ copy_runtime() {
   cp "${SCRIPT_DIR}/io-${id}.toml" "${project_dir}/io.toml"
   cp "${TEMPLATE_DIR}/trust-lsp.toml" "${project_dir}/trust-lsp.toml"
   cp "${TEMPLATE_DIR}/src/main.st" "${project_dir}/src/main.st"
-  cp "${TEMPLATE_DIR}/src/config.st" "${project_dir}/src/config.st"
+  # The program declares the profile's resource: a build refuses a runtime.toml resource that is
+  # not the program's RESOURCE, so multi_driver's configuration is copied with its name.
+  sed "s/^RESOURCE CommMultiDriverRes ON /RESOURCE runtime_${id//-/_} ON /" \
+    "${TEMPLATE_DIR}/src/config.st" > "${project_dir}/src/config.st"
   # Each project is compiled for this computer with its own runtime.toml and io.toml.
   "${BIN}" build --project "${project_dir}" >/dev/null
 
@@ -34,6 +37,6 @@ for id in "${runtime_ids[@]}"; do
 done
 
 echo "[bootstrap-3] done. TOML/API-only topology (no manual JSON seeds)."
-echo "[bootstrap-3] runtimes: runtime-a-control, runtime-a-gateway, runtime-b-control"
+echo "[bootstrap-3] runtimes: runtime_a_control, runtime_a_gateway, runtime_b_control"
 echo "[bootstrap-3] start with:"
 echo "  ${SCRIPT_DIR}/start-3-realistic.sh ${ROOT}"

@@ -1,7 +1,7 @@
 [io]
 drivers = [
   { name = "simulated", params = {} },
-  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "trust/demo/hq/in", topic_out = "trust/demo/hq/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } },
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "trust/demo/hq/in", topic_out = "trust/demo/hq/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false, on_error = "warn" } },
   { name = "modbus-tcp", params = { address = "192.168.77.50:502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" } }
 ]
 

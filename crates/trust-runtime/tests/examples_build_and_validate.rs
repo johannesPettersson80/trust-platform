@@ -107,6 +107,94 @@ fn every_runnable_example_builds_and_validates() {
     );
 }
 
+/// The multi-host demos (`examples/runtime_cloud/multi_host_topology_demo`): each profile, with its
+/// io file and `multi_driver`'s program, whose configuration the bootstrap scripts copy with the
+/// profile's resource (`RESOURCE runtime_<id> ON`), builds. Catches a profile whose resource is
+/// not an IEC identifier, as `runtime-a` to `runtime-e` were, and a bootstrap whose program
+/// declares another resource, as `CommMultiDriverRes` did: a build refuses both (spec 11 §6.7.1,
+/// checklist G245), so neither demo could start.
+#[test]
+fn the_topology_demos_projects_build_as_their_bootstrap_makes_them() {
+    let repo = repository_root();
+    let demo = repo.join("examples/runtime_cloud/multi_host_topology_demo");
+    let template = repo.join("examples/communication/multi_driver");
+    let configuration =
+        fs::read_to_string(template.join("src/config.st")).expect("multi_driver's configuration");
+    assert_eq!(
+        configuration
+            .lines()
+            .filter(|line| line.starts_with("RESOURCE CommMultiDriverRes ON "))
+            .count(),
+        1,
+        "the line the bootstrap scripts rename"
+    );
+    let mut profiles = fs::read_dir(&demo)
+        .expect("the demo folder")
+        .map(|entry| entry.expect("an entry").path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("runtime-") && name.ends_with(".toml"))
+        })
+        .collect::<Vec<_>>();
+    profiles.sort();
+    assert_eq!(
+        profiles.len(),
+        8,
+        "the five runtimes and the realistic demo's three"
+    );
+
+    let failures = failures_in_parallel(&repo, &profiles, |profile| {
+        let id = profile
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .and_then(|stem| stem.strip_prefix("runtime-"))
+            .ok_or("a profile named runtime-<id>.toml")?;
+        let resource = format!("runtime_{}", id.replace('-', "_"));
+        let text = fs::read_to_string(profile).map_err(|error| error.to_string())?;
+        if !text.contains(&format!("[resource]\nname = \"{resource}\"")) {
+            return Err(format!("the profile does not name its resource {resource}"));
+        }
+        let root = TempRoot::new("topology-demo");
+        let project = root.path().join(format!("runtime-{id}"));
+        let source = project.join("src");
+        fs::create_dir_all(&source).map_err(|error| error.to_string())?;
+        let copies = [
+            (profile.to_path_buf(), project.join("runtime.toml")),
+            (demo.join(format!("io-{id}.toml")), project.join("io.toml")),
+            (
+                template.join("trust-lsp.toml"),
+                project.join("trust-lsp.toml"),
+            ),
+            (template.join("src/main.st"), source.join("main.st")),
+        ];
+        for (from, to) in copies {
+            fs::copy(&from, &to).map_err(|error| format!("copy {}: {error}", from.display()))?;
+        }
+        fs::write(
+            source.join("config.st"),
+            configuration.replace(
+                "RESOURCE CommMultiDriverRes ON ",
+                &format!("RESOURCE {resource} ON "),
+            ),
+        )
+        .map_err(|error| error.to_string())?;
+        let build = cli(&["build"], &project);
+        if build.status.success() {
+            Ok(())
+        } else {
+            Err(failure("build", &build))
+        }
+    });
+    assert!(
+        failures.is_empty(),
+        "{} of {} demo projects failed to build:\n{}",
+        failures.len(),
+        profiles.len(),
+        failures.join("\n")
+    );
+}
+
 /// Launch selects the configured resource by name, compared case-insensitively, or the legacy
 /// placeholder the compiler gives sources that declare no resource (spec 11 §6.7.1).
 #[test]

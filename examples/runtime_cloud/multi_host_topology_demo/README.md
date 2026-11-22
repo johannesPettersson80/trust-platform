@@ -2,11 +2,14 @@
 
 This demo pack gives a complete local Runtime Cloud topology scenario:
 
-- 5 runtimes (`runtime-a`..`runtime-e`)
+- 5 runtimes (`runtime_a`..`runtime_e`): each runtime's resource name, and so its ID in the runtime
+  cloud, is an IEC identifier; its project folder is `runtime-a`..`runtime-e`
 - explicit runtime mesh links (`runtime.mesh.connect`, non-empty on all nodes)
 - mixed I/O communication (`mqtt`, `modbus-tcp`, `ethercat`, `simulated`, `loopback`)
+  with illustrative devices and brokers: without them on your network, each driver warns
+  (`on_error = "warn"`) and the runtimes keep running
 - TOML/API-driven operational topology (no manual topology JSON overlay path)
-- TOML-defined link transport preferences on `runtime-a` (`realtime` + `zenoh`)
+- TOML-defined link transport preferences on `runtime_a` (`realtime` + `zenoh`)
 - TOML-defined host grouping (`runtime.discovery.host_group`) for multi-host layout on localhost
 
 The pack is intended for local UI/demo testing.
@@ -47,45 +50,45 @@ TRUST_TOPOLOGY_DEMO_SEED_LINK_JSON=1 ./start-5.sh ~/trust-cloud-topology-demo
 
 ## Runtime Mesh Pattern
 
-- `runtime-a -> runtime-b, runtime-d, runtime-e`
-- `runtime-b -> runtime-a, runtime-c`
-- `runtime-c -> runtime-b, runtime-d`
-- `runtime-d -> runtime-a, runtime-c, runtime-e`
-- `runtime-e -> runtime-a, runtime-d`
+- `runtime_a -> runtime_b, runtime_d, runtime_e`
+- `runtime_b -> runtime_a, runtime_c`
+- `runtime_c -> runtime_b, runtime_d`
+- `runtime_d -> runtime_a, runtime_c, runtime_e`
+- `runtime_e -> runtime_a, runtime_d`
 
 ## Seeded Topology/Comms Data
 
 - Operational topology is derived from `runtime-*.toml` + `io-*.toml` via runtime APIs.
 - Runtime cards and adapter/device cards are rendered from runtime-cloud state + I/O config APIs.
 - `runtime-a.toml` defines link transport preferences in `[runtime.cloud.links]`:
-  - `runtime-a -> runtime-b` = `realtime`
-  - `runtime-a -> runtime-c` = `zenoh`
-  - `runtime-a -> runtime-d` = `zenoh`
-  - `runtime-a -> runtime-e` = `zenoh`
+  - `runtime_a -> runtime_b` = `realtime`
+  - `runtime_a -> runtime_c` = `zenoh`
+  - `runtime_a -> runtime_d` = `zenoh`
+  - `runtime_a -> runtime_e` = `zenoh`
 - Runtime TOML files define host groups in `runtime.discovery.host_group`:
-  - `runtime-a`, `runtime-b` -> `hq-vm-cluster`
-  - `runtime-c`, `runtime-d` -> `line-b-ipc`
-  - `runtime-e` -> `remote-site`
+  - `runtime_a`, `runtime_b` -> `hq-vm-cluster`
+  - `runtime_c`, `runtime_d` -> `line-b-ipc`
+  - `runtime_e` -> `remote-site`
 - I/O configs intentionally mix local and remote endpoints to show host-attached
   and deterministic external-host endpoint behavior (no free-floating operational endpoints).
 
 ## Dashboard URLs
 
-- `runtime-a`: <http://127.0.0.1:19081/>
-- `runtime-b`: <http://127.0.0.1:19082/>
-- `runtime-c`: <http://127.0.0.1:19083/>
-- `runtime-d`: <http://127.0.0.1:19084/>
-- `runtime-e`: <http://127.0.0.1:19085/>
+- `runtime_a`: <http://127.0.0.1:19081/>
+- `runtime_b`: <http://127.0.0.1:19082/>
+- `runtime_c`: <http://127.0.0.1:19083/>
+- `runtime_d`: <http://127.0.0.1:19084/>
+- `runtime_e`: <http://127.0.0.1:19085/>
 
 ## Realistic 3-runtime baseline (2 + 1)
 
 This is the recommended realistic topology baseline:
 
 - Cell A Edge IPC (`runtime.discovery.host_group = "cell-a-edge-ipc"`):
-  - `runtime-a-control` (strict realtime I/O)
-  - `runtime-a-gateway` (non-realtime comms)
+  - `runtime_a_control` (strict realtime I/O)
+  - `runtime_a_gateway` (non-realtime comms)
 - Cell B Edge IPC (`runtime.discovery.host_group = "cell-b-edge-ipc"`):
-  - `runtime-b-control` (strict realtime I/O)
+  - `runtime_b_control` (strict realtime I/O)
 
 Start it:
 
@@ -103,9 +106,9 @@ Stop it:
 
 Dashboards:
 
-- `http://127.0.0.1:19181/` (`runtime-a-control`)
-- `http://127.0.0.1:19182/` (`runtime-a-gateway`)
-- `http://127.0.0.1:19183/` (`runtime-b-control`)
+- `http://127.0.0.1:19181/` (`runtime_a_control`)
+- `http://127.0.0.1:19182/` (`runtime_a_gateway`)
+- `http://127.0.0.1:19183/` (`runtime_b_control`)
 
 Notes:
 

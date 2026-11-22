@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "runtime-c"
+name = "runtime_c"
 cycle_interval_ms = 100
 
 [runtime.control]
@@ -21,7 +21,7 @@ require_remote = false
 
 [runtime.discovery]
 enabled = true
-service_name = "runtime-c"
+service_name = "runtime_c"
 advertise = true
 interfaces = ["lo"]
 host_group = "line-b-ipc"
@@ -43,8 +43,8 @@ publish = [
 ]
 
 [runtime.mesh.subscribe]
-"runtime-b:LineA.Telemetry" = "Remote.LineA.Telemetry"
-"runtime-d:Gateway.SiteBridge" = "Remote.Gateway.SiteBridge"
+"runtime_b:LineA.Telemetry" = "Remote.LineA.Telemetry"
+"runtime_d:Gateway.SiteBridge" = "Remote.Gateway.SiteBridge"
 
 [runtime.cloud]
 profile = "dev"
