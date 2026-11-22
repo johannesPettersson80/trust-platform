@@ -12,15 +12,16 @@ use super::FileId;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ProjectId(pub u32);
 
-/// Which project each file belongs to, and which projects' files each project sees besides its
-/// own.
+/// Which project each file belongs to, and which other files each project sees besides its own.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProjectLayout {
-    /// The project of each file; a file not named here belongs to the default project.
+    /// The project of each file, which judges it; a file not named here belongs to the default
+    /// project.
     pub files: FxHashMap<FileId, ProjectId>,
-    /// The projects whose files a project sees besides its own: its libraries and dependencies,
-    /// transitive ones included, which the server resolves. A library is judged in its own project.
-    pub libraries: FxHashMap<ProjectId, Vec<ProjectId>>,
+    /// The files a project sees besides its own: those of its libraries and dependencies,
+    /// transitive ones included, which the server resolves. Such a file is judged in its own
+    /// project, which does not see the projects that use it.
+    pub library_files: FxHashMap<ProjectId, Vec<FileId>>,
 }
 
 impl ProjectLayout {
@@ -30,8 +31,9 @@ impl ProjectLayout {
         self.files.get(&file_id).copied().unwrap_or_default()
     }
 
-    /// The files that each project with a file of `files` sees: its own and its libraries', each
-    /// list ordered by file. A project without a file of its own judges no file and has no list.
+    /// The files that each project with a file of `files` sees: its own and its library files of
+    /// `files`, each list ordered by file. A project without a file of its own judges no file and
+    /// has no list.
     pub(super) fn visible_files<T: Copy>(
         &self,
         files: &[(FileId, T)],
@@ -42,15 +44,16 @@ impl ProjectLayout {
                 .or_default()
                 .push((file_id, value));
         }
+        let present: FxHashMap<FileId, T> = files.iter().copied().collect();
         own.iter()
             .map(|(&project, files)| {
                 let mut seen: FxHashSet<FileId> = files.iter().map(|(id, _)| *id).collect();
                 let mut visible = files.clone();
-                for library in self.libraries.get(&project).into_iter().flatten() {
-                    for &(file_id, value) in own.get(library).into_iter().flatten() {
-                        if seen.insert(file_id) {
-                            visible.push((file_id, value));
-                        }
+                for &file_id in self.library_files.get(&project).into_iter().flatten() {
+                    if let Some(&value) = present.get(&file_id)
+                        && seen.insert(file_id)
+                    {
+                        visible.push((file_id, value));
                     }
                 }
                 visible.sort_by_key(|(file_id, _)| file_id.0);

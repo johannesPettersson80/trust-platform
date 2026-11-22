@@ -85,7 +85,7 @@ fn layout(line_a_uses_library: bool) -> ProjectLayout {
         layout.files.insert(FileId(file), project);
     }
     if line_a_uses_library {
-        layout.libraries.insert(LINE_A, vec![LIBRARY]);
+        layout.library_files.insert(LINE_A, vec![FileId(4)]);
     }
     layout
 }
