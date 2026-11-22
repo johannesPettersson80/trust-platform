@@ -20,6 +20,16 @@ pub(super) fn pou_key(file: FileId, pou: &SyntaxNode) -> Option<PouKey> {
     name_from_node(pou).map(|(_, name)| PouKey { file, name })
 }
 
+/// The key of the POU that the symbol `id` of `file`'s table declares: its own when the file declares it, its origin's
+/// when the file imported it (an imported symbol keeps its name's range in the file that declares it).
+pub(super) fn pou_key_of_symbol(table: &SymbolTable, file: FileId, id: SymbolId) -> Option<PouKey> {
+    let symbol = table.get(id)?;
+    Some(PouKey {
+        file: symbol.origin.map_or(file, |origin| origin.file_id),
+        name: symbol.range,
+    })
+}
+
 /// What one file's type check resolved that the call graph reads: the file's symbol table, and the symbol each call node
 /// resolved to, by the node's range (`FileAnalysis::resolved_symbols`).
 pub(in crate::db) struct CallFacts {
@@ -34,12 +44,11 @@ pub(super) struct CallGraph {
 }
 
 impl CallGraph {
-    /// The graph of every POU of `roots`: its accesses to the globals of `globals_by_key`, resolved in `symbols`, and its calls,
-    /// resolved by its file's type check (`call_facts`).
+    /// The graph of every POU of `roots`: its accesses to the globals of `own`, and its calls, both resolved in its own file's
+    /// table, which that file's type check gave (`call_facts`).
     pub(super) fn build(
-        symbols: &SymbolTable,
         roots: &[(FileId, SyntaxNode)],
-        globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+        own: &OwnGlobals,
         written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
         call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
     ) -> Self {
@@ -58,7 +67,16 @@ impl CallGraph {
                     reads: FxHashSet::default(),
                     writes: FxHashSet::default(),
                 };
-                collect_pou_accesses(symbols, globals_by_key, &pou, &written, &mut access);
+                if let Some(facts) = facts.as_ref() {
+                    collect_pou_accesses(
+                        &facts.symbols,
+                        *file_id,
+                        own,
+                        &pou,
+                        &written,
+                        &mut access,
+                    );
+                }
                 graph.accesses.insert(key, access);
                 let callees: FxHashSet<PouKey> = facts
                     .iter()

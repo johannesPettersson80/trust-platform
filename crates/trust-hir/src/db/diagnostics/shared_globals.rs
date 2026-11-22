@@ -4,10 +4,7 @@ use super::configuration::{
     collect_tasks_in_scope, normalize_task_name, program_config_task_name, resolve_program_type,
     ProgramTypeResolution,
 };
-use super::context::{
-    expression_context, find_symbol_by_name_range, is_pou_kind, namespace_path_for_symbol,
-    normalized_name,
-};
+use super::context::{expression_context, is_pou_kind, namespace_path_for_symbol, normalized_name};
 use crate::access::{access_of, Access};
 use crate::attributes::{declares_attribute, list_declares_attribute};
 
@@ -61,6 +58,15 @@ struct GlobalCandidate {
     name: SmolStr,
 }
 
+/// The globals that the file `file` declares, the only ones whose owners and hazards it reports: by their names with
+/// their namespaces, and by their symbols in that file's table. Every other file's code is resolved in its own table,
+/// and a global it reaches is one of these when it is one of their own symbols or was imported from them.
+struct OwnGlobals {
+    file: FileId,
+    by_key: FxHashMap<GlobalKey, GlobalCandidate>,
+    by_id: FxHashMap<SymbolId, GlobalCandidate>,
+}
+
 /// W012 for the globals that `file_id` declares (specification 28 §6). `written_arguments` gives a
 /// file's argument expressions that its calls bind to output and in-out parameters
 /// (`FileAnalysis::written_arguments`), from which `crate::access` tells a write.
@@ -72,24 +78,18 @@ pub(in crate::db) fn check_shared_global_task_hazards(
     call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
     diagnostics: &mut DiagnosticBuilder,
 ) {
-    let (globals_by_key, globals_by_id) = collect_global_candidates(symbols, file_id);
-    if globals_by_id.is_empty() {
+    let own = collect_own_globals(symbols, file_id);
+    if own.by_id.is_empty() {
         return;
     }
 
-    let (program_tasks, task_info) = collect_program_task_assignments(symbols, project_roots);
+    let (program_tasks, task_info) = collect_program_task_assignments(project_roots, call_facts);
     if program_tasks.is_empty() {
         return;
     }
 
-    let program_accesses = collect_program_reach(
-        symbols,
-        project_roots,
-        &globals_by_key,
-        written_arguments,
-        call_facts,
-    )
-    .accesses;
+    let program_accesses =
+        collect_program_reach(project_roots, &own, written_arguments, call_facts).accesses;
     if program_accesses.is_empty() {
         return;
     }
@@ -107,12 +107,9 @@ pub(in crate::db) fn check_shared_global_task_hazards(
             continue;
         }
 
-        let Some(global) = globals_by_id.get(&global_id) else {
+        let Some(global) = own.by_id.get(&global_id) else {
             continue;
         };
-        if global.origin.file_id != file_id {
-            continue;
-        }
         // One task writing a value that one access reads and writes is how tasks share data
         // safely; several writers, or data that one access does not cover, are not (as CODESYS
         // Static Analysis SA0006 and SA0103 judge them).
@@ -171,27 +168,18 @@ pub(in crate::db) fn shared_global_owners(
     written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
     call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
 ) -> Vec<GlobalOwnership> {
-    let (globals_by_key, globals_by_id) = collect_global_candidates(symbols, file_id);
-    let mut declared: Vec<&GlobalCandidate> = globals_by_id
-        .values()
-        .filter(|global| global.origin.file_id == file_id)
-        .collect();
+    let own = collect_own_globals(symbols, file_id);
+    let mut declared: Vec<&GlobalCandidate> = own.by_id.values().collect();
     if declared.is_empty() {
         return Vec::new();
     }
     declared.sort_by_key(|global| global.range.start());
-    let (program_tasks, task_info) = collect_program_task_assignments(symbols, project_roots);
-    let background = collect_background_programs(symbols, project_roots);
+    let (program_tasks, task_info) = collect_program_task_assignments(project_roots, call_facts);
+    let background = collect_background_programs(project_roots, call_facts);
     let ProgramReach {
         accesses: program_accesses,
         unreached_writes: elsewhere,
-    } = collect_program_reach(
-        symbols,
-        project_roots,
-        &globals_by_key,
-        written_arguments,
-        call_facts,
-    );
+    } = collect_program_reach(project_roots, &own, written_arguments, call_facts);
     declared
         .into_iter()
         .map(|global| {
@@ -243,9 +231,9 @@ pub(in crate::db) fn shared_global_owners(
 /// gives no task, and every program of a project without a configuration (specification 18
 /// §2.2).
 fn collect_background_programs(
-    symbols: &SymbolTable,
     roots: &[(FileId, SyntaxNode)],
-) -> FxHashSet<SymbolId> {
+    call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
+) -> FxHashSet<reach::PouKey> {
     let mut background = FxHashSet::default();
     let configured = roots.iter().any(|(_, root)| {
         root.descendants()
@@ -253,16 +241,25 @@ fn collect_background_programs(
     });
     for (file_id, root) in roots {
         if configured {
+            let mut file_table = None;
             for program in root.descendants().filter(|node| {
                 node.kind() == SyntaxKind::ProgramConfig && program_config_task_name(node).is_none()
             }) {
                 let Some((_, type_parts)) = program_config_instance_and_type(&program) else {
                     continue;
                 };
+                // The configuration's file resolves the program type it names.
+                let Some(table) = file_table
+                    .get_or_insert_with(|| call_facts(*file_id).map(|facts| facts.symbols))
+                    .as_deref()
+                else {
+                    continue;
+                };
                 if let ProgramTypeResolution::Program(program_id) =
-                    resolve_program_type(symbols, &type_parts)
+                    resolve_program_type(table, &type_parts)
+                    && let Some(key) = reach::pou_key_of_symbol(table, *file_id, program_id)
                 {
-                    background.insert(program_id);
+                    background.insert(key);
                 }
             }
         } else {
@@ -270,15 +267,8 @@ fn collect_background_programs(
                 .descendants()
                 .filter(|node| node.kind() == SyntaxKind::Program)
             {
-                let Some((name, range)) = name_from_node(&program) else {
-                    continue;
-                };
-                if let Some(program_id) = find_symbol_by_name_range(symbols, name.as_str(), range)
-                    .or_else(|| {
-                        find_imported_symbol_by_name_range(symbols, *file_id, name.as_str(), range)
-                    })
-                {
-                    background.insert(program_id);
+                if let Some(key) = reach::pou_key(*file_id, &program) {
+                    background.insert(key);
                 }
             }
         }
@@ -355,30 +345,26 @@ fn declared_cross_task(roots: &[(FileId, SyntaxNode)], global: &GlobalCandidate)
             .is_some_and(|list| list_declares_attribute(&list, "cross_task"))
 }
 
-fn collect_global_candidates(
-    symbols: &SymbolTable,
-    file_id: FileId,
-) -> (
-    FxHashMap<GlobalKey, GlobalCandidate>,
-    FxHashMap<SymbolId, GlobalCandidate>,
-) {
+fn collect_own_globals(symbols: &SymbolTable, file_id: FileId) -> OwnGlobals {
     let mut by_key = FxHashMap::default();
     let mut by_id = FxHashMap::default();
 
     for symbol in symbols.iter() {
-        if !matches!(
-            symbol.kind,
-            SymbolKind::Variable {
-                qualifier: VarQualifier::Global
-            }
-        ) {
+        if symbol.origin.is_some()
+            || !matches!(
+                symbol.kind,
+                SymbolKind::Variable {
+                    qualifier: VarQualifier::Global
+                }
+            )
+        {
             continue;
         }
 
-        let origin = symbol.origin.unwrap_or(SymbolOrigin {
+        let origin = SymbolOrigin {
             file_id,
             symbol_id: symbol.id,
-        });
+        };
         let key = GlobalKey {
             namespace: namespace_path_for_symbol(symbols, symbol.id),
             name: normalized_name(symbol.name.as_str()),
@@ -393,20 +379,26 @@ fn collect_global_candidates(
         by_id.insert(symbol.id, candidate);
     }
 
-    (by_key, by_id)
+    OwnGlobals {
+        file: file_id,
+        by_key,
+        by_id,
+    }
 }
 
 fn collect_program_task_assignments(
-    symbols: &SymbolTable,
     roots: &[(FileId, SyntaxNode)],
+    call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
 ) -> (
-    FxHashMap<SymbolId, FxHashSet<TaskId>>,
+    FxHashMap<reach::PouKey, FxHashSet<TaskId>>,
     FxHashMap<TaskId, TaskInfo>,
 ) {
-    let mut program_tasks: FxHashMap<SymbolId, FxHashSet<TaskId>> = FxHashMap::default();
+    let mut program_tasks: FxHashMap<reach::PouKey, FxHashSet<TaskId>> = FxHashMap::default();
     let mut task_info: FxHashMap<TaskId, TaskInfo> = FxHashMap::default();
 
-    for (_file_id, root) in roots {
+    for (file_id, root) in roots {
+        // The configuration's file resolves the program types it names.
+        let mut file_table = None;
         for scope in root.descendants().filter(|node| {
             matches!(
                 node.kind(),
@@ -433,11 +425,21 @@ fn collect_program_task_assignments(
                 let Some((_, type_parts)) = program_config_instance_and_type(&program) else {
                     continue;
                 };
-                let program_id = match resolve_program_type(symbols, &type_parts) {
+                let Some(table) = file_table
+                    .get_or_insert_with(|| call_facts(*file_id).map(|facts| facts.symbols))
+                    .as_deref()
+                else {
+                    continue;
+                };
+                let program_id = match resolve_program_type(table, &type_parts) {
                     ProgramTypeResolution::Program(program_id) => program_id,
                     ProgramTypeResolution::WrongKind(_) | ProgramTypeResolution::Missing => {
                         continue;
                     }
+                };
+                let Some(program_key) = reach::pou_key_of_symbol(table, *file_id, program_id)
+                else {
+                    continue;
                 };
 
                 let (task_id, task_label) = task_id_and_label(
@@ -447,7 +449,7 @@ fn collect_program_task_assignments(
                     resource_name.as_ref(),
                 );
                 program_tasks
-                    .entry(program_id)
+                    .entry(program_key)
                     .or_default()
                     .insert(task_id.clone());
                 task_info.entry(task_id).or_insert(TaskInfo {
@@ -465,41 +467,24 @@ fn collect_program_task_assignments(
 /// Each program's accesses to the globals, with those of every POU it reaches through its calls,
 /// and the globals that POUs no program reaches write (specification 28 §6; `reach`).
 struct ProgramReach {
-    accesses: FxHashMap<SymbolId, ProgramAccess>,
+    accesses: FxHashMap<reach::PouKey, ProgramAccess>,
     unreached_writes: FxHashSet<SymbolId>,
 }
 
 fn collect_program_reach(
-    symbols: &SymbolTable,
     roots: &[(FileId, SyntaxNode)],
-    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    own: &OwnGlobals,
     written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
     call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
 ) -> ProgramReach {
-    let graph = CallGraph::build(
-        symbols,
-        roots,
-        globals_by_key,
-        written_arguments,
-        call_facts,
-    );
-    let mut accesses: FxHashMap<SymbolId, ProgramAccess> = FxHashMap::default();
+    let graph = CallGraph::build(roots, own, written_arguments, call_facts);
+    let mut accesses: FxHashMap<reach::PouKey, ProgramAccess> = FxHashMap::default();
     let mut reached_by_programs = FxHashSet::default();
     for (file_id, root) in roots {
         for program in root
             .descendants()
             .filter(|node| node.kind() == SyntaxKind::Program)
         {
-            let Some((name, range)) = name_from_node(&program) else {
-                continue;
-            };
-            let Some(program_id) = find_symbol_by_name_range(symbols, name.as_str(), range)
-                .or_else(|| {
-                    find_imported_symbol_by_name_range(symbols, *file_id, name.as_str(), range)
-                })
-            else {
-                continue;
-            };
             let Some(key) = reach::pou_key(*file_id, &program) else {
                 continue;
             };
@@ -507,7 +492,7 @@ fn collect_program_reach(
             let access = graph.access_of(&reached);
             reached_by_programs.extend(reached);
             if !access.reads.is_empty() || !access.writes.is_empty() {
-                accesses.insert(program_id, access);
+                accesses.insert(key, access);
             }
         }
     }
@@ -517,27 +502,12 @@ fn collect_program_reach(
     }
 }
 
-fn find_imported_symbol_by_name_range(
-    symbols: &SymbolTable,
-    file_id: FileId,
-    name: &str,
-    range: TextRange,
-) -> Option<SymbolId> {
-    symbols
-        .iter()
-        .find(|symbol| {
-            symbol
-                .origin
-                .is_some_and(|origin| origin.file_id == file_id)
-                && symbol.name.eq_ignore_ascii_case(name)
-                && symbol.range == range
-        })
-        .map(|symbol| symbol.id)
-}
-
+/// The accesses of the POU `pou` of the file `file` to the globals of `own`, its names resolved in `table`, the file's own
+/// table.
 fn collect_pou_accesses(
-    symbols: &SymbolTable,
-    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    table: &SymbolTable,
+    file: FileId,
+    own: &OwnGlobals,
     pou: &SyntaxNode,
     written: &FxHashSet<(u32, u32)>,
     access: &mut ProgramAccess,
@@ -549,9 +519,9 @@ fn collect_pou_accesses(
         if is_nested_field_expr(&node) || !belongs_to_pou(&node, pou) {
             continue;
         }
-        let scope_id = expression_context(symbols, &node).scope_id;
-        let Some(symbol_id) = resolve_field_expr_global(symbols, globals_by_key, &node, scope_id)
-            .or_else(|| resolve_path_root_global(symbols, globals_by_key, &node, scope_id))
+        let scope_id = expression_context(table, &node).scope_id;
+        let Some(symbol_id) = resolve_field_expr_global(table, file, own, &node, scope_id)
+            .or_else(|| resolve_path_root_global(table, file, own, &node, scope_id))
         else {
             continue;
         };
@@ -568,9 +538,8 @@ fn collect_pou_accesses(
         if !belongs_to_pou(&node, pou) {
             continue;
         }
-        let scope_id = expression_context(symbols, &node).scope_id;
-        let Some(symbol_id) = resolve_name_ref_global(symbols, globals_by_key, &node, scope_id)
-        else {
+        let scope_id = expression_context(table, &node).scope_id;
+        let Some(symbol_id) = resolve_name_ref_global(table, file, own, &node, scope_id) else {
             continue;
         };
         access.record(symbol_id, writes(&node, written));
@@ -583,9 +552,8 @@ fn collect_pou_accesses(
         if !belongs_to_pou(&node, pou) {
             continue;
         }
-        let scope_id = expression_context(symbols, &node).scope_id;
-        let Some(symbol_id) = resolve_name_ref_global(symbols, globals_by_key, &node, scope_id)
-        else {
+        let scope_id = expression_context(table, &node).scope_id;
+        let Some(symbol_id) = resolve_name_ref_global(table, file, own, &node, scope_id) else {
             continue;
         };
         access.record(symbol_id, writes(&node, written));
@@ -599,8 +567,8 @@ fn writes(node: &SyntaxNode, written: &FxHashSet<(u32, u32)>) -> bool {
 }
 
 fn collect_global_usage(
-    program_tasks: &FxHashMap<SymbolId, FxHashSet<TaskId>>,
-    program_accesses: &FxHashMap<SymbolId, ProgramAccess>,
+    program_tasks: &FxHashMap<reach::PouKey, FxHashSet<TaskId>>,
+    program_accesses: &FxHashMap<reach::PouKey, ProgramAccess>,
 ) -> FxHashMap<SymbolId, GlobalUsage> {
     let mut usage: FxHashMap<SymbolId, GlobalUsage> = FxHashMap::default();
 
@@ -628,35 +596,37 @@ fn collect_global_usage(
 }
 
 fn resolve_name_ref_global(
-    symbols: &SymbolTable,
-    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    table: &SymbolTable,
+    file: FileId,
+    own: &OwnGlobals,
     node: &SyntaxNode,
     scope_id: ScopeId,
 ) -> Option<SymbolId> {
     let name = name_from_name_ref(node)?;
-    let symbol_id = symbols
+    let symbol_id = table
         .resolve(name.as_str(), scope_id)
-        .or_else(|| symbols.lookup(name.as_str()))?;
-    resolve_global_symbol(symbols, globals_by_key, symbol_id)
+        .or_else(|| table.lookup(name.as_str()))?;
+    resolve_global_symbol(table, file, own, symbol_id)
 }
 
 fn resolve_field_expr_global(
-    symbols: &SymbolTable,
-    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    table: &SymbolTable,
+    file: FileId,
+    own: &OwnGlobals,
     node: &SyntaxNode,
     scope_id: ScopeId,
 ) -> Option<SymbolId> {
     let parts = qualified_name_from_field_expr(node)?;
     for len in (1..=parts.len()).rev() {
         let symbol_id = if len == 1 {
-            symbols
+            table
                 .resolve(parts[0].as_str(), scope_id)
-                .or_else(|| symbols.lookup(parts[0].as_str()))
+                .or_else(|| table.lookup(parts[0].as_str()))
         } else {
-            symbols.resolve_qualified(&parts[..len])
+            table.resolve_qualified(&parts[..len])
         };
         if let Some(symbol_id) = symbol_id
-            && let Some(global_id) = resolve_global_symbol(symbols, globals_by_key, symbol_id)
+            && let Some(global_id) = resolve_global_symbol(table, file, own, symbol_id)
         {
             return Some(global_id);
         }
@@ -669,8 +639,9 @@ fn resolve_field_expr_global(
 /// field, an array element or a dereference of the global" as a use of the global. The base is
 /// followed through dereferences, parentheses, indexes and fields to the name at its root.
 fn resolve_path_root_global(
-    symbols: &SymbolTable,
-    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    table: &SymbolTable,
+    file: FileId,
+    own: &OwnGlobals,
     field_expr: &SyntaxNode,
     scope_id: ScopeId,
 ) -> Option<SymbolId> {
@@ -678,11 +649,11 @@ fn resolve_path_root_global(
     loop {
         match current.kind() {
             SyntaxKind::NameRef => {
-                return resolve_name_ref_global(symbols, globals_by_key, &current, scope_id);
+                return resolve_name_ref_global(table, file, own, &current, scope_id);
             }
             SyntaxKind::FieldExpr => {
                 if let Some(global) =
-                    resolve_field_expr_global(symbols, globals_by_key, &current, scope_id)
+                    resolve_field_expr_global(table, file, own, &current, scope_id)
                 {
                     return Some(global);
                 }
@@ -713,26 +684,35 @@ fn is_in_field_path(name_ref: &SyntaxNode) -> bool {
     false
 }
 
+/// The global of `own` that the symbol `symbol_id` of the file `file`'s table names: a global variable that `own`'s file
+/// declares, as `own`'s file has it or as another file imported it, or an external variable that names one by its name
+/// with its namespaces. Its symbol is the one in `own`'s file.
 fn resolve_global_symbol(
-    symbols: &SymbolTable,
-    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    table: &SymbolTable,
+    file: FileId,
+    own: &OwnGlobals,
     symbol_id: SymbolId,
 ) -> Option<SymbolId> {
-    let symbol = symbols.get(symbol_id)?;
+    let symbol = table.get(symbol_id)?;
     match symbol.kind {
         SymbolKind::Variable {
             qualifier: VarQualifier::Global,
-        } => Some(symbol_id),
+        } => {
+            let origin = symbol.origin.unwrap_or(SymbolOrigin {
+                file_id: file,
+                symbol_id,
+            });
+            (origin.file_id == own.file && own.by_id.contains_key(&origin.symbol_id))
+                .then_some(origin.symbol_id)
+        }
         SymbolKind::Variable {
             qualifier: VarQualifier::External,
         } => {
             let key = GlobalKey {
-                namespace: namespace_path_for_symbol(symbols, symbol_id),
+                namespace: namespace_path_for_symbol(table, symbol_id),
                 name: normalized_name(symbol.name.as_str()),
             };
-            globals_by_key
-                .get(&key)
-                .map(|candidate| candidate.symbol_id)
+            own.by_key.get(&key).map(|candidate| candidate.symbol_id)
         }
         _ => None,
     }
