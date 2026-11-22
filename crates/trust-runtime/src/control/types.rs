@@ -47,6 +47,7 @@ mod tests {
                 inputs,
                 outputs,
                 memory,
+                safe_state: _,
             } = self;
             json!({
                 "scan": scan,
@@ -91,6 +92,7 @@ mod tests {
     #[test]
     fn io_snapshot_json_includes_optional_source() {
         let snapshot = IoSnapshot {
+            safe_state: false,
             scan: Some(4),
             forced: Vec::new(),
             inputs: vec![IoSnapshotEntry {
@@ -115,6 +117,7 @@ mod tests {
     #[test]
     fn io_snapshot_json_includes_optional_value_type() {
         let snapshot = IoSnapshot {
+            safe_state: false,
             scan: Some(4),
             forced: Vec::new(),
             inputs: Vec::new(),

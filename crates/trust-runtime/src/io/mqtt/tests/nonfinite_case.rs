@@ -224,7 +224,7 @@ impl NonfiniteMqttStepObservation {
 }
 
 /// Runs the trace step `step`: the broker delivers its batch in one write, and the driver reads
-/// until the batch has arrived (a read before it is stale and changes nothing under `fault`).
+/// until a read takes the batch (a read before it holds the input, specification 32 §8).
 fn execute_nonfinite_mqtt_step(
     step: &TraceStep,
     broker: &Broker,

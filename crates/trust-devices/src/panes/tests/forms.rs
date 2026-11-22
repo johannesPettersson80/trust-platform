@@ -122,6 +122,7 @@ fn advanced_fields_under_a_heading_not_collapsed() {
             "tls_client_cert_path",
             "tls_client_key_path",
             "tls_alpn",
+            "stale_after_ms",
         ],
         "every advanced field is listed, none is hidden"
     );

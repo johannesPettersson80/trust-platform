@@ -4356,6 +4356,17 @@ not collapse an internal failure into a pre-scan state. A returned snapshot is
 one coherent cached scan, including only the force marks captured with that
 scan.
 
+**Safe state in the reads** (checklist G228). When the safe state of a stop or of a fault whose
+policy applies it (`safe_halt`, a watchdog's `halt` or `safe_halt`) drives the outputs of
+`[[io.safe_state]]`, the reads between scans answer with the outputs as it drove them: the
+snapshot of `io.list` and `io.read` keeps the number of the last scan that completed and that
+scan's inputs and memory, holds the safe values in its outputs, and is marked `"safe_state": true`,
+a member present only then; Live Values show the same outputs. The event `safe_state_applied`
+records each output the safe state drove with its value as `io.read` shows a value:
+`{"type": "safe_state_applied", "outputs": [{"address": "%QX0.0", "value": "Bool(false)"}],
+"time_ns": <logical time>}`. A safe state without `[[io.safe_state]]` drives nothing and changes
+neither. The next scan's snapshot replaces the safe state's and carries no mark.
+
 **Typed values** (the owner, 26 October 2026: "did you run a program, simulate and force values
 etc? did you test all workflows?"). Where the destination's declared type is known when the request
 arrives, a variable target that the installed program resolves (`set`, `var.force`, `debug.set` of

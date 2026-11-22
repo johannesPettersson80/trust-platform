@@ -28,6 +28,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::cycle::{CycleHooks, CyclePhase};
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::{write_flat_image, FlatImages};
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::image::BACKGROUND_PRIORITY;
@@ -37,7 +38,7 @@ use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariabl
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
-use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{CompiledView, CycleSettings, ResourceCycle, RetainSource, TaskDescriptor};
@@ -457,14 +458,24 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
 
     /// As trust-runtime applies `[[io.safe_state]]`: each safe value is written into the output
     /// image, and the drivers then drive that image.
-    fn apply_safe_outputs(&mut self) -> Result<(), RuntimeError> {
+    fn apply_safe_outputs(&mut self) -> Result<Vec<(IoAddress, Value)>, RuntimeError> {
         if self.settings.safe_outputs.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
         for (address, value) in &self.settings.safe_outputs {
             write_flat_image(&mut self.program.outputs, address, value.clone())?;
         }
-        self.io.write_safe_outputs(&self.program.outputs)
+        // The safe image is the committed output image from now on, which the reads between scans
+        // answer from (specification 11, "Safe state in the reads"); the inputs and the memory stay
+        // the last completed scan's.
+        self.committed.clone_from(&self.program.outputs);
+        self.images.outputs.clone_from(&self.program.outputs);
+        self.io.write_safe_outputs(&self.program.outputs)?;
+        Ok(self.settings.safe_outputs.clone())
+    }
+
+    fn scan_images(&self) -> Option<&FlatImages> {
+        Some(&self.images)
     }
 
     /// Captures the values the program holds and completes the pending checkpoint and the newest

@@ -24,6 +24,8 @@ mod openot_alarm_records;
 mod openot_telemetry;
 pub mod program_access;
 #[cfg(test)]
+mod safe_state_publish_tests;
+#[cfg(test)]
 mod test_fixtures;
 pub(crate) mod types;
 mod watchdog_subsystem;

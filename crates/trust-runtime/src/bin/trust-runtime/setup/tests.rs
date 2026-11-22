@@ -84,6 +84,37 @@ fn generated_resource_names_are_valid_for_numeric_and_reserved_folders() {
     );
 }
 
+/// The runtime cloud quickstart (docs/guides/RUNTIME_CLOUD_QUICKSTART.md, steps 2 and 3): each dev
+/// profile is copied into an empty folder, and `play`'s first start writes the program for the
+/// profile's resource and builds it. Catches a profile resource that is not an IEC identifier, or not
+/// the program's `RESOURCE` (specification 11 §6.7.1), as the profiles' `runtime-a` was (checklist
+/// G245): the quickstart's runtimes could not start.
+#[test]
+fn the_runtime_cloud_quickstart_profiles_create_projects_that_build() {
+    let examples =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/runtime_cloud");
+    for (profile, resource) in [
+        ("runtime-a-dev.toml", "runtime_a"),
+        ("runtime-b-dev.toml", "runtime_b"),
+    ] {
+        let root = temp_dir(&format!("cloud-quickstart-{resource}"));
+        std::fs::copy(examples.join(profile), root.join("runtime.toml")).expect("copy the profile");
+        wizard::create_bundle_auto(Some(root.clone()))
+            .unwrap_or_else(|error| panic!("{profile}: {error:#}"));
+        let config = std::fs::read_to_string(root.join("src").join("config.st"))
+            .expect("the program's configuration");
+        assert!(
+            config.contains(&format!("RESOURCE {resource} ON PLC")),
+            "{profile}: {config}"
+        );
+        assert!(
+            root.join(trust_runtime::native::PROGRAM_IMAGE_FILE).is_file(),
+            "{profile}: the program is built"
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
 #[test]
 fn zero_cycle_configuration_is_rejected_before_runtime_file_mutation() {
     let root = temp_dir("zero-cycle");

@@ -9,10 +9,12 @@ mod helpers;
 mod located_storage;
 mod project_configuration;
 mod project_constants;
+mod project_layout;
 mod project_types;
 mod project_units;
 mod salsa_backend;
 
+pub use project_layout::{ProjectId, ProjectLayout};
 pub use salsa_backend::SalsaEventSnapshot;
 
 pub(super) use located_storage::LocatedStorage;

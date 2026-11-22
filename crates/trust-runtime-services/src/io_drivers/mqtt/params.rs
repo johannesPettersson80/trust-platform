@@ -33,7 +33,7 @@ pub(super) const MAX_JSON_INTEGER: u64 = 9_223_372_036_854_775_807;
 const MAX_STRING: usize = 65_535;
 
 /// The keys of the table, which a refusal of another key lists.
-const KEYS: [&str; 19] = [
+const KEYS: [&str; 20] = [
     "allow_insecure_remote",
     "broker",
     "client_id",
@@ -45,6 +45,7 @@ const KEYS: [&str; 19] = [
     "password",
     "reconnect_ms",
     "sparkplug",
+    "stale_after_ms",
     "tls",
     "tls_alpn",
     "tls_ca_path",
@@ -87,6 +88,10 @@ pub struct MqttParams {
     pub keep_alive_s: u16,
     /// `on_error`; default `fault`.
     pub on_error: OnError,
+    /// `stale_after_ms`: an input whose last accepted message, or the subscription when none was
+    /// accepted since, is older is stale (specification 32 §8). `None` for 0, the default: a
+    /// connected input keeps its last value, however old.
+    pub stale_after_ms: Option<u64>,
     /// TLS, on with `tls = true` or an `mqtts://` or `ssl://` broker.
     pub tls: Option<MqttTls>,
     /// `mappings` when the key is given, even empty: its presence selects mapped mode
@@ -179,6 +184,11 @@ impl MqttParams {
     /// The values `keep_alive_s` takes (specification 32 §2): 0 to 65,535 s, a given 0 read as 1 s. A connection form advertises and
     /// enforces these bounds too.
     pub const KEEP_ALIVE_S_RANGE: (u16, u16) = (0, u16::MAX);
+
+    /// The values `stale_after_ms` takes (specification 32 §2 and §8): every integer from 0 that the
+    /// TOML of `io.toml` holds, 0 meaning no limit. A connection form advertises and enforces these
+    /// bounds too.
+    pub const STALE_AFTER_MS_RANGE: (u64, u64) = (0, MAX_JSON_INTEGER);
 
     /// The parameters of the JSON text `text`, the driver's `params` table (specification 34
     /// §5.1.1, section 8), checked by the rules of specification 32. The paths of the TLS files
@@ -307,6 +317,9 @@ fn check(text: &str) -> (Option<MqttParams>, Vec<ParamsError>) {
     let keep_alive_s = kept(root.integer("keep_alive_s", fewest, most), refused)
         .map(|value| value.unwrap_or(DEFAULT_KEEP_ALIVE_S).max(1));
     let on_error = kept(on_error(&root), refused);
+    let (fewest, most) = MqttParams::STALE_AFTER_MS_RANGE;
+    let stale_after_ms = kept(root.integer("stale_after_ms", fewest, most), refused)
+        .map(|value| value.filter(|&limit| limit > 0));
     let mappings = kept(mappings(&root), refused);
     let input_points = kept(points::input_points(&root), refused);
     let output_points = kept(points::output_points(&root), refused);
@@ -330,6 +343,7 @@ fn check(text: &str) -> (Option<MqttParams>, Vec<ParamsError>) {
             reconnect_ms: reconnect_ms?,
             keep_alive_s: keep_alive_s?,
             on_error: on_error?,
+            stale_after_ms: stale_after_ms?,
             tls: tls?,
             mappings: mappings?,
             input_points: input_points?,

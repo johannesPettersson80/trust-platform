@@ -46,6 +46,7 @@ fn io_read_fails_closed_when_snapshot_lock_is_unavailable() {
 fn io_list_answers_the_hosted_snapshot_through_the_portable_one() {
     let state = control_test_state(LIVE_VALUES_SOURCE);
     let snapshot = crate::io::IoSnapshot {
+        safe_state: false,
         scan: Some(5),
         forced: Vec::new(),
         inputs: Vec::new(),

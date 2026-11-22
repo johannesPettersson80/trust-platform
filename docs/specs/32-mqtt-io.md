@@ -68,7 +68,8 @@ rules, and a file's refusal marks its key. The form checks the parameters as
 it applies them, without empty optional values, and `comm.schema` advertises
 the driver's own bounds for its number fields, so the form takes every setting
 that the driver runs with: `reconnect_ms` from 0 to the largest TOML integer
-and `keep_alive_s` from 0 to 65,535, a given 0 of either read as 1.
+and `keep_alive_s` from 0 to 65,535, a given 0 of either read as 1, and
+`stale_after_ms` from 0 to the largest TOML integer, 0 meaning no limit (§8).
 
 The shipped traffic-light mapping is:
 
@@ -259,8 +260,21 @@ which a transmission that fails ends. A handoff that cannot be encoded, a point
 that does not convert or a packet above the packet limit, is a publish condition:
 nothing of it is published and the session stays. Input freshness is an input-path condition: the worker checks for
 new input without waiting, so an input read never holds the worker or delays
-output publication. A read that finds no message newer than the previous read
-reports stale input under the policy below, but a connected session stays
+output publication.
+
+While the session is connected, an input keeps the value of its last accepted
+message until a new message replaces it, as a subscription does in a PLC's MQTT
+client: topics commonly publish on change, so a read that finds no new message
+copies the last accepted snapshot, or before the first message leaves the input
+image as it is, and its input is not stale. `stale_after_ms`, from 0 to the
+largest TOML integer and 0 when absent, limits that: 0 keeps the last value
+however old it is, and a larger value makes the input stale when the last
+accepted message, or the subscription when no message was accepted since, is
+more than `stale_after_ms` old, which suits a topic that publishes cyclically or
+a heartbeat. A read without a new message is also stale
+while the broker has refused a subscription of the driver, and it keeps the
+condition of a message that did not convert until a message converts. Stale
+input is reported under the policy below, but a connected session stays
 connected, starts no backoff and keeps publishing outputs.
 
 The driver therefore tracks two paths. Input-path health covers stale or missing
@@ -282,10 +296,10 @@ at 1; a PUBLISH that a broker delivers at quality of service 1 is acknowledged
 with PUBACK and taken as any message, and one at 2 is a protocol error that ends
 the session.
 
-Under the default `fault` policy, disconnected or stale input, a bounded read
-without a snapshot, missed refresh/handoff deadlines, completed connection or
-publish failure, and typed-output preflight failure return an error and set
-faulted health. Connection errors retain their context rather than becoming a
+Under the default `fault` policy, disconnected or stale input, a message that
+does not convert, a bounded read without a snapshot, missed refresh/handoff
+deadlines, completed connection or publish failure, and typed-output preflight
+failure return an error and set faulted health. Connection errors retain their context rather than becoming a
 generic unavailable-snapshot message. A faulted stale read leaves the caller's
 input image unchanged. `warn` and `ignore` retain their documented degraded
 success behavior. A timed-out queued output may later publish, but that does not

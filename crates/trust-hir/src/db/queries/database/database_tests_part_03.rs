@@ -86,8 +86,8 @@
         );
 
         let first = db.with_synced_salsa_state(|state| {
-            salsa_backend::project_type_catalog_query(&state.db, salsa_backend::project_inputs(state))
-                .clone()
+            let project = salsa_backend::project_of(state, file_other).expect("the project");
+            salsa_backend::project_type_catalog_query(&state.db, project).clone()
         });
 
         db.set_source_text(
@@ -96,8 +96,8 @@
         );
 
         let second = db.with_synced_salsa_state(|state| {
-            salsa_backend::project_type_catalog_query(&state.db, salsa_backend::project_inputs(state))
-                .clone()
+            let project = salsa_backend::project_of(state, file_other).expect("the project");
+            salsa_backend::project_type_catalog_query(&state.db, project).clone()
         });
 
         assert!(

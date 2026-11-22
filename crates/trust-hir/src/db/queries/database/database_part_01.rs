@@ -37,6 +37,20 @@ impl Database {
         })
     }
 
+    /// The database and the inputs of the project that `file_id` belongs to, which the file's
+    /// queries read (specification 14 §10.2); none for an unknown file.
+    fn salsa_project(
+        &self,
+        file_id: FileId,
+    ) -> Option<(salsa_backend::SalsaDatabase, salsa_backend::ProjectInputs)> {
+        self.with_synced_salsa_state(|state| {
+            if !state.sources.contains_key(&file_id) {
+                return None;
+            }
+            salsa_backend::project_of(state, file_id).map(|project| (state.db.clone(), project))
+        })
+    }
+
     fn source_input_for_file(
         &self,
         state: &mut salsa_backend::SalsaState,
@@ -104,9 +118,25 @@ impl Database {
         let new_revision = self.source_revision.fetch_add(1, Ordering::Relaxed) + 1;
         self.with_salsa_state(|state| {
             state.dialect = dialect;
-            if let Some(project) = state.project_inputs {
+            let projects: Vec<_> = state.projects.values().copied().collect();
+            for project in projects {
                 project.set_dialect(&mut state.db).to(dialect);
             }
+            state.synced_revision = new_revision;
+        });
+    }
+
+    /// Groups the files into projects (specification 14 §10.2): each file is analyzed among the
+    /// files of its own project and of that project's libraries, never among another project's
+    /// files. Until a layout is set, every file belongs to one project.
+    pub fn set_project_layout(&mut self, layout: ProjectLayout) {
+        if self.with_salsa_state_read(|state| state.layout == layout) {
+            return;
+        }
+        let new_revision = self.source_revision.fetch_add(1, Ordering::Relaxed) + 1;
+        self.with_salsa_state(|state| {
+            state.layout = layout;
+            salsa_backend::sync_project_inputs(state);
             state.synced_revision = new_revision;
         });
     }
@@ -174,12 +204,7 @@ impl Database {
     /// The owner of each global that the file `file_id` declares (control-studio-runtime-protocol
     /// annex E2.3; specification 44 §5.7), by its name; none for a file that declares no global.
     pub fn global_owners(&self, file_id: FileId) -> Arc<Vec<GlobalOwnership>> {
-        let Some((db, project)) = self.with_synced_salsa_state(|state| {
-            state
-                .sources
-                .contains_key(&file_id)
-                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
-        }) else {
+        let Some((db, project)) = self.salsa_project(file_id) else {
             return Arc::default();
         };
         salsa::Cancelled::catch(|| {
@@ -189,12 +214,7 @@ impl Database {
     }
 
     fn analyze_salsa(&self, file_id: FileId) -> Arc<FileAnalysis> {
-        let Some((db, project)) = self.with_synced_salsa_state(|state| {
-            state
-                .sources
-                .contains_key(&file_id)
-                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
-        }) else {
+        let Some((db, project)) = self.salsa_project(file_id) else {
             return Arc::new(FileAnalysis {
                 symbols: Arc::new(SymbolTable::default()),
                 diagnostics: Arc::new(Vec::new()),
@@ -219,12 +239,7 @@ impl Database {
     }
 
     fn diagnostics_salsa(&self, file_id: FileId) -> Arc<Vec<Diagnostic>> {
-        let Some((db, project)) = self.with_synced_salsa_state(|state| {
-            state
-                .sources
-                .contains_key(&file_id)
-                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
-        }) else {
+        let Some((db, project)) = self.salsa_project(file_id) else {
             return Arc::new(Vec::new());
         };
 
@@ -233,12 +248,7 @@ impl Database {
     }
 
     fn type_of_salsa(&self, file_id: FileId, expr_id: u32) -> TypeId {
-        let Some((db, project)) = self.with_synced_salsa_state(|state| {
-            state
-                .sources
-                .contains_key(&file_id)
-                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
-        }) else {
+        let Some((db, project)) = self.salsa_project(file_id) else {
             return LEGACY_UNKNOWN_TYPE_ID;
         };
 
@@ -269,7 +279,7 @@ impl Database {
             project_changed = true;
         }
 
-        if removed_files || project_changed || state.project_inputs.is_none() {
+        if removed_files || project_changed || state.projects.is_empty() {
             salsa_backend::sync_project_inputs(state);
         }
     }
@@ -286,12 +296,7 @@ impl Database {
     /// [`Database::file_symbols_with_project`] holds only the declarations the file names, with
     /// those their declarations name (specification 14 §6.1, §10.2).
     pub fn file_symbols_with_every_declaration(&self, file_id: FileId) -> Arc<SymbolTable> {
-        let Some((db, project)) = self.with_synced_salsa_state(|state| {
-            state
-                .sources
-                .contains_key(&file_id)
-                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
-        }) else {
+        let Some((db, project)) = self.salsa_project(file_id) else {
             return Arc::default();
         };
         salsa::Cancelled::catch(|| salsa_backend::merged_with_every_unit(&db, project, file_id))

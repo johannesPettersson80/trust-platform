@@ -11,6 +11,7 @@ use trust_runtime_core::cycle::CycleHooks;
 use trust_runtime_core::deployment::HangAction;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainApplyEvent};
@@ -163,12 +164,20 @@ pub trait ResourceCycle {
 
     /// Drives every output to its safe value, trust-runtime's `[[io.safe_state]]`: the stop
     /// output policy (STATE-02), applied on a stop and on a fault whose policy asks for it. Every
-    /// driver is attempted even when one fails.
+    /// driver is attempted even when one fails. Returns each output it drove with its value, none
+    /// without `[[io.safe_state]]`; the safe image is then the committed output image
+    /// (specification 11, "Safe state in the reads").
     ///
     /// # Errors
     ///
     /// The first failure among the drivers.
-    fn apply_safe_outputs(&mut self) -> Result<(), RuntimeError>;
+    fn apply_safe_outputs(&mut self) -> Result<Vec<(IoAddress, Value)>, RuntimeError>;
+
+    /// The process images the reads between scans answer from: the last completed scan's, with
+    /// the outputs a safe state drove since; `None` for a cycle without a program.
+    fn scan_images(&self) -> Option<&FlatImages> {
+        None
+    }
 
     /// Saves the retained values durably, as trust-runtime saves them when it stops.
     ///

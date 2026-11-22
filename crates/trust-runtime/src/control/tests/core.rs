@@ -2981,6 +2981,7 @@ END_PROGRAM
         },
     ]);
     *state.io_snapshot.lock().expect("io snapshot lock") = Some(crate::io::IoSnapshot {
+        safe_state: false,
         scan: Some(42),
         forced: Vec::new(),
         inputs: vec![crate::io::IoSnapshotEntry {
@@ -4499,6 +4500,7 @@ END_PROGRAM
     let state = control_test_state(source);
     let output = crate::io::IoAddress::parse("%QX0.0").expect("output address");
     *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
+        safe_state: false,
         scan: Some(7),
         forced: Vec::new(),
         inputs: Vec::new(),
@@ -4549,6 +4551,7 @@ END_PROGRAM
     );
 
     *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
+        safe_state: false,
         scan: Some(8),
         forced: vec![output.clone()],
         inputs: Vec::new(),
