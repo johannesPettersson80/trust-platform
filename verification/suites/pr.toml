@@ -27,6 +27,8 @@ commands = [
   "workflow job .github/workflows/salsa-hardening.yml#memory-regression",
   "workflow job .github/workflows/salsa-hardening.yml#fuzz-smoke",
   "workflow job .github/workflows/verification-gate.yml#verification-report",
+  "workflow job .github/workflows/web-ide-performance.yml#gates",
+  "workflow job .github/workflows/web-ide-performance.yml#conclusion",
 ]
 command_bindings = [
   "GATE_JOB_CI_PORTABLE_CORE",
@@ -47,6 +49,8 @@ command_bindings = [
   "GATE_JOB_SALSA_MEMORY_REGRESSION",
   "GATE_JOB_SALSA_FUZZ_SMOKE",
   "GATE_JOB_VERIFICATION_REPORT",
+  "GATE_JOB_WEB_IDE_PERFORMANCE_GATES",
+  "GATE_JOB_WEB_IDE_PERFORMANCE_CONCLUSION",
 ]
 inventory_ids = [
   "GATE_JOB_CI_ARCHITECTURE_SAFETY",
@@ -67,6 +71,8 @@ inventory_ids = [
   "GATE_JOB_SALSA_FUZZ_SMOKE",
   "GATE_JOB_SALSA_MEMORY_REGRESSION",
   "GATE_JOB_VERIFICATION_REPORT",
+  "GATE_JOB_WEB_IDE_PERFORMANCE_CONCLUSION",
+  "GATE_JOB_WEB_IDE_PERFORMANCE_GATES",
   "GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_AST_GREP",
   "GATE_SCRIPT_ARCHITECTURE_SAFETY",
   "GATE_SCRIPT_CHECK_GATE_OBSERVABILITY",

@@ -20,6 +20,7 @@ fn address(text: &str) -> IoAddress {
 #[test]
 fn snapshot_json_is_the_io_list_and_io_read_answer() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: Some(4),
         forced: vec![address("%QW2")],
         inputs: vec![IoSnapshotEntry {
@@ -82,6 +83,7 @@ fn snapshot_text_is_written_in_the_order_of_the_names() {
     // member out of that order, a type name or source written without a value, and an address
     // written another way.
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: Some(4),
         forced: vec![address("%QW2")],
         inputs: vec![IoSnapshotEntry {
@@ -119,6 +121,7 @@ fn snapshot_text_is_written_in_the_order_of_the_names() {
 #[test]
 fn snapshot_json_renders_unresolved_and_error_values() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: None,
         forced: Vec::new(),
         inputs: vec![IoSnapshotEntry {
@@ -165,6 +168,7 @@ fn snapshot_json_renders_unresolved_and_error_values() {
 #[test]
 fn snapshot_json_includes_optional_source() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: Some(4),
         forced: Vec::new(),
         inputs: vec![IoSnapshotEntry {
@@ -187,6 +191,7 @@ fn snapshot_json_includes_optional_source() {
 #[test]
 fn snapshot_json_includes_optional_value_type() {
     let snapshot = IoSnapshot {
+        safe_state: false,
         scan: Some(4),
         forced: Vec::new(),
         inputs: Vec::new(),

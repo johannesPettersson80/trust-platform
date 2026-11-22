@@ -888,7 +888,15 @@ impl ResourceCycle for ScriptedCycle<'_> {
         self.cycle.latch_fault(fault);
     }
 
-    fn apply_safe_outputs(&mut self) -> Result<(), RuntimeError> {
+    fn apply_safe_outputs(
+        &mut self,
+    ) -> Result<
+        Vec<(
+            trust_runtime_core::io_address::IoAddress,
+            trust_runtime_core::value::Value,
+        )>,
+        RuntimeError,
+    > {
         let injected = {
             let mut script = self.script.borrow_mut();
             script.calls.push(CycleCall::SafeOutputs);
@@ -898,6 +906,10 @@ impl ResourceCycle for ScriptedCycle<'_> {
             Some(error) => Err(error),
             None => self.cycle.apply_safe_outputs(),
         }
+    }
+
+    fn scan_images(&self) -> Option<&trust_runtime_core::io_image::FlatImages> {
+        self.cycle.scan_images()
     }
 
     fn save_retain(&mut self) -> Result<(), RuntimeError> {

@@ -4,12 +4,10 @@ on:
   pull_request:
     branches: [master, main]
   merge_group:
-  schedule:
-    - cron: "17 3 * * 2"
-  workflow_dispatch:
 
-# A new push to a pull request replaces the pull request's unfinished run; a merge group, a push to
-# main and a scheduled or manual run always finish (specification 22).
+# A new push to a pull request replaces the pull request's unfinished run; a merge group's run always
+# finishes (specification 22). No scheduled run checks the verification records (specification 30,
+# "Gate and workflow surface proof contract").
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -26,7 +24,6 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run PR verification report smoke
-        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -38,20 +35,6 @@ jobs:
             --intent bugfix \
             --strict \
             --smoke \
-            --out-dir target/gate-artifacts/verification
-      - name: Run scheduled exhaustive verification-tooling report
-        if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
-          HEAD_SHA="${{ github.sha }}"
-          python3 scripts/check_verification_tooling_selftests.py
-          python3 scripts/verification_report_gate.py \
-            --base "${BASE_SHA}" \
-            --head "${HEAD_SHA}" \
-            --intent bugfix \
-            --strict \
             --out-dir target/gate-artifacts/verification
       - name: Add verification report summary
         if: ${{ always() }}

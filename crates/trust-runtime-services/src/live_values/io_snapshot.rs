@@ -57,11 +57,15 @@ pub struct IoSnapshot {
     pub outputs: Vec<IoSnapshotEntry>,
     /// Memory-area entries.
     pub memory: Vec<IoSnapshotEntry>,
+    /// Whether the outputs are those that the safe state of a stop or a fault drove after the scan
+    /// `scan` (specification 11, "Safe state in the reads"), not the scan's own.
+    pub safe_state: bool,
 }
 
 impl IoSnapshot {
     /// The JSON `io.list` and `io.read` answer: the scan number and, for every entry, its name,
-    /// address, value, force mark, declared type name and source.
+    /// address, value, force mark, declared type name and source; `safe_state` only when the
+    /// outputs are the safe state's.
     #[must_use]
     pub fn to_json(&self) -> serde_json::Value {
         serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
@@ -73,10 +77,16 @@ impl Serialize for IoSnapshot {
     /// members in the order of their names as a value's object writes them (specification 34
     /// PORT-02).
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut snapshot = serializer.serialize_struct("IoSnapshot", 4)?;
+        let mut snapshot =
+            serializer.serialize_struct("IoSnapshot", 4 + usize::from(self.safe_state))?;
         snapshot.serialize_field("inputs", &Entries::of(&self.inputs, &self.forced))?;
         snapshot.serialize_field("memory", &Entries::of(&self.memory, &self.forced))?;
         snapshot.serialize_field("outputs", &Entries::of(&self.outputs, &self.forced))?;
+        if self.safe_state {
+            snapshot.serialize_field("safe_state", &true)?;
+        } else {
+            snapshot.skip_field("safe_state")?;
+        }
         snapshot.serialize_field("scan", &self.scan)?;
         snapshot.end()
     }
