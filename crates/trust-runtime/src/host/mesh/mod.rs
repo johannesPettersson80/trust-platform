@@ -29,4 +29,7 @@ mod tests {
 mod security_tests;
 
 #[cfg(test)]
+mod peers_tests;
+
+#[cfg(test)]
 mod hmi_remote_tests;

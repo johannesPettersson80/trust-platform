@@ -46,10 +46,11 @@ a subscription names the publisher by its `[resource] name` (here `PlcB`) and a
 path it publishes. An endpoint is `host:port` or a Zenoh locator such as
 `tcp/host:port`.
 
-Besides its `connect` entries, a mesh finds other meshes on the network by
-Zenoh's multicast scouting and connects to them, and a peer that listens on a
-network address accepts connections from them. Without `auth_token` any of them
-can join and exchange data.
+A mesh links only to the peers its `connect` entries name and to the runtimes
+that connect to its `listen` endpoint: it does not look for other meshes on the
+network, and it does not link to the peers of its peers. A mesh that listens on
+a network address accepts every runtime that connects to it, so without
+`auth_token` any of them can join and exchange data.
 
 When `auth_token` is configured, peers authenticate with that shared mesh token. Peers with
 missing or different tokens cannot join the authenticated link. `tls = true` uses the
@@ -58,9 +59,9 @@ it does not fall back to plaintext. Certificates must cover the hostnames used t
 
 ## How to think about it
 
-- discovery finds peers
+- discovery lists the runtimes on the network; it links no mesh
 - pairing establishes trust/access workflow
-- mesh moves selected runtime values between trusted peers
+- mesh moves selected runtime values between the peers that `connect` links
 
 For same-host deterministic transport, use [Realtime T0](realtime-t0.md).
 Mesh is not the HardRT path.

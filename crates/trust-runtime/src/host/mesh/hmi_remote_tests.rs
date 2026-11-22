@@ -138,9 +138,12 @@ fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
     let origin_exchange = origin_resource.hmi_exchange();
     let (origin, _) = super::security_tests::mesh_on_a_free_port(|address| {
         super::start_mesh_with_tls(
+            // The owner's own address, which the test certificate covers: `localhost` may resolve
+            // to `::1` first, where the owner does not listen, and the mesh links only through its
+            // `connect` entries (specification 11 §6.12).
             &config(
                 address.to_string(),
-                vec![format!("tls/localhost:{}", owner_address.port())],
+                vec![format!("tls/{owner_address}")],
                 vec![],
             ),
             origin_name.clone().into(),

@@ -146,6 +146,15 @@ keep_alive_s = 5
 allow_insecure_remote = false
 ```
 
+While the broker is connected, an input keeps the value of its last message
+until a new message comes, however long that takes: topics usually publish when
+a value changes. `stale_after_ms` (in milliseconds, 0 by default: no limit)
+makes an input stale when its last message, or its subscription before the
+first message, is older; use it for a topic that publishes cyclically, such as
+a heartbeat. A
+stale input, a lost or refused session and a payload that does not convert
+follow `on_error` (`fault` by default, `warn` or `ignore`).
+
 Remote plaintext brokers are rejected unless `allow_insecure_remote = true` is
 set explicitly for a test or development exception. Production remote brokers
 should use TLS:

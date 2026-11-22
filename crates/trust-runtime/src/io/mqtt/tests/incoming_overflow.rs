@@ -7,7 +7,7 @@
 //! took; the messages of one delivery reach the driver together, as one batch.
 
 use super::broker::Broker;
-use super::{at, degraded, faulted, read_fresh, start, MqttIoDriver};
+use super::{at, degraded, faulted, read_fresh, start, MqttIoDriver, PAST_STALE_AFTER};
 use crate::error::RuntimeError;
 use crate::io::{IoDriver, IoDriverHealth};
 
@@ -110,15 +110,21 @@ fn overflowed_driver_reports_degraded_health_with_ok_output_path() {
     );
 }
 
-/// The overflow never hides a fault: after it, a stale read under the default `fault` faults the
-/// health with `mqtt input not fresh`, not the overflow's degraded detail. Catches a degraded
-/// overflow reported over a faulted driver.
+/// The overflow never hides a fault: after it, a stale read under the default `fault`, with the
+/// input older than its `stale_after_ms` of 1 ms, faults the health with `mqtt input not fresh`,
+/// not the overflow's degraded detail. Catches a degraded overflow reported over a faulted driver.
 #[test]
 fn incoming_overflow_never_overrides_a_faulted_driver() {
-    let (broker, mut driver) = overflow_driver();
+    let broker = Broker::start();
+    let mut driver = start(&at(
+        &broker,
+        "topic_in = \"line/in\"\ntopic_out = \"line/out\"\nstale_after_ms = 1",
+    ));
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
     deliver(&broker, 0..257);
     let mut inputs = [0_u8; 2];
     assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
+    std::thread::sleep(PAST_STALE_AFTER);
     assert_eq!(
         driver.read_inputs(&mut inputs),
         Err(RuntimeError::IoFreshness("mqtt input not fresh".into()))
