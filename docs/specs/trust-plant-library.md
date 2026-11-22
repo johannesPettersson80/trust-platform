@@ -430,9 +430,9 @@ gains, would hide the PID's parameter record from Control Studio; the user decid
    Manual (`PIDMode#Manual` with the held output) and clears `TIC101_Initialized`; the first
    good measurement initialises the PID from it and from the present output, so the loop
    continues without a bump. A restart initialises it the same way.
-3. In Auto the manual output follows the output, so Manual takes over where the loop is; from
-   Manual the PID continues from the manual output (specification 45 §3), so Auto starts without
-   a bump.
+3. In Auto and while tracking (item 6) the manual output follows the output, so Manual takes
+   over where the loop, or the device it tracked, is; from Manual the PID continues from the
+   manual output (specification 45 §3), so Auto starts without a bump.
 4. The three gains share one sign (specification 37, §conversion domain): positive for direct
    action, negative for reverse action, when the output must rise while the measurement is above
    the setpoint. Defaults: `ProportionalGain` 1.0, `IntegralGain` 0.1, `DerivativeGain` 0,
@@ -441,6 +441,13 @@ gains, would hide the PID's parameter record from Control Studio; the user decid
 5. The library's PID panel (`plant-pid`) and component definition bind these variables
    (`{instance}_Setpoint`, §8.5 of spec 39); the operator's mode, setpoint and manual output are
    written through write rules, which Create PLC code adds (spec 39 §12.2).
+6. **Tracking the controlled device:** when the loop's output drives a controlled device (§5,
+   `IControlledDevice`), the loop in Auto tracks `GetActualValue()` (`PIDMode#Track` with
+   `TrackingOutput`, which starts each scan from that value, specification 45 §3.7) while
+   `FollowsAuto()` is FALSE, and in Manual the operator's output stands: it does not wind up while the device is
+   interlocked, in Manual, out of service, stopped or not released, and it takes over from what
+   the device does when the device follows again. The PID component definition asks for it under
+   `[program.tracking]` and Create PLC code writes it (spec 39 §10.5 item 3).
 
 ### 8.2 Cascade
 

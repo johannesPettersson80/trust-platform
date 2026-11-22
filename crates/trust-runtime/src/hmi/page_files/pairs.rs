@@ -38,6 +38,24 @@ pub struct HmiPairProgram {
     /// The task period range it needs, in milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cycle: Option<[u32; 2]>,
+    /// How a controller tracks the equipment its output drives (§10.5 item 3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracking: Option<HmiPairTracking>,
+}
+
+/// How a controller tracks the equipment its output drives while that equipment does not follow
+/// it (§10.5 item 3; Plant §5, §8.1): when the equipment implements `interface`, the loop tracks
+/// what `value()` returns while `follows()` is FALSE, so it neither winds up nor bumps the
+/// equipment when it follows again. Each name is an identifier, the interface possibly qualified,
+/// because Create PLC code writes them into the program.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HmiPairTracking {
+    /// The interface the equipment implements (`Plant.IControlledDevice`).
+    pub interface: String,
+    /// Its method that is TRUE while the equipment follows the controller (`FollowsAuto`).
+    pub follows: String,
+    /// Its method that gives what the equipment does (`GetActualValue`).
+    pub value: String,
 }
 
 /// One allowed value of a setting, with the words the dialog shows for it.
@@ -254,6 +272,30 @@ struct RawProgram {
     initial: BTreeMap<String, Spanned<toml::Value>>,
     #[serde(default)]
     cycle: Option<Spanned<[u32; 2]>>,
+    #[serde(default)]
+    tracking: Option<Spanned<RawTracking>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTracking {
+    interface: String,
+    follows: String,
+    value: String,
+}
+
+/// Whether `name` is an ST identifier, or with `qualified` one qualified by namespaces
+/// (`Plant.IControlledDevice`).
+fn is_identifier(name: &str, qualified: bool) -> bool {
+    let plain = |part: &str| {
+        part.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    if qualified {
+        name.split('.').all(plain)
+    } else {
+        plain(name)
+    }
 }
 
 /// Parses and validates one component definition file.
@@ -533,10 +575,34 @@ fn check_program(
         };
         initial.insert(member, scalar);
     }
+    let tracking = match raw.tracking {
+        Some(tracking) => {
+            let line = line_at(text, tracking.span().start);
+            let tracking = tracking.into_inner();
+            let named = is_identifier(&tracking.interface, true)
+                && is_identifier(&tracking.follows, false)
+                && is_identifier(&tracking.value, false);
+            if !named {
+                return Err(vec![error_at(
+                    file,
+                    line,
+                    "tracking names an interface and two of its methods, each an identifier"
+                        .to_string(),
+                )]);
+            }
+            Some(HmiPairTracking {
+                interface: tracking.interface,
+                follows: tracking.follows,
+                value: tracking.value,
+            })
+        }
+        None => None,
+    };
     Ok(HmiPairProgram {
         position,
         initial,
         cycle: raw.cycle.map(Spanned::into_inner),
+        tracking,
     })
 }
 
@@ -660,6 +726,12 @@ pub fn write_pair(pair: &HmiPair) -> String {
             for (member, value) in &program.initial {
                 entry(&mut out, &key(member), &written(value));
             }
+        }
+        if let Some(tracking) = &program.tracking {
+            out.push_str("\n[program.tracking]\n");
+            entry(&mut out, "interface", &string(&tracking.interface));
+            entry(&mut out, "follows", &string(&tracking.follows));
+            entry(&mut out, "value", &string(&tracking.value));
         }
     }
     out

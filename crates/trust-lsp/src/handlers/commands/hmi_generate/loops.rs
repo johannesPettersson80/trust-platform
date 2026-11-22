@@ -7,7 +7,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
-use trust_runtime::hmi::page_files::{pair_member_path, HmiScalar, INSTANCE_PLACEHOLDER};
+use trust_runtime::hmi::page_files::{
+    pair_member_path, HmiPairTracking, HmiScalar, INSTANCE_PLACEHOLDER,
+};
 
 use super::super::hmi_authoring::equipment_settings::{duration_nanos, scalar_literal, Kind};
 use super::super::hmi_plant_project::DesignEntry;
@@ -259,9 +261,12 @@ fn chosen(
 /// The loop's code for one scan, without the assignment of its output to the equipment it drives
 /// (written after it as for any block, §10.2): the measurement goes in while it is good; a bad one
 /// holds the output in Manual and the loop starts again, without a bump, from the next good one;
-/// in Auto the manual output follows the output, so Manual takes over where the loop is.
-/// `follows` names a loop whose setpoint this loop's output drives (a cascade): while that loop is
-/// in Manual this one tracks its measurement, so closing the cascade is bumpless too.
+/// in Auto and while tracking the manual output follows the output, so Manual takes over where the
+/// loop, or the equipment it tracks, is. `follows` names a loop whose setpoint this loop's output
+/// drives (a cascade): while that loop is in Manual this one tracks its measurement, so closing the
+/// cascade is bumpless too. `tracks` names the equipment this loop's output drives and how to read
+/// it (the definition's `[program.tracking]`, §10.5 item 3): while the equipment does not follow
+/// the loop, the loop tracks what it does, so it neither winds up nor bumps it.
 pub(super) fn code(
     planned: &Planned,
     program: &str,
@@ -269,6 +274,7 @@ pub(super) fn code(
     known_paths: &BTreeSet<String>,
     interval: Option<&str>,
     follows: Option<&str>,
+    tracks: Option<(&str, &HmiPairTracking)>,
 ) -> (String, Vec<Value>) {
     let n = &planned.name;
     let mut notes = Vec::new();
@@ -354,8 +360,30 @@ pub(super) fn code(
         );
         line(1, "END_IF;".into());
     }
+    if let Some((equipment, tracking)) = tracks {
+        line(
+            1,
+            format!(
+                "IF {n}_Input.Mode = PIDMode#Auto AND NOT {equipment}.{}() THEN",
+                tracking.follows
+            ),
+        );
+        line(2, "(* While the equipment does not follow this loop in Auto, the loop follows what it does: no windup, no bump. *)".into());
+        line(2, format!("{n}_Input.Mode := PIDMode#Track;"));
+        line(
+            2,
+            format!(
+                "{n}_Input.TrackingOutput := {equipment}.{}();",
+                tracking.value
+            ),
+        );
+        line(1, "END_IF;".into());
+    }
     line(1, format!("{n}_Output := {n}.Update(Input := {n}_Input);"));
-    line(1, format!("IF {n}_Input.Mode = PIDMode#Auto THEN"));
+    line(
+        1,
+        format!("IF {n}_Input.Mode = PIDMode#Auto OR {n}_Input.Mode = PIDMode#Track THEN"),
+    );
     line(
         2,
         "(* Manual takes over from the output as it is. *)".into(),
