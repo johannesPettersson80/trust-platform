@@ -34,10 +34,31 @@ pub struct DiscoveryEntry {
     pub mesh_port: Option<u16>,
     pub control: Option<SmolStr>,
     pub host_group: Option<SmolStr>,
+    /// The Runtime Cloud site the runtime announced, `None` for the default site (specification
+    /// 11, "Runtime Cloud sites").
+    pub site: Option<SmolStr>,
     pub last_seen_ns: u64,
 }
 
 impl DiscoveryEntry {
+    /// The runtime's site: the one it announced, or the default site (specification 11, "Runtime
+    /// Cloud sites").
+    #[must_use]
+    pub fn site_or_default(&self) -> &str {
+        crate::runtime_cloud::sites::runtime_cloud_site_or_default(self.site.as_deref())
+    }
+
+    /// The ID by which a runtime of the site `own_site` names this runtime: its name in that site,
+    /// and `<site>/<name>` in another (specification 11, "Runtime Cloud sites").
+    #[must_use]
+    pub fn cloud_id(&self, own_site: &str) -> String {
+        crate::runtime_cloud::sites::runtime_cloud_id(
+            own_site,
+            self.site_or_default(),
+            self.name.as_str(),
+        )
+    }
+
     /// What the runtime cloud's presence reads of this announcement (specification 11, "Runtime
     /// cloud presence").
     #[must_use]
@@ -192,6 +213,7 @@ pub fn start_discovery_with_state(
         web_tls,
         mesh_listen,
         host_group: config.host_group.as_deref(),
+        site: config.site.as_deref(),
     });
 
     let info = build_service_info(&instance_name, &host, port, props)?;
@@ -295,6 +317,7 @@ fn resolved_to_entry(info: &ResolvedService) -> DiscoveryEntry {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string);
+    let site = announced_site(info.get_property_val_str("site"));
     let addresses = info
         .get_addresses()
         .iter()
@@ -309,6 +332,7 @@ fn resolved_to_entry(info: &ResolvedService) -> DiscoveryEntry {
         mesh_port,
         control: control.map(SmolStr::new),
         host_group: host_group.map(SmolStr::new),
+        site,
         last_seen_ns: now_ns(),
     }
 }
@@ -357,6 +381,7 @@ fn info_to_entry(info: &ServiceInfo) -> DiscoveryEntry {
         .get("host_group")
         .map(|value| value.val_str().trim().to_string())
         .filter(|value| !value.is_empty());
+    let site = announced_site(props.get("site").map(|value| value.val_str()));
     let addresses = info.get_addresses().iter().copied().collect::<Vec<_>>();
     DiscoveryEntry {
         id: SmolStr::new(id),
@@ -367,6 +392,7 @@ fn info_to_entry(info: &ServiceInfo) -> DiscoveryEntry {
         mesh_port,
         control: control.map(SmolStr::new),
         host_group: host_group.map(SmolStr::new),
+        site,
         last_seen_ns: now_ns(),
     }
 }
@@ -463,12 +489,14 @@ struct Announcement<'a> {
     web_tls: bool,
     mesh_listen: Option<&'a str>,
     host_group: Option<&'a str>,
+    /// The runtime's site, `None` for the default site, which is not announced.
+    site: Option<&'a str>,
 }
 
 /// The TXT properties of one announcement (specification 11, runtime discovery): the stable
 /// runtime `id` and `name`, the `version`, `platform` and `auth` fields, the optional web port and
-/// TLS flag, mesh port and host group, and a `control` endpoint only while another computer can
-/// use it.
+/// TLS flag, mesh port, host group and Runtime Cloud `site`, and a `control` endpoint only while
+/// another computer can use it.
 fn announcement_properties(announcement: &Announcement<'_>) -> HashMap<String, String> {
     let mut props = HashMap::new();
     props.insert("id".to_string(), announcement.runtime_id.to_string());
@@ -498,7 +526,20 @@ fn announcement_properties(announcement: &Announcement<'_>) -> HashMap<String, S
             props.insert("host_group".to_string(), host_group.to_string());
         }
     }
+    if let Some(site) = announcement.site {
+        props.insert("site".to_string(), site.to_string());
+    }
     props
+}
+
+/// The site a `site` TXT property names: `None` for the default site, and for a value that is no
+/// site, which an announcement of another program may carry.
+pub(crate) fn announced_site(value: Option<&str>) -> Option<SmolStr> {
+    value.and_then(|value| {
+        crate::runtime_cloud::sites::parse_runtime_cloud_site(value.trim())
+            .ok()
+            .flatten()
+    })
 }
 
 /// The `control` endpoint another computer can use: a TCP endpoint on an address that is neither
@@ -556,6 +597,7 @@ mod tests {
             mesh_port: None,
             control: None,
             host_group: None,
+            site: None,
             last_seen_ns: 1,
         }
     }
@@ -664,6 +706,7 @@ mod tests {
             mesh_port: Some(5201),
             control: Some(SmolStr::new("unix:///tmp/trust-runtime-a.sock")),
             host_group: None,
+            site: None,
             last_seen_ns: 1,
         };
         assert!(service_removed_matches_entry(

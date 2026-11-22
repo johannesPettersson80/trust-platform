@@ -118,6 +118,7 @@ fn build_runtime_settings(
             username_set: bundle.runtime.opcua.username.is_some(),
         };
         settings.runtime_cloud.profile = bundle.runtime.runtime_cloud_profile;
+        settings.runtime_cloud.site = bundle.runtime.runtime_cloud_site.clone();
         settings.runtime_cloud.wan_allow_write =
             bundle.runtime.runtime_cloud_wan_allow_write.clone();
         settings.runtime_cloud.link_preferences =

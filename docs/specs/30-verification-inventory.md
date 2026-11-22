@@ -158,6 +158,16 @@ unbound artifact cannot close the gate. Surfaces without a declared artifact
 retain the exact command result and source binding; they do not invent an
 artifact requirement.
 
+The pull-request verification smoke, the required check `Verification strict
+report` (`scripts/verification_report_gate.py --strict --smoke`), checks this
+join on every pull request and merge group, so the change that adds, renames or
+removes a gate script or a workflow job carries its inventory record. No
+scheduled run checks the verification records: the weekly exhaustive
+verification-tooling report was retired on 22 November 2026 (checklist W14):
+it checked historical records and tooling, much of it of the deleted bytecode
+engine, and had been red since October, which carried no signal. The full
+report stays a maintenance command run by hand.
+
 ## Fuzz-target proof contract
 
 Every live `fuzz_target` scanner fact in the root fuzz program must join exactly

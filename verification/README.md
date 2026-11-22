@@ -302,7 +302,8 @@ is closed rather than inferred from this procedure.
   bytecode validation, and one deterministic conformance case. It is not a new
   broad local Raspberry Pi gate.
 - Run `python3 scripts/run_verification_focused_tests.py` only for the exhaustive
-  verification-tooling maintenance suite used by scheduled/manual reporting.
+  verification-tooling maintenance suite of the full report, which is run by hand;
+  no workflow runs it (specification 30, "Gate and workflow surface proof contract").
   Discovery is recursive and deterministic, so the
   Phase 3 lexical/source-geometry regressions and future `*_tests.py` modules
   cannot be omitted by a hand-maintained command. The production module

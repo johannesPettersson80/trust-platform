@@ -13,6 +13,7 @@ fn runtime_cloud_dispatch_keeps_local_cfg_apply_operational_when_peer_is_partiti
         mesh_port: None,
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: 1,
     }]);
     let state = control_state_named(source_fixture(), "runtime-a");
@@ -74,6 +75,7 @@ fn runtime_cloud_preflight_marks_partial_partition_target_as_stale() {
         mesh_port: None,
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
     let state = control_state_named(source_fixture(), "runtime-a");
@@ -135,6 +137,7 @@ fn runtime_cloud_preflight_denies_cfg_apply_for_viewer_with_deterministic_acl_co
         mesh_port: None,
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
 

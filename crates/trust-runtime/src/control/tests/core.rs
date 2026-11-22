@@ -2961,6 +2961,7 @@ END_PROGRAM
             mesh_port: Some(7447),
             control: Some(SmolStr::new("tcp://10.0.0.2:9900")),
             host_group: Some(SmolStr::new("cell-a")),
+            site: None,
             last_seen_ns: now_ns,
         }]);
     state.io_health.lock().expect("io health lock").extend([
@@ -2980,6 +2981,7 @@ END_PROGRAM
         },
     ]);
     *state.io_snapshot.lock().expect("io snapshot lock") = Some(crate::io::IoSnapshot {
+        safe_state: false,
         scan: Some(42),
         forced: Vec::new(),
         inputs: vec![crate::io::IoSnapshotEntry {
@@ -4498,6 +4500,7 @@ END_PROGRAM
     let state = control_test_state(source);
     let output = crate::io::IoAddress::parse("%QX0.0").expect("output address");
     *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
+        safe_state: false,
         scan: Some(7),
         forced: Vec::new(),
         inputs: Vec::new(),
@@ -4548,6 +4551,7 @@ END_PROGRAM
     );
 
     *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
+        safe_state: false,
         scan: Some(8),
         forced: vec![output.clone()],
         inputs: Vec::new(),

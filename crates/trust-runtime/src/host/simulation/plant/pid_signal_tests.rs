@@ -354,3 +354,88 @@ END_PROGRAM
     assert!(message.contains("pid:Main.Controller"), "{message}");
     assert!(message.contains("HeldMeasurement"), "{message}");
 }
+
+/// Two PI controllers that the program holds in Track at 70 %, as a generated loop tracks equipment
+/// that does not follow it (specification 39, §10.5 item 3).
+const TRACKING_PROGRAM: &str = r#"
+USING Control;
+
+PROGRAM Main
+VAR
+    Command : LREAL := 84.0;
+    Controller : Control.PID;
+    Other : Control.PID;
+    Settings : Control.PIDParameters := (ProportionalGain := 1.0, IntegralGain := 0.5,
+        ProportionalSetpointWeight := 1.0, OutputMaximum := 1000.0,
+        RateMinimum := -1.0E9, RateMaximum := 1.0E9, TrackingTime := 1.0);
+    Input : Control.PIDInput;
+    Output : LREAL;
+    OtherOutput : LREAL;
+END_VAR
+    Controller.Configure(Parameters := Settings);
+    Other.Configure(Parameters := Settings);
+    Input.Setpoint := 50.0;
+    Input.ProcessValue := 1.0;
+    Input.CycleTime := 0.1;
+    Input.Mode := PIDMode#Track;
+    Input.TrackingOutput := 70.0;
+    Output := Controller.Update(Input := Input);
+    OtherOutput := Other.Update(Input := Input);
+END_PROGRAM
+"#;
+
+/// Specification 46 §13.2 and specification 45 §3.7: while a plant holds a controller's
+/// measurement, a Track that the program passes runs as Auto, and another controller still tracks.
+/// Catches a model run whose controller tracks the equipment that the model stands for, as part b's
+/// generated loops did in Control Studio's Validate (checklist G252): the controller under test
+/// never acted on the model. Expected values by hand (incremental PI, Kp 1, Ki 0.5, cycle 0.1 s):
+/// scan 1 tracks for both, 70 + 1·(50 − 1) + 0.5·0.1·(50 − 1) = 121.45; in scan 2 the held
+/// controller runs Auto, 121.45 + 1·(0 − (42 − 1)) + 0.05·(50 − 42) = 80.85 (tracking would give
+/// 29.4), and the other tracks, 70 + 0 + 0.05·(50 − 1) = 72.45 (Auto would give 123.9).
+#[test]
+fn a_controller_whose_measurement_a_plant_holds_runs_track_as_auto() {
+    let config = SimulationConfig::from_toml_text(&plants(&["pid:Main.Controller"]), "pid test")
+        .expect("a Control.PID measurement is a valid feedback target");
+    let mut harness = TestHarness::from_sources(&[CONTROL_LIBRARY, TRACKING_PROGRAM])
+        .expect("the program compiles with the control library");
+    let mut system = PlantSystem::new(&config.plant_system);
+    let close = |actual: f64, expected: f64, what: &str| {
+        assert!(
+            (actual - expected).abs() < 1e-9,
+            "{what}: {actual}, expected {expected}"
+        );
+    };
+
+    assert!(harness.cycle().errors.is_empty());
+    close(
+        value(harness.runtime(), "Main.Output"),
+        121.45,
+        "scan 1 tracks",
+    );
+    close(
+        value(harness.runtime(), "Main.OtherOutput"),
+        121.45,
+        "scan 1 tracks",
+    );
+
+    system
+        .advance(Duration::from_millis(100), harness.runtime())
+        .unwrap();
+    system.publish(harness.runtime_mut()).unwrap();
+    assert!(harness.cycle().errors.is_empty());
+    close(
+        value(harness.runtime(), "Main.Output"),
+        80.85,
+        "the controller fed by the plant runs Auto",
+    );
+    close(
+        value(harness.runtime(), "Main.OtherOutput"),
+        72.45,
+        "the other controller still tracks",
+    );
+    close(
+        value(harness.runtime(), "Main.Input.TrackingOutput"),
+        70.0,
+        "the program's own input keeps what the program wrote",
+    );
+}

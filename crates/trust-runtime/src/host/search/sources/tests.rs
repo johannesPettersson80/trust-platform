@@ -134,6 +134,7 @@ impl Targets {
             mesh_port: None,
             control: Some(SmolStr::new("tcp://127.0.0.1:5680")),
             host_group: None,
+            site: None,
             last_seen_ns: 0,
         }]);
         Self {

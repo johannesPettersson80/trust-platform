@@ -333,6 +333,7 @@ fn discovery_config_clone_owns_interface_and_host_group_values() {
         advertise: true,
         interfaces: vec!["eth0".into(), "wlan0".into()],
         host_group: Some("plant".into()),
+        site: None,
     };
     let copy = original.clone();
     original.interfaces.clear();

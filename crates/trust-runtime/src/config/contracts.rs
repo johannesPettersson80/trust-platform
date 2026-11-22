@@ -40,6 +40,8 @@ pub struct RuntimeConfig {
     pub discovery: DiscoveryConfig,
     pub mesh: MeshConfig,
     pub runtime_cloud_profile: RuntimeCloudProfile,
+    /// The runtime's site, `None` for the default site (specification 11, "Runtime Cloud sites").
+    pub runtime_cloud_site: Option<SmolStr>,
     pub runtime_cloud_wan_allow_write: Vec<RuntimeCloudWanAllowRule>,
     pub runtime_cloud_link_preferences: Vec<RuntimeCloudLinkPreferenceRule>,
     pub realtime: LinuxRtConfig,
@@ -127,6 +129,9 @@ pub struct DiscoveryConfig {
     pub advertise: bool,
     pub interfaces: Vec<SmolStr>,
     pub host_group: Option<SmolStr>,
+    /// The Runtime Cloud site that the announcement names, `None` for the default site
+    /// (specification 11, "Runtime Cloud sites").
+    pub site: Option<SmolStr>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

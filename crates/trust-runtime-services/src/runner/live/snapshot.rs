@@ -26,12 +26,13 @@ pub(super) fn copies_images(bindings: &[PreparedIoBinding]) -> bool {
 }
 
 /// What the last scan published as a copy: its number, the addresses that a force held and the flat
-/// images.
+/// images, and whether a safe state drove the outputs since.
 #[derive(Debug, Default)]
 pub(super) struct PublishedImages {
     scan: Option<u64>,
     forced: Vec<IoAddress>,
     images: FlatImages,
+    safe_state: bool,
 }
 
 impl PublishedImages {
@@ -49,6 +50,15 @@ impl PublishedImages {
         self.images.inputs.clone_from(&images.inputs);
         self.images.outputs.clone_from(&images.outputs);
         self.images.memory.clone_from(&images.memory);
+        self.safe_state = false;
+    }
+
+    /// Record `outputs`, the output image that a safe state drove after the last scan, which keeps
+    /// its number, its inputs and its memory (specification 11, "Safe state in the reads").
+    pub(super) fn record_safe_outputs(&mut self, outputs: &[u8]) {
+        self.images.outputs.clear();
+        self.images.outputs.extend_from_slice(outputs);
+        self.safe_state = true;
     }
 
     /// Whether a scan has published.
@@ -65,6 +75,7 @@ impl PublishedImages {
     ) -> Result<(), RuntimeError> {
         snapshot.scan = self.scan;
         snapshot.forced.clone_from(&self.forced);
+        snapshot.safe_state = self.safe_state;
         fill(bindings, snapshot, |address| self.images.read(address))
     }
 }

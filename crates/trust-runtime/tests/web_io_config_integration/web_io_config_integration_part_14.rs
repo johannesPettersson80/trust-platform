@@ -13,6 +13,7 @@ fn runtime_cloud_preflight_wan_requires_secure_profile_preconditions() {
         mesh_port: Some(5200),
         control: None,
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
     let state = control_state_named(source_fixture(), "runtime-a");
@@ -78,6 +79,7 @@ fn runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist() {
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
     let state = control_state_named(source_fixture(), "runtime-a");
@@ -127,6 +129,7 @@ fn runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist() {
         mesh_port: Some(5200),
         control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
         host_group: None,
+        site: None,
         last_seen_ns: now_ns(),
     }]);
     let state = control_state_named(source_fixture(), "runtime-a");

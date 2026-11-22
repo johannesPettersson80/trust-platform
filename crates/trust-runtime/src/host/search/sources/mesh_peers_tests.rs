@@ -315,6 +315,7 @@ fn mesh_find_joins_the_mdns_find_of_its_runtime_id() {
         mesh_port: Some(7443),
         control: Some(SmolStr::new("tls://192.168.1.10:7444")),
         host_group: None,
+        site: None,
         last_seen_ns: 9_000_000_000_000_000_000,
     }]);
     let mesh = MeshTopologyEvidence::for_test_with_session(searcher.clone(), &["peer-a"]);
@@ -369,6 +370,7 @@ fn bundled_runtime_mesh_find_merges_with_its_mdns_find() {
         mesh_port: Some(7443),
         control: Some(SmolStr::new("tls://192.168.1.20:7444")),
         host_group: None,
+        site: None,
         last_seen_ns: 9_000_000_000_000_000_000,
     }]);
     let mesh = MeshTopologyEvidence::for_test_with_session(searcher.clone(), &["line-a"]);

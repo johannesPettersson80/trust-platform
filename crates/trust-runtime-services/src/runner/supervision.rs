@@ -10,6 +10,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::deployment::HangAction;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, RunnerWait, TimeSpan,
@@ -17,7 +18,7 @@ use trust_runtime_core::ports::{
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::scheduler::ResourceState;
-use trust_runtime_core::value;
+use trust_runtime_core::value::{self, Duration, Value};
 use trust_runtime_core::watchdog::{FaultAction, FaultDecision};
 
 use super::live::LiveValuesHooks;
@@ -358,25 +359,49 @@ where
         let event = RuntimeEvent::fault(&error, time);
         let mut reported = error.clone();
         self.cycle.latch_fault(error);
-        if decision.apply_safe_state
-            && let Err(safe_error) = self.cycle.apply_safe_outputs()
-        {
-            let safe_error = safe_error.to_string();
-            reported = RuntimeError::SafeStateFailed {
-                root: SmolStr::new(&root),
-                error: SmolStr::new(&safe_error),
-            };
-            self.shell
-                .records
-                .push_event(RuntimeEvent::SafeStateFailed {
-                    root: root.clone(),
-                    error: safe_error,
-                    time,
-                });
+        if decision.apply_safe_state {
+            match self.cycle.apply_safe_outputs() {
+                Ok(outputs) => self.note_safe_state(outputs, time),
+                Err(safe_error) => {
+                    let safe_error = safe_error.to_string();
+                    reported = RuntimeError::SafeStateFailed {
+                        root: SmolStr::new(&root),
+                        error: SmolStr::new(&safe_error),
+                    };
+                    self.shell
+                        .records
+                        .push_event(RuntimeEvent::SafeStateFailed {
+                            root: root.clone(),
+                            error: safe_error,
+                            time,
+                        });
+                }
+            }
         }
         self.shell.records.record(RuntimeMetrics::record_fault);
         self.shell.records.push_event(event);
         reported
+    }
+
+    /// A stop's or a fault's safe state that drove `outputs` at `time`: the reads between scans
+    /// answer with the outputs as driven, marked as the safe state, and the event records them
+    /// (specification 11, "Safe state in the reads"). A safe state without outputs drove nothing.
+    fn note_safe_state(&mut self, outputs: Vec<(IoAddress, Value)>, time: Duration) {
+        if outputs.is_empty() {
+            return;
+        }
+        if let Some(images) = self.cycle.scan_images() {
+            // The outputs were driven; a binding that does not decode shows its error in the
+            // snapshot's next scan, as on every scan.
+            let _ = self.live.publish_safe_state(images);
+        }
+        let outputs = outputs
+            .into_iter()
+            .map(|(address, value)| (address, smol_str::format_smolstr!("{value:?}")))
+            .collect();
+        self.shell
+            .records
+            .push_event(RuntimeEvent::SafeStateApplied { outputs, time });
     }
 
     /// An automatic warm restart in place for `reason`, within the shared restart budget and with
@@ -497,7 +522,11 @@ where
         // A stop's safe state clears the queued writes and active forces, as trust-runtime's
         // `apply_io_safe_state` does (specification 11 §6.9.2).
         self.live.clear();
-        let safe_state = self.cycle.apply_safe_outputs();
+        let time = self.program_time;
+        let safe_state = self
+            .cycle
+            .apply_safe_outputs()
+            .map(|outputs| self.note_safe_state(outputs, time));
         let retain_save = self.cycle.save_retain();
         let (next, error) = stop_outcome(safe_state, retain_save);
         if let Some(error) = error {

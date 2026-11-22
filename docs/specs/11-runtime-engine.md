@@ -4356,6 +4356,17 @@ not collapse an internal failure into a pre-scan state. A returned snapshot is
 one coherent cached scan, including only the force marks captured with that
 scan.
 
+**Safe state in the reads** (checklist G228). When the safe state of a stop or of a fault whose
+policy applies it (`safe_halt`, a watchdog's `halt` or `safe_halt`) drives the outputs of
+`[[io.safe_state]]`, the reads between scans answer with the outputs as it drove them: the
+snapshot of `io.list` and `io.read` keeps the number of the last scan that completed and that
+scan's inputs and memory, holds the safe values in its outputs, and is marked `"safe_state": true`,
+a member present only then; Live Values show the same outputs. The event `safe_state_applied`
+records each output the safe state drove with its value as `io.read` shows a value:
+`{"type": "safe_state_applied", "outputs": [{"address": "%QX0.0", "value": "Bool(false)"}],
+"time_ns": <logical time>}`. A safe state without `[[io.safe_state]]` drives nothing and changes
+neither. The next scan's snapshot replaces the safe state's and carries no mark.
+
 **Typed values** (the owner, 26 October 2026: "did you run a program, simulate and force values
 etc? did you test all workflows?"). Where the destination's declared type is known when the request
 arrives, a variable target that the installed program resolves (`set`, `var.force`, `debug.set` of
@@ -7791,6 +7802,34 @@ semantics; prompt navigation cannot mutate a read-only view. The rendered
 dashboard keeps its reviewed status, task, I/O, and event regions in a stable
 layout so an operator can compare snapshots without hidden field movement.
 
+##### Runtime Cloud sites (checklist G247)
+
+A runtime belongs to one site. `[runtime.cloud] site` names it: 1 to 63 ASCII letters, digits, `-`
+and `_`, beginning with a letter or a digit. Without the setting, the runtime is in the default site
+`default-site`, and setting `default-site` is the same as leaving it out. Any other value is
+refused when the configuration is loaded, naming `runtime.cloud.site`.
+
+A runtime names the runtimes of its own site, itself among them, by their resource names, and a
+runtime of another site by `<site>/<resource>`: for a runtime of `site-a`, `runtime_c` is the
+resource `runtime_c` of `site-a`, and `site-b/runtime_b` the resource `runtime_b` of `site-b`; a
+runtime of the default site is `default-site/<resource>` to a runtime of another site. So the names
+inside a project stay the same when the project's runtimes are given a site, as the names in one
+Kubernetes namespace do. Every Runtime Cloud surface of a runtime names runtimes this way:
+
+- an action request's `connected_via`, which is the runtime's own resource name, and its
+  `target_runtimes`, with each target's result;
+- the state's `connected_via`, `acting_on`, topology nodes and links;
+- the presence records.
+
+The state's `site_scope` names the runtime's own site, and each topology node carries the site of
+its runtime. Discovery announces a runtime's site in the TXT property `site`, which is absent in the
+default site, so that every runtime that discovers a peer names it as above, and a target is reached
+at the peer that announced the site and the resource name its ID gives.
+
+The site is read when the runtime starts. `config.get` reports it as `runtime_cloud.site`, with
+`default-site` when none is set, and `config.set` refuses it as a startup-only key:
+`runtime_cloud.site is startup-only; change it via runtime.toml/service posture and restart`.
+
 ##### Runtime Cloud state, dispatch, and rollout contract
 
 Runtime Cloud state projects the connected runtime context, discovery
@@ -7846,7 +7885,9 @@ denied with stable per-target reasons. A dispatch whose `dry_run` flag is true
 returns the preflight result without performing the mapped control operation.
 
 Profile policy is applied after the common contract, role, freshness, and
-reachability checks:
+reachability checks. A target is cross-site when the site its ID names differs
+from the runtime's own site ("Runtime Cloud sites"); the actor's identity does
+not choose a site. By profile:
 
 - `dev` does not use `runtime.cloud.wan.allow_write`; cross-site writes remain
   governed by the ordinary role and target checks.

@@ -666,7 +666,7 @@ source_kind = "gate_script"
 path = "scripts/verification_report_gate.py"
 name = "verification_report_gate"
 command = "python3 scripts/verification_report_gate.py"
-variant = "changed-file verification smoke or scheduled exhaustive report"
+variant = "changed-file verification smoke, or the full report run by hand"
 command_role = "helper"
 disposition = "report_only"
 suite_ids = ["pr"]
@@ -678,7 +678,7 @@ artifact_paths = ["target/gate-artifacts/verification/"]
 artifact_retention = "machine_local"
 enforcement = "report_only"
 required_env = []
-rationale = "The helper renders the changed-file report; --smoke runs only report-boundary tests for pull-request latency, while scheduled/manual runs retain exhaustive advisory maintenance."
+rationale = "The helper renders the changed-file report; --smoke runs the report-boundary and gate-inventory tests and the direct change contract for pull requests, and the full report is a maintenance command run by hand, which no workflow runs (specification 30)."
 
 [[surfaces]]
 schema_version = 1
@@ -1408,6 +1408,28 @@ rationale = "A release tags the planned commit, publishes the packages and check
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_JOB_RELEASE_CRATES"
+discovery_id = "DISC_E37F086AA6CB5F9DBF66"
+source_kind = "github_workflow_job"
+path = ".github/workflows/release.yml"
+name = "Release / crates"
+command = "workflow job .github/workflows/release.yml#crates"
+variant = "the SDK's crates published to crates.io"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "release"
+duration_class = "medium"
+environment = "github_release"
+artifact_kind = "release_object"
+artifact_paths = ["crates.io"]
+artifact_retention = "release_object"
+enforcement = "required"
+required_env = []
+rationale = "After the packages are published, a release publishes the SDK's crates at its version from the released commit, each after the crates it depends on and each verified by cargo's build of its package; a crate whose version crates.io holds is skipped, and without the owner's token nothing is published (specification 24, 'Publishing the SDK's crates')."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JOB_RELEASE_CONCLUSION"
 discovery_id = "DISC_2792CB76F6106E735750"
 source_kind = "github_workflow_job"
@@ -1427,6 +1449,72 @@ artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
 rationale = "The conclusion fails when a release job failed or was cancelled and passes when each passed or the plan skipped it, so one check stands for the whole release run."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_WEB_IDE_PERFORMANCE_CHANGES"
+discovery_id = "DISC_B1DABFF67B6FEAE03DEB"
+source_kind = "github_workflow_job"
+path = ".github/workflows/web-ide-performance.yml"
+name = "Web IDE Performance / changes"
+command = "workflow job .github/workflows/web-ide-performance.yml#changes"
+variant = "whether the change touches the web IDE's paths"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "trust-runtime"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "Change detection only decides whether the performance gates run; it is not verification evidence."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_WEB_IDE_PERFORMANCE_GATES"
+discovery_id = "DISC_570C3B3148DD92813837"
+source_kind = "github_workflow_job"
+path = ".github/workflows/web-ide-performance.yml"
+name = "Web IDE Performance / gates"
+command = "workflow job .github/workflows/web-ide-performance.yml#gates"
+variant = "the web IDE's performance budgets on an optimized Linux x86_64 build"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "trust-runtime"
+duration_class = "long"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "required"
+required_env = []
+rationale = "The reference environment asserts the web IDE's performance budgets on an optimized build when the change touches the web IDE's paths (specification 11, 6.8.1e); every other run of the same tests records the figures only."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_WEB_IDE_PERFORMANCE_CONCLUSION"
+discovery_id = "DISC_ABCFCC6F68C9D7F4BFA2"
+source_kind = "github_workflow_job"
+path = ".github/workflows/web-ide-performance.yml"
+name = "Web IDE Performance / conclusion"
+command = "workflow job .github/workflows/web-ide-performance.yml#conclusion"
+variant = "one result for the web IDE's performance gates"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "trust-runtime"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "ci_job_result"
+artifact_paths = ["Web IDE Performance / conclusion"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "The required check fails when the gates failed or were cancelled and passes when they passed or change detection skipped them."
 
 [[surfaces]]
 schema_version = 1
@@ -1524,10 +1612,10 @@ source_kind = "github_workflow_job"
 path = ".github/workflows/verification-gate.yml"
 name = "Verification Gate / verification-report"
 command = "workflow job .github/workflows/verification-gate.yml#verification-report"
-variant = "PR smoke and scheduled exhaustive advisory verification report"
+variant = "PR verification report smoke"
 command_role = "entrypoint"
 disposition = "assigned"
-suite_ids = ["nightly", "pr"]
+suite_ids = ["pr"]
 owner = "verification"
 duration_class = "slow"
 environment = "github_ubuntu"
@@ -1536,7 +1624,7 @@ artifact_paths = ["verification-gate-report"]
 artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
-rationale = "The read-only workflow runs a blocking report-boundary smoke on pull requests and exact candidates, retains exhaustive advisory verification tooling on schedule/manual dispatch, and uploads either report."
+rationale = "The read-only workflow runs the blocking smoke, with the gate inventory's tests, on pull requests and merge groups and uploads its report; no scheduled run checks the verification records (specification 30)."
 
 [[surfaces]]
 schema_version = 1

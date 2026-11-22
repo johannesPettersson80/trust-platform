@@ -2146,7 +2146,7 @@ BOOT -> INITIALIZING -> STOPPED/NO_PROGRAM
 
 **STATE-01.** The BSP shall establish configured startup output behavior before entering ordinary runtime execution. Start shall be rejected until the program is admitted, storage prepared, mandatory I/O ready, and the required supervision available.
 
-**STATE-02.** STOP and FAULT shall have explicit output policies. The MCU release shall not silently treat an empty fault-output configuration as a verified safe condition. Unmapped or uncontrolled outputs must be explicitly identified before START.
+**STATE-02.** STOP and FAULT shall have explicit output policies. The MCU release shall not silently treat an empty fault-output configuration as a verified safe condition. Unmapped or uncontrolled outputs must be explicitly identified before START. On every runtime the outputs a safe state drove are what the reads between scans show, marked as the safe state, and the event `safe_state_applied` records them (specification 11, "Safe state in the reads").
 
 **STATE-03.** VM traps, critical input failures, missed deadlines, invalid mandatory state, and output failures shall follow explicit profile policy. The default MCU control policy shall fault on failures that invalidate control, rather than silently continue with invented data.
 
