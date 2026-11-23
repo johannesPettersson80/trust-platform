@@ -661,6 +661,17 @@ use, so a warning on any of the three systems fails the job. Until 4 November
 compiler flags compiled the crate and its dependencies a second time: 1.5, 3.5
 and 14 minutes on Linux, macOS and Windows.
 
+The suite's `cargo test` reuses that build whole, proc macros included. CI
+builds proc macros, build scripts and the crates only they use without debug
+info in every profile (`CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=false`).
+Cargo's own default turns their debug info off only "when possible". So until
+23 November 2026 `cargo build --all-targets` gave the workspace's proc macro
+`trust-plc-macros` the profile's line tables, and `cargo test` gave it none. The
+suite then built the macro again, with every crate after it: 7 small crates on
+`main`. On #749, where `trust-sim` uses `trust-plc`, it was every
+`trust-runtime` test binary, about 20 GB, and the Linux runner ran out of disk
+in three runs.
+
 Compiler warnings are denied on each system, but Clippy runs only in the Linux
 Clippy job, which never compiles code that only another system compiles. Its
 cross-target gate (`check_runtime_cross_target_warnings.sh`) therefore runs
@@ -874,6 +885,19 @@ lines that the runtime refused, `ctl restart` without its mode and a run
 without its command, and 15 example and docs pages that sent readers to the
 Runtime Panel or to `Structured Text:` commands, such as the six ADS commands
 that Devices & Connections replaced).
+
+A page's numbered steps read the same on the site as on GitHub. The site's
+Markdown (Python-Markdown) nests a step's blocks (a paragraph after a blank
+line, a fence, a table, a nested list) at 4 spaces, where GitHub nests them
+under the step's text, 3 spaces after `1. `. It also reads a step written right
+under a step of several blocks as part of that step's last block. So in every
+page the site shows, the pages of `docs/public` and each file one of them
+includes with `--8<--`, a step's blocks are indented by 4 spaces, and a blank
+line comes before a step that follows a step of several blocks;
+`scripts/check_public_docs_ia.py` fails the pull request otherwise (23 November
+2026: 77 lines in 14 files ended their lists on the site, so that the later
+steps were numbered from 1 again or ran into one paragraph; among them six
+specifications and the communication, Rust service and tutorial READMEs).
 
 The syntax diagram follows the lexer the same way: the variants of `TokenKind`,
 its keywords and trivia, and the parser's operator precedence in

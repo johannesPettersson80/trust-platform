@@ -336,25 +336,25 @@ walkthroughs. Each guide is intentionally detailed and explains both what to do
 and why it matters.
 
 1. `13_project_bootstrap_zero_to_first_app/README.md`
-   - start from an empty folder and build a first runnable PLC project.
+    - start from an empty folder and build a first runnable PLC project.
 2. `14_deploy_and_rollback/README.md`
-   - practice versioned deployment and controlled rollback.
+    - practice versioned deployment and controlled rollback.
 3. `15_multi_plc_discovery_mesh/README.md`
-   - run two runtimes, verify discovery/pairing, and enable mesh sharing.
+    - run two runtimes, verify discovery/pairing, and enable mesh sharing.
 4. `16_secure_remote_access/README.md`
-   - configure TCP control with auth token, pairing, and minimal firewall
-     exposure.
+    - configure TCP control with auth token, pairing, and minimal firewall
+      exposure.
 5. `17_io_backends_and_multi_driver/README.md`
-   - configure `loopback`, `simulated`, `gpio`, `modbus-tcp`, `mqtt`, and
-     composed `io.drivers`.
+    - configure `loopback`, `simulated`, `gpio`, `modbus-tcp`, `mqtt`, and
+      composed `io.drivers`.
 6. `18_simulation_toml_fault_injection/README.md`
-   - use deterministic `simulation.toml` couplings/disturbances/fault events.
+    - use deterministic `simulation.toml` couplings/disturbances/fault events.
 7. `19_safety_commissioning/README.md`
-   - verify safe-state outputs, watchdog/fault policy, and restart recovery.
+    - verify safe-state outputs, watchdog/fault policy, and restart recovery.
 8. `21_ci_cd_project_pipeline/README.md`
-   - implement CI gates with machine-readable reports and stable exit codes.
+    - implement CI gates with machine-readable reports and stable exit codes.
 9. `22_neovim_zed_workflow/README.md`
-   - run a complete non-VS-Code workflow with Neovim/Zed plus terminal gates.
+    - run a complete non-VS-Code workflow with Neovim/Zed plus terminal gates.
 10. `23_observability_historian_prometheus/README.md`
     - enable historian + Prometheus telemetry and verify runtime observability contracts.
 11. `24_hmi_alarms/README.md`

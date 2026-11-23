@@ -37,14 +37,14 @@ Generate:
    also the `TYPE FB_<base>_SFC_ACTION` of its action flags
    (`sfc-profile.md`).
 2. Launch wrapper: sibling `<base>.visual.runtime.st` with:
-   - `PROGRAM PRG_<base>_VISUAL` that calls the instance `fb_<base>` of the
-     generated companion FB
-   - `CONFIGURATION CFG_<base>_VISUAL` whose `VAR_GLOBAL` declares that instance
-     and the program's globals (a direct address the companion names as
-     `ld_io_<address> AT <address>`, typed by its size per `03-variables.md`
-     §5), and `RESOURCE` + `TASK TASK_<base>_VISUAL(INTERVAL := T#20ms,
-     PRIORITY := 1)` + `PROGRAM PLC_PRG_<base> WITH TASK_<base>_VISUAL :
-     PRG_<base>_VISUAL`
+    - `PROGRAM PRG_<base>_VISUAL` that calls the instance `fb_<base>` of the
+      generated companion FB
+    - `CONFIGURATION CFG_<base>_VISUAL` whose `VAR_GLOBAL` declares that instance
+      and the program's globals (a direct address the companion names as
+      `ld_io_<address> AT <address>`, typed by its size per `03-variables.md`
+      §5), and `RESOURCE` + `TASK TASK_<base>_VISUAL(INTERVAL := T#20ms,
+      PRIORITY := 1)` + `PROGRAM PLC_PRG_<base> WITH TASK_<base>_VISUAL :
+      PRG_<base>_VISUAL`
 
 `<base>` in identifiers is the base name made an IEC identifier (other
 characters become `_`). The wrapper file is the launch entry for local debug

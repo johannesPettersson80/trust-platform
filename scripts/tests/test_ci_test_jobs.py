@@ -93,6 +93,17 @@ class CiTestJobTests(unittest.TestCase):
         self.assertEqual(disk + 1, names.index("Mesh TLS stability gate"))
         self.assertIn("df -h /", steps(self.job)["Free disk before the mesh TLS stability gate"])
 
+    def test_the_suite_builds_a_proc_macro_as_the_build_did(self) -> None:
+        # Catches the suite's `cargo test` building the workspace's proc macros a second time.
+        # Cargo gave trust-plc-macros the profile's line tables in `cargo build --all-targets` and
+        # none in `cargo test`, so the suite built the macro again with every crate after it. On
+        # main that was 7 small crates, but with trust-sim on trust-plc (#749, 23 November 2026)
+        # it was every trust-runtime test binary, about 20 GB, and the Linux runner ran out of
+        # disk three times (checklist G291). Specification 22: the build overrides' debug info is
+        # off in every profile, so both commands build one proc macro.
+        workflow = CI.read_text(encoding="utf-8")
+        self.assertRegex(workflow, r'(?m)^env:\n(?:  .*\n)*  CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: "false"$')
+
     def test_the_mesh_tls_gate_is_the_last_cargo_step(self) -> None:
         # Catches the gate's own variant of trust-runtime built before the full suite, which then
         # compiled seven crates again: 14.5 minutes on Linux and 21 on macOS (main, 4 November 2026).

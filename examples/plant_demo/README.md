@@ -61,7 +61,7 @@ This is the runtime wiring contract for your typed logic model.
 ## Step 5: Guided Change Exercise
 
 1. In `src/fb_pump.st`, change:
-   - `RampTime : TIME := T#1s;` -> `T#2s`
+    - `RampTime : TIME := T#1s;` -> `T#2s`
 2. Re-run debug.
 3. Observe longer time spent in `Starting` before `Running`.
 
