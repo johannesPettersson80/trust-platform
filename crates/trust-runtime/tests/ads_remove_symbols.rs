@@ -378,6 +378,13 @@ END_PROGRAM
                         trust_runtime_services::cycle_step::StepRefusal::Unsupported,
                     ));
                 }
+                ResourceCommand::CallMethod { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::method_call::MethodCallRefusal::Refused(
+                            "unsupported request".to_string(),
+                        ),
+                    ));
+                }
                 ResourceCommand::MeshCatalogue { respond_to, .. } => {
                     let _ = respond_to.send(Err(
                         "mesh catalogue unavailable in ADS test fixture".to_owned()
