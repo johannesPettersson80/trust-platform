@@ -89,6 +89,20 @@ target := Heating.target;
 END_PROGRAM
 ";
 
+/// A duration and its double, a date, and the date and time of the cycle (`CURRENT_DT()`).
+const TIMES_ST: &str = "
+PROGRAM Main
+VAR
+    hold : TIME := T#2s;
+    doubled : TIME;
+    day : DATE := D#2026-11-23;
+    stamp : DT;
+END_VAR
+doubled := hold + hold;
+stamp := CURRENT_DT();
+END_PROGRAM
+";
+
 fn project() -> PathBuf {
     project_with(MAIN_ST)
 }
@@ -208,6 +222,50 @@ fn a_machine_test_presses_a_sequences_start_and_reset() -> trust_sim::Result<()>
         matches!(missing, Err(trust_sim::Error::Refused { .. })),
         "{missing:?}"
     );
+
+    drop(plant);
+    let _ = std::fs::remove_dir_all(project);
+    Ok(())
+}
+
+#[test]
+fn a_machine_test_reads_and_writes_times_and_dates() -> trust_sim::Result<()> {
+    // Specification 48 RU-58: a value is a Rust value of the variable's type, trust_plc's times and
+    // dates among them. Worked by hand on the 10 ms resource above: the cycle at 0 ms keeps the
+    // initial T#2s and D#2026-11-23, day 20_780 after 1970-01-01, and doubles the duration to 4 s. A
+    // written 3 s doubles to 6 s at the cycle at 10 ms, whose CURRENT_DT() is the logical time from
+    // 1970, DT#1970-01-01-00:00:00.010; a written D#2000-03-01, day 11_017, reads back. Catches a
+    // duration or a date written in the wrong unit, and a date off by a leap day.
+    use trust_sim::{Date, Dt, Time};
+    let project = project_with(TIMES_ST);
+    let mut plant = simulator(&project)?;
+
+    plant.run_cycles(1)?;
+    assert_eq!(
+        plant.read::<Time>("Main.hold")?,
+        Time::from_nanos(2_000_000_000)
+    );
+    assert_eq!(
+        plant.read::<Time>("Main.doubled")?,
+        Time::from_nanos(4_000_000_000)
+    );
+    assert_eq!(
+        plant.read::<Date>("Main.day")?,
+        Date::from_millis(20_780 * 86_400_000)
+    );
+
+    plant.write("Main.hold", Time::from_nanos(3_000_000_000))?;
+    plant.write("Main.day", Date::from_millis(11_017 * 86_400_000))?;
+    plant.run_cycles(1)?;
+    assert_eq!(
+        plant.read::<Time>("Main.doubled")?,
+        Time::from_nanos(6_000_000_000)
+    );
+    assert_eq!(
+        plant.read::<Date>("Main.day")?,
+        Date::from_millis(11_017 * 86_400_000)
+    );
+    assert_eq!(plant.read::<Dt>("Main.stamp")?, Dt::from_millis(10));
 
     drop(plant);
     let _ = std::fs::remove_dir_all(project);

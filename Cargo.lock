@@ -8021,6 +8021,7 @@ version = "0.44.1"
 dependencies = [
  "serde_json",
  "thiserror 2.0.21",
+ "trust-plc",
  "trust-runtime-client",
 ]
 

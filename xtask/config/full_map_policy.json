@@ -833,6 +833,14 @@
       "status": "allowed",
       "owner": "Rust in truST projects (specification 48)",
       "rationale": "the crate of the example rust_signal writes its function blocks with the SDK, as a project's crate does (specification 48 RU-08, RU-56)"
+    },
+    {
+      "from": "trust-sim",
+      "to": "trust-plc",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "a machine test reads and writes times and dates as trust_plc's values, as a Rust POU holds them (specification 48 RU-58)"
     }
   ],
   "forbidden_workspace_edges": [

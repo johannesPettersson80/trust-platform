@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 serde_json.workspace = true
 thiserror.workspace = true
+trust-plc.workspace = true
 trust-runtime-client.workspace = true
 
 [lints]
