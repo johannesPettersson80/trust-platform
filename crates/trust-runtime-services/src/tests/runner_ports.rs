@@ -59,6 +59,7 @@ use trust_runtime_core::native::image::{
 };
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
+use trust_runtime_core::native::tool::MethodCallError;
 use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
@@ -71,6 +72,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 pub(crate) use super::runner_platform::TestPlatform;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::events::EVENT_STORE_CAPACITY;
+use crate::method_call::MethodCall;
 use crate::runner::{
     CompiledCycle, CompiledView, CycleSettings, DeviceLiveValues, HoldHandle, ProcessIo,
     ResourceCycle, RetainSource, Runner, TaskDescriptor,
@@ -726,6 +728,13 @@ pub(crate) enum CycleCall {
     Policies(crate::resource::commands::SchedulerPolicies),
     /// The exit before another program replaces this one (specification 44 §6.7).
     Leave,
+    /// A tool's method call between scans (`method.call`), at its logical time.
+    Method {
+        instance: String,
+        interface: String,
+        method: String,
+        now: Duration,
+    },
 }
 
 /// The settings and failures a test gives the program, and what the loop asked of it. The
@@ -756,6 +765,9 @@ pub(crate) struct CycleScript {
     pub(crate) fault_policy: FaultPolicy,
     /// The safe value of each output, as `[[io.safe_state]]` gives it.
     pub(crate) safe_outputs: Vec<(IoAddress, Value)>,
+    /// The answers of the next method calls, in place of the program's own; a call without one is
+    /// the kernel's.
+    pub(crate) method_answers: VecDeque<Result<Value, MethodCallError>>,
 }
 
 impl Default for CycleScript {
@@ -776,6 +788,7 @@ impl Default for CycleScript {
             hang_action: trust_runtime_core::deployment::HangAction::Fault,
             fault_policy: FaultPolicy::Halt,
             safe_outputs: Vec::new(),
+            method_answers: VecDeque::new(),
         }
     }
 }
@@ -963,6 +976,24 @@ impl ResourceCycle for ScriptedCycle<'_> {
         deadline: Option<MonotonicInstant>,
     ) -> Result<StepOutcome, StepRefusal> {
         self.cycle.step(request, restart_at, deadline)
+    }
+
+    fn call_method(
+        &mut self,
+        call: &MethodCall,
+        now: value::Duration,
+    ) -> Result<Value, MethodCallError> {
+        let answer = {
+            let mut script = self.script.borrow_mut();
+            script.calls.push(CycleCall::Method {
+                instance: call.instance.to_string(),
+                interface: call.interface.to_string(),
+                method: call.method.to_string(),
+                now: since_start(now),
+            });
+            script.method_answers.pop_front()
+        };
+        answer.unwrap_or_else(|| self.cycle.call_method(call, now))
     }
 
     fn generation(&self) -> Generation {

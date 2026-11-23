@@ -1080,7 +1080,8 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   extension in the extension folders of VS Code and its editions. It refuses a runtime whose version
   is not `trust-sim`'s own, naming both versions and the runtime's path, since the SDK's crates and
   the runtime are released together (RU-12); a runtime it cannot find is an error that names the
-  places it looked.
+  places it looked. A test may name its runtime instead (`Project::open_with_runtime`), as a CI job
+  that builds trust-runtime itself does; that runtime's version is checked alike.
 - **The build.** `Project::open` builds the project with `trust-runtime build`, the build the
   extension runs (the generated Structured Text and the project's crate through the bundle), once
   in a test process however many of its tests open the project. A build that fails is the test's
@@ -1094,8 +1095,9 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
 - **Values.** A path names a variable as the debugger and Live Values name it (`P1.level`, a global
   by its name), and a value is a Rust value of the variable's type: `bool`, the integers, `f32` and
   `f64`, text, and `trust_plc`'s times and dates. `write` writes before the next cycle, as the
-  control link's write does (specification 11 §6.8.1, "Writing variables"); `force` holds a value
-  until `release`, as Live Values' force does; `read` reads after the last cycle. A path that names
+  debugger's `set` does, and `force` holds a value until `release`, as Live Values' `var.force`
+  does, both on the variable's `global:<path>` target (specification 11 §6.8.1, "Variable mutation
+  targets"); `read` reads what the last cycle left (`variables.read`). A path that names
   no variable, or a value its variable's type does not take, is an error that names the path, the
   value and the type. `call` calls a method of an instance through an interface its type
   implements, as a screen's command does, and returns the method's result (specification 11

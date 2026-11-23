@@ -94,6 +94,17 @@ fn serve_command<C: Clock + Clone>(
             steps.installed = true;
             return;
         }
+        // A stopped resource takes no method call (`method.call`, specification 11 section
+        // 6.8.1); the control plane refuses one before it is queued unless the resource stopped
+        // meanwhile.
+        ResourceCommand::CallMethod { respond_to, .. } => {
+            let _ = respond_to.send(Err(
+                trust_runtime_services::method_call::MethodCallRefusal::NotRunning(
+                    ResourceState::Stopped,
+                ),
+            ));
+            return;
+        }
         _ => {}
     }
     match command_class(&command) {

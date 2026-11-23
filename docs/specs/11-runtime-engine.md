@@ -3725,6 +3725,13 @@ refusal is the request's refusal with the kernel's reason, and the program stays
 of the method faults the resource as a faulted scan does: the request is refused with the fault,
 `faults` lists it, and the fault policy acts.
 
+A resource that runs or is paused is between two scans and takes the call; one that is still
+starting makes it before its first scan, at the logical time zero. A stopped resource has no scans
+for the method's fault to fault, and a faulted one takes no call until a restart (specification 44
+§13.3): both refuse it as they refuse a pause (`resource_not_running`, with the state), and a hung
+one as it refuses every request to its scan thread. While a debugger holds a scan, the program is
+inside its scan, and the kernel refuses the call as a call while a scan runs.
+
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is read into one request and dispatched

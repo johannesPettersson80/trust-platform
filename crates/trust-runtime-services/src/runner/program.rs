@@ -11,6 +11,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::memory::Generation;
+use trust_runtime_core::native::tool::MethodCallError;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::retain::RetainApplyEvent;
@@ -20,6 +21,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::HoldHandle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::method_call::MethodCall;
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
@@ -218,6 +220,13 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         match self {
             Self::Installed(cycle) => cycle.step(request, restart_at, deadline),
             Self::Missing(reason) => Err(StepRefusal::NoProgram(reason.to_string())),
+        }
+    }
+
+    fn call_method(&mut self, call: &MethodCall, now: Duration) -> Result<Value, MethodCallError> {
+        match self {
+            Self::Installed(cycle) => cycle.call_method(call, now),
+            Self::Missing(reason) => Err(MethodCallError::Refused(no_program(reason))),
         }
     }
 

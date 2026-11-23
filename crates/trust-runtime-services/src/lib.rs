@@ -42,6 +42,7 @@ pub mod io_drivers;
 pub mod link;
 pub mod live_values;
 pub mod loading;
+pub mod method_call;
 pub mod metrics;
 pub mod ports;
 pub mod protocol;

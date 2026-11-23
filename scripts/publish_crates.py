@@ -29,6 +29,7 @@ CRATES: tuple[str, ...] = (
     "trust-plc",
     "trust-runtime-client",
     "trust-service",
+    "trust-sim",
 )
 API = "https://crates.io/api/v1/crates/{name}/{version}"
 # crates.io asks an automated client to name itself.
