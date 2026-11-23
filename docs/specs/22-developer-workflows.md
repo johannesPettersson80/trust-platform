@@ -661,6 +661,17 @@ use, so a warning on any of the three systems fails the job. Until 4 November
 compiler flags compiled the crate and its dependencies a second time: 1.5, 3.5
 and 14 minutes on Linux, macOS and Windows.
 
+The suite's `cargo test` reuses that build whole, proc macros included. CI
+builds proc macros, build scripts and the crates only they use without debug
+info in every profile (`CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=false`).
+Cargo's own default turns their debug info off only "when possible". So until
+23 November 2026 `cargo build --all-targets` gave the workspace's proc macro
+`trust-plc-macros` the profile's line tables, and `cargo test` gave it none. The
+suite then built the macro again, with every crate after it: 7 small crates on
+`main`. On #749, where `trust-sim` uses `trust-plc`, it was every
+`trust-runtime` test binary, about 20 GB, and the Linux runner ran out of disk
+in three runs.
+
 Compiler warnings are denied on each system, but Clippy runs only in the Linux
 Clippy job, which never compiles code that only another system compiles. Its
 cross-target gate (`check_runtime_cross_target_warnings.sh`) therefore runs
