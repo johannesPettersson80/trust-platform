@@ -44,14 +44,16 @@ driver = \"simulated\"
 params = {}
 ";
 
-/// Counts its cycles, and divides by zero in its third.
+/// Counts its cycles, stamps each with `CURRENT_DT()`, and divides by zero in its third.
 const MAIN_ST: &str = "
 PROGRAM Main
 VAR
     counter : DINT := 0;
     quotient : DINT := 0;
+    stamp : DT;
 END_VAR
 counter := counter + 1;
+stamp := CURRENT_DT();
 IF counter = 3 THEN
     quotient := 100 / (counter - 3);
 END_IF;
@@ -152,6 +154,11 @@ fn a_simulator_runs_the_cycles_its_test_asks_for_and_ends_with_its_input() {
         json!({"time_ns": 10_000_000, "cycles": 2, "state": "running"})
     );
     assert_eq!(simulator.counter(2), json!(2));
+    // `CURRENT_DT()` is the logical time from 1970 (specification 11 §6.8.1): the cycle at 10 ms reads
+    // DT#1970-01-01-00:00:00.010, 10 ticks of the default 1 ms resolution (specification 10).
+    let stamp = simulator
+        .call(&json!({"id": 20, "type": "variables.read", "params": {"paths": ["Main.stamp"]}}));
+    assert_eq!(stamp["result"]["values"][0]["value"], json!(10), "{stamp}");
 
     let faulted =
         simulator.call(&json!({"id": 3, "type": "simulator.advance", "params": {"cycles": 5}}));

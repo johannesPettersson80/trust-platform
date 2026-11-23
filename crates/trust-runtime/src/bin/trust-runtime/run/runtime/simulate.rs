@@ -6,9 +6,13 @@
 /// and starts nothing that a test does not drive: no web server, discovery, mesh, Runtime Cloud
 /// link, I/O driver, historian or metrics export. The project's watchdog and fault policies and its
 /// safe outputs apply; its retained values stay in memory, and nothing is written into the project.
-/// The debug surface is on, since a test forces and reads as the debugger does. Its log goes to
-/// standard error: standard output carries only the responses.
+/// The debug surface is on, since a test forces and reads as the debugger does, and `CURRENT_DT` is
+/// the logical time from 1 January 1970 UTC. Its log goes to standard error: standard output carries
+/// only the responses.
 pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
+    // The program's wall clock, `CURRENT_DT`, is the logical time from 1970, before anything runs.
+    let clock = trust_runtime::scheduler::SteppedClock::new();
+    trust_runtime::native::read_wall_clock_from(&clock);
     let LoadedRuntime {
         bundle,
         mut runtime,
@@ -87,7 +91,7 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
     let pending_restart = Arc::new(Mutex::new(None));
     let mut runner = ResourceRunner::new(
         runtime,
-        StdClock::stepped(trust_runtime::scheduler::SteppedClock::new()),
+        StdClock::stepped(clock),
         bundle_cycle_interval(Some(&bundle)),
     )
     .with_restart_signal(pending_restart.clone())
