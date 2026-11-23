@@ -603,6 +603,14 @@
       "rationale": "trust-sim's machine tests run against the trust-runtime binary this build makes (specification 48 RU-58)."
     },
     {
+      "from": "trust-plc-macros",
+      "to": "trust-plc",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "The attributes' documentation examples declare and call Rust POUs through trust_plc's prelude, as a project does, and run as tests (specification 48 RU-89). It names trust-plc by its path alone, without a version, so cargo publish leaves the edge out of the published crate."
+    },
+    {
       "from": "trust-plc-decl",
       "to": "trust-plc-lib",
       "kind": "normal",

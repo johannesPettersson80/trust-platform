@@ -229,3 +229,54 @@ fn a_bench_case_without_a_pou_is_refused() {
         "{text}"
     );
 }
+
+#[test]
+fn every_attribute_shows_its_use_in_an_example_that_runs() {
+    // Specification 48 RU-89: each attribute's documentation shows it in a whole program, which CI
+    // runs as a doc test. Catches an attribute added without an example, and an example fenced
+    // `ignore`, `no_run` or `text`, which no test runs: until 22 November 2026 all eight were
+    // `ignore`, and the method's could not compile (its parameter `step` is a reserved word of
+    // Structured Text). The names pin what the reading found, so that a misread file fails too.
+    let mut docs: Vec<&str> = Vec::new();
+    let mut attributes = Vec::new();
+    for line in include_str!("lib.rs").lines().map(str::trim_start) {
+        if let Some(doc) = line.strip_prefix("///") {
+            docs.push(doc.trim());
+            continue;
+        }
+        if line == "#[proc_macro_attribute]" {
+            continue;
+        }
+        if let Some(signature) = line.strip_prefix("pub fn ") {
+            let name = signature.split('(').next().unwrap_or_default();
+            let fences: Vec<&str> = docs
+                .iter()
+                .copied()
+                .filter(|doc| doc.starts_with("```"))
+                .collect();
+            assert!(!fences.is_empty(), "#[{name}] has no example");
+            for fence in fences {
+                assert_eq!(
+                    fence, "```",
+                    "#[{name}] has an example fenced `{fence}`, which no test runs"
+                );
+            }
+            attributes.push(name);
+        }
+        docs.clear();
+    }
+    assert_eq!(
+        attributes,
+        [
+            "trust_fb",
+            "trust_program",
+            "trust_sequence",
+            "trust_function",
+            "trust_method",
+            "trust_enum",
+            "trust_struct",
+            "budget",
+            "bench_case",
+        ]
+    );
+}

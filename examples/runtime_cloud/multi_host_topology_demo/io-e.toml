@@ -1,8 +1,8 @@
 [io]
 drivers = [
-  { name = "mqtt", params = { broker = "192.168.60.15:1883", topic_in = "trust/demo/remote/in", topic_out = "trust/demo/remote/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true } },
+  { name = "mqtt", params = { broker = "192.168.60.15:1883", topic_in = "trust/demo/remote/in", topic_out = "trust/demo/remote/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true, on_error = "warn" } },
   { name = "modbus-tcp", params = { address = "10.42.0.20:1502", unit_id = 2, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "warn" } },
-  { name = "mqtt", params = { broker = "172.18.90.44:1883", topic_in = "trust/demo/vendor/in", topic_out = "trust/demo/vendor/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true } }
+  { name = "mqtt", params = { broker = "172.18.90.44:1883", topic_in = "trust/demo/vendor/in", topic_out = "trust/demo/vendor/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = true, on_error = "warn" } }
 ]
 
 [[io.safe_state]]

@@ -488,7 +488,11 @@ jobs:
           # `cargo test --all-targets` runs no doc tests. Stable rustdoc checks the error code
           # declared by a `compile_fail,E0xxx` doc test only with RUSTC_BOOTSTRAP set, so this
           # run proves why each forbidden API use is rejected, not only that it fails to build.
-          RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime -p trust-runtime-core 2>&1 | tee -a "${LOG_PATH}"
+          # The SDK's crates are its API reference on docs.rs, and their examples run here too, so
+          # that none drifts from the API it shows (specification 48 RU-89).
+          RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime -p trust-runtime-core \
+            -p trust-plc-abi -p trust-plc-lib -p trust-plc-decl -p trust-plc-macros -p trust-plc \
+            -p trust-runtime-client -p trust-service -p trust-sim 2>&1 | tee -a "${LOG_PATH}"
       # The last cargo step. Its `cargo test -p trust-runtime --lib` builds its own variant of
       # trust-runtime and some of its dependencies; run before the full suite, it made the suite
       # compile trust-wasm-analysis, trust-runtime and the five crates that use them again: 14.5

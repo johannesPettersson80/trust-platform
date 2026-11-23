@@ -62,6 +62,9 @@ The owner's decisions, which this specification carries out:
   that a service, an ordinary Rust program for the computer, is built like any Rust program): it
   links the computer's standard library with the computer's linker, which the bundle does not carry
   and truST cannot ship (RU-61).
+- "remember that we need good documentation and good examples" (22 November 2026), and for every
+  feature "A user guide in the docs site, written as steps" and "Each crate's API reference gets
+  examples that run as tests" (22 November 2026; RU-89).
 - Earlier decisions that hold: "the user shall not have to install rust by himself" (27 October
   2026, specification 44 NX-08); boards work exactly like trust-runtime (16 October 2026): a Rust POU
   runs on every device a program runs on; "we MUST follow the IEC standard" (22 October 2026):
@@ -225,6 +228,14 @@ from crates.io for rust-analyzer and `cargo test` (§16.3). The SDK's crates nam
 release's exact version (`=<version>`, beside their paths in the workspace), which the version bump
 moves (`scripts/bump_version.py`), so that `cargo package` writes each crate as crates.io and the
 bundle take it.
+
+**RU-89.** The SDK's documentation is its API reference on docs.rs, and its examples are tests. Each
+attribute of `trust-plc-macros` and the crate page of `trust-plc` show their use in a whole program,
+written as a project writes it (through `trust_plc::prelude`) and called as a unit test calls it
+(RU-56), with the values it must give worked out by hand; the crate pages of `trust-service` and
+`trust-runtime-client` show how a program reaches a runtime. CI runs the documentation examples of
+every crate RU-12 publishes (`cargo test --doc`), so that no example drifts from the API it shows. An
+example that needs a running runtime or service is compiled and not run (`no_run`).
 
 ## 5. The rules of Rust in the scan
 

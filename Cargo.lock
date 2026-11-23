@@ -7833,6 +7833,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.7",
+ "trust-plc",
  "trust-plc-decl",
 ]
 

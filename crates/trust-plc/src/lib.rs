@@ -13,6 +13,53 @@
 //!
 //! The crate holds no `unsafe` code; the `unsafe` of a module stays in the interface crate
 //! (specification 44 §6.9).
+//!
+//! # Example
+//!
+//! A function block that counts the calls in which its level is above 100. Its count uses the
+//! checked arithmetic of Structured Text, so it faults on overflow instead of wrapping (RU-15), and
+//! a call that faults leaves the block as it was (RU-28). A unit test calls it as the kernel does
+//! (RU-56), and `cargo test` runs it with the project's other tests:
+//!
+//! ```
+//! use trust_plc::prelude::*;
+//!
+//! #[trust_fb(name = "HIGH_COUNTER")]
+//! #[budget("1us")]
+//! pub struct HighCounter {
+//!     #[input] pub level: i16,
+//!     #[output] pub high: bool,
+//!     #[output] pub count: i16,
+//! }
+//!
+//! impl Body for HighCounter {
+//!     fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+//!         self.high = self.level > 100;
+//!         if self.high {
+//!             self.count = checked::add(cx, self.count, 1)?;
+//!         }
+//!         Ok(())
+//!     }
+//! }
+//!
+//! # fn main() -> Result<(), Fault> {
+//! let mut cx = trust_plc::test::cx();
+//! let mut counter = HighCounter::new();
+//! counter.level = 120;
+//! counter.call(&mut cx)?;
+//! counter.call(&mut cx)?;
+//! assert_eq!((counter.high, counter.count), (true, 2));
+//!
+//! // At the largest INT the next count overflows: the call faults and changes nothing, so `high`
+//! // stays as it was although the body had set it.
+//! counter.count = i16::MAX;
+//! counter.high = false;
+//! let fault = counter.call(&mut cx).expect_err("the count overflows");
+//! assert_eq!(fault.raw(), FaultCode::Overflow as u32);
+//! assert_eq!((counter.high, counter.count), (false, i16::MAX));
+//! # Ok(())
+//! # }
+//! ```
 
 #![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]

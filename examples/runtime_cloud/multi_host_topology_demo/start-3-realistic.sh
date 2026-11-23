@@ -110,7 +110,7 @@ wait_for_topology_convergence() {
     local node_count
     node_count="$(curl -fsS "${state_url}" 2>/dev/null | jq -r '.topology.nodes | length' 2>/dev/null || true)"
     if [[ "${node_count}" == "3" ]]; then
-      echo "[start-3] topology converged: 3 runtime nodes visible from runtime-a-control."
+      echo "[start-3] topology converged: 3 runtime nodes visible from runtime_a_control."
       return 0
     fi
     sleep 1
@@ -149,11 +149,11 @@ done
 wait_for_topology_convergence || true
 
 echo "[start-3] realistic layout:"
-echo "  cell-a-edge-ipc: runtime-a-control (realtime), runtime-a-gateway (non-realtime comms)"
-echo "  cell-b-edge-ipc: runtime-b-control (realtime)"
+echo "  cell-a-edge-ipc: runtime_a_control (realtime), runtime_a_gateway (non-realtime comms)"
+echo "  cell-b-edge-ipc: runtime_b_control (realtime)"
 echo "[start-3] link intent from runtime-a-control.toml:"
-echo "  realtime: runtime-a-control -> runtime-b-control"
-echo "  zenoh: runtime-a-control -> runtime-a-gateway (mesh remains for all runtimes)"
+echo "  realtime: runtime_a_control -> runtime_b_control"
+echo "  zenoh: runtime_a_control -> runtime_a_gateway (mesh remains for all runtimes)"
 echo "[start-3] dashboards:"
 for id in "${runtime_ids[@]}"; do
   port="$(runtime_web_port "${id}")"
