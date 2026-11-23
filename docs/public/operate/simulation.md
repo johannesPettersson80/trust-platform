@@ -37,6 +37,10 @@ they remain visible during experiments.
 
 --8<-- "docs/guides/PLC_SIMULATION_WORKFLOW.md:3"
 
+## Worked tutorial
+
+--8<-- "examples/tutorials/18_simulation_toml_fault_injection/README.md:3"
+
 ## Related
 
 - [Control Studio](control-studio.md)

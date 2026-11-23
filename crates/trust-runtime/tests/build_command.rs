@@ -330,6 +330,77 @@ fn build_human_mode_discovers_current_project_and_summarizes_sources() {
     let _ = std::fs::remove_dir_all(project);
 }
 
+#[test]
+fn a_build_waits_for_the_projects_build_lock_and_replaces_its_files_whole() {
+    // Specification 11 §6.8.1d: two builds of one project, from any client, run one after the
+    // other, and a build replaces the image and its record through temporary files. The project is
+    // built once without the lock held, which measures a build; then, while this test holds the
+    // project's build lock, a second build has neither ended nor written its image three times that
+    // long after its start, and once the lock ends it builds and leaves no temporary file. Catches a
+    // build that writes the work folder and the image while another build of the project holds them,
+    // and a temporary file left beside the image.
+    let project = unique_temp_dir("build-lock");
+    write_file(&project.join("runtime.toml"), RUNTIME_TOML);
+    write_file(
+        &project.join("io.toml"),
+        "[io]\ndrivers = [{ name = \"loopback\", enabled = true }]\n",
+    );
+    write_file(
+        &project.join("src/main.st"),
+        "PROGRAM Main\nVAR\n    Counter : INT;\nEND_VAR\nCounter := Counter + 1;\nEND_PROGRAM\n",
+    );
+    let started = std::time::Instant::now();
+    let first = run_build(&project, &[]);
+    assert!(
+        first.status.success(),
+        "the first build; stderr:\n{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let one_build = started.elapsed();
+    let image = project.join("program.tpi");
+    std::fs::remove_file(&image).expect("remove the first build's image");
+
+    let lock = std::fs::OpenOptions::new()
+        .write(true)
+        .open(project.join("build/.lock"))
+        .expect("the first build left its lock file");
+    lock.lock().expect("hold the project's build lock");
+    let mut second = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("build")
+    .arg("--project")
+    .arg(&project)
+    .stdout(std::process::Stdio::null())
+    .stderr(std::process::Stdio::piped())
+    .spawn()
+    .expect("start the second build");
+    std::thread::sleep((one_build * 3).max(std::time::Duration::from_secs(2)));
+    assert!(
+        second.try_wait().expect("poll the second build").is_none(),
+        "the second build waits while the lock is held"
+    );
+    assert!(
+        !image.exists(),
+        "no image is written while the lock is held"
+    );
+
+    lock.unlock().expect("end the lock");
+    let output = second.wait_with_output().expect("the second build ends");
+    assert!(
+        output.status.success(),
+        "the second build; stderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(image.is_file());
+    assert!(!project.join("program.tpi.tmp").exists());
+    assert!(!project.join("deployment-record.bin.tmp").exists());
+
+    drop(lock);
+    let _ = std::fs::remove_dir_all(project);
+}
+
 /// The `runtime.toml` of a project whose resource runs a cycle every 10 ms, with the sections every
 /// project must have at their defaults.
 const RUNTIME_TOML: &str = "[bundle]

@@ -91,6 +91,8 @@ nav:
       - Overview: develop/index.md
       - Learn By Building:
           - Example Catalog: examples/index.md
+          - Your First Program: examples/empty-simulator.md
+          - Conveyor Demo: examples/conveyor.md
           - First Tutorial: examples/tutorials.md
           - Learning Paths: examples/learning-paths.md
           - Capstones: examples/capstones.md
@@ -121,6 +123,8 @@ nav:
           - Rust Examples: examples/rust.md
       - Operator Screens:
           - HMI Builder: develop/hmi-builder.md
+          - HMI Tank Level: examples/hmi-tank-level.md
+          - HMI Equipment: examples/hmi-equipment.md
       - Visual Programming:
           - Overview: develop/visual-editors/index.md
           - Ladder: develop/visual-editors/ladder.md
@@ -174,6 +178,7 @@ nav:
           - Comm: develop/libraries/comm.md
           - Plant: develop/libraries/plant.md
           - Libraries And Motion Examples: examples/libraries-and-motion.md
+          - Move One Virtual Axis: examples/plcopen-motion-single-axis.md
       - Migration While Programming:
           - Migration Overview: migrate/index.md
           - PLCopen: migrate/plcopen.md

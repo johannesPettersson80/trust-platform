@@ -19,6 +19,9 @@ pub fn build_program_image(
     use crate::native::{
         build_project, conversion_profile, debug_hooks, project_key, sign, triple, Options,
     };
+    // Held to the end of the build: another build of the project waits (specification 11 §6.8.1d).
+    let _lock = crate::native::lock_project_build(bundle_root)
+        .with_context(|| format!("lock the build of {}", bundle_root.display()))?;
     let layout = inspect_project_layout(bundle_root, sources)?;
     let files = collect_project_sources_labelled(bundle_root, sources)?;
     if files.is_empty() {
@@ -62,9 +65,9 @@ pub fn build_program_image(
         )
     };
     fs::create_dir_all(&build_folder)?;
-    fs::write(&image, &built.image).with_context(|| format!("write {}", image.display()))?;
+    write_replacing(&image, &built.image)?;
     let record_bytes = crate::deployment::image_record(bundle_root, &built.image)?;
-    fs::write(&record, &record_bytes).with_context(|| format!("write {}", record.display()))?;
+    write_replacing(&record, &record_bytes)?;
     // The container `trust-runtime ctl install` installs, the image with its record, packed as every
     // image container is (specification 34 §5.1 and §11.2; specification 44 §4.1).
     let install = build_folder.join(format!("install.{}.bin", triple(target)));
@@ -74,7 +77,7 @@ pub fn build_program_image(
         &record_bytes,
     )
     .map_err(|error| anyhow::anyhow!("pack {}: {error}", install.display()))?;
-    fs::write(&install, container).with_context(|| format!("write {}", install.display()))?;
+    write_replacing(&install, &container)?;
     if !emit_source {
         let _ = fs::remove_file(work.join("module.rs"));
     }

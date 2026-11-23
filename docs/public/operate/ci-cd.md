@@ -10,6 +10,10 @@ understand what each local command proves.
 
 --8<-- "docs/guides/PLC_CI_CD.md:3"
 
+## Worked tutorial
+
+--8<-- "examples/tutorials/21_ci_cd_project_pipeline/README.md:3"
+
 ## Related
 
 - [Build, Validate, Test](build-validate-test.md)

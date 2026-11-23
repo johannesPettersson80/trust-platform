@@ -60,6 +60,11 @@ pub fn check_project(
         }
         return Ok(Vec::new());
     };
+    // The crate is checked in the build's work folder, which a build of the project does not
+    // write meanwhile (specification 11 §6.8.1d).
+    let _lock = super::lock_project_build(project).map_err(|error| {
+        NativeError::Compile(format!("lock the build of {}: {error}", project.display()))
+    })?;
     let front = front_of(sources, &[], conversions, Some(&crate_build.krate))?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
