@@ -16,6 +16,12 @@ quote = "1.0.47"
 syn = { version = "3.0.7", features = ["full", "visit", "visit-mut"] }
 trust-plc-decl = { workspace = true }
 
+# The attributes' examples declare and call Rust POUs through `trust_plc`, as a project does, and run
+# as tests (specification 48 RU-89). It names `trust-plc` by its path alone, without a version, so that
+# `cargo publish` leaves it out of the published crate, which comes before `trust-plc` (RU-12).
+[dev-dependencies]
+trust-plc = { path = "../trust-plc" }
+
 [lints.rust]
 unsafe_code = "forbid"
 

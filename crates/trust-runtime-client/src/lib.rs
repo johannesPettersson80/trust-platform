@@ -1,5 +1,26 @@
 //! The runtime's control endpoint: one JSON object per line each way (runtime protocol annex,
 //! E0.1). Inline values and Control Studio share this client.
+//!
+//! # Example
+//!
+//! Ask a running runtime for its status. A `tcp://` endpoint needs the runtime's control token,
+//! which this reads from `TRUST_CTL_TOKEN` as `trust-dev` does (specification 22). The example
+//! needs a runtime, so its test compiles it and does not run it:
+//!
+//! ```no_run
+//! use std::time::Duration;
+//!
+//! use trust_runtime_client::{ControlClient, ControlEndpoint};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let endpoint = ControlEndpoint::parse("tcp://127.0.0.1:9000").ok_or("not an endpoint")?;
+//! let token = std::env::var("TRUST_CTL_TOKEN").ok();
+//! let mut client = ControlClient::connect(&endpoint, token.as_deref(), Duration::from_secs(2))?;
+//! let status = client.request("status", None)?;
+//! println!("{status:#}");
+//! # Ok(())
+//! # }
+//! ```
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
