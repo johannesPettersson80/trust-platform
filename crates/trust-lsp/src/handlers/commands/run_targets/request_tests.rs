@@ -169,20 +169,32 @@ fn a_probe_connects_without_a_request() {
 }
 
 /// A waiting probe tries again until the endpoint accepts: a runtime that binds its port 300 ms
-/// after the probe began is reachable within a 2000 ms wait. Catches a waiting probe that gives up
-/// after its first try, the false "could not connect" after a managed Start.
+/// after the probe began is reachable within the wait. Catches a waiting probe that gives up after
+/// its first try, the false "could not connect" after a managed Start.
 #[test]
 fn a_waiting_probe_finds_a_runtime_that_binds_late() {
     // The port stays held until the late runtime listens on it, so no other socket can take it.
     let held = trust_test_support::held_loopback_port();
     let endpoint = format!("tcp://127.0.0.1:{}", held.port());
+    let (answered, probe_answered) = std::sync::mpsc::channel::<()>();
     let late = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(300));
+        // Like a runtime, it keeps its endpoint open: the listener and the probe's connection in
+        // its queue stay until the probe answered. One that accepted a connection and closed at
+        // once could end the probe's connect before it returned.
         let listener = held.listen();
-        let _ = listener.accept();
+        let _ = probe_answered.recv();
+        drop(listener);
     });
-    let answer = answer(json!({ "action": "probe", "endpoint": endpoint, "waitMs": 2000 }))
+    // The wait is long beside the late runtime's 300 ms, since a busy computer may start its
+    // thread late: on a macOS runner the thread had not listened 2 s later, and the probe's four
+    // tries each waited out their 400 ms on the held port, which answers nothing there (G284,
+    // 22 November 2026). A probe that finds the runtime answers at once.
+    let answer = answer(json!({ "action": "probe", "endpoint": endpoint, "waitMs": 10_000 }))
         .expect("an answer");
-    assert_eq!(answer["reachable"], true);
+    answered
+        .send(())
+        .expect("the late runtime waits for the answer");
     late.join().expect("the late runtime");
+    assert_eq!(answer["reachable"], true);
 }
