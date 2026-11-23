@@ -36,13 +36,13 @@ The harness is the fast path for:
 
 1. direct CLI / NDJSON protocol via `trust-harness`
 2. the same core operations through the agent contract methods:
-   - `harness.load`
-   - `harness.reload`
-   - `harness.cycle`
-   - `harness.set_input`
-   - `harness.get_output`
-   - `harness.advance_time`
-   - `harness.run_until`
+    - `harness.load`
+    - `harness.reload`
+    - `harness.cycle`
+    - `harness.set_input`
+    - `harness.get_output`
+    - `harness.advance_time`
+    - `harness.run_until`
 
 ## Scope
 

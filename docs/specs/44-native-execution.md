@@ -1830,29 +1830,30 @@ program in its place. At the boundary the device:
 3. builds the new program: its areas with `INIT`, its bindings checked against the running
    program's lines and its safe state, as specification 34 §11.3 checks a candidate;
 4. places the new module where the CPU runs it, starts the new program and carries the running
-   program's values into its areas (§12.2). An image without change entries (kinds 6 to 9: built
-   under the IEC profile, or one whose types declare no `FB_init`, `FB_exit`, `FB_reinit` or
-   after-init method) runs its cold-init entry (§6.7), then the carry. An image with them (the
-   CODESYS profiles, specification 10 §4.8) follows the instances the change copies:
-   - the kernel sorts each top-level variable that has a change entry in either image: copied when
-     both programs declare it and its type's layout differs, compared through the two type tables as
-     the carry compares types (§12.2); dropped or added when one program declares it; otherwise
-     nothing is called for it;
-   - it runs the running program's change-exit entries (kind 6) of the copied and the dropped
-     variables, in the order of its entry table (the reverse of `FB_init`'s); then the new
-     program's change-start entry (kind 9: the cold-init entry's reference initializers, without its
-     `FB_init` calls) and its change-init entries (kind 7) of the copied and the added variables, in
-     the order of its entry table; then the carry; then its change-reinit entries (kind 8) of the
-     copied variables;
-   - these calls run once the new module is placed and every check before them has passed, so that
-     no refusal follows them; a fault in one of them is recorded as an event of the new program
-     while the change goes on (specification 10 §4.8).
+    program's values into its areas (§12.2). An image without change entries (kinds 6 to 9: built
+    under the IEC profile, or one whose types declare no `FB_init`, `FB_exit`, `FB_reinit` or
+    after-init method) runs its cold-init entry (§6.7), then the carry. An image with them (the
+    CODESYS profiles, specification 10 §4.8) follows the instances the change copies:
+    - the kernel sorts each top-level variable that has a change entry in either image: copied when
+      both programs declare it and its type's layout differs, compared through the two type tables as
+      the carry compares types (§12.2); dropped or added when one program declares it; otherwise
+      nothing is called for it;
+    - it runs the running program's change-exit entries (kind 6) of the copied and the dropped
+      variables, in the order of its entry table (the reverse of `FB_init`'s); then the new
+      program's change-start entry (kind 9: the cold-init entry's reference initializers, without its
+      `FB_init` calls) and its change-init entries (kind 7) of the copied and the added variables, in
+      the order of its entry table; then the carry; then its change-reinit entries (kind 8) of the
+      copied variables;
+    - these calls run once the new module is placed and every check before them has passed, so that
+      no refusal follows them; a fault in one of them is recorded as an event of the new program
+      while the change goes on (specification 10 §4.8).
 
-   A computer maps the new module
-   beside the running one. The C6 runs it where it lies in the image, which the transfer uploaded
-   into the program region (§10.3), beside the running module, or copies it into a block there when
-   the upload lay in the heap's data regions; a refusal drops the new program and the running
-   program goes on as it was (UPDATE-01);
+    A computer maps the new module
+    beside the running one. The C6 runs it where it lies in the image, which the transfer uploaded
+    into the program region (§10.3), beside the running module, or copies it into a block there when
+    the upload lay in the heap's data regions; a refusal drops the new program and the running
+    program goes on as it was (UPDATE-01);
+
 5. continues the running program's task schedule in the new program's tasks of the same names
    (decision OC-2), swaps the programs, hands the new one the lines and the checkpoint store
    (specification 34 §11.3), and retires the running program with its areas; an image that an

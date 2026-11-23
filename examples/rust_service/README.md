@@ -33,12 +33,13 @@ values only while the service's heartbeat says it runs, and falls back to a safe
    `trust-runtime toolchain install` once.
 2. In a second terminal, create the service's token:
 
-   ```text
-   trust-runtime ctl --project . service-token price --out secrets/price.token --role engineer
-   ```
+    ```text
+    trust-runtime ctl --project . service-token price --out secrets/price.token --role engineer
+    ```
 
-   It prints `id=service-price role=engineer token_file=secrets/price.token`: the token goes into the
-   file, never to the screen. The role Engineer lets the service write.
+    It prints `id=service-price role=engineer token_file=secrets/price.token`: the token goes into the
+    file, never to the screen. The role Engineer lets the service write.
+
 3. In the side panel, open **Target**, choose **This project's runtime**, and press **Connect**. The
    example allows debugging, so Connect attaches: the status bar says `truST: This project's runtime
    connected`, the debug toolbar appears, and **Live Values** opens. Under **Memory**, `Heater.target`
@@ -48,12 +49,13 @@ values only while the service's heartbeat says it runs, and falls back to a safe
    and press **Write**: the heater turns off, as the tank is now warmer than its target.
 4. In the second terminal, start the stand-in for a price source:
 
-   ```text
-   cargo run --manifest-path price-service/Cargo.toml --example stand_in_source -- 38.2
-   ```
+    ```text
+    cargo run --manifest-path price-service/Cargo.toml --example stand_in_source -- 38.2
+    ```
 
-   It prints `Serving 38.2 EUR/MWh at http://127.0.0.1:47801/price. Type another price and press
-   Enter.` and answers each request for the price in JSON, as a price source on the internet does.
+    It prints `Serving 38.2 EUR/MWh at http://127.0.0.1:47801/price. Type another price and press
+    Enter.` and answers each request for the price in JSON, as a price source on the internet does.
+
 5. In a third terminal, run the service: `cargo run --manifest-path price-service/Cargo.toml`. Once it
    is built, it prints `38.2 EUR/MWh: setpoint 65.0 °C` every second. In Live Values
    `Heater.price_setpoint` and `Heater.target` are 65.0, `Heater.service_ok` is TRUE, and the heater is
