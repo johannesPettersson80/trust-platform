@@ -1,7 +1,7 @@
 //! A compiled program on this computer (specification 44 §10.3): its image admitted, its module's
 //! code copied into executable memory, and the kernel's program over it.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use trust_plc_abi::kernel::{
     clock, wall_clock, with_clock, with_wall_clock, Entry, Executable, KernelClock, WallClock,
@@ -13,14 +13,30 @@ use trust_runtime_core::native::program::{
 use trust_runtime_core::native::KERNEL_API;
 
 use super::NativeError;
+use crate::scheduler::SteppedClock;
+
+/// The clock of a simulator for machine tests, when this process is one (specification 11 §6.8.1,
+/// "Simulator for machine tests"): `CURRENT_DT` then reads its logical time from 1 January 1970
+/// UTC, so that every run of a test reads the same date and time.
+static SIMULATED_WALL_CLOCK: OnceLock<SteppedClock> = OnceLock::new();
+
+/// Makes `CURRENT_DT` read the logical time of `clock` in this process, from 1 January 1970 UTC:
+/// `trust-runtime simulate` calls it once, before its program starts. A later call keeps the first
+/// clock.
+pub fn read_wall_clock_from(clock: &SteppedClock) {
+    let _ = SIMULATED_WALL_CLOCK.set(clock.clone());
+}
 
 /// The computer's wall clock, which `CURRENT_DT` reads (specification 07, "Runtime Clock Sources"):
 /// `SystemTime` as UTC Unix milliseconds, a positive fraction cut off, neither the runtime's nor a
-/// simulation's clock.
+/// simulation's clock; in a simulator's process, its logical time (`read_wall_clock_from`).
 struct HostClock;
 
 impl WallClock for HostClock {
     fn unix_millis() -> Result<i64, FaultCode> {
+        if let Some(clock) = SIMULATED_WALL_CLOCK.get() {
+            return Ok(clock.now().as_nanos() / 1_000_000);
+        }
         let since = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|_| FaultCode::Overflow)?;
