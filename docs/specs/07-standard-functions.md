@@ -838,7 +838,11 @@ The function has this complete product contract:
 - it samples `std::time::SystemTime` once per call and interprets that sample
   as a UTC Unix timestamp; on a device without an operating system it reads the
   device's clock, which counts from `DT#1970-01-01-00:00:00` at power-up until
-  a time source sets it (specification 34, TARGET-06);
+  a time source sets it (specification 34, TARGET-06); in a simulator for
+  machine tests (`trust-runtime simulate`, specification 11 §6.8.1, "Simulator
+  for machine tests") it reads the simulator's logical time instead, from
+  `DT#1970-01-01-00:00:00`, so that every run of a machine test reads the same
+  date and time;
 - it returns a timezone-naive `DT` whose epoch is
   `DT#1970-01-01-00:00:00` and whose fixed resolution is one millisecond;
 - it truncates a positive sub-millisecond remainder toward the preceding
@@ -849,8 +853,9 @@ The function has this complete product contract:
   tick range returns `RuntimeError::Overflow` and produces no `DT` value;
 - local timezone, daylight-saving, and leap-second metadata are neither read
   nor encoded;
-- the injected runtime/manual clock, scheduler scaling, simulation time, and
-  replay time do not replace or offset the host sample; and
+- outside a simulator for machine tests, the injected runtime/manual clock,
+  scheduler scaling, simulation time, and replay time do not replace or offset
+  the host sample; and
 - samples are not clamped to be monotonic. A host-clock rollback may therefore
   make a later call return an earlier `DT`.
 
