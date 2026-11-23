@@ -3732,6 +3732,78 @@ for the method's fault to fault, and a faulted one takes no call until a restart
 one as it refuses every request to its scan thread. While a debugger holds a scan, the program is
 inside its scan, and the kernel refuses the call as a call while a scan runs.
 
+###### Cycle traces (`trace.record`, `trace.read`, `trace.stop`)
+
+Every runtime records a cycle trace on request and keeps its flight recorder's, alike
+(specification 48 RU-59 and Appendix C; specification 34 STATE-08).
+
+- `trace.record` (Engineer) starts a recording at the resource's next cycle. It takes `cycles` (a
+    count) or `duration_ns` (logical time), not both, and optionally `task`, a task's name, whose runs
+    `cycles` then counts instead of the resource's cycles. The runtime reserves the recording's memory
+    first and answers `{"trace": <id>, "reserved_bytes": b}`. It refuses:
+    - as `insufficient_memory`, naming the bytes needed and the bytes free, when it cannot give that
+        memory;
+    - as `trace_busy`, with the running recording's id, while another recording runs: one runs at a
+        time;
+    - as `resource_not_running`, with the state, when the resource does not run.
+- `trace.read` (Engineer) `{"trace": <id>}`:
+    - While the recording runs, it answers `{"state": "recording", "cycles": k}`.
+    - Once the recording has ended, it answers `{"state": "ended", "reason": "...", "cycles": n,
+        "bytes": L, "sha256": "..."}`, with the end of specification 48 Appendix C, C.3 (`complete`,
+        `stopped`, `resource_stopped`, `restarted`, `faulted`, `program_changed`, `paused`,
+        `memory_full`).
+    - With `offset`, it answers the trace's bytes from there, at most 4,096 of them: `{"offset": o,
+        "data": "<base64>", "crc32": "<8 hexadecimal digits>", "next_offset": o2}`. This is a part as
+        `transfer.part` carries one the other way (specification 34 PORT-05).
+    - `{"trace": "fault"}` reads the flight recorder's trace of the last fault, and answers `{"state":
+        "none"}` before there is one.
+
+    A recorded trace stays readable until the next recording starts or the runtime ends. The
+    fault's trace stays readable until the next fault.
+
+- `trace.stop` (Engineer) `{"trace": <id>}` ends a recording at once. Its trace holds the cycles
+    recorded so far, and ends `stopped`.
+- `runtime.toml` `[runtime.trace] flight_recorder = <n>` keeps the last `n` to `2n` cycles always.
+    Absent or 0, there is no flight recorder. A resource whose flight recorder's memory the runtime
+    cannot give starts without it, and a `runtime_trace_memory` event names the bytes needed and the
+    bytes free. When the resource faults, the runtime keeps the fault's trace, and a runtime with a
+    folder of its files (6.8.0a) also writes it there as `traces/fault-<UTC date and
+    time>.trusttrace`.
+
+`trust-runtime ctl record (--cycles <n> | --duration <t>) [--task <task>] [--out <file>]` sends
+`trace.record` and asks `trace.read` until the recording has ended. It then reads the trace part by
+part, checks each part's CRC-32 and the whole trace's SHA-256, and writes the file, by default
+`trace-<UTC date and time>.trusttrace` in the current folder. It prints `recorded <n> cycles
+(<reason>) to <file>, <L> bytes`. Ctrl+C sends `trace.stop` and saves what the trace holds.
+`trust-runtime ctl fault-trace [--out <file>]` saves the fault's trace the same way, by default as
+`fault-<UTC date and time>.trusttrace`.
+
+###### Replaying a trace (`simulator.replay`)
+
+`simulator.replay` (Engineer) replays a cycle trace in the simulator, as specification 48 RU-60
+says, and answers with the report. `trust-dev replay` and `trust_sim::Replay` send it.
+
+- **The request.** The trace is uploaded first with `transfer.begin` `{"for": "trace", "bytes",
+    "sha256"}` and its parts, as `ctl install` uploads a container. The request names that upload:
+    `{"transfer": <id>}`.
+- **When the simulator takes it.** A simulator takes it before its first cycle only, at the logical
+    time 0, and refuses it after a cycle as `simulator_started`.
+- **The run.** The replay runs without the simulation's plants: the trace gives the inputs. It sets
+    the program's state, then runs the trace's cycles at the trace's logical times and ends at the
+    last.
+- **The answer.** It answers `{"matched": true|false, "cycles": n, "kind": "same_program" |
+    "same_sources_other_target" | "changed_program", "first_difference": {...} | null,
+    "later_differing_cycles": k, "notes": [...]}`.
+    - `first_difference` holds the cycle, its logical time and each differing output: its path, its
+        address, the trace's value and the build's, each as `variables.read` gives a value, or the two
+        faults.
+    - `notes` lists what the replay could not carry over or apply: a variable, address, task or
+        method the build lacks, and a value not kept.
+- **After the replay.** The simulator holds the replay's last state, so a test can read it on.
+- **Other runtimes.** A runtime on the wall clock refuses it as `clock_not_manual`, as it refuses
+    `simulator.advance`. A trace whose format version, required section or checksum fails is
+    refused as `trace_invalid`, with the reader's reason.
+
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is read into one request and dispatched
@@ -7139,7 +7211,7 @@ The explicit operation matrix is:
 |---|---|
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `service.heartbeat` (section 6.8.1, "Service heartbeats"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
-| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, `simulator.advance`, `method.call`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, `simulator.advance`, `method.call`, `trace.record`, `trace.read`, `trace.stop`, `simulator.replay`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:

@@ -19,7 +19,11 @@
   the same delegation. 0.10, 21 November 2026: child sequences as members of `s.all` and `s.race`
   (RU-72), decided under the same delegation. 0.11, 21 November 2026: `trust-dev rust bench`'s
   cases, its run and its record, what makes a measurement current and what a `production` build
-  does with it (RU-48, Appendix B), decided under the same delegation.
+  does with it (RU-48, Appendix B), decided under the same delegation. 0.12, 23 November 2026: what
+  a cycle trace holds, its start state and the recorded image's tables among it, how it is recorded
+  on demand and by the flight recorder, and how a replay starts another build from it and compares it
+  (RU-59, RU-60, Appendix C), decided under the owner's delegation of 22 November 2026 ("do whats
+  most professional and best for us and the users").
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1117,20 +1121,118 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   job runs with the trust-runtime its build made named in `TRUST_RUNTIME`. The version bump moves
   that pin with the release, as it moves an example crate's pin of `trust-plc` (RU-08, RU-12).
 
-**RU-59. Cycle traces.** The runtime records a cycle trace on demand (`trust-runtime ctl record
---task <task> --cycles <n>` or `--duration`) and, when `runtime.toml` `[trace] flight_recorder`
-names a length, always into a ring of that many cycles that it writes out on a fault. A trace holds
-for each cycle of the task: the logical time, the input image, the writes and forces the control
-link applied before the cycle, and the output image after it, with the image's hash and the device's
-identity; its format is a sectioned file with a checksum per section, `.trusttrace`, which Appendix C
-gives.
+**RU-59. Cycle traces.** A trace records a resource's cycles so that a replay can run them again
+(RU-60). It holds the program's state at its first cycle, and for each cycle everything that came
+into the program from outside and what the program put out. The runtime records a trace on demand
+(`trust-runtime ctl record`). When `runtime.toml` names a length (`[runtime.trace]
+flight_recorder`), it also records always, into a ring that it keeps as the fault's trace when the
+resource faults. A trace is a `.trusttrace` file (Appendix C); specification 11 §6.8.1, "Cycle
+traces", gives the requests.
 
-**RU-60. Replay.** `trust-dev replay <trace>` runs the project's current build in the simulator from
-the trace's first cycle with its inputs, writes and logical times, and compares the outputs cycle by
-cycle; a difference is reported with the cycle, the variable, the trace's value and the build's.
-Specification 44 NX-04 makes a replay of an unchanged image bit-identical on every device;
-`trust_sim::Replay` does the same in `cargo test`, in a simulator as RU-58 runs one, so a trace from
-commissioning becomes a test of the next change.
+- **Its start.** The program's memory at the start of the trace's first cycle, before that cycle's
+    writes: the areas of specification 44 §7.1, `%I` to `P`, without the stack. It also holds the
+    forces then in effect, and the recorded image's tables that name that memory: its area, task, I/O
+    binding, symbol and type tables and its string pool (specification 44 §5.5 to §5.8), with which a
+    replay carries the state into another build (RU-60).
+- **Each cycle.** A trace holds, for each cycle:
+    - the cycle's logical time;
+    - each task activation in it, in the order the tasks ran, with the task's logical time
+        (`TIME()`, the kernel's `now_ns`, specification 44 §8.2);
+    - every change made to the program from outside before the cycle, in the order the runtime
+        applied it, with its source:
+        - a variable's write: the control link's `set`, `var.write` and `variables.write`, a
+            screen's write, Control Studio's, a service's (RU-63), the mesh's, a protocol server's
+            such as OPC UA's, or a plant's;
+        - a force set or released, on a variable or on an address;
+        - an address's one-shot write (`io.write`);
+        - a tool's method call (`method.call`), with its inputs;
+    - the input image as the cycle's scan sampled it, and the output image the cycle wrote, `%I`
+        and `%Q` whole;
+    - each reading of the wall clock (`CURRENT_DT`) in the cycle, in order. The wall clock is the
+        one input from the platform that is not memory (specification 44 §8.2), so a replay gives a
+        program what it read;
+    - the fault that ended the cycle, if one did.
+- **Its identity.** The running image's SHA-256, its sources' hash and its target (specification
+    44 §5.2, offsets 32 and 20), the device's identity and platform (`runtime_id`), the runtime's
+    version, the resource's name and cycle interval, the runtime's count of cycles at the trace's
+    first, the number of cycles, and why the trace ended.
+- **On demand.** `trust-runtime ctl record (--cycles <n> | --duration <t>) [--task <task>] [--out
+    <file>]` records the next `n` cycles of the resource, or those in the next `t` of logical time.
+    With `--task` it counts the runs of that task instead, and still records every cycle until
+    then, since a replay needs them all. It writes the trace to `<file>`, by default
+    `trace-<UTC date and time>.trusttrace` in the current folder, and prints its path, cycles and
+    size; Ctrl+C ends the recording and keeps what it holds.
+- **When a recording ends early.** A recording ends early when the resource stops, restarts or
+    faults (the faulted cycle is the last), when the program changes online, and when the program
+    pauses at a breakpoint, a pause or a step. The trace holds the cycles until then and says why it
+    ended.
+- **The flight recorder.** With `[runtime.trace] flight_recorder = <n>`, the runtime always keeps
+    the last `n` to `2n` cycles. It keeps their records, and the program's state at the first of
+    them, which it takes every `n` cycles.
+    - When the resource faults, it keeps those cycles up to the faulted one as the fault's trace, and
+        `trust-runtime ctl fault-trace [--out <file>]` saves it.
+    - A runtime with a folder of its files (specification 11 §6.8.0a) also writes the trace there,
+        as `traces/fault-<UTC date and time>.trusttrace`.
+    - A chip keeps the trace in its memory until a reset.
+- **Memory.** A recording, and the flight recorder at the resource's start, reserve their memory
+    before they begin. A runtime that cannot give it refuses the recording, or starts without the
+    flight recorder, and names the bytes needed and the bytes it has. A device's limit is reported,
+    never cut (specification 34). A trace's records go into that memory between the phases of a
+    cycle, which allocate nothing (specification 34 MEM-09). A recording whose records outgrow it,
+    as many writes of long texts can, ends `memory_full`.
+- **Every runtime.** A chip records, keeps and serves traces as a computer does (specification 34
+    STATE-08).
+
+**RU-60. Replay.** `trust-dev replay <trace> [--project <path>]` builds the project from its
+sources as they are now and replays the trace in a simulator (`trust-runtime simulate`, RU-58),
+without the simulation's plants.
+The replay starts from the trace's state. It runs cycle by cycle with the trace's logical times,
+task activations, changes from outside, input images and wall-clock readings, and compares each
+cycle's output image with the trace's (specification 11 §6.8.1, `simulator.replay`).
+
+- **The start.** A build whose area, symbol and type tables equal the trace's lays its memory out
+    as the recorded program did, and takes the recorded memory byte for byte. Another build takes it
+    as an online change carries a running program's state into a new one
+    (specification 44 §12.2, the copy plan, worked out between the trace's tables and the build's
+    image). Every variable the build declares under the same name, with a type that holds its value,
+    starts with it; the rest start with their starting values; references follow their variables.
+    The report lists what the build could not carry over, as an online change's
+    `online_change_value` events do. The trace's forces start in effect.
+- **Each cycle.** The simulator runs the trace's cycle at its logical time:
+    - It activates the build's tasks of the same names, at the trace's task times, in the trace's
+        order. A task the build lacks is reported once and skipped.
+    - It applies the cycle's changes from outside before the cycle, as the runtime applied them. A
+        variable, address or method the build lacks is reported once and skipped.
+    - It gives the scan the trace's input image, the bytes both images have at the same offsets,
+        and the trace's wall-clock readings in order, the last one again when the build reads the
+        clock more often.
+    - It compares the output image after the cycle with the trace's, by the trace's located output
+        variables at their addresses.
+- **The result.**
+    - **A replay that matches** every cycle prints the cycles it ran and ends with 0.
+    - **At the first cycle whose outputs differ,** it reports that cycle and its logical time; each
+        output that differs, with its name, its address, the trace's value and the build's; and how
+        many later cycles differ too. It ends with 1.
+    - **A trace or build it cannot replay** ends it with 2 and the reason.
+    - **A trace that ended with a fault** expects the build's fault at the same cycle. A fault in
+        another cycle, or none, is a difference.
+    - **What was replayed.** The report names it, from the sources' hash and target of the trace and
+        of the build (an image's build time makes every build's SHA-256 its own):
+        - the same program: the same sources, built for the same target;
+        - the same program for another device: the same sources, another target;
+        - a changed program.
+
+        For the first two, NX-04 makes every difference a determinism fault or an input the trace did
+        not hold, and the report says so.
+
+- **In `cargo test`.** `trust_sim::Replay::open(path)?.run(&project)?` replays a trace in a
+    simulator of the project, as RU-58 runs one. It returns `Ok(())` when the outputs match, and
+    otherwise an error with the report. A trace from commissioning thereby becomes a test of the next
+    change.
+- **Documentation and examples.** The user guide's machine-test page (RU-58) teaches recording a
+    trace of the example `room_heating` and replaying it. The example keeps that trace with its
+    machine tests, which replay it in CI, and the guide says how to record it again after a change
+    that is meant to change the outputs.
 
 ## 13. Rust services (tier 3)
 
@@ -1827,11 +1929,125 @@ LineSpeed = { type = "REAL", init = "1.5" }
 
 ## Appendix C — `.trusttrace`
 
-A trace is a container like the program image's (specification 44 §5): a header, a section table and
-sections, each with a CRC-32 of its bytes. Its sections are `META` (the image's hash, the device's identity, the task, the first
-cycle, the cycle count), `SYMS` (the variables recorded, by path and type), and per cycle `CYCL` (its
-logical time, the input image, the control link's writes and forces before it, the output image after
-it). Values are little-endian at their declared sizes (specification 44 §7.2).
+A trace (RU-59) is one file, little-endian, laid out as the program image is (specification 44
+§5.1, §5.3): a header, a section table, and sections that each start at a multiple of 8 bytes. Each
+section has its CRC-32 (ISO-HDLC) in the section table, so a reader names a damaged section by
+itself. Values lie at their declared sizes (specification 44 §7.2). A text inside a cycle is its
+length in 2 bytes and its UTF-8 bytes; a string of `META` and `SYMS` is an offset into `STRS`.
+
+### C.1 Header (64 bytes)
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 8 | Magic `TRSTT001` |
+| 8 | 4 | CRC-32 of bytes 12 to the end of the section table |
+| 12 | 2 | Format version, 1 |
+| 14 | 2 | Reserved, 0 |
+| 16 | 8 | Total length of the file |
+| 24 | 4 | Section count |
+| 28 | 4 | Reserved, 0 |
+| 32 | 8 | Offset of the section table |
+| 40 | 24 | Reserved, 0 |
+
+### C.2 Sections
+
+The section table has one 32-byte entry per section:
+
+- the id (4);
+- the flags (4), 0;
+- the offset (8);
+- the length (8);
+- the CRC-32 of the section's bytes (4);
+- reserved (4).
+
+The sections follow the order of the table below, and the cycles their own order. A reader refuses
+a trace whose header, section table or required section is damaged, and names which. A damaged
+`CYCL` ends the trace before that cycle, and the reader notes it.
+
+| Id | Section | Required | Content |
+|---|---|---|---|
+| 1 | `META` | yes | The trace's identity (C.3) |
+| 2 | `STRS` | yes | The string pool of `META` and `SYMS`: NUL-terminated UTF-8, starting with the empty string |
+| 3 | `SYMS` | yes | The located variables (C.4) |
+| 4 | `STAT` | yes | The start state (C.5) |
+| 104, 106 to 110 | `IAREAS`, `ITASKS`, `IIOBIND`, `ISYMBOLS`, `ITYPES`, `ISTRINGS` | yes | The recorded image's sections whose ids are 100 less (specification 44 §5.3), byte for byte |
+| 5 | `CYCL` | no | One cycle (C.6), once for each, in order |
+
+### C.3 `META`
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 32 | The running image's SHA-256 |
+| 32 | 32 | The image's sources' hash (specification 44 §5.2, offset 32) |
+| 64 | 4 | The image's target id (specification 44 §5.2, offset 20) |
+| 68 | 4 | Why the trace ended: 1 `complete`, 2 `stopped`, 3 `resource_stopped`, 4 `restarted`, 5 `faulted`, 6 `program_changed`, 7 `paused`, 8 `memory_full` |
+| 72 | 8 | The resource's cycle interval, in nanoseconds |
+| 80 | 8 | The runtime's count of cycles at the trace's first |
+| 88 | 8 | The number of cycles |
+| 96 | 8 | The UTC time the recording began, in milliseconds (informational) |
+| 104 | 4 | The runtime's version (string) |
+| 108 | 4 | The device's identity, `runtime_id` (string) |
+| 112 | 4 | The platform (string) |
+| 116 | 4 | The resource's name (string) |
+| 120 | 4 | The task whose runs the recording counted (string), 0 for none |
+| 124 | 4 | Where the trace comes from: 1 a recording on demand, 2 the flight recorder |
+
+### C.4 `SYMS`
+
+A record count (4) and a reserved word (4) come first. Then follow 24-byte records, one for each
+located variable of the recorded image, in the order of its I/O binding table:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | The variable's path, as the debugger names it (string) |
+| 4 | 4 | Its type's name (string) |
+| 8 | 1 | Its area: 1 `%I`, 2 `%Q`, 3 `%M` |
+| 9 | 1 | Its bit, 0 to 7, for a `BOOL` of one bit; 255 otherwise |
+| 10 | 2 | Reserved, 0 |
+| 12 | 4 | Its byte offset in the area |
+| 16 | 4 | Its size in bytes |
+| 20 | 4 | Reserved, 0 |
+
+### C.5 `STAT`
+
+An area count (4) and a reserved word (4) come first. Then follows each area of specification 44
+§7.1 but the stack, by id: its id (4), its length (4), and its bytes, padded to a multiple of 8.
+Last come the forces in effect: a count (4), a reserved word (4), and each force as a change of
+kind 2 or 5 (C.6).
+
+### C.6 `CYCL`
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 8 | The cycle's logical time, in nanoseconds |
+| 8 | 4 | The number of activations A |
+| 12 | 4 | The number of changes C |
+| 16 | 4 | The number of wall-clock readings W |
+| 20 | 4 | Flags: bit 0 when the cycle faulted |
+| 24 | 16 × A | Each activation: the task's index in the recorded task table (4), reserved (4), the task's logical time in nanoseconds (8) |
+| … | 8 × W | Each reading: the UTC time in milliseconds, as `CURRENT_DT` encodes it (8) |
+| … | | The C changes. Each has its kind (1), its source (1), reserved (2), the length of its data (4), and its data, padded to a multiple of 8 |
+| … | | The input image: its length (4), reserved (4), its bytes, padded to a multiple of 8 |
+| … | | The output image: its length (4), reserved (4), its bytes, padded to a multiple of 8 |
+| … | 16 | When the cycle faulted: its fault record's code (4, specification 44 §8.6), POU id (4) and statement id (4); reserved (4) |
+
+A change's kind and data:
+
+| Kind | Change | Data |
+|---|---|---|
+| 1 | a variable's write | its path (text), its type's name (text), its value's bytes at the declared size (a length of 4, then the bytes) |
+| 2 | a force set on a variable | as 1 |
+| 3 | a force released on a variable | its path (text) |
+| 4 | an address's one-shot write | the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the bit (1, 255 for whole bytes), reserved (2), the byte offset (4), the bytes (a length of 4, then the bytes) |
+| 5 | a force set on an address | as 4 |
+| 6 | a force released on an address | the area (1), the bit (1), reserved (2), the byte offset (4), the size (4) |
+| 7 | a method call | the instance's path, the interface's qualified name and the method's name (texts), the number of inputs (2), and each input's name and Structured Text literal (texts) |
+
+A change's source: 1 the control link (the debugger, Live Values and `ctl` among its clients), 2 a
+screen, 3 Control Studio, 4 a service, 5 the mesh, 6 a protocol server, 7 a plant.
+
+A later version may store a cycle's images as their differences from the cycle before, and record
+that in the section's flags, as the image's `INIT` may be run-length coded (specification 44 §7.4).
 
 ## Appendix D — The July plan and this specification
 
