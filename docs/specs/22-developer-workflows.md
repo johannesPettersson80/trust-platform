@@ -697,6 +697,11 @@ measurement lock alone while the program's other tests share it, or it runs in a
 program of its own. The build of every target before it has 30 minutes on Linux, 45 on macOS
 and an hour on Windows, and Linux builds with two jobs, which its 16 GB runner holds (one job
 took 22 minutes and ran out of the 30 in a third of the runs of 6 November 2026, two jobs 14).
+Before the build, the Linux job removes the runner's preinstalled toolchains that it does not use,
+.NET, Haskell, Android, Swift, Boost, the JVMs, the hosted tool cache and the Docker images: the
+build links each of trust-runtime's integration tests as a binary of its own, and the mesh TLS gate
+builds its own variant after the suite, which ran out of the 98 GB a narrower cleanup left in three
+runs of 23 November 2026. The job prints the free disk before that gate.
 The suite has two hours on macOS and Windows and one hour on Linux,
 which `CI_FULL_TEST_TIMEOUT_SECONDS` may change: their runners are slower, and a macOS
 runner took longer than an hour (28 October 2026). An attempt that exceeds its limit

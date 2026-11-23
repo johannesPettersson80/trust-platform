@@ -65,6 +65,34 @@ class CiTestJobTests(unittest.TestCase):
         self.assertRegex(build, r'"macos-latest" \]\]; then\n(?:\s*#[^\n]*\n)*\s*build_budget=2700')
         self.assertIn("--build-jobs 2", steps(self.job)["Run full test suite"])
 
+    def test_the_linux_job_frees_what_it_does_not_use_and_shows_the_disk_before_the_gate(self) -> None:
+        # Catches a cleanup back to .NET, /opt/ghc and Android only, which left 98 GB free: three runs of
+        # 23 November 2026 ran out of it (#741 and #742 in the mesh TLS gate's build, #743 in the suite,
+        # where the runner crashed writing its log; checklist G287). Specification 22: before the build
+        # the Linux job removes the preinstalled toolchains it does not use, and it prints the free disk
+        # before the gate.
+        names = list(steps(self.job))
+        free = steps(self.job)["Free disk space on ubuntu runners"]
+        for folder in (
+            "/usr/share/dotnet",
+            "/opt/ghc",
+            "/usr/local/lib/android",
+            "/usr/local/.ghcup",
+            "/opt/hostedtoolcache",
+            "/usr/share/swift",
+            "/usr/local/share/boost",
+            "/usr/lib/jvm",
+        ):
+            self.assertIn(folder, free)
+        self.assertIn("docker image prune --all --force", free)
+        self.assertLess(
+            names.index("Free disk space on ubuntu runners"),
+            names.index("Run cargo build --all-targets (retry once on transient failure)"),
+        )
+        disk = names.index("Free disk before the mesh TLS stability gate")
+        self.assertEqual(disk + 1, names.index("Mesh TLS stability gate"))
+        self.assertIn("df -h /", steps(self.job)["Free disk before the mesh TLS stability gate"])
+
     def test_the_mesh_tls_gate_is_the_last_cargo_step(self) -> None:
         # Catches the gate's own variant of trust-runtime built before the full suite, which then
         # compiled seven crates again: 14.5 minutes on Linux and 21 on macOS (main, 4 November 2026).
