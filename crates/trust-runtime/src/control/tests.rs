@@ -20,6 +20,7 @@ include!("tests/variable_write_integer_literals.rs");
 include!("tests/live_values_pipeline.rs");
 include!("tests/live_values_located_variables.rs");
 include!("tests/request_queue_bounds.rs");
+include!("tests/simulator_advance.rs");
 include!("tests/rejected_force_removal.rs");
 include!("tests/production_step_and_debug_hold.rs");
 include!("tests/pause_resume_resource_state.rs");

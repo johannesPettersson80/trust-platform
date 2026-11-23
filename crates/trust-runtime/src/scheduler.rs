@@ -39,6 +39,7 @@ use trust_runtime_services::resource::supervisor::{
 mod cycle_timing;
 mod live_simulation;
 mod simulation_clock;
+mod stepped_clock;
 
 use self::live_simulation::LiveSimulation;
 
@@ -48,6 +49,7 @@ pub use self::simulation_clock::{
 };
 
 use self::cycle_timing::CycleTiming;
+pub use self::stepped_clock::SteppedClock;
 
 include!("scheduler/clock.rs");
 include!("scheduler/model.rs");

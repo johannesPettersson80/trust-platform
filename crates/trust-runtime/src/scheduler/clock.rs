@@ -10,19 +10,56 @@ pub trait Clock: Send + Sync + 'static {
     fn wake(&self) {
         // Default: no-op for clocks without a wait mechanism.
     }
+
+    /// Whether the clock holds its time until a test moves it, as a simulator's does (specification
+    /// 11 §6.8.1, "Simulator for machine tests"): the scan loop then waits before each cycle until
+    /// the clock allows the cycle's time, and a queued request wakes it.
+    fn holds_time(&self) -> bool {
+        false
+    }
+
+    /// Whether a cycle may run at `time`: always, on a clock that does not hold its time.
+    fn may_run_at(&self, _time: Duration) -> bool {
+        true
+    }
 }
 
-/// Monotonic clock based on `std::time::Instant`.
+/// The runtime's clock: the computer's monotonic clock (`std::time::Instant`), or a simulator's
+/// stepped clock, whose time only its test moves (specification 11 §6.8.1, "Simulator for machine
+/// tests").
 #[derive(Debug, Clone)]
 pub struct StdClock {
-    start: std::time::Instant,
+    source: ClockSource,
+}
+
+#[derive(Debug, Clone)]
+enum ClockSource {
+    Monotonic(std::time::Instant),
+    Stepped(SteppedClock),
 }
 
 impl StdClock {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            start: std::time::Instant::now(),
+            source: ClockSource::Monotonic(std::time::Instant::now()),
+        }
+    }
+
+    /// A simulator's clock: the logical time of `clock`, which only its test moves.
+    #[must_use]
+    pub fn stepped(clock: SteppedClock) -> Self {
+        Self {
+            source: ClockSource::Stepped(clock),
+        }
+    }
+
+    /// The stepped clock of a simulator; none on the computer's clock.
+    #[must_use]
+    pub fn stepped_clock(&self) -> Option<&SteppedClock> {
+        match &self.source {
+            ClockSource::Stepped(clock) => Some(clock),
+            ClockSource::Monotonic(_) => None,
         }
     }
 }
@@ -35,12 +72,21 @@ impl Default for StdClock {
 
 impl Clock for StdClock {
     fn now(&self) -> Duration {
-        let elapsed = self.start.elapsed();
-        let nanos = i64::try_from(elapsed.as_nanos()).unwrap_or(i64::MAX);
-        Duration::from_nanos(nanos)
+        match &self.source {
+            ClockSource::Monotonic(start) => {
+                let elapsed = start.elapsed();
+                let nanos = i64::try_from(elapsed.as_nanos()).unwrap_or(i64::MAX);
+                Duration::from_nanos(nanos)
+            }
+            ClockSource::Stepped(clock) => clock.now(),
+        }
     }
 
     fn sleep_until(&self, deadline: Duration) {
+        if let ClockSource::Stepped(clock) = &self.source {
+            clock.sleep_until(deadline);
+            return;
+        }
         let now = self.now();
         let delta = deadline.as_nanos() - now.as_nanos();
         if delta <= 0 {
@@ -48,6 +94,23 @@ impl Clock for StdClock {
         }
         let delta = u64::try_from(delta).unwrap_or(u64::MAX);
         thread::sleep(std::time::Duration::from_nanos(delta));
+    }
+
+    fn wake(&self) {
+        if let ClockSource::Stepped(clock) = &self.source {
+            clock.wake();
+        }
+    }
+
+    fn holds_time(&self) -> bool {
+        matches!(self.source, ClockSource::Stepped(_))
+    }
+
+    fn may_run_at(&self, time: Duration) -> bool {
+        match &self.source {
+            ClockSource::Stepped(clock) => clock.may_run_at(time),
+            ClockSource::Monotonic(_) => true,
+        }
     }
 }
 

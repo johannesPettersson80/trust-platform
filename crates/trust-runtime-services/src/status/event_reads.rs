@@ -77,6 +77,19 @@ pub(super) fn answer_event_read<H: RecordsPort>(
     ControlResponse::ok(id, serde_json::Value::Object(result))
 }
 
+/// The newest fault event, as `faults` lists it, or none when the store holds no fault or cannot
+/// be read: what `simulator.advance` compares before and after its cycles and adds to its answer
+/// (specification 11 §6.8.1, "Simulator for machine tests").
+pub(crate) fn newest_fault<H: RecordsPort>(host: &H) -> Option<serde_json::Value> {
+    host.read_events(|store| {
+        newest_selected(store, EventRead::Faults.selection(), 1)
+            .next()
+            .cloned()
+    })
+    .flatten()
+    .map(runtime_event_to_json)
+}
+
 /// The read written into `reply` as the result of its successful response, event by event: the
 /// text that [`answer_event_read`]'s result serializes to, as far as the reply's bound and the heap
 /// reach. Writing stops at the first event that is refused, so no reply longer than the bound is

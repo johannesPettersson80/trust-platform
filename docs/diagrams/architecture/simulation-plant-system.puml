@@ -73,6 +73,7 @@ package "Simulation time (spec 46 §6.1)" as simTime {
   component "SimulationSpeed\nshared time_scale 1..100\nnew speed applies from the next cycle" as sim_speed
   component "AchievedSpeedWindow\nsimulation span / wall span over the\nlast 5 s, reported after 1 s of wall time" as sim_achieved
   component "VS Code simulator\ntrust-debug SimulatorClock\nsame pacing and achieved-speed rules" as vscode_sim
+  component "SteppedClock\nstepped_clock.rs: a machine test's\nlogical time; each cycle waits until\nsimulator.advance allows it (spec 11 §6.8.1)" as sim_stepped
 }
 
 note right of sim_timing
@@ -139,6 +140,7 @@ live_transport --> config_speed : config.set request
 config_speed --> sim_speed : set on the running resource\nfrom the next cycle; never moves time
 sim_speed --> sim_loop : speed in force before each cycle
 sim_loop --> sim_timing : begin_cycle(wall time, cycle interval)
+sim_stepped --> sim_loop : in a simulator: the cycle's time,\nonly when the test allows it;\na queued request wakes the loop once
 sim_loop --> simulation : pre-cycle and post-cycle hooks
 sim_timing --> simulation : process time of the executed cycle
 sim_timing --> sim_achieved : simulation time per wall time

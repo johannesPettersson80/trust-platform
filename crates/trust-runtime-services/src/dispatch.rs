@@ -31,6 +31,7 @@ use crate::protocol::{
     read_line, ControlAfterResponse, ControlRequest, ControlResponse, LineError,
 };
 use crate::resource::operations;
+use crate::simulator_advance;
 use crate::status::{self, EventRead};
 
 /// One request line's serialized response and the work to run after writing it.
@@ -296,6 +297,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "resume" => operations::resume(id, host),
         "restart" => operations::restart(id, request.params.clone(), host),
         "cycle.step" => cycle_step::request(id, request.params.as_ref(), host),
+        "simulator.advance" => simulator_advance::request(id, request.params.as_ref(), host),
         "shutdown" => operations::shutdown(id, request.params.as_ref()),
         "identify" => identify::identify(id, request.params.as_ref(), host),
         "program.install" => program_install::request(id, request.params.as_ref(), host),

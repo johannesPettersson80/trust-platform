@@ -377,6 +377,18 @@ impl<C: Clock + Clone> ResourceControl<C> {
     /// Queue a command for the running resource without blocking. A full queue refuses the
     /// command with [`CommandSendError::Full`] and queues nothing (specification 11 section 6.9).
     pub fn send_command(&self, command: ResourceCommand) -> Result<(), CommandSendError> {
-        try_queue(&self.cmd_tx, command)
+        try_queue(&self.cmd_tx, command)?;
+        // A clock that holds its time holds the scan loop until a request wakes it (specification
+        // 11 §6.8.1, "Simulator for machine tests"); every other loop takes it at its next pass.
+        if self.clock.holds_time() {
+            self.clock.wake();
+        }
+        Ok(())
+    }
+
+    /// The resource's clock.
+    #[must_use]
+    pub fn clock(&self) -> &C {
+        &self.clock
     }
 }
