@@ -1,4 +1,5 @@
 # Empty simulator: your first program
+<!-- --8<-- [start:page] -->
 
 You start from an empty project, write a counter into its program, and watch it count on the Simulator. It
 teaches the loop you will use for every program: edit, save, Start, and watch the values in Live Values.
@@ -20,16 +21,17 @@ teaches the loop you will use for every program: edit, save, Start, and watch th
    **Select destination folder** and keep the name: VS Code opens the copy, with no hardware to set up.
 2. Open `src/Main.st`. It holds an empty program, `PROGRAM Main` and `END_PROGRAM`. Replace it with:
 
-   ```
-   PROGRAM Main
-   VAR
-       Count AT %MD0 : DINT;
-   END_VAR
-       Count := Count + 1;
-   END_PROGRAM
-   ```
+    ```
+    PROGRAM Main
+    VAR
+        Count AT %MD0 : DINT;
+    END_VAR
+        Count := Count + 1;
+    END_PROGRAM
+    ```
 
-   and save the file.
+    and save the file.
+
 3. Press **Start** in the side panel. The status bar says `Compile passed — 2 sources, no errors.` and
    `truST: Simulator running`, and **Live Values** opens with `Main.Count` (`%MD0`) under **Memory**. It counts:
    in the run, read every half second, 301, 346, 392, 452, 497 and 542, which is 241 in 2.5 s.
@@ -76,6 +78,7 @@ after about 5½ minutes.
   the program instance `Main`.
 - `io.toml`: the simulated I/O driver.
 - `runtime.toml`: the runtime's settings: the resource `MainRes` with its 10 ms cycle.
+<!-- --8<-- [end:page] -->
 
 From here, the [conveyor demo](../conveyor/README.md) teaches the scan cycle with inputs and outputs, and the
 [tutorials](../tutorials/README.md) teach Structured Text from its first lines.

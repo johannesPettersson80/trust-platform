@@ -15,18 +15,18 @@ runtime display, so a page looks the same while you design it, in Live mode, and
    so values and commands never run between scans.
 2. Open `hmi/pages/<page>.toml`. It opens in the HMI Builder; **Open as text** shows the TOML.
 3. Find your way around:
-   - **Left:** the tabs **Components** (drag one onto the page, or click it to place it in the
-     middle of the view) and **Objects**, the page's objects front to back. The `‹` button hides
-     the side panel. The project's pages are in the VS Code Explorer.
-   - **Middle:** the page at its design size, with the grid, guides and selection handles.
-   - **Right:** the inspector for what is selected: its label, position and size, bindings and
-     what a click does; with nothing selected, the page itself.
-   - **Bottom:** **Tags**, the program's variables, and **Texts**, the page's words in each
-     language.
-   - **Top:** **Design** and **Live**, the design size, the language shown with
-     **Languages…** to choose the languages your screens offer, zoom and **Fit**, **Open as
-     text** and **Deploy**. Operators switch between those languages with the language button
-     of the running screen.
+    - **Left:** the tabs **Components** (drag one onto the page, or click it to place it in the
+      middle of the view) and **Objects**, the page's objects front to back. The `‹` button hides
+      the side panel. The project's pages are in the VS Code Explorer.
+    - **Middle:** the page at its design size, with the grid, guides and selection handles.
+    - **Right:** the inspector for what is selected: its label, position and size, bindings and
+      what a click does; with nothing selected, the page itself.
+    - **Bottom:** **Tags**, the program's variables, and **Texts**, the page's words in each
+      language.
+    - **Top:** **Design** and **Live**, the design size, the language shown with
+      **Languages…** to choose the languages your screens offer, zoom and **Fit**, **Open as
+      text** and **Deploy**. Operators switch between those languages with the language button
+      of the running screen.
 
 ## Main tasks
 
@@ -47,18 +47,18 @@ With the [Plant library](libraries/plant.md) in the project, **Components** star
 3. **Connect hardware.** The button beside the hardware status opens Devices & Connections at
    the pump, where its run command and feedback are connected to PLC signals.
 4. **Create PLC code.** **Create PLC code** writes one declaration and one call per new device
-   into two marked regions of the program, with the chosen settings and signals:
+    into two marked regions of the program, with the chosen settings and signals:
 
-   ```text
-   (* truST plant: declarations sha256:… *)
-   P101 : Plant.FB_Pump := (StartTimeout := T#10s);
-   (* end of truST plant declarations *)
-   ```
+    ```text
+    (* truST plant: declarations sha256:… *)
+    P101 : Plant.FB_Pump := (StartTimeout := T#10s);
+    (* end of truST plant declarations *)
+    ```
 
-   The program's own code stays as it is: it sets `P101.AutoRun` when the pump should run. The
-   regions belong to the generator; a region changed by hand is refused with its line, never
-   overwritten. Renaming an instance with **Rename Symbol** keeps its regions valid. A device you
-   declared yourself is used as it is and never declared again.
+    The program's own code stays as it is: it sets `P101.AutoRun` when the pump should run. The
+    regions belong to the generator; a region changed by hand is refused with its line, never
+    overwritten. Renaming an instance with **Rename Symbol** keeps its regions valid. A device you
+    declared yourself is used as it is and never declared again.
 
 Starting from a program instead, **Create HMI** places a symbol for every declared device that is
 not on a page yet, in rows of instruments, controllers and equipment, each opening its panel.
@@ -311,6 +311,8 @@ On macOS, **Cmd** takes the place of **Ctrl**.
 
 ## Related
 
+- [HMI Tank Level](../examples/hmi-tank-level.md) and [HMI Equipment](../examples/hmi-equipment.md):
+  operate two finished HMIs as an operator does, step by step
 - [HMI library](libraries/hmi.md): `Hmi.Display` and where the screens are served
 - [Alarm library](libraries/alarm.md): alarms on the display
 - [Plant library](libraries/plant.md): equipment blocks with their symbols, panels and settings
