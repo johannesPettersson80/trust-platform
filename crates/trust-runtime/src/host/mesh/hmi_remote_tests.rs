@@ -200,10 +200,25 @@ fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
         )
         .unwrap()
         .is_err());
-    assert!(origin_exchange
-        .remote_operations
-        .login(&local, &owner_name, "operator", "wrong")
-        .is_err());
+    // Discovery comes before operability: the owner declares its liveliness token before its HMI
+    // operation queryable, so the origin can see the owner before a query reaches that queryable.
+    // An operation in between gets no reply at all, which the origin reports as an unknown result
+    // (macOS CI, 23 November 2026, #739). The test waits for the owner's own answer, as an operator
+    // retries an unknown result: the owner refuses the wrong password. A transport failure never
+    // reaches the owner, so it counts toward no lockout. Catches a refusal that is the transport's
+    // and not the owner's.
+    let operable = Instant::now() + Duration::from_secs(10);
+    let refused = loop {
+        let refusal = origin_exchange
+            .remote_operations
+            .login(&local, &owner_name, "operator", "wrong")
+            .expect_err("the owner refuses a wrong password");
+        if !refusal.starts_with("unknown:") || Instant::now() >= operable {
+            break refusal;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert_eq!(refused, "owner login refused or temporarily locked");
     let login = origin_exchange
         .remote_operations
         .login(&local, &owner_name, "operator", "secret")
