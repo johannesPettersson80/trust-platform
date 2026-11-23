@@ -40,8 +40,8 @@ class Cargo:
 class PublishCratesTests(unittest.TestCase):
     def test_the_crates_are_published_in_dependency_order_and_a_held_version_is_skipped(self) -> None:
         # trust-plc-lib needs trust-plc-abi, trust-plc-decl needs trust-plc-lib, trust-plc-macros needs
-        # trust-plc-decl and trust-plc needs them all; trust-service needs trust-runtime-client: each is published
-        # after those it depends on. A version
+        # trust-plc-decl and trust-plc needs them all; trust-service and trust-sim need trust-runtime-client: each
+        # is published after those it depends on. A version
         # crates.io holds, here trust-plc-abi's from an earlier run, is skipped, so a re-run continues. Catches a
         # crate published before one it depends on, whose verification would not find it, and a re-run that
         # fails on the version an earlier run published.
@@ -64,12 +64,14 @@ class PublishCratesTests(unittest.TestCase):
                 "trust-plc",
                 "trust-runtime-client",
                 "trust-service",
+                "trust-sim",
             ],
         )
         self.assertEqual(
             asked[0], f"https://crates.io/api/v1/crates/trust-plc-abi/{VERSION}"
         )
-        self.assertEqual(len(asked), 7)
+        # crates.io is asked once for each of the 8 crates RU-12 publishes.
+        self.assertEqual(len(asked), 8)
 
     def test_without_a_token_nothing_is_published_and_a_notice_says_why(self) -> None:
         # Only the owner of the crates' account gives the token: until the repository holds it, a release
