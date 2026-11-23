@@ -292,6 +292,13 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         RolePolicy::Fixed(AccessRole::Engineer),
         false,
     ),
+    operation(
+        "trace.record",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation("trace.read", RolePolicy::Fixed(AccessRole::Engineer), false),
+    operation("trace.stop", RolePolicy::Fixed(AccessRole::Engineer), false),
     operation("var.force", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("var.unforce", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("io.write", RolePolicy::Fixed(AccessRole::Engineer), false),

@@ -34,6 +34,7 @@ use crate::protocol::{
 use crate::resource::operations;
 use crate::simulator_advance;
 use crate::status::{self, EventRead};
+use crate::trace;
 
 /// One request line's serialized response and the work to run after writing it.
 #[derive(Debug)]
@@ -300,6 +301,9 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "cycle.step" => cycle_step::request(id, request.params.as_ref(), host),
         "simulator.advance" => simulator_advance::request(id, request.params.as_ref(), host),
         "method.call" => method_call::request(id, request.params.as_ref(), host),
+        "trace.record" => trace::requests::record(id, request.params.as_ref(), host),
+        "trace.read" => trace::requests::read(id, request.params.as_ref(), host),
+        "trace.stop" => trace::requests::stop(id, request.params.as_ref(), host),
         "shutdown" => operations::shutdown(id, request.params.as_ref()),
         "identify" => identify::identify(id, request.params.as_ref(), host),
         "program.install" => program_install::request(id, request.params.as_ref(), host),

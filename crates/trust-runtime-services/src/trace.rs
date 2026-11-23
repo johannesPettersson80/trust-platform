@@ -7,6 +7,7 @@
 //! the recording `memory_full`, with the cycles before it. Once ended, [`Recorder::file`] gives the
 //! `.trusttrace` file.
 
+pub mod requests;
 #[cfg(test)]
 mod tests;
 
