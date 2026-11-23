@@ -10,6 +10,7 @@ use crate::harness::SourceFile;
 
 include!("contracts.rs");
 include!("build.rs");
+include!("replacing.rs");
 include!("deps.rs");
 include!("identify.rs");
 include!("profile.rs");
