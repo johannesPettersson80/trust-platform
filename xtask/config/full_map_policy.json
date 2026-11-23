@@ -587,6 +587,22 @@
       "rationale": "The attributes read a Rust POU with the reader the build's declarations writer uses, so that the compiled code and the generated declarations agree (specification 48 RU-24)."
     },
     {
+      "from": "trust-sim",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "A machine test drives the installed runtime's simulator over its control link, the client every SDK crate shares (specification 48 RU-58)."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-sim",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "trust-sim's machine tests run against the trust-runtime binary this build makes (specification 48 RU-58)."
+    },
+    {
       "from": "trust-plc-decl",
       "to": "trust-plc-lib",
       "kind": "normal",

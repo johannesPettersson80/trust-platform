@@ -7943,6 +7943,7 @@ dependencies = [
  "trust-runtime-client",
  "trust-runtime-core",
  "trust-runtime-services",
+ "trust-sim",
  "trust-syntax",
  "trust-tcads-native",
  "trust-test-support",
@@ -8011,6 +8012,15 @@ dependencies = [
  "toml",
  "trust-runtime-client",
  "trust-test-support",
+]
+
+[[package]]
+name = "trust-sim"
+version = "0.44.1"
+dependencies = [
+ "serde_json",
+ "thiserror 2.0.21",
+ "trust-runtime-client",
 ]
 
 [[package]]
