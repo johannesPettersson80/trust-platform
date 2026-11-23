@@ -23,6 +23,13 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
   CARGO_PROFILE_TEST_DEBUG: line-tables-only
+  # Proc macros, build scripts and the crates only they use build without debug info, in
+  # `cargo build` and `cargo test` alike. Cargo's own default, debug info off "when possible",
+  # gave a proc macro of the workspace the line tables above in `cargo build --all-targets` and
+  # none in the suite's `cargo test`, which then built the macro again with every crate after it.
+  # With trust-sim on trust-plc, that rebuilt every trust-runtime test binary, and the Linux
+  # runner ran out of disk (23 November 2026, #749; checklist G291).
+  CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: "false"
 
 jobs:
   portable-core:
