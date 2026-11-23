@@ -52,6 +52,7 @@ pub mod service_heartbeat;
 pub mod settings;
 pub mod simulator_advance;
 pub mod status;
+pub mod trace;
 pub mod transfer;
 pub mod variables;
 pub mod variables_write;
