@@ -2,7 +2,7 @@
 //! written as the Structured Text literal that `set` and `var.force` take, and read from the JSON
 //! that `variables.read` gives.
 
-use serde_json::Value as Json;
+use serde_json::{Map, Value as Json};
 
 /// A Rust value of a variable's type: `bool`, the integers, `f32`, `f64` and `String`.
 pub trait Value: Sized {
@@ -88,11 +88,69 @@ impl Value for String {
     }
 }
 
+/// What a method returns: a [`Value`], or `()` for a method without a result.
+///
+/// Its items are named apart from [`Value`]'s, so that a test that brings both traits into scope
+/// still calls `bool::from_json` unambiguously.
+pub trait Returned: Sized {
+    /// The kind of result, as an error names it.
+    const RESULT_KIND: &'static str;
+
+    /// The result that `method.call` gives as `json`, or none for a result of another kind.
+    fn from_result(json: &Json) -> Option<Self>;
+}
+
+impl<V: Value> Returned for V {
+    const RESULT_KIND: &'static str = V::KIND;
+
+    fn from_result(json: &Json) -> Option<Self> {
+        V::from_json(json)
+    }
+}
+
+impl Returned for () {
+    const RESULT_KIND: &'static str = "no result";
+
+    fn from_result(json: &Json) -> Option<Self> {
+        json.is_null().then_some(())
+    }
+}
+
+/// The inputs of a method call by name, each written as the Structured Text literal of its value;
+/// the runtime types each by its input's declared type, as `write` is typed by its variable's.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Inputs(Vec<(String, String)>);
+
+impl Inputs {
+    /// No inputs: each input of the method takes its declared initial value.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// These inputs and the input `name` with `value`.
+    #[must_use]
+    pub fn with<V: Value>(mut self, name: &str, value: V) -> Self {
+        self.0.push((name.to_string(), value.literal()));
+        self
+    }
+
+    /// The inputs as `method.call` takes them: an object of literals by name.
+    pub(crate) fn into_json(self) -> Json {
+        Json::Object(
+            self.0
+                .into_iter()
+                .map(|(name, literal)| (name, Json::String(literal)))
+                .collect::<Map<String, Json>>(),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use serde_json::{json, Value as Json};
 
-    use super::Value;
+    use super::{Inputs, Returned, Value};
 
     #[test]
     fn values_are_written_as_structured_text_literals() {
@@ -117,5 +175,29 @@ mod tests {
         assert_eq!(f64::from_json(&json!(95.0)), Some(95.0));
         assert_eq!(String::from_json(&json!("ok")), Some("ok".to_string()));
         assert_eq!(bool::from_json(&json!(1)), None);
+    }
+
+    #[test]
+    fn a_calls_inputs_are_literals_by_name_and_a_method_without_a_result_answers_null() {
+        // `method.call` takes each input as the Structured Text literal `write` writes (specification
+        // 11 §6.8.1, "Calling a method"): 21.5 keeps its point, a text its quotes, TRUE its word. A
+        // method without a result answers `null`, which only `()` takes, and a value answers what
+        // its kind reads. Catches an input sent as a JSON number, which the runtime refuses, and `()`
+        // taking a method's value.
+        let inputs = Inputs::new()
+            .with("Setpoint", 21.5)
+            .with("Label", "it's".to_string())
+            .with("Enable", true);
+        assert_eq!(
+            inputs.into_json(),
+            json!({"Setpoint": "21.5", "Label": "'it$'s'", "Enable": "TRUE"})
+        );
+        assert_eq!(Inputs::new().into_json(), json!({}));
+        assert_eq!(<()>::from_result(&Json::Null), Some(()));
+        assert_eq!(<()>::from_result(&json!(true)), None);
+        assert_eq!(bool::from_result(&json!(true)), Some(true));
+        assert_eq!(bool::from_result(&Json::Null), None);
+        // Both traits are in scope here, as in a test that imports `trust_sim::*`.
+        assert_eq!(bool::from_json(&json!(false)), Some(false));
     }
 }

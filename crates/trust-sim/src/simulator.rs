@@ -10,7 +10,7 @@ use std::time::Duration;
 use serde_json::{json, Value as Json};
 use trust_runtime_client::{ByteStream, ControlClient, ControlError};
 
-use crate::{Error, Result, Value};
+use crate::{Error, Inputs, Result, Returned, Value};
 
 /// How much of the simulator's standard error an error quotes.
 const STDERR_TAIL: usize = 2_000;
@@ -105,7 +105,7 @@ impl Simulator {
     ///
     /// [`Error::Refused`] for a path that names no variable, or a value its type does not take.
     pub fn write<V: Value>(&mut self, path: &str, value: V) -> Result<()> {
-        self.call(
+        self.request(
             "set",
             json!({ "target": format!("global:{path}"), "value": value.literal() }),
         )
@@ -119,7 +119,7 @@ impl Simulator {
     ///
     /// [`Error::Refused`] for a path that names no variable, or a value its type does not take.
     pub fn force<V: Value>(&mut self, path: &str, value: V) -> Result<()> {
-        self.call(
+        self.request(
             "var.force",
             json!({ "target": format!("global:{path}"), "value": value.literal() }),
         )
@@ -132,7 +132,7 @@ impl Simulator {
     ///
     /// [`Error::Refused`] for a path that names no variable.
     pub fn release(&mut self, path: &str) -> Result<()> {
-        self.call("var.unforce", json!({ "target": format!("global:{path}") }))
+        self.request("var.unforce", json!({ "target": format!("global:{path}") }))
             .map(drop)
     }
 
@@ -143,12 +143,62 @@ impl Simulator {
     /// [`Error::Refused`] for a path that names no variable or before the first cycle, and
     /// [`Error::Kind`] for a value of another kind than `V`.
     pub fn read<V: Value>(&mut self, path: &str) -> Result<V> {
-        let read = self.call("variables.read", json!({ "paths": [path] }))?;
+        let read = self.request("variables.read", json!({ "paths": [path] }))?;
         let value = &read["values"][0]["value"];
         V::from_json(value).ok_or_else(|| Error::Kind {
             path: path.to_string(),
             value: value.to_string(),
             kind: V::KIND,
+        })
+    }
+
+    /// Calls the method `method` of the interface `interface` of the instance `instance` between two
+    /// cycles, with `inputs`, as a screen's command calls it (`method.call`), and returns the
+    /// method's result: `()` for a method without one. An input not given takes its declared
+    /// initial value. The call runs at the logical time of the last cycle, and the next cycle sees
+    /// what the method changed.
+    ///
+    /// ```no_run
+    /// # fn main() -> trust_sim::Result<()> {
+    /// # let mut plant = trust_sim::Project::open("..")?.simulator()?;
+    /// let started: bool = plant.call(
+    ///     "Main.Heating",
+    ///     "Plant.ISequence",
+    ///     "Start",
+    ///     trust_sim::Inputs::new().with("Setpoint", 21.5),
+    /// )?;
+    /// assert!(started);
+    /// plant.call::<()>("Main.Heating", "Plant.ISequence", "Reset", trust_sim::Inputs::new())?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Refused`] for an instance, an interface, a method or an input the program does not
+    /// have, a value an input's type does not take, and a method that faulted, which faults the
+    /// resource as a faulted cycle does; [`Error::Kind`] for a result of another kind than `R`.
+    pub fn call<R: Returned>(
+        &mut self,
+        instance: &str,
+        interface: &str,
+        method: &str,
+        inputs: Inputs,
+    ) -> Result<R> {
+        let answer = self.request(
+            "method.call",
+            json!({
+                "instance": instance,
+                "interface": interface,
+                "method": method,
+                "inputs": inputs.into_json(),
+            }),
+        )?;
+        let value = &answer["value"];
+        R::from_result(value).ok_or_else(|| Error::Kind {
+            path: format!("{instance}.{method}"),
+            value: value.to_string(),
+            kind: R::RESULT_KIND,
         })
     }
 
@@ -162,11 +212,11 @@ impl Simulator {
             Restart::Warm => "warm",
             Restart::Cold => "cold",
         };
-        self.call("restart", json!({ "mode": mode })).map(drop)
+        self.request("restart", json!({ "mode": mode })).map(drop)
     }
 
     fn advance(&mut self, params: Json) -> Result<()> {
-        let advanced = self.call("simulator.advance", params)?;
+        let advanced = self.request("simulator.advance", params)?;
         if let Some(nanos) = advanced["time_ns"].as_u64() {
             self.now = Duration::from_nanos(nanos);
         }
@@ -179,7 +229,7 @@ impl Simulator {
         }
     }
 
-    fn call(&mut self, kind: &str, params: Json) -> Result<Json> {
+    fn request(&mut self, kind: &str, params: Json) -> Result<Json> {
         let client = self
             .client
             .as_mut()

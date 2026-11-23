@@ -1101,7 +1101,10 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   no variable, or a value its variable's type does not take, is an error that names the path, the
   value and the type. `call` calls a method of an instance through an interface its type
   implements, as a screen's command does, and returns the method's result (specification 11
-  §6.8.1, `method.call`): a test presses a sequence's Start as the operator does.
+  §6.8.1, `method.call`): a test presses a sequence's Start as the operator does. Its inputs are
+  given by name, each a Rust value as `write` takes one (`Inputs::new().with("Setpoint", 21.5)`),
+  and an input not given takes its declared initial value; a method without a result returns `()`,
+  and a result of another kind than the test asks for is an error that names the method.
 - **Faults.** A cycle that faults ends `run_cycles` or `run_for` with an error that names the fault
   and, when the image has them, its POU and statement, and the project's fault policy then acts as
   in a run (`[runtime.fault]`): a halting fault leaves the resource faulted, with its safe state
