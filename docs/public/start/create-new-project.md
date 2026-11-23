@@ -92,6 +92,10 @@ shows the project with the Simulator as its target.
 **If it doesn't work:** if the view still shows **No project**, the folder wasn't recognized as a truST
 project (no `trust-lsp.toml`) — reopen the folder you created.
 
+## Worked tutorial
+
+--8<-- "examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md:3"
+
 ## Next
 
 - Write your logic: [Program In VS Code](program-in-vscode.md)

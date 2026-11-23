@@ -1,7 +1,9 @@
 # Libraries And Motion
 
-Reusable library and motion examples. The demo below is the first practical
-PLCopen Motion example.
+Reusable library and motion examples. [Move One Virtual Axis](plcopen-motion-single-axis.md)
+starts PLCopen Motion step by step: one virtual axis, powered and moved from Live Values, and
+the rising edge that starts a motion command. The demo below is the reference consumer of the
+shipped single-axis core.
 
 Read [PLCopen Motion](../develop/libraries/plcopen-motion.md) before adapting
 the classic project, or [PLCopen Motion OOP](../develop/libraries/plcopen-motion-oop.md)
