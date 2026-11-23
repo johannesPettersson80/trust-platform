@@ -110,6 +110,7 @@ const ENGINEER: &[&str] = &[
     "io.force",
     "io.unforce",
     "io.write",
+    "method.call",
     "plant.edit",
     "plant.remove",
     "plant.save",

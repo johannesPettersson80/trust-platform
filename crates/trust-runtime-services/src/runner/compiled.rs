@@ -34,6 +34,7 @@ use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::image::BACKGROUND_PRIORITY;
 use trust_runtime_core::native::program::{ModuleCode, NativeProgram, NoHooks, ScanHooks};
 use trust_runtime_core::native::stop::Stop;
+use trust_runtime_core::native::tool::MethodCallError;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RetainApplyEvent;
@@ -47,6 +48,7 @@ use super::process_io::ProcessIo;
 use super::retain::{CycleRetain, RetainConfig, RetainStore};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::sources::fault_at;
+use crate::method_call::{MethodCall, ALLOWANCE};
 use crate::metrics::{MemoryFigure, ProgramMemory, RustPouStats};
 use crate::status::IoDriverStatus;
 
@@ -454,6 +456,24 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
 
     fn latch_fault(&mut self, fault: RuntimeError) {
         self.fault = Some(fault);
+    }
+
+    /// The kernel makes the call (`NativeProgram::call_method`) with a screen's command's
+    /// allowance; a latched fault refuses it, as trust-runtime refuses it (specification 44 §13.3).
+    fn call_method(&mut self, call: &MethodCall, now: Duration) -> Result<Value, MethodCallError> {
+        if self.fault.is_some() {
+            return Err(MethodCallError::Refused(RuntimeError::ResourceFaulted));
+        }
+        self.program
+            .call_method(
+                &call.instance,
+                &call.interface,
+                &call.method,
+                &call.inputs,
+                ALLOWANCE,
+                now,
+            )
+            .map(|(value, _)| value)
     }
 
     /// As trust-runtime applies `[[io.safe_state]]`: each safe value is written into the output

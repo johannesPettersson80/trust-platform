@@ -26,6 +26,7 @@ use crate::events::{wall_time, RuntimeEvent};
 use crate::identify;
 use crate::live_values::{io_requests, var_requests};
 use crate::loading::{firmware_install, program_install};
+use crate::method_call;
 use crate::ports::{AuditRecord, ControlHost};
 use crate::protocol::{
     read_line, ControlAfterResponse, ControlRequest, ControlResponse, LineError,
@@ -298,6 +299,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "restart" => operations::restart(id, request.params.clone(), host),
         "cycle.step" => cycle_step::request(id, request.params.as_ref(), host),
         "simulator.advance" => simulator_advance::request(id, request.params.as_ref(), host),
+        "method.call" => method_call::request(id, request.params.as_ref(), host),
         "shutdown" => operations::shutdown(id, request.params.as_ref()),
         "identify" => identify::identify(id, request.params.as_ref(), host),
         "program.install" => program_install::request(id, request.params.as_ref(), host),

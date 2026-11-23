@@ -25,6 +25,7 @@ use trust_runtime_services::live_values::queues::{
 };
 use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
+use trust_runtime_services::method_call::{MethodCall, MethodCallRefusal};
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
@@ -214,6 +215,29 @@ impl ResourcePort for ControlState {
         let resource = &self.resource;
         let runs = || runs_cycles(resource.state()) && !resource.is_hung() && !faulted();
         clock.advance(advance, &runs)
+    }
+
+    /// The scan thread makes the call between two scans (specification 44 section 13.3); the
+    /// request waits for its answer as long as a step waits for its own.
+    fn call_method(&self, call: &MethodCall) -> Result<Value, MethodCallRefusal> {
+        let (reply, replies) = std::sync::mpsc::channel();
+        let command = ResourceCommand::CallMethod {
+            call: Box::new(call.clone()),
+            respond_to: reply,
+        };
+        match self.resource.send_command(command) {
+            Ok(()) => {}
+            Err(CommandSendError::Full) => return Err(MethodCallRefusal::Busy),
+            Err(CommandSendError::Closed) => {
+                return Err(MethodCallRefusal::NotRunning(self.resource.state()));
+            }
+        }
+        replies.recv_timeout(STEP_WAIT).unwrap_or_else(|_| {
+            Err(MethodCallRefusal::Refused(format!(
+                "the scan thread did not answer the call within {} s",
+                STEP_WAIT.as_secs()
+            )))
+        })
     }
 }
 

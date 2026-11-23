@@ -149,7 +149,7 @@ pub(crate) fn refusal_text(refusal: &ReadRefusal) -> String {
 /// number as its shortest text that reads back as the same value of its type, a duration in
 /// nanoseconds, a date or time of day in the units specification 10 counts it in, a text, or an
 /// enumerator's name.
-fn json_value(value: &Value) -> Json {
+pub(crate) fn json_value(value: &Value) -> Json {
     match value {
         Value::Bool(value) => json!(value),
         Value::SInt(value) => json!(value),

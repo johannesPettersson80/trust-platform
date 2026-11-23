@@ -157,7 +157,17 @@ fn run_resource_loop_core<C, F>(
             continue;
         }
 
-        drain_commands(&mut runner, &state, &mut paused);
+        if let Some(fault) = drain_commands(&mut runner, &state, &mut paused) {
+            // A method call that faulted faults the resource as a faulted scan does
+            // (specification 44 §13.3): the fault policy acts.
+            let watchdog = runner.runtime.watchdog_policy();
+            if handle_cycle_error(&mut runner, &shared, &mut restarts, watchdog, fault) == Next::Exit
+            {
+                return;
+            }
+            paused = false;
+            continue;
+        }
 
         if let Some(mode) = faulted::take_pending_restart(&runner) {
             // The tasks' timing, and the grid with it, begin again when the restart's first cycle
@@ -370,19 +380,21 @@ fn handle_watchdog_overrun<C: Clock + Clone>(
 /// Serves the commands queued when the boundary begins: pause and resume change the loop's state,
 /// the others act on the runtime (the shared running-command rules). A command queued while they
 /// are served waits for the next boundary, so that clients that ask again as soon as they are
-/// answered cannot hold the next cycle back (specification 11 section 6.9).
+/// answered cannot hold the next cycle back (specification 11 section 6.9). Returns the fault of a
+/// method call that faulted, which the loop handles as a faulted scan's (specification 44 §13.3);
+/// the commands after it are served as queued, and a later call is refused while the fault is
+/// latched.
 fn drain_commands<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     state: &Arc<Mutex<ResourceState>>,
     paused: &mut bool,
-) {
-    let Some(commands) = runner.command_rx.as_ref() else {
-        return;
-    };
+) -> Option<RuntimeError> {
+    let commands = runner.command_rx.as_ref()?;
     let queued: Vec<ResourceCommand> = commands
         .try_iter()
         .take(RESOURCE_COMMAND_CAPACITY)
         .collect();
+    let mut fault = None;
     for command in queued {
         match running_command_effect(command_class(&command)) {
             // A pause and a resume restart the simulation schedule (specification 46, §6.1 item 4).
@@ -411,12 +423,18 @@ fn drain_commands<C: Clock + Clone>(
                         .clear_plant_trace(&plant_id, &active_configuration_revision);
                     let _ = respond_to.send(result);
                 }
+                ResourceCommand::CallMethod { call, respond_to } => {
+                    let (answer, faulted) = call_method(&mut runner.runtime, &call);
+                    let _ = respond_to.send(answer);
+                    fault = fault.or(faulted);
+                }
                 other => {
                     apply_runner_command(&mut runner.runtime, runner.refuse_mesh_catalogue, other)
                 }
             },
         }
     }
+    fault
 }
 
 /// Sleeps until the next cycle is due. On the wall clock it returns the nominal start of the next
@@ -1140,5 +1158,40 @@ fn apply_resource_command(runtime: &mut CompiledRuntime, command: ResourceComman
         ResourceCommand::StepCycle { respond_to, .. } => {
             let _ = respond_to.send(Err(StepRefusal::NotStopped(ResourceState::Running)));
         }
+        // The scan loop makes a call itself (`drain_commands`), so that its fault reaches the
+        // loop's fault handling; a call made here leaves its fault latched for the next scan.
+        ResourceCommand::CallMethod { call, respond_to } => {
+            let _ = respond_to.send(call_method(runtime, &call).0);
+        }
+    }
+}
+
+/// A tool's method call between scans (specification 44 section 13.3; `method.call`,
+/// specification 11 section 6.8.1): its answer, and the fault of a method that faulted. The
+/// kernel's refusal leaves the program as it was. A fault of the method faults the resource as a
+/// faulted scan does: `CompiledRuntime::call_method` latches it and applies the fault policy's
+/// output action, and the scan loop handles the returned fault as a faulted scan's.
+fn call_method(
+    runtime: &mut CompiledRuntime,
+    call: &trust_runtime_services::method_call::MethodCall,
+) -> (
+    Result<Value, trust_runtime_services::method_call::MethodCallRefusal>,
+    Option<RuntimeError>,
+) {
+    use trust_runtime_services::method_call::{MethodCallRefusal, ALLOWANCE};
+    let faulted_before = runtime.faulted();
+    match runtime.call_method(
+        &call.instance,
+        &call.interface,
+        &call.method,
+        &call.inputs,
+        ALLOWANCE,
+    ) {
+        Ok((value, _)) => (Ok(value), None),
+        Err(error) if !faulted_before && runtime.faulted() => (
+            Err(MethodCallRefusal::Faulted(error.to_string())),
+            Some(error),
+        ),
+        Err(error) => (Err(MethodCallRefusal::Refused(error.to_string())), None),
     }
 }

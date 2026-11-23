@@ -77,6 +77,14 @@ pub enum ResourceCommand {
         request: Box<StepRequest>,
         respond_to: std::sync::mpsc::Sender<Result<StepOutcome, StepRefusal>>,
     },
+    /// A tool's method call between scans (`method.call`, specification 11 section 6.8.1;
+    /// specification 44 section 13.3), which a running resource makes between two scans.
+    CallMethod {
+        call: Box<trust_runtime_services::method_call::MethodCall>,
+        respond_to: std::sync::mpsc::Sender<
+            Result<Value, trust_runtime_services::method_call::MethodCallRefusal>,
+        >,
+    },
 }
 
 /// What a program start leaves to the scan thread: the scheduling settings of the program's own
@@ -122,6 +130,7 @@ fn command_class(command: &ResourceCommand) -> CommandClass {
         | ResourceCommand::ActiveAdsDevice { .. }
         | ResourceCommand::ProgramInstalled
         | ResourceCommand::StepCycle { .. }
+        | ResourceCommand::CallMethod { .. }
         | ResourceCommand::MeshCatalogue { .. }
         | ResourceCommand::SimulationSnapshot { .. }
         | ResourceCommand::SimulationTraceClear { .. } => CommandClass::Service,

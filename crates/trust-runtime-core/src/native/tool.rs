@@ -39,8 +39,8 @@ pub const GIVEN_PART: &str = "__GIVEN";
 /// holds.
 pub const ONLY_INPUTS: &str = "a host method call accepts only input parameters";
 
-/// The refusal of a call while a scan runs.
-const DURING_A_SCAN: &str = "a method is called between scans, and a scan is running";
+/// The refusal of a call while a scan runs, which a runtime whose debugger holds a scan gives too.
+pub const DURING_A_SCAN: &str = "a method is called between scans, and a scan is running";
 
 /// The canonical name of the tool symbol of method `method` of interface `interface` (§5.7):
 /// `@TOOL.LIB.IRUN.START` for `Lib.IRun.Start`.
@@ -80,6 +80,26 @@ struct Block {
 
 /// The mask of a call's given inputs, and the place of each with its value.
 type Given<'v> = (Vec<u8>, Vec<(Located, &'v Value)>);
+
+/// The inputs of method `method` of interface `interface` in `image`, each by its canonical name
+/// with its declared type, in the order of their offsets: a tool types the literals of a call by
+/// them, as Live Values type a literal by its variable's declared type (§13.3).
+///
+/// # Errors
+///
+/// The refusal [`NativeProgram::call_method`] gives for a method `interface` has no tool symbol
+/// of, or one whose tool symbol no entry names, and for tables that do not read.
+pub fn method_inputs(
+    image: &Image<'_>,
+    interface: &str,
+    method: &str,
+) -> Result<Vec<(String, u32)>, RuntimeError> {
+    Ok(Block::of(image, interface, method)?
+        .inputs
+        .into_iter()
+        .map(|(name, at)| (name, at.type_index))
+        .collect())
+}
 
 impl Block {
     /// The call block of method `method` of interface `interface`.

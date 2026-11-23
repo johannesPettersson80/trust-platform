@@ -16,16 +16,19 @@ use alloc::vec::Vec;
 use core::cell::{Cell, OnceCell, RefCell};
 
 use smol_str::SmolStr;
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::Generation;
+use trust_runtime_core::native::tool::MethodCallError;
 use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
 use trust_runtime_core::retain::RestartMode;
-use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::{Duration, Value};
 
 use super::cycle::ResourceCycle;
 use super::host::{ProgramView, RunnerPlatform};
 use super::program::Program;
 use super::{span, Runner};
 use crate::cycle_step::{reply, restart_time, StepOutcome, StepRefusal, StepRequest};
+use crate::method_call::{MethodCall, MethodCallRefusal};
 use crate::protocol::ControlResponse;
 use crate::status::IoDriverStatus;
 use crate::variables::{read_set, ReadRefusal, ReadSet};
@@ -74,6 +77,9 @@ pub(super) struct LentProgram<'p, Y, C> {
     /// The number and the logical time of the last completed scan, which `variables.read` answers
     /// with; none before the program's first.
     completed: Option<(u64, Duration)>,
+    /// The fault of a method that a `method.call` of this request called, which the loop handles
+    /// as a faulted scan's once the request is answered (specification 44 §13.3).
+    method_fault: RefCell<Option<RuntimeError>>,
 }
 
 impl<'p, Y, C> LentProgram<'p, Y, C> {
@@ -92,7 +98,13 @@ impl<'p, Y, C> LentProgram<'p, Y, C> {
             last_step,
             clock,
             completed,
+            method_fault: RefCell::new(None),
         }
+    }
+
+    /// The fault of a method this request called, which the loop handles as a faulted scan's.
+    pub(super) fn take_method_fault(&self) -> Option<RuntimeError> {
+        self.method_fault.borrow_mut().take()
     }
 }
 
@@ -172,6 +184,22 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
         self.lend_shared()?.compiled_view()
     }
 
+    /// The image is read through a borrow that ends with `read`, so that the request can still lend
+    /// the program to a step or a method call, which a `method.call` does after it types its inputs.
+    fn with_image(
+        &self,
+        read: &mut dyn FnMut(&trust_runtime_core::native::image::Image<'_>),
+    ) -> bool {
+        self.read(|program| {
+            let Some(view) = program.compiled_view() else {
+                return false;
+            };
+            read(&view.memory.image());
+            true
+        })
+        .unwrap_or(false)
+    }
+
     fn read_variables(&self, paths: &[String]) -> Result<ReadSet, ReadRefusal> {
         let (scan, time) = self.completed.ok_or(ReadRefusal::NoCompletedScan)?;
         self.read(|program| {
@@ -185,6 +213,30 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
             })
         })
         .unwrap_or_else(|| Err(ReadRefusal::Unavailable("a step runs the program".into())))
+    }
+
+    /// The call runs at the logical time of the last completed scan, zero before the first: the
+    /// program's time between its scans. The fault of the method is kept for the loop.
+    fn call_method(&self, call: &MethodCall) -> Result<Value, MethodCallRefusal> {
+        let unsupported = || MethodCallRefusal::Refused("unsupported request".to_string());
+        let Ok(mut lent) = self.program.try_borrow_mut() else {
+            return Err(unsupported());
+        };
+        let Some(program) = lent.as_deref_mut() else {
+            return Err(unsupported());
+        };
+        let now = self.completed.map_or(Duration::ZERO, |(_, time)| time);
+        match program.call_method(call, now) {
+            Ok(value) => Ok(value),
+            Err(MethodCallError::Refused(error)) => {
+                Err(MethodCallRefusal::Refused(error.to_string()))
+            }
+            Err(MethodCallError::Fault(error)) => {
+                let fault = error.to_string();
+                *self.method_fault.borrow_mut() = Some(error);
+                Err(MethodCallRefusal::Faulted(fault))
+            }
+        }
     }
 }
 

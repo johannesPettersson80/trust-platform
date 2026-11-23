@@ -465,6 +465,13 @@ END_PROGRAM
                         trust_runtime_services::cycle_step::StepRefusal::Unsupported,
                     ));
                 }
+                ResourceCommand::CallMethod { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::method_call::MethodCallRefusal::Refused(
+                            "unsupported request".to_string(),
+                        ),
+                    ));
+                }
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::ProgramInstalled
                 | ResourceCommand::Pause
