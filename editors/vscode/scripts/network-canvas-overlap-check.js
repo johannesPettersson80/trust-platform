@@ -406,8 +406,11 @@ function __click(t){var b=[].slice.call(document.querySelectorAll("button")).fin
 // truth" fixture failed in CI with all its edges missing at the measurement (23 failures, which a
 // mutant that removes the drawn edges just before the measurement reproduces) and passed when run
 // again; a failure now prints what the page held (G175).
-function __afterEdges(then){var started=Date.now(),deadline=started+3000;(function poll(){if(document.querySelector('.react-flow__edge path[d]')||Date.now()>=deadline){window.__edgeWait={waitedMs:Date.now()-started,edges:document.querySelectorAll('.react-flow__edge').length,paths:document.querySelectorAll('.react-flow__edge path[d]').length};setTimeout(then,100);}else{setTimeout(poll,50);}})();}
-setTimeout(function(){ ${fixture.edit ? '__click("Edit");' : ""} setTimeout(function(){__afterEdges(function(){__measure(${JSON.stringify(fixture.renderContractRuntimeId ?? null)});});},1100); },800);
+// It failed again twice on 22 and 23 November 2026, each time in a VS Code job's first attempt only, and neither CPU load
+// nor a cold user font cache reproduced it on the builder (G283): the fixture now starts once the page's fonts are ready,
+// and a failure also prints how many nodes React Flow measured, the fonts' status and whether its viewport exists.
+function __afterEdges(then){var started=Date.now(),deadline=started+3000;(function poll(){if(document.querySelector('.react-flow__edge path[d]')||Date.now()>=deadline){var nodes=[].slice.call(document.querySelectorAll('.react-flow__node'));window.__edgeWait={waitedMs:Date.now()-started,edges:document.querySelectorAll('.react-flow__edge').length,paths:document.querySelectorAll('.react-flow__edge path[d]').length,nodes:nodes.length,measured:nodes.filter(function(n){return getComputedStyle(n).visibility!=='hidden';}).length,fonts:document.fonts?document.fonts.status:'none',viewport:!!document.querySelector('.react-flow__viewport')};setTimeout(then,100);}else{setTimeout(poll,50);}})();}
+(document.fonts?document.fonts.ready:Promise.resolve()).then(function(){ setTimeout(function(){ ${fixture.edit ? '__click("Edit");' : ""} setTimeout(function(){__afterEdges(function(){__measure(${JSON.stringify(fixture.renderContractRuntimeId ?? null)});});},1100); },800); });
 </script>
 <script src="file://${BUNDLE}"></script>
 </body></html>`;
@@ -488,7 +491,7 @@ function main() {
       // What the page held when it was measured, so that a failure names its state (G175).
       const wait = result.edgeWait;
       console.error(
-        `    state: ${result.count} nodes; ${wait ? `${wait.edges} edges (${wait.paths} paths) after waiting ${wait.waitedMs} ms for them` : "no edge wait recorded"}; ${result.edgesAtEnd} edges at the end`
+        `    state: ${result.count} nodes; ${wait ? `${wait.edges} edges (${wait.paths} paths) after waiting ${wait.waitedMs} ms for them; ${wait.measured} of ${wait.nodes} nodes measured, fonts ${wait.fonts}, viewport ${wait.viewport ? "present" : "absent"}` : "no edge wait recorded"}; ${result.edgesAtEnd} edges at the end`
       );
       failures++;
     } else {
