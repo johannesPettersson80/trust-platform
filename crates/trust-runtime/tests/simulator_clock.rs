@@ -5,9 +5,9 @@
 //! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::scheduler::{ResourceRunner, ResourceState, StdClock, SteppedClock};
+use trust_runtime::scheduler::{ResourceRunner, StdClock, SteppedClock};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime_services::simulator_advance::{Advance, Advanced};
+use trust_runtime_services::simulator_advance::{runs_cycles, Advance, Advanced};
 use trust_runtime_services::variables::ReadRefusal;
 
 const COUNTER: &str = r#"
@@ -44,7 +44,7 @@ fn a_simulators_resource_runs_its_cycles_as_the_test_allows_them() {
             .unwrap();
         (read.time_ns, read.values[0].1.clone())
     };
-    let runs = || control.state() == ResourceState::Running;
+    let runs = || runs_cycles(control.state());
 
     assert!(matches!(
         control.read_variables(&["Main.counter".to_string()]),
