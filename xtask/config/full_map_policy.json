@@ -919,6 +919,12 @@
       "rationale": "field runtime command"
     },
     {
+      "name": "Simulate",
+      "class": "product",
+      "owner": "runtime",
+      "rationale": "the simulator a machine test starts: trust-sim runs a project's program on a clock its test moves (specification 11 6.8.1, Simulator for machine tests)"
+    },
+    {
       "name": "Ctl",
       "class": "product",
       "owner": "runtime",

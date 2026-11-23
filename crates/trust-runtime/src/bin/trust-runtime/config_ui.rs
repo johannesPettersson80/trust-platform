@@ -14,13 +14,10 @@ use trust_runtime::bundle_builder::collect_project_source_files;
 use trust_runtime::config::{
     ControlMode, DiscoveryConfig, RuntimeCloudProfile, RuntimeConfig, WebAuthMode, WebConfig,
 };
-use trust_runtime::control::{
-    AdsDoctorJobStore, ControlEndpoint, ControlState, SourceFile, SourceRegistry,
-};
+use trust_runtime::control::{ControlEndpoint, ControlState, SourceFile, SourceRegistry};
 use trust_runtime::debug::DebugSnapshot;
-use trust_runtime::discovery::{start_discovery_with_state, DiscoveryState};
+use trust_runtime::discovery::start_discovery_with_state;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::linux_rt::LinuxRtRuntimeStatus;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use trust_runtime::settings::{
@@ -294,52 +291,26 @@ fn build_config_mode_control_state(
     settings.runtime_cloud.wan_allow_write = Vec::new();
     settings.runtime_cloud.link_preferences = Vec::new();
 
-    let discovery = Arc::new(DiscoveryState::new());
-    let state = Arc::new(ControlState {
-        transfers: trust_runtime::control::new_transfer_session(),
-        debug,
-        identify: trust_runtime::io::IdentifyHandle::default(),
-        resource,
-        sources,
-        io_snapshot: Arc::new(Mutex::new(None)),
-        io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-        pending_restart: Arc::new(Mutex::new(None)),
-        auth_token: Arc::new(Mutex::new(None)),
-        control_requires_auth: false,
-        control_mode: Arc::new(Mutex::new(ControlMode::Debug)),
-        audit_tx: None,
-        metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
-        events: Arc::new(Mutex::new(VecDeque::new())),
-        settings: Arc::new(Mutex::new(settings)),
-        discovery,
-        mesh_topology: Arc::new(Mutex::new(None)),
-        realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
-            trust_runtime::linux_rt::LinuxRtConfig::default(),
-        ))),
-        web_listener_bound: Arc::new(AtomicBool::new(false)),
-        opcua_server_bound: Arc::new(AtomicBool::new(false)),
-        project_root: Some(project_root),
-        plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
-        experiments: trust_runtime::control::ControlExperimentService::default(),
-        controllers: trust_runtime::control::ControllerParameterService::default(),
-        searches: trust_runtime::control::search::SearchService::default(),
-        resource_name,
-        runtime_id,
-        io_health: Arc::new(Mutex::new(Vec::new())),
-        debug_enabled: Arc::new(AtomicBool::new(false)),
-        historian: None,
-        openot_persistence_status: None,
-        pairing: None,
-        search: Default::default(),
-        ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
-        ads_client_config: Arc::new(Mutex::new(None)),
-        opcua_client_config: Arc::new(Mutex::new(None)),
-        ads_server_config: Arc::new(Mutex::new(None)),
-        #[cfg(feature = "ads-server")]
-        ads_server_runtime: Arc::new(Mutex::new(None)),
-    });
-    state.connect_experiments();
-    Ok(state)
+    Ok(Arc::new(ControlState::local(
+        trust_runtime::control::LocalControl {
+            debug,
+            identify: trust_runtime::io::IdentifyHandle::default(),
+            resource,
+            sources,
+            io_snapshot: Arc::new(Mutex::new(None)),
+            io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            pending_restart: Arc::new(Mutex::new(None)),
+            control_mode: ControlMode::Debug,
+            metrics: Arc::new(Mutex::new(RuntimeMetrics::default())),
+            events: Arc::new(Mutex::new(VecDeque::new())),
+            settings,
+            project_root: Some(project_root),
+            resource_name,
+            runtime_id,
+            io_health: Arc::new(Mutex::new(Vec::new())),
+            debug_enabled: Arc::new(AtomicBool::new(false)),
+        },
+    )))
 }
 
 fn load_source_registry(project_root: &Path) -> SourceRegistry {

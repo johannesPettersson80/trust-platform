@@ -47,6 +47,14 @@ pub enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         install_toolchain: bool,
     },
+    /// Run a project's program and its simulation for a machine test: on a clock that only the
+    /// test moves, answering control requests on standard input and output (specification 11
+    /// §6.8.1, "Simulator for machine tests").
+    Simulate {
+        /// Project folder directory.
+        #[arg(long = "project")]
+        project: PathBuf,
+    },
     /// Start the runtime with project auto-detection (production UX).
     #[command(
         after_help = "Examples:\n  trust-runtime play\n  trust-runtime play --project ./my-plc\n  trust-runtime play --restart warm\n  trust-runtime play --project ./my-plc --simulation --time-scale 8"

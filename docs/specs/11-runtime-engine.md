@@ -3686,8 +3686,9 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   line out (the runtime protocol annex, E0.1), and nothing else on its standard output; its log goes
   to its standard error. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
   the process that started it holds its standard input and has the Admin role, which includes every
-  other. It ends when its
-  standard input closes or on `shutdown`.
+  other. Its debug surface is on, whatever `runtime.control.debug_enabled` says, since a test reads
+  and forces values as the debugger does. It ends when its standard input closes; after `shutdown`
+  it answers on, as every runtime does (specification 34 STATE-08).
 - It starts nothing that a test does not drive: no web server or HMI, no discovery, mesh or Runtime
   Cloud link, no I/O driver (the simulation is the process image's only source), no historian or
   metrics export. Its retained values stay in its memory: a warm restart keeps them, and it writes

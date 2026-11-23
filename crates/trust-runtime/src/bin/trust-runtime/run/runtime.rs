@@ -7,3 +7,4 @@ include!("runtime/program.rs");
 include!("runtime/signals.rs");
 include!("runtime/endpoint_file.rs");
 include!("runtime/entry.rs");
+include!("runtime/simulate.rs");
