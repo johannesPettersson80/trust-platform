@@ -214,7 +214,15 @@ impl ResourcePort for ControlState {
         };
         let resource = &self.resource;
         let runs = || runs_cycles(resource.state()) && !resource.is_hung() && !faulted();
-        clock.advance(advance, &runs)
+        let advanced = clock.advance(advance, &runs)?;
+        if faulted() {
+            // The loop applies the fault policy after it records the fault; the answer waits for
+            // it, so that it gives the state the policy left: a halt's faulted resource, or a
+            // restart's running one.
+            let active = || runs_cycles(resource.state()) && !resource.is_hung();
+            clock.settle(&active)?;
+        }
+        Ok(advanced)
     }
 
     /// The scan thread makes the call between two scans (specification 44 section 13.3); the

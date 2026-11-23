@@ -163,3 +163,61 @@ fn an_advance_ends_when_the_resource_no_longer_runs() {
     );
     assert_eq!(scan.cycles(), [ms(0), ms(10)]);
 }
+
+/// Lets the loop of `clock` run its cycle at 0 ms once it sleeps before it, from `started`.
+fn allow_the_first_cycle(clock: &SteppedClock) -> std::time::Instant {
+    while clock.state().sleeping_until.is_none() {
+        std::thread::yield_now();
+    }
+    let started = std::time::Instant::now();
+    clock.allow(Duration::ZERO);
+    started
+}
+
+#[test]
+fn settling_after_a_fault_waits_until_the_loop_sleeps_again() {
+    // Specification 11 §6.8.1: an advance that a fault ended answers with the state the fault
+    // policy left. A restart leaves the loop running, and it sleeps again at its next boundary,
+    // here 60 ms after its cycle at 0 ms began: the clock settles then, not before. Catches an
+    // answer that reads the state before the loop applied the policy, as CI saw (#742, 23 November
+    // 2026: "running" for a halted resource).
+    let clock = SteppedClock::new();
+    let sleeper = clock.clone();
+    let scan = std::thread::spawn(move || {
+        sleeper.sleep_until(Duration::ZERO);
+        held_for_a_while();
+        sleeper.sleep_until(Duration::from_millis(10));
+    });
+    let started = allow_the_first_cycle(&clock);
+    clock.settle(&|| true).unwrap();
+    assert!(started.elapsed() >= std::time::Duration::from_millis(60));
+    assert_eq!(
+        clock.state().sleeping_until.map(|until| until.as_nanos()),
+        Some(ms(10))
+    );
+    clock.wake();
+    scan.join().unwrap();
+}
+
+#[test]
+fn settling_after_a_fault_waits_until_the_resource_leaves_running() {
+    // A halt leaves the resource faulted, and its loop never sleeps again: the clock settles when
+    // the resource leaves running, here 60 ms after its cycle at 0 ms began, not before. Catches an
+    // answer that says "running" for a resource its fault policy halts.
+    let clock = SteppedClock::new();
+    let sleeper = clock.clone();
+    let scan = std::thread::spawn(move || sleeper.sleep_until(Duration::ZERO));
+    let active = Arc::new(AtomicBool::new(true));
+    let halting = active.clone();
+    let halt = std::thread::spawn(move || {
+        held_for_a_while();
+        halting.store(false, Ordering::SeqCst);
+    });
+    let started = allow_the_first_cycle(&clock);
+    scan.join().unwrap();
+    let still = active.clone();
+    clock.settle(&move || still.load(Ordering::SeqCst)).unwrap();
+    assert!(started.elapsed() >= std::time::Duration::from_millis(60));
+    assert!(!active.load(Ordering::SeqCst));
+    halt.join().unwrap();
+}

@@ -29,6 +29,10 @@ struct State {
     sleeping_until: Option<Duration>,
     /// A wake that ends the loop's current or next sleep once, so that it answers a request.
     wake: bool,
+    /// The sleeps the scan loop began: one before each cycle, and one after each wake.
+    sleeps: u64,
+    /// The sleeps the loop had begun when the test allowed its last cycle.
+    sleeps_at_allow: u64,
 }
 
 /// A simulator's clock: a logical time that starts at 0 and that only [`SteppedClock::advance`]
@@ -55,6 +59,8 @@ impl SteppedClock {
                     allowed: None,
                     sleeping_until: None,
                     wake: false,
+                    sleeps: 0,
+                    sleeps_at_allow: 0,
                 }),
                 Condvar::new(),
             )),
@@ -84,6 +90,7 @@ impl SteppedClock {
         let (_, condvar) = &*self.inner;
         let mut state = self.state();
         state.sleeping_until = Some(deadline);
+        state.sleeps = state.sleeps.wrapping_add(1);
         condvar.notify_all();
         loop {
             if state.wake {
@@ -170,11 +177,27 @@ impl SteppedClock {
     fn allow(&self, time: Duration) {
         let mut state = self.state();
         state.allowed = Some(time);
+        state.sleeps_at_allow = state.sleeps;
         if state.now.as_nanos() < time.as_nanos() {
             state.now = time;
         }
         drop(state);
         self.inner.1.notify_all();
+    }
+
+    /// Waits until the scan loop has done what follows the last cycle the test allowed: it sleeps
+    /// again, as after a fault whose policy restarts the program, or `active` no longer holds, as
+    /// when a halt leaves the resource faulted. An advance that a fault ended answers so with the
+    /// state the fault policy left (specification 11 §6.8.1, "Simulator for machine tests").
+    ///
+    /// # Errors
+    ///
+    /// [`AdvanceRefusal::Unavailable`] when the loop does neither within a minute.
+    pub fn settle(&self, active: &dyn Fn() -> bool) -> Result<(), AdvanceRefusal> {
+        self.wait(active, |state| {
+            (state.sleeps != state.sleeps_at_allow).then_some(state.now)
+        })
+        .map(drop)
     }
 
     /// Waits until `ready` finds a time in the clock's state: none once `runs` no longer holds.
