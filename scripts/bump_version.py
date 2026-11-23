@@ -39,10 +39,11 @@ LOCKFILES = (
 PINNED = re.compile(r'^([a-z0-9-]+ = \{ path = "[^"]+", version = "=)([^"]+)(" \})$', re.M)
 
 # A project's crate names the SDK at exactly the release's version, and the build refuses another (specification 48
-# RU-08); a service names its SDK, trust-service, at the version of the truST release its runtime runs (RU-62). The
-# bump moves both pins with the release: in the examples' crates, and in the public docs' pages, whose manifests a
-# user copies. A line may end with a comment.
-SDK_PIN = re.compile(r'^((trust-plc|trust-service) = "=)([^"]+)(")', re.M)
+# RU-08); a service names its SDK, trust-service, at the version of the truST release its runtime runs (RU-62); and
+# machine tests name trust-sim at the version of the runtime they run, which trust-sim checks (RU-58). The bump moves
+# these pins with the release: in the examples' crates, and in the public docs' pages, whose manifests a user copies.
+# A line may end with a comment.
+SDK_PIN = re.compile(r'^((trust-plc|trust-service|trust-sim) = "=)([^"]+)(")', re.M)
 
 
 def sdk_pin_files(root: Path) -> list[Path]:

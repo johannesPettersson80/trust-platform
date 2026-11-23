@@ -12,6 +12,7 @@
 | declare OpenOT event logging on variables | [OpenOT Attribute Authoring](openot-authoring.md) |
 | write functions, function blocks and programs in Rust | [Rust POUs](rust-pous.md) |
 | build, validate, and test | [Build, Validate, Test](../operate/build-validate-test.md) |
+| test the program and its simulated plant in `cargo test` | [Machine Tests](machine-tests.md) |
 | compile and reload a running runtime | [Compile, Validate, Reload](../operate/compile-validate-reload.md) |
 | debug execution | [Debugging](../operate/debugging-and-runtime-panel.md) |
 | map variables to I/O | [I/O Binding](../connect/devices-and-fieldbus/io-binding.md) |

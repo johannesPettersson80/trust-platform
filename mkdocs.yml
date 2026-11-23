@@ -111,6 +111,7 @@ nav:
           - OpenOT Attribute Authoring: develop/openot-authoring.md
           - Rust POUs: develop/rust-pous.md
           - Build, Validate, Test: operate/build-validate-test.md
+          - Machine Tests: develop/machine-tests.md
           - Compile, Validate, Reload: operate/compile-validate-reload.md
           - Debugging In VS Code: operate/debugging-in-vscode.md
           - Live Values: operate/live-values.md

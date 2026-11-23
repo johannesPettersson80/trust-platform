@@ -68,6 +68,9 @@ runtime-*.log.runtime.log
 /io.toml
 /program.stbc
 /examples/**/program.stbc
+# What an example's build writes in place: its program image and its build folder (specification 11 §6.8.1d).
+/examples/**/program.tpi
+/examples/**/build/
 /deployment-record.bin
 /examples/**/deployment-record.bin
 /examples/**/hmi/process.auto.svg

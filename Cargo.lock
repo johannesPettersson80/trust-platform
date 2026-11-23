@@ -5734,6 +5734,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "room-heating-machine-tests"
+version = "0.1.0"
+dependencies = [
+ "trust-sim",
+]
+
+[[package]]
 name = "rowan"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

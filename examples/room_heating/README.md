@@ -27,6 +27,7 @@ field signals that answer the outputs.
 | `control-loops/tank-temperature.json` | The tank loop as Control Studio set it up from the program's code |
 | `hmi/` | Pages: Overview, Trends, Alarms, Interlocks, Settings and Simulation; English, German and Swedish texts; the tank and hand valve as project symbols |
 | `libraries/` | Copies of the Alarm, Control, Hmi and Plant libraries, so the example stands on its own |
+| `machine-tests/` | Machine tests of the program and its plant under `cargo test`, with trust-sim: Start, Stop and low water, which CI runs |
 
 ## Try it
 
@@ -67,6 +68,22 @@ thermostat's off-point). The gains in the program are the design values. Control
 tunes, validates, applies, restores and keeps them end to end on this plant: the D5 acceptance
 (`crates/trust-control-studio/tests/control_studio_d5_acceptance.rs`) runs that sequence against
 this example's runtime.
+
+## Machine tests
+
+`machine-tests/` runs this program and its simulated plant under `cargo test`, with trust-sim. Its
+tests press Start and Stop as the Heating panel does and check what the plant then does: the pump
+before the heater, the pump's 30 s run-on after a stop, and the low-water protection. Run them from
+that folder:
+
+```sh
+cd machine-tests
+cargo test
+```
+
+They need `trust-runtime` of the same version as trust-sim, which `TRUST_RUNTIME` may name. The
+guide [Machine Tests](https://johannespettersson80.github.io/trust-platform/develop/machine-tests/)
+builds them step by step.
 
 ## What it is not
 
