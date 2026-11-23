@@ -16,6 +16,10 @@ owner.
 
 --8<-- "docs/guides/PLC_SAFETY_GUIDE.md:3"
 
+## Worked tutorial
+
+--8<-- "examples/tutorials/19_safety_commissioning/README.md:3"
+
 ## Related
 
 - [I/O Binding](../connect/devices-and-fieldbus/io-binding.md)

@@ -177,6 +177,7 @@ nav:
           - Comm: develop/libraries/comm.md
           - Plant: develop/libraries/plant.md
           - Libraries And Motion Examples: examples/libraries-and-motion.md
+          - Move One Virtual Axis: examples/plcopen-motion-single-axis.md
       - Migration While Programming:
           - Migration Overview: migrate/index.md
           - PLCopen: migrate/plcopen.md

@@ -1,8 +1,11 @@
 ### Added
 
-- The documentation site shows four step-by-step examples as pages of their own: your first program on the
-  Simulator, the conveyor demo, and the HMI tank level and equipment examples, which you operate as an
-  operator does. The example catalog lists them, with a row for operator screens.
+- The documentation site shows five step-by-step examples as pages of their own: your first program on the
+  Simulator, the conveyor demo, the HMI tank level and equipment examples, which you operate as an operator
+  does, and one virtual axis moved with the PLCopen motion blocks. The example catalog lists them, with a
+  row for operator screens.
+- The guides to creating a project, simulation, safety commissioning and CI/CD end with their worked
+  tutorials (13, 18, 19 and 21), which were only in the repository.
 
 ### Fixed
 
