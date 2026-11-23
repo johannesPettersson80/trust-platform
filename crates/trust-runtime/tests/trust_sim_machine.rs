@@ -72,9 +72,9 @@ fn a_machine_test_writes_forces_reads_and_sees_a_fault() -> trust_sim::Result<()
     // misses the next cycle, a force the program overwrites, a duration that runs past its end, a
     // fault that goes unseen, and an unknown path read as a value.
     let project = project();
-    let mut plant =
-        trust_sim::Project::open_with_runtime(&project, env!("CARGO_BIN_EXE_trust-runtime"))?
-            .simulator()?;
+    let runtime = std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+        .expect("Cargo provides trust-runtime to its integration tests");
+    let mut plant = trust_sim::Project::open_with_runtime(&project, runtime)?.simulator()?;
 
     plant.write("Main.level", 95.0)?;
     plant.run_cycles(3)?;
