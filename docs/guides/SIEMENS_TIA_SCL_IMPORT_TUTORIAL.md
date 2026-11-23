@@ -51,7 +51,7 @@ In TIA Portal:
 2. In the project tree, locate your CPU and open `External source files`.
 3. Right-click `External source files` -> `Add new external file...`.
 4. Select all `.scl` files from:
-   - `<project-dir>/interop/plcopen.siemens.xml.scl/`
+    - `<project-dir>/interop/plcopen.siemens.xml.scl/`
 5. Confirm import.
 
 ## Step 4: Generate Blocks from Imported Sources

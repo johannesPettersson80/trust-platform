@@ -70,10 +70,10 @@ The gate validates:
 
 1. Neovim and Zed reference configs exist and contain required keys.
 2. Core LSP workflow test coverage remains green for:
-   - diagnostics
-   - hover
-   - completion
-   - formatting
-   - definition
+    - diagnostics
+    - hover
+    - completion
+    - formatting
+    - definition
 
 This smoke gate runs in CI as the `Editor Expansion Smoke` job.

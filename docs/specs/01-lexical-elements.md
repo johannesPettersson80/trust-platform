@@ -29,8 +29,8 @@ An identifier is a string of letters, digits, and underscores which shall begin 
 1. **Case insensitivity**: `abcd`, `ABCD`, and `aBCd` shall be interpreted identically
 2. **Underscore significance**: `A_BCD` and `AB_CD` are different identifiers
 3. **Multiple underscores forbidden**:
-   - `__LIM_SW5` (leading double underscore) - INVALID
-   - `LIM__SW5` (embedded double underscore) - INVALID
+    - `__LIM_SW5` (leading double underscore) - INVALID
+    - `LIM__SW5` (embedded double underscore) - INVALID
 4. **Trailing underscores forbidden**: `LIM_SW5_` - INVALID
 5. **Minimum uniqueness**: At least 6 characters of uniqueness shall be supported
 6. **Maximum length**: Implementer specific
@@ -55,20 +55,20 @@ Keywords are unique combinations of characters utilized as individual syntactic 
 2. Case of characters shall NOT be significant (e.g., `FOR` and `for` are equivalent)
 3. Keywords shall not be used for other purposes (e.g., variable names)
 4. A name may hold a reserved word only where it cannot be taken for the keyword:
-   - `EN` and `ENO` name a POU's execution control parameters, the input and output that IEC
-     §6.6.1.5 (Table 18) declares as `VAR_INPUT EN : BOOL := 1; END_VAR` and
-     `VAR_OUTPUT ENO : BOOL; END_VAR`, in every profile; no other declaration takes them.
-   - `GET` and `SET` name a property's accessors, which the symbol table holds as the property's
-     methods (specification 09 §5.6).
-   - `STEP` names a variable in every profile, not a parameter, a member, a POU or a type: truST's
-     Structured Text has no textual SFC (the SFC profile note below), so `STEP` stands in no body,
-     and OpenOT's projects name a state machine's step variable `Step`
-     (`docs/IEC_DEVIATIONS.md` DEV-049).
-   - Under the CODESYS profile, `ON`, `NULL` and `SET` name variables, members, parameters and
-     enumeration values (below; DEV-034).
+    - `EN` and `ENO` name a POU's execution control parameters, the input and output that IEC
+      §6.6.1.5 (Table 18) declares as `VAR_INPUT EN : BOOL := 1; END_VAR` and
+      `VAR_OUTPUT ENO : BOOL; END_VAR`, in every profile; no other declaration takes them.
+    - `GET` and `SET` name a property's accessors, which the symbol table holds as the property's
+      methods (specification 09 §5.6).
+    - `STEP` names a variable in every profile, not a parameter, a member, a POU or a type: truST's
+      Structured Text has no textual SFC (the SFC profile note below), so `STEP` stands in no body,
+      and OpenOT's projects name a state machine's step variable `Step`
+      (`docs/IEC_DEVIATIONS.md` DEV-049).
+    - Under the CODESYS profile, `ON`, `NULL` and `SET` name variables, members, parameters and
+      enumeration values (below; DEV-034).
 
-   Every other reserved word is refused as a name: `reserved keyword 'X' cannot be used as
-   identifier`.
+    Every other reserved word is refused as a name: `reserved keyword 'X' cannot be used as
+    identifier`.
 
 ### Complete Keyword List
 

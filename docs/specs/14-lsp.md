@@ -1449,21 +1449,21 @@ tests/corpus/
 #### 12.2 Known Limitations
 
 1. **Workspace**
-   - Workspace indexing runs on initialize; on-disk changes are tracked via file watching when supported by the client (otherwise require reload)
+    - Workspace indexing runs on initialize; on-disk changes are tracked via file watching when supported by the client (otherwise require reload)
 
 2. **LSP**
-   - Formatting does not wrap/reflow lines beyond operator spacing + VAR alignment
-   - Folding ranges are coarse (node-based regions)
+    - Formatting does not wrap/reflow lines beyond operator spacing + VAR alignment
+    - Folding ranges are coarse (node-based regions)
 3. **Debugger**
-   - VS Code extension wiring exists, but the manual test plan is still pending
-   - Stepping is statement-level only; expressions are not single-stepped
-   - Debug evaluation is restricted to side-effect-free expressions and a small pure stdlib whitelist
-   - Hot reload is implemented via a custom request and supports per-resource
-     reloads with retained globals preserved across warm restart
-   - I/O write/force/release supports both input and output areas through the
-     DAP/control bridge. Attach-mode runtimes use explicit Live Values custom
-     requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead of
-     `setExpression`
+    - VS Code extension wiring exists, but the manual test plan is still pending
+    - Stepping is statement-level only; expressions are not single-stepped
+    - Debug evaluation is restricted to side-effect-free expressions and a small pure stdlib whitelist
+    - Hot reload is implemented via a custom request and supports per-resource
+      reloads with retained globals preserved across warm restart
+    - I/O write/force/release supports both input and output areas through the
+      DAP/control bridge. Attach-mode runtimes use explicit Live Values custom
+      requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead of
+      `setExpression`
 
 
 ---

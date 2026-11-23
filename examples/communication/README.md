@@ -26,26 +26,26 @@ Most projects start with `simulated` or `loopback`, then fail during integration
 ## Recommended execution order
 
 1. `ads_line1/README.md`
-   - learn deterministic TwinCAT symbol import with cached snapshots and generated ST globals.
+    - learn deterministic TwinCAT symbol import with cached snapshots and generated ST globals.
 2. `ads_server_basic/README.md`
-   - learn ADS server exposure, source-pinned client allowlists, pyads smoke
-     proof, and the remaining real TwinCAT merge gate.
+    - learn ADS server exposure, source-pinned client allowlists, pyads smoke
+      proof, and the remaining real TwinCAT merge gate.
 3. `modbus_tcp/README.md`
-   - learn deterministic request/response register mapping and timeout policy.
+    - learn deterministic request/response register mapping and timeout policy.
 4. `mqtt/README.md`
-   - learn broker/topic boundaries and reconnect behavior.
+    - learn broker/topic boundaries and reconnect behavior.
 5. `mqtt_traffic_light/README.md`
-   - publish program-instance variables without manual `VAR_CONFIG` addresses.
+    - publish program-instance variables without manual `VAR_CONFIG` addresses.
 6. `opcua/README.md`
-   - learn runtime wire exposure and feature-gated build behavior.
+    - learn runtime wire exposure and feature-gated build behavior.
 7. `ethercat/README.md`
-   - learn mock-first module chain validation, then hardware handoff.
+    - learn mock-first module chain validation, then hardware handoff.
 8. `ethercat_field_validated_es/README.md`
-   - apply a previously field-tested real-adapter profile for EK1100 + EL2008 output commissioning.
+    - apply a previously field-tested real-adapter profile for EK1100 + EL2008 output commissioning.
 9. `gpio/README.md`
-   - learn IEC bit mapping to GPIO lines, debounce, and safe-state defaults.
+    - learn IEC bit mapping to GPIO lines, debounce, and safe-state defaults.
 10. `multi_driver/README.md`
-   - learn composed-driver commissioning and mutual-exclusion rules.
+    - learn composed-driver commissioning and mutual-exclusion rules.
 
 ## Common base layout in each example
 
