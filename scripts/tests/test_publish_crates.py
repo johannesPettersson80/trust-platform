@@ -69,7 +69,8 @@ class PublishCratesTests(unittest.TestCase):
         self.assertEqual(
             asked[0], f"https://crates.io/api/v1/crates/trust-plc-abi/{VERSION}"
         )
-        self.assertEqual(len(asked), 7)
+        # crates.io is asked once for each of the 8 crates RU-12 publishes.
+        self.assertEqual(len(asked), 8)
 
     def test_without_a_token_nothing_is_published_and_a_notice_says_why(self) -> None:
         # Only the owner of the crates' account gives the token: until the repository holds it, a release
