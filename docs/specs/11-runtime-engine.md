@@ -6249,7 +6249,14 @@ this computer's CPU and writes it as `<project>/program.tpi`, with its
 deployment record `<project>/deployment-record.bin` (specification 44 §4.1,
 NX-15); with `--target <device or CPU>` it writes that target's image into the
 project's build folder as `build/program.<triple>.tpi`, with
-`build/deployment-record.<triple>.bin`. An explicit `--project` selects the
+`build/deployment-record.<triple>.bin`. Two builds of one project, from any
+client (VS Code, the command line, a machine test's `trust-sim`), run one after
+the other: a build holds the project's build lock, `build/.lock`, from its start
+to its end, and `trust-runtime check` holds it while it checks in the build's
+work folder (section 6.8.1c). A build writes the image, the record and the
+install container each to a temporary file beside it, which then replaces the
+old file, so that a program started meanwhile reads the old image or the new
+one, never a part of one. An explicit `--project` selects the
 project root; otherwise ordinary bundle discovery is used and the current
 directory is the final fallback. The default source root is `<project>/src`;
 `--sources` names a source folder in its place and may be given more than once,

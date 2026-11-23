@@ -9,6 +9,7 @@
 //! module is checked (`module`) and the image is written (`tables`).
 
 mod bindings;
+mod build_lock;
 pub mod bundle;
 mod call_graph;
 mod cargo_build;
@@ -54,6 +55,7 @@ use std::path::Path;
 use crate::harness::SourceFile;
 use crate::stdlib::conversions::ConversionProfile;
 pub use bindings::write_bindings;
+pub use build_lock::{lock_project_build, BUILD_LOCK_FILE};
 pub use check::check_project;
 pub use run::{load, load_kept, read_wall_clock_from, HostCode};
 pub use rust_messages::{RustDiagnostic, RustSeverity};
