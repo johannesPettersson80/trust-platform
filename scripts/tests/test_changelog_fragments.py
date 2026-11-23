@@ -184,6 +184,10 @@ def write_checkout_at_0_28_0(root: Path) -> None:
                 '[package]\nname = "demo-service"\nversion = "0.1.0"\n\n'
                 '[dependencies]\ntrust-service = "=0.28.0"\nureq = "3.4.2"\n'
             ),
+            "examples/heating_demo/machine-tests/Cargo.toml": (
+                '[package]\nname = "heating-machine-tests"\nversion = "0.1.0"\n\n'
+                '[dev-dependencies]\ntrust-sim = "=0.28.0"\n'
+            ),
             "docs/public/develop/rust-pous.md": (
                 '# Rust POUs\n\n```toml\n[dependencies]\ntrust-plc = "=0.28.0" # exactly your truST version\n```\n'
             ),
@@ -223,6 +227,7 @@ class BumpTests(unittest.TestCase):
                         "docs/public/develop/rust-pous.md",
                         "editors/vscode/package-lock.json",
                         "editors/vscode/package.json",
+                        "examples/heating_demo/machine-tests/Cargo.toml",
                         "examples/rust_demo/rust/Cargo.toml",
                         "examples/service_demo/demo-service/Cargo.toml",
                         "firmware/trust-esp32c6/Cargo.toml",
@@ -261,6 +266,10 @@ class BumpTests(unittest.TestCase):
             # example's service moves with the release; its other dependencies keep their versions.
             service = (root / "examples/service_demo/demo-service/Cargo.toml").read_text()
             self.assertIn('trust-service = "=0.29.0"', service)
+            # Specification 48 RU-58: machine tests name trust-sim at the version of the runtime they run, which it
+            # checks, so an example's machine tests move with the release.
+            machine_tests = (root / "examples/heating_demo/machine-tests/Cargo.toml").read_text()
+            self.assertIn('trust-sim = "=0.29.0"', machine_tests)
             self.assertIn('ureq = "3.4.2"', service)
             self.assertIn(
                 'trust-plc = "=0.29.0" # exactly your truST version\n',

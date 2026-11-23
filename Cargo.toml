@@ -45,6 +45,8 @@ members = [
     "examples/rust_barcode/rust",
     # The crate of the example rust_signal, so that CI runs its tests (specification 48 RU-56).
     "examples/rust_signal/rust",
+    # The machine tests of the example room_heating, so that CI runs them (specification 48 RU-58).
+    "examples/room_heating/machine-tests",
 ]
 exclude = [
     "third_party/tiny_http",
@@ -222,3 +224,6 @@ trust-service = { path = "crates/trust-service" }
 # The example rust_barcode's crate names the SDK at the release's version, as a project's crate does
 # (specification 48 RU-08); in this workspace it is the workspace's own crate.
 trust-plc = { path = "crates/trust-plc" }
+# The machine tests of the example room_heating name trust-sim at the release's version, as a user's tests do from
+# crates.io (specification 48 RU-58); in this workspace it is the workspace's own crate.
+trust-sim = { path = "crates/trust-sim" }

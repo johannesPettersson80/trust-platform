@@ -1112,7 +1112,10 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   fault matches the error and reads the values.
 - **Documentation and examples.** The crate's API reference shows each of these in a whole example
   that runs as a doc test, and the user guide teaches, step by step, a machine test of a realistic
-  example project, whose machine tests CI runs.
+  example project, whose machine tests CI runs: `examples/room_heating/machine-tests`, a crate of
+  the workspace that names trust-sim at the release's version as a user's tests do, which CI's test
+  job runs with the trust-runtime its build made named in `TRUST_RUNTIME`. The version bump moves
+  that pin with the release, as it moves an example crate's pin of `trust-plc` (RU-08, RU-12).
 
 **RU-59. Cycle traces.** The runtime records a cycle trace on demand (`trust-runtime ctl record
 --task <task> --cycles <n>` or `--duration`) and, when `runtime.toml` `[trace] flight_recorder`
