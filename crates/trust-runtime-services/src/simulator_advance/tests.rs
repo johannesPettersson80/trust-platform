@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Duration;
 
-use super::{parse, Advance};
+use super::{parse, runs_cycles, Advance};
 use crate::tests::runner_ports::Fixture;
 
 fn advance(id: u64, params: &Value) -> Value {
@@ -56,4 +56,22 @@ fn a_runtime_on_the_wall_clock_refuses_an_advance() {
     assert_eq!(reply["ok"], json!(false));
     assert_eq!(reply["error_code"], json!("clock_not_manual"));
     assert_eq!(runner.resource_state(), ResourceState::Running);
+}
+
+#[test]
+fn an_advance_runs_on_a_resource_that_is_running_or_still_starting() {
+    // A simulator's first request may come before its scan thread has left `Boot`; its loop then
+    // runs the first cycle once it is up, so the advance waits for it (specification 11 §6.8.1,
+    // "Simulator for machine tests"). A paused, stopped or faulted resource runs no cycle. Catches
+    // the first advance of a fresh simulator that ran no cycle, as it did in CI on 23 November 2026.
+    assert!(runs_cycles(ResourceState::Running));
+    assert!(runs_cycles(ResourceState::Boot));
+    for state in [
+        ResourceState::Ready,
+        ResourceState::Paused,
+        ResourceState::Faulted,
+        ResourceState::Stopped,
+    ] {
+        assert!(!runs_cycles(state), "{state:?}");
+    }
 }

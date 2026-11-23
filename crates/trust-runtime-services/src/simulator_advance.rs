@@ -91,10 +91,12 @@ pub fn request<H: ResourcePort + RecordsPort>(
     }
 }
 
-/// Whether `state` lets a simulator run its next cycle: a running resource.
+/// Whether `state` lets a simulator run its next cycle: a running resource, or one still starting,
+/// whose loop runs the first cycle once it is up. A test's first advance may come before the scan
+/// thread has left `Boot`: on 23 November 2026 it did in CI and ran no cycle.
 #[must_use]
 pub fn runs_cycles(state: ResourceState) -> bool {
-    matches!(state, ResourceState::Running)
+    matches!(state, ResourceState::Running | ResourceState::Boot)
 }
 
 fn parse(params: Option<&JsonValue>) -> Result<Advance, String> {
