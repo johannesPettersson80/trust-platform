@@ -431,6 +431,13 @@ jobs:
           else
             echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
           fi
+          # The example room_heating's machine tests run the trust-runtime this build made, with trust-sim
+          # (specification 48 RU-58).
+          runtime="${GITHUB_WORKSPACE}/target/debug/trust-runtime"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            runtime="${runtime}.exe"
+          fi
+          echo "TRUST_RUNTIME=${runtime}" >> "${GITHUB_ENV}"
       - name: Install cargo-nextest
         # The full suite's runner (specification 22). The Rust cache keeps the binary, so it compiles only when
         # the cache is cold.

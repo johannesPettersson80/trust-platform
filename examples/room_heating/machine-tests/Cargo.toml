@@ -1,0 +1,10 @@
+[package]
+name = "room-heating-machine-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Machine tests of the truST example room_heating: its program and its simulated plant under cargo test, with trust-sim"
+
+[dev-dependencies]
+trust-sim = "=0.44.1"

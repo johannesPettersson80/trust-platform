@@ -833,6 +833,14 @@
       "status": "allowed",
       "owner": "Rust in truST projects (specification 48)",
       "rationale": "the crate of the example rust_signal writes its function blocks with the SDK, as a project's crate does (specification 48 RU-08, RU-56)"
+    },
+    {
+      "from": "room-heating-machine-tests",
+      "to": "trust-sim",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "the machine tests of the example room_heating run its program and plant with trust-sim, as a user's machine tests do (specification 48 RU-58)"
     }
   ],
   "forbidden_workspace_edges": [
