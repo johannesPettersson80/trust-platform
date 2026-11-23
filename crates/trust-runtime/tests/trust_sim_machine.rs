@@ -4,7 +4,7 @@
 //!
 //! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// A resource that runs a cycle every 10 ms and halts on a fault.
@@ -53,13 +53,61 @@ quotient := 100 / divisor;
 END_PROGRAM
 ";
 
+/// A sequence that an operator starts with a set point and resets, through the methods of its
+/// interface, and a program that copies its state.
+const SEQUENCE_ST: &str = "
+INTERFACE ISequence
+METHOD Start : BOOL
+VAR_INPUT Setpoint : REAL; END_VAR
+END_METHOD
+METHOD Reset
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK Sequence IMPLEMENTS ISequence
+VAR_OUTPUT running : BOOL; target : REAL; END_VAR
+METHOD PUBLIC Start : BOOL
+VAR_INPUT Setpoint : REAL; END_VAR
+    running := TRUE;
+    target := Setpoint;
+    Start := TRUE;
+END_METHOD
+METHOD PUBLIC Reset
+    running := FALSE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    Heating : Sequence;
+    running : BOOL;
+    target : REAL;
+END_VAR
+Heating();
+running := Heating.running;
+target := Heating.target;
+END_PROGRAM
+";
+
 fn project() -> PathBuf {
+    project_with(MAIN_ST)
+}
+
+/// A project of the resource above whose program is `main_st`.
+fn project_with(main_st: &str) -> PathBuf {
     let project = trust_test_support::unique_temp_path("trust-sim-machine");
     std::fs::create_dir_all(project.join("src")).expect("create the project");
     std::fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("write runtime.toml");
     std::fs::write(project.join("io.toml"), IO_TOML).expect("write io.toml");
-    std::fs::write(project.join("src/main.st"), MAIN_ST).expect("write main.st");
+    std::fs::write(project.join("src/main.st"), main_st).expect("write main.st");
     project
+}
+
+/// The simulator of `project`, run by the trust-runtime this build made.
+fn simulator(project: &Path) -> trust_sim::Result<trust_sim::Simulator> {
+    let runtime = std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+        .expect("Cargo provides trust-runtime to its integration tests");
+    trust_sim::Project::open_with_runtime(project, runtime)?.simulator()
 }
 
 #[test]
@@ -72,9 +120,7 @@ fn a_machine_test_writes_forces_reads_and_sees_a_fault() -> trust_sim::Result<()
     // misses the next cycle, a force the program overwrites, a duration that runs past its end, a
     // fault that goes unseen, and an unknown path read as a value.
     let project = project();
-    let runtime = std::env::var_os("CARGO_BIN_EXE_trust-runtime")
-        .expect("Cargo provides trust-runtime to its integration tests");
-    let mut plant = trust_sim::Project::open_with_runtime(&project, runtime)?.simulator()?;
+    let mut plant = simulator(&project)?;
 
     plant.write("Main.level", 95.0)?;
     plant.run_cycles(3)?;
@@ -100,6 +146,68 @@ fn a_machine_test_writes_forces_reads_and_sees_a_fault() -> trust_sim::Result<()
         plant.read::<bool>("Main.missing"),
         Err(trust_sim::Error::Refused { .. })
     ));
+
+    drop(plant);
+    let _ = std::fs::remove_dir_all(project);
+    Ok(())
+}
+
+#[test]
+fn a_machine_test_presses_a_sequences_start_and_reset() -> trust_sim::Result<()> {
+    // Worked by hand on the 10 ms resource above: the cycle at 0 ms runs the sequence that nothing
+    // started, so `Main.running` is FALSE. `Start` with a set point of 21.5 answers TRUE, and the
+    // cycle at 10 ms copies running TRUE and the target 21.5 into the program. `Reset`, a method
+    // without a result, answers `()`, and the cycle at 20 ms copies running FALSE. A result asked
+    // for as a number is `Error::Kind`, and a method the interface does not declare is
+    // `Error::Refused`. Catches a call that never reaches the program, an input not passed, a
+    // result read as another kind, and `()` refused for a method without a result.
+    let project = project_with(SEQUENCE_ST);
+    let mut plant = simulator(&project)?;
+
+    plant.run_cycles(1)?;
+    assert!(!plant.read::<bool>("Main.running")?);
+
+    let started: bool = plant.call(
+        "Main.Heating",
+        "ISequence",
+        "Start",
+        trust_sim::Inputs::new().with("Setpoint", 21.5),
+    )?;
+    assert!(started);
+    plant.run_cycles(1)?;
+    assert!(plant.read::<bool>("Main.running")?);
+    assert_eq!(plant.read::<f64>("Main.target")?, 21.5);
+
+    plant.call::<()>(
+        "Main.Heating",
+        "ISequence",
+        "Reset",
+        trust_sim::Inputs::new(),
+    )?;
+    plant.run_cycles(1)?;
+    assert!(!plant.read::<bool>("Main.running")?);
+    assert_eq!(plant.now(), Duration::from_millis(20));
+
+    let number = plant.call::<i32>(
+        "Main.Heating",
+        "ISequence",
+        "Start",
+        trust_sim::Inputs::new().with("Setpoint", 5.0),
+    );
+    assert!(
+        matches!(number, Err(trust_sim::Error::Kind { .. })),
+        "{number:?}"
+    );
+    let missing = plant.call::<()>(
+        "Main.Heating",
+        "ISequence",
+        "Stop",
+        trust_sim::Inputs::new(),
+    );
+    assert!(
+        matches!(missing, Err(trust_sim::Error::Refused { .. })),
+        "{missing:?}"
+    );
 
     drop(plant);
     let _ = std::fs::remove_dir_all(project);

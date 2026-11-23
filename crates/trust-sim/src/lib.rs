@@ -1,6 +1,7 @@
 //! Machine tests of a truST project in `cargo test` (specification 48 RU-58): the project's program
 //! and its simulated plant (`simulation.toml`) run cycle by cycle, and the test writes and forces
-//! values, runs cycles or logical time, reads any variable by its path and sees faults.
+//! values, runs cycles or logical time, reads any variable by its path, calls a method as a screen's
+//! command does, and sees faults.
 //!
 //! The installed trust-runtime runs the program, in a simulator process of the test's own
 //! (`trust-runtime simulate`): the same runtime as the VS Code extension's, on a clock that only the
@@ -27,6 +28,15 @@
 //!     plant.run_for(std::time::Duration::from_secs(60))?;
 //!     assert!(!plant.read::<bool>("Tank.alarm")?);
 //!     plant.release("Tank.level")?;
+//!
+//!     // The operator's Start of the filling sequence, a method of its interface.
+//!     let started: bool = plant.call(
+//!         "Tank.Filling",
+//!         "Plant.ISequence",
+//!         "Start",
+//!         trust_sim::Inputs::new().with("Setpoint", 80.0),
+//!     )?;
+//!     assert!(started);
 //!     Ok(())
 //! }
 //! # fn main() {}
@@ -48,7 +58,7 @@ use std::time::Duration;
 
 pub use project::Project;
 pub use simulator::{Restart, Simulator};
-pub use value::Value;
+pub use value::{Inputs, Returned, Value};
 
 /// The result of a machine test's step.
 pub type Result<T> = std::result::Result<T, Error>;
