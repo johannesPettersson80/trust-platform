@@ -1097,7 +1097,9 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   control link's write does (specification 11 §6.8.1, "Writing variables"); `force` holds a value
   until `release`, as Live Values' force does; `read` reads after the last cycle. A path that names
   no variable, or a value its variable's type does not take, is an error that names the path, the
-  value and the type.
+  value and the type. `call` calls a method of an instance through an interface its type
+  implements, as a screen's command does, and returns the method's result (specification 11
+  §6.8.1, `method.call`): a test presses a sequence's Start as the operator does.
 - **Faults.** A cycle that faults ends `run_cycles` or `run_for` with an error that names the fault
   and, when the image has them, its POU and statement, and the project's fault policy then acts as
   in a run (`[runtime.fault]`): a halting fault leaves the resource faulted, with its safe state

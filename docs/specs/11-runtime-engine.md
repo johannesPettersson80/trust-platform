@@ -3703,6 +3703,28 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   runtime on the wall clock, every runtime but a simulator, refuses it as `clock_not_manual`, so
   that every runtime answers it alike (specification 34 STATE-08).
 
+###### Calling a method (`method.call`)
+
+`method.call` (Engineer) makes a tool's method call between scans (specification 44 §13.3, "A
+tool's method call between scans"), as a screen's command calls a method (specification 39 §21.2),
+alike on every runtime (specification 34 STATE-08): a machine test presses a sequence's Start with
+it (specification 48 RU-58).
+
+- `instance` (required): the instance's path, as `variables.read` names a variable
+  (`Main.Heating`, `Main.Pumps[2].Feed`).
+- `interface` (required): the interface's qualified name (`Plant.ISequence`), which the
+  instance's type implements.
+- `method` (required): a method the interface declares.
+- `inputs` (optional): an object of the method's inputs by name, each value a Structured Text
+  literal as `set` takes it; an input not given takes its declared initial value.
+
+The runtime makes the call between two scans, at the program's logical time, with an allowance of
+32,768 statements and loop passes, as a screen's command does, and answers `{"value": v}`: the
+method's result as `variables.read` gives a value, `null` for a method without one. The kernel's
+refusal is the request's refusal with the kernel's reason, and the program stays as it was. A fault
+of the method faults the resource as a faulted scan does: the request is refused with the fault,
+`faults` lists it, and the fault policy acts.
+
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is read into one request and dispatched
@@ -7103,7 +7125,7 @@ The explicit operation matrix is:
 |---|---|
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `service.heartbeat` (section 6.8.1, "Service heartbeats"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
-| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, `simulator.advance`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, `simulator.advance`, `method.call`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
