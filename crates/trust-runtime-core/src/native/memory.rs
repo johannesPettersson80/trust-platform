@@ -129,6 +129,34 @@ fn read_bytes<M: ProgramMemory + ?Sized>(memory: &M, place: Place, out: &mut [u8
     }
 }
 
+/// The bytes of the variable of type `type_index` at `place`, at its declared size, into the start
+/// of `out`, and how many: what a cycle trace records of a write from outside (specification 48
+/// RU-59). It allocates nothing.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidBundle`] for a type the type table does not hold or a place outside its
+/// area or frame, and [`RuntimeError::ControlError`] for a value longer than `out`.
+pub fn read_place_bytes<M: ProgramMemory + ?Sized>(
+    memory: &M,
+    place: Place,
+    type_index: u32,
+    out: &mut [u8],
+) -> Result<usize, RuntimeError> {
+    let image = memory.image();
+    let types = Types::of(&image)?;
+    let size = types.get(type_index)?.size as usize;
+    let Some(out) = out.get_mut(..size) else {
+        return Err(RuntimeError::ControlError(SmolStr::new_static(
+            "the value is longer than the room for it",
+        )));
+    };
+    if !read_bytes(memory, place, out) {
+        return Err(damaged("symbol table"));
+    }
+    Ok(size)
+}
+
 fn write_bytes<M: ProgramMemory + ?Sized>(memory: &mut M, place: Place, data: &[u8]) -> bool {
     match place {
         Place::Area { area, offset } => memory.write_area(area, offset as usize, data),

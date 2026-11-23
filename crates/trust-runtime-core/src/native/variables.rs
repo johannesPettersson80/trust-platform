@@ -9,14 +9,16 @@ use core::fmt;
 use super::image::{Image, SymbolRecord, NONE, SYMBOL_PROGRAM};
 use super::literal;
 use super::memory::{
-    member_symbol, read_place, retained_place, symbol_place, write_by_symbol, write_place, Place,
-    ProgramMemory,
+    member_symbol, read_place, read_place_bytes, retained_place, symbol_place, type_name,
+    write_by_symbol, write_place, Place, ProgramMemory,
 };
 use super::program::{slot, Binding, ModuleCode, NativeProgram};
 use super::reflect::{
     is_instance_type, resolve_for_write, resolve_path, symbol_constant, Located, PathError,
 };
 use super::values::damaged;
+use smol_str::SmolStr;
+
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
 use crate::io_image::{read_flat_image, write_flat_image};
@@ -230,6 +232,33 @@ pub trait CompiledVariables {
     /// error of a variable that holds no value, an instance.
     fn read_named(&self, name: &str) -> Result<Value, RuntimeError>;
 
+    /// The bytes of the variable `name` names, at its declared size, into the start of `out`, and
+    /// its type's name: what a cycle trace records of a write from outside (specification 48
+    /// RU-59). The default, a program without a symbol table, gives none.
+    ///
+    /// # Errors
+    ///
+    /// As [`CompiledVariables::read_named`], and [`RuntimeError::ControlError`] for a value longer
+    /// than `out`.
+    fn read_named_bytes(
+        &self,
+        name: &str,
+        out: &mut [u8],
+    ) -> Result<(usize, SmolStr), RuntimeError> {
+        let _ = (name, out);
+        Err(RuntimeError::ControlError(SmolStr::new_static(
+            "this program gives no variable's bytes",
+        )))
+    }
+
+    /// Copies the bytes of area `id` (specification 44 §7.1) from `offset` into `out`, as many as
+    /// `out` holds: a cycle trace's start state (specification 48 RU-59). The default, a program
+    /// without areas, copies nothing and gives false.
+    fn read_area_bytes(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {
+        let _ = (id, offset, out);
+        false
+    }
+
     /// Writes `value` to the global, the qualified variable or the member or element that `name`
     /// names, a name the symbol table holds or else a path ([`resolve_for_write`]). A constant, or
     /// a member or an element of one, is refused, and so is an instance, which holds no value of
@@ -323,21 +352,23 @@ impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
 /// tasks run.
 impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
     fn read_named(&self, name: &str) -> Result<Value, RuntimeError> {
-        let image = self.image();
-        let (place, type_index) = match image.find_variable(name) {
-            Ok(index) => symbol_place(&image, index)?,
-            Err(NameError::Ambiguous) => {
-                return Err(RuntimeError::UndefinedVariable(name.into()));
-            }
-            Err(NameError::Unknown) => {
-                let at = resolve_path(&image, name).map_err(|error| match error {
-                    PathError::Damaged => damaged("symbol table"),
-                    _ => RuntimeError::UndefinedVariable(name.into()),
-                })?;
-                (at.place, at.type_index)
-            }
-        };
+        let (place, type_index) = named_place(&self.image(), name)?;
         read_place(self, place, type_index)
+    }
+
+    fn read_named_bytes(
+        &self,
+        name: &str,
+        out: &mut [u8],
+    ) -> Result<(usize, SmolStr), RuntimeError> {
+        let image = self.image();
+        let (place, type_index) = named_place(&image, name)?;
+        let len = read_place_bytes(self, place, type_index, out)?;
+        Ok((len, type_name(&image, type_index)))
+    }
+
+    fn read_area_bytes(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {
+        self.read_area(id, offset, out)
     }
 
     fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
@@ -481,3 +512,19 @@ pub enum CompiledAccessPoint {
 
 #[cfg(test)]
 mod tests;
+
+/// Where the variable `name` names lies, and its type: a name the symbol table holds, or else a
+/// path ([`resolve_path`]).
+fn named_place(image: &Image<'_>, name: &str) -> Result<(Place, u32), RuntimeError> {
+    match image.find_variable(name) {
+        Ok(index) => symbol_place(image, index),
+        Err(NameError::Ambiguous) => Err(RuntimeError::UndefinedVariable(name.into())),
+        Err(NameError::Unknown) => {
+            let at = resolve_path(image, name).map_err(|error| match error {
+                PathError::Damaged => damaged("symbol table"),
+                _ => RuntimeError::UndefinedVariable(name.into()),
+            })?;
+            Ok((at.place, at.type_index))
+        }
+    }
+}

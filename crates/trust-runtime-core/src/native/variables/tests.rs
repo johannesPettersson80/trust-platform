@@ -368,6 +368,37 @@ fn a_named_write_takes_a_path_and_leaves_the_rest_of_the_memory() {
 }
 
 #[test]
+fn a_variables_bytes_and_an_areas_bytes_are_what_a_trace_records() {
+    // Specification 48 RU-59: a trace records a write from outside as the bytes the variable then
+    // holds, at its declared size, with its type's name, and its start state as each area's bytes.
+    // Worked by hand: `Main.Pumps[2].Speed` is the INT at offset 6 of area 6 (above), so after a
+    // write of 42 its bytes are 42 as two little-endian bytes, and area 6 holds them at 6..8.
+    // Catches bytes read from another place or at another size, another type's name, bytes written
+    // past the value, and a value given room it lacks.
+    let bytes = image();
+    let mut program = program(&bytes);
+    CompiledVariables::write_named(&mut program, "main.pumps[2].speed", &Value::LInt(42)).unwrap();
+    let mut out = [0xFF_u8; 8];
+    let (len, type_name) =
+        CompiledVariables::read_named_bytes(&program, "Main.Pumps[2].Speed", &mut out).unwrap();
+    assert_eq!((len, type_name.as_str()), (2, "INT"));
+    assert_eq!(&out[..2], &42i16.to_le_bytes());
+    assert_eq!(&out[2..], &[0xFF; 6]);
+    let mut short = [0_u8; 1];
+    assert!(matches!(
+        CompiledVariables::read_named_bytes(&program, "Main.Pumps[2].Speed", &mut short),
+        Err(RuntimeError::ControlError(_))
+    ));
+    assert!(matches!(
+        CompiledVariables::read_named_bytes(&program, "Main.Nothing", &mut out),
+        Err(RuntimeError::UndefinedVariable(_))
+    ));
+    let mut area = [0_u8; 24];
+    assert!(CompiledVariables::read_area_bytes(&program, 6, 0, &mut area));
+    assert_eq!(&area[6..8], &42i16.to_le_bytes());
+}
+
+#[test]
 fn a_refused_named_write_says_why_and_changes_nothing() {
     // Specification 11 ("Runtime control I/O and variable mutation contract"): a constant, a member
     // of a constant and an instance are refused with a plain reason, a path the program does not
