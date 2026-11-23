@@ -221,3 +221,26 @@ fn settling_after_a_fault_waits_until_the_resource_leaves_running() {
     assert!(!active.load(Ordering::SeqCst));
     halt.join().unwrap();
 }
+
+#[test]
+fn waiting_until_a_condition_holds_returns_once_it_holds() {
+    // A halted resource's fault reaches the events through their own thread, which can come after
+    // the loop left running: the answer waits until the fault is recorded, here 60 ms on, not
+    // before. Catches an answer without the fault that ended the advance, as CI saw on macOS (#746,
+    // 23 November 2026: a faulting cycle that trust-sim read as Ok).
+    let clock = SteppedClock::new();
+    let recorded = Arc::new(AtomicBool::new(false));
+    let recorder = recorded.clone();
+    let events = std::thread::spawn(move || {
+        held_for_a_while();
+        recorder.store(true, Ordering::SeqCst);
+    });
+    let started = std::time::Instant::now();
+    let seen = recorded.clone();
+    clock
+        .wait_until(&move || seen.load(Ordering::SeqCst))
+        .unwrap();
+    assert!(started.elapsed() >= std::time::Duration::from_millis(60));
+    assert!(recorded.load(Ordering::SeqCst));
+    events.join().unwrap();
+}

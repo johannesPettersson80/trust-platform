@@ -200,6 +200,16 @@ impl SteppedClock {
         .map(drop)
     }
 
+    /// Waits until `done` holds, at most a minute: a fault that reaches the events through their
+    /// own thread, after the scan loop has applied the fault policy.
+    ///
+    /// # Errors
+    ///
+    /// [`AdvanceRefusal::Unavailable`] when `done` does not hold within a minute.
+    pub fn wait_until(&self, done: &dyn Fn() -> bool) -> Result<(), AdvanceRefusal> {
+        self.wait(&|| !done(), |_| None).map(drop)
+    }
+
     /// Waits until `ready` finds a time in the clock's state: none once `runs` no longer holds.
     fn wait(
         &self,
