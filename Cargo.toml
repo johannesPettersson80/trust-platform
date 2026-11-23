@@ -162,6 +162,9 @@ trust-plc-abi = { path = "crates/trust-plc-abi", version = "=0.44.1" }
 trust-plc-decl = { path = "crates/trust-plc-decl", version = "=0.44.1" }
 trust-plc-lib = { path = "crates/trust-plc-lib", version = "=0.44.1" }
 trust-plc-macros = { path = "crates/trust-plc-macros", version = "=0.44.1" }
+# The SDK crate whose times and dates trust-sim reads and writes (specification 48 RU-58); the examples name it from
+# crates.io, which `[patch.crates-io]` below makes this crate.
+trust-plc = { path = "crates/trust-plc", version = "=0.44.1" }
 trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-platform-memory = { path = "crates/trust-platform-memory" }
 trust-platform-net = { path = "crates/trust-platform-net" }

@@ -3,6 +3,7 @@
 //! that `variables.read` gives.
 
 use serde_json::{Map, Value as Json};
+use trust_plc::{Date, Dt, LDate, LTime, LTod, Ldt, Time, Tod};
 
 /// A Rust value of a variable's type: `bool`, the integers, `f32`, `f64` and `String`.
 pub trait Value: Sized {
@@ -85,6 +86,161 @@ impl Value for String {
 
     fn from_json(json: &Json) -> Option<Self> {
         json.as_str().map(str::to_string)
+    }
+}
+
+/// The milliseconds of a day.
+const MILLIS_PER_DAY: i64 = 86_400_000;
+/// The nanoseconds of a day.
+const NANOS_PER_DAY: i64 = 86_400_000_000_000;
+
+/// The year, month and day of the day `days` after 1970-01-01, in the proleptic Gregorian
+/// calendar that IEC 61131-3's dates count in (H. Hinnant's `civil_from_days`).
+fn civil(days: i64) -> (i64, i64, i64) {
+    let shifted = days + 719_468;
+    let era = shifted.div_euclid(146_097);
+    let day_of_era = shifted.rem_euclid(146_097);
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_index = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_index + 2) / 5 + 1;
+    let month = if month_index < 10 {
+        month_index + 3
+    } else {
+        month_index - 9
+    };
+    let year = year_of_era + era * 400 + i64::from(month <= 2);
+    (year, month, day)
+}
+
+/// `YYYY-MM-DD` of the day `days` after 1970-01-01.
+fn date_text(days: i64) -> String {
+    let (year, month, day) = civil(days);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+/// `hh:mm:ss.f` of `units` since midnight, `per_second` of them a second, with `digits` digits
+/// of the fraction of a second.
+fn time_of_day_text(units: i64, per_second: i64, digits: usize) -> String {
+    let seconds = units.div_euclid(per_second);
+    let fraction = units.rem_euclid(per_second);
+    format!(
+        "{:02}:{:02}:{:02}.{fraction:0digits$}",
+        seconds / 3_600,
+        seconds / 60 % 60,
+        seconds % 60
+    )
+}
+
+macro_rules! duration {
+    ($rust:ty, $prefix:literal) => {
+        impl Value for $rust {
+            const KIND: &'static str = "a duration";
+
+            fn literal(self) -> String {
+                // In whole nanoseconds, which the literal holds exactly (IEC 61131-3 Table 8).
+                format!(concat!($prefix, "#{}ns"), self.as_nanos())
+            }
+
+            fn from_json(json: &Json) -> Option<Self> {
+                json.as_i64().map(<$rust>::from_nanos)
+            }
+        }
+    };
+}
+
+duration!(Time, "T");
+duration!(LTime, "LT");
+
+impl Value for Date {
+    const KIND: &'static str = "a date";
+
+    fn literal(self) -> String {
+        format!(
+            "D#{}",
+            date_text(self.as_millis().div_euclid(MILLIS_PER_DAY))
+        )
+    }
+
+    fn from_json(json: &Json) -> Option<Self> {
+        json.as_i64().map(Date::from_millis)
+    }
+}
+
+impl Value for LDate {
+    const KIND: &'static str = "a date";
+
+    fn literal(self) -> String {
+        format!(
+            "LD#{}",
+            date_text(self.as_nanos().div_euclid(NANOS_PER_DAY))
+        )
+    }
+
+    fn from_json(json: &Json) -> Option<Self> {
+        json.as_i64().map(LDate::from_nanos)
+    }
+}
+
+impl Value for Tod {
+    const KIND: &'static str = "a time of day";
+
+    fn literal(self) -> String {
+        format!("TOD#{}", time_of_day_text(self.as_millis(), 1_000, 3))
+    }
+
+    fn from_json(json: &Json) -> Option<Self> {
+        json.as_i64().map(Tod::from_millis)
+    }
+}
+
+impl Value for LTod {
+    const KIND: &'static str = "a time of day";
+
+    fn literal(self) -> String {
+        format!(
+            "LTOD#{}",
+            time_of_day_text(self.as_nanos(), 1_000_000_000, 9)
+        )
+    }
+
+    fn from_json(json: &Json) -> Option<Self> {
+        json.as_i64().map(LTod::from_nanos)
+    }
+}
+
+impl Value for Dt {
+    const KIND: &'static str = "a date and time";
+
+    fn literal(self) -> String {
+        let millis = self.as_millis();
+        format!(
+            "DT#{}-{}",
+            date_text(millis.div_euclid(MILLIS_PER_DAY)),
+            time_of_day_text(millis.rem_euclid(MILLIS_PER_DAY), 1_000, 3)
+        )
+    }
+
+    fn from_json(json: &Json) -> Option<Self> {
+        json.as_i64().map(Dt::from_millis)
+    }
+}
+
+impl Value for Ldt {
+    const KIND: &'static str = "a date and time";
+
+    fn literal(self) -> String {
+        let nanos = self.as_nanos();
+        format!(
+            "LDT#{}-{}",
+            date_text(nanos.div_euclid(NANOS_PER_DAY)),
+            time_of_day_text(nanos.rem_euclid(NANOS_PER_DAY), 1_000_000_000, 9)
+        )
+    }
+
+    fn from_json(json: &Json) -> Option<Self> {
+        json.as_i64().map(Ldt::from_nanos)
     }
 }
 
@@ -199,5 +355,48 @@ mod tests {
         assert_eq!(bool::from_result(&Json::Null), None);
         // Both traits are in scope here, as in a test that imports `trust_sim::*`.
         assert_eq!(bool::from_json(&json!(false)), Some(false));
+    }
+
+    #[test]
+    fn times_and_dates_are_iec_literals_written_and_their_numbers_read() {
+        // IEC 61131-3 Tables 8 and 9, the literals `set` reads (specification 11, "Live Values").
+        // Worked by hand and against a calendar: 1.5 s is 1_500_000_000 ns; day 1 after 1970-01-01
+        // is 1970-01-02, day -1 is 1969-12-31, day 11_017 is 2000-03-01, after a leap day, and day
+        // 20_780 is 2026-11-23; 12:30:45.123 is 45_045_123 ms after midnight, so
+        // DT#2026-11-23-12:30:45.123 is 1_795_437_045_123 ms. variables.read gives a duration and the
+        // long forms in nanoseconds, a DATE, TOD and DT in milliseconds. Catches a date off by a leap
+        // day, a time of day without its fraction, and a number read in the other unit.
+        use trust_plc::{Date, Dt, LDate, LTime, LTod, Ldt, Time, Tod};
+        assert_eq!(Time::from_nanos(1_500_000_000).literal(), "T#1500000000ns");
+        assert_eq!(LTime::from_nanos(-5).literal(), "LT#-5ns");
+        assert_eq!(Date::from_millis(86_400_000).literal(), "D#1970-01-02");
+        assert_eq!(Date::from_millis(-86_400_000).literal(), "D#1969-12-31");
+        assert_eq!(
+            Date::from_millis(11_017 * 86_400_000).literal(),
+            "D#2000-03-01"
+        );
+        assert_eq!(
+            LDate::from_nanos(20_780 * 86_400_000_000_000).literal(),
+            "LD#2026-11-23"
+        );
+        assert_eq!(Tod::from_millis(45_045_123).literal(), "TOD#12:30:45.123");
+        assert_eq!(LTod::from_nanos(1).literal(), "LTOD#00:00:00.000000001");
+        assert_eq!(
+            Dt::from_millis(1_795_437_045_123).literal(),
+            "DT#2026-11-23-12:30:45.123"
+        );
+        assert_eq!(
+            Ldt::from_nanos(20_780 * 86_400_000_000_000 + 45_045_123_000_000).literal(),
+            "LDT#2026-11-23-12:30:45.123000000"
+        );
+        assert_eq!(
+            <Time as Value>::from_json(&json!(1_500_000_000)),
+            Some(Time::from_nanos(1_500_000_000))
+        );
+        assert_eq!(
+            <Dt as Value>::from_json(&json!(10)),
+            Some(Dt::from_millis(10))
+        );
+        assert_eq!(<Date as Value>::from_json(&json!("1970-01-02")), None);
     }
 }

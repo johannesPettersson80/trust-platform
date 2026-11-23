@@ -58,6 +58,8 @@ use std::time::Duration;
 
 pub use project::Project;
 pub use simulator::{Restart, Simulator};
+/// `trust_plc`'s times and dates, which a machine test reads and writes as a Rust POU holds them.
+pub use trust_plc::{Date, Dt, LDate, LTime, LTod, Ldt, Time, Tod};
 pub use value::{Inputs, Returned, Value};
 
 /// The result of a machine test's step.
