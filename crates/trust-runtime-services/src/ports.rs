@@ -17,6 +17,7 @@ use trust_runtime_core::ports::WallClock;
 use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
+use trust_runtime_core::value::Value;
 
 use crate::access::{AccessRole, AuthFailure, PairingService};
 use crate::capabilities::{HeapFacts, LastReset};
@@ -31,6 +32,7 @@ use crate::installation::Admitted;
 use crate::live_values::io_requests::IoQueuePort;
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::loading::install::Checked;
+use crate::method_call::{MethodCall, MethodCallRefusal};
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
@@ -212,6 +214,20 @@ pub trait ResourcePort {
         _faulted: &dyn Fn() -> bool,
     ) -> Result<Advanced, AdvanceRefusal> {
         Err(AdvanceRefusal::ClockNotManual)
+    }
+    /// Makes a tool's method call between scans (`method.call`, specification 11 §6.8.1; the call
+    /// of specification 44 §13.3): the method of the instance through the interface, with the
+    /// inputs, within [`crate::method_call::ALLOWANCE`]. Both platforms answer it; the default is
+    /// the refusal of a host that runs no program, as a test's host.
+    ///
+    /// # Errors
+    ///
+    /// [`MethodCallRefusal::Refused`] with the kernel's reason, the program unchanged, and
+    /// [`MethodCallRefusal::Faulted`] for a fault of the method.
+    fn call_method(&self, _call: &MethodCall) -> Result<Value, MethodCallRefusal> {
+        Err(MethodCallRefusal::Refused(
+            "this runtime runs no program to call".to_string(),
+        ))
     }
 }
 

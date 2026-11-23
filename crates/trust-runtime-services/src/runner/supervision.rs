@@ -19,7 +19,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{self, Duration, Value};
-use trust_runtime_core::watchdog::{FaultAction, FaultDecision};
+use trust_runtime_core::watchdog::{FaultAction, FaultDecision, FaultPolicy, WatchdogPolicy};
 
 use super::live::LiveValuesHooks;
 use super::observer::ScanObserver;
@@ -305,16 +305,7 @@ where
         // answers from (specification 11 §6.13.1).
         self.shell.debug.scan_ended();
         if let Err(error) = result {
-            let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
-            match cycle_error_action(watchdog, fault_policy, reported) {
-                CycleErrorAction::Restart(reason) => self.automatic_restart(&reason),
-                CycleErrorAction::WatchdogHalt(error) => {
-                    let error =
-                        self.apply_fault(error, FaultDecision::from_watchdog(watchdog.action));
-                    self.halt(error);
-                }
-                CycleErrorAction::Halt(error) => self.halt(error),
-            }
+            self.fail_scan(error, watchdog, fault_policy);
             return;
         }
         let held = self.cycle.held_time().saturating_sub(held_before);
@@ -343,6 +334,34 @@ where
                 self.halt(error);
             }
         }
+    }
+
+    /// Follows the shared decisions for the error a scan ended with: the fault latched, and the
+    /// fault policy's restart or halt, the watchdog's for a timeout.
+    fn fail_scan(
+        &mut self,
+        error: RuntimeError,
+        watchdog: WatchdogPolicy,
+        fault_policy: FaultPolicy,
+    ) {
+        let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
+        match cycle_error_action(watchdog, fault_policy, reported) {
+            CycleErrorAction::Restart(reason) => self.automatic_restart(&reason),
+            CycleErrorAction::WatchdogHalt(error) => {
+                let error = self.apply_fault(error, FaultDecision::from_watchdog(watchdog.action));
+                self.halt(error);
+            }
+            CycleErrorAction::Halt(error) => self.halt(error),
+        }
+    }
+
+    /// Faults the resource with the fault of a method that a tool called between scans, as at a
+    /// faulted scan (specification 44 §13.3): the fault latched and reported, and the fault
+    /// policy acts.
+    pub(super) fn fault_method(&mut self, error: RuntimeError) {
+        let watchdog = self.cycle.watchdog().normalized_for_runtime();
+        let fault_policy = self.cycle.fault_policy();
+        self.fail_scan(error, watchdog, fault_policy);
     }
 
     /// Records a fault as trust-runtime's fault owner does: the engine latches it, the safe

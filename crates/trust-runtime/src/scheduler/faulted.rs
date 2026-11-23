@@ -170,6 +170,15 @@ pub(super) fn serve_command<C: Clock + Clone>(
         let _ = respond_to.send(Err(StepRefusal::NotStopped(ResourceState::Faulted)));
         return false;
     }
+    if let ResourceCommand::CallMethod { respond_to, .. } = command {
+        // No call runs until a restart (specification 44 section 13.3).
+        let _ = respond_to.send(Err(
+            trust_runtime_services::method_call::MethodCallRefusal::NotRunning(
+                ResourceState::Faulted,
+            ),
+        ));
+        return false;
+    }
     match faulted_command_effect(command_class(&command)) {
         // The control plane refuses pause and resume while faulted; they are ignored if they
         // arrive. Variable writes are dropped: fault handling is a clearing boundary (spec 11

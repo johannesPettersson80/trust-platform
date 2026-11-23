@@ -38,6 +38,7 @@ use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::loading::install::Checked;
 use crate::loading::reload;
+use crate::method_call::{MethodCall, MethodCallRefusal};
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
     part_in_memory, AccessPort, AuditRecord, AuditSink, DevicePort, EventSink, ExtensionDispatch,
@@ -195,6 +196,20 @@ pub(super) trait ProgramView {
         None
     }
 
+    /// Runs `read` on the installed program's image and returns whether there is one: the tables
+    /// that resolve a target and type a literal (specification 11, "Live Values"). The default
+    /// reads it through [`ProgramView::compiled_state`].
+    fn with_image(
+        &self,
+        read: &mut dyn FnMut(&trust_runtime_core::native::image::Image<'_>),
+    ) -> bool {
+        let Some(view) = self.compiled_state() else {
+            return false;
+        };
+        read(&view.memory.image());
+        true
+    }
+
     /// The values of `paths` that the last completed scan left (specification 11 §6.8.1,
     /// "Reading variables"). The default is the view of a scan a debugger holds, which is inside
     /// its scan: no completed scan's values are at hand.
@@ -214,6 +229,22 @@ pub(super) trait ProgramView {
         _value: &Value,
     ) -> Option<Result<(), RuntimeError>> {
         None
+    }
+
+    /// Makes a tool's method call between scans (`method.call`, specification 44 §13.3). The
+    /// default is the view of a scan a debugger holds, which is inside its scan: the kernel's
+    /// refusal of a call while a scan runs.
+    ///
+    /// # Errors
+    ///
+    /// The [`MethodCallRefusal`] of a call that was not made or whose method faulted.
+    fn call_method(&self, _call: &MethodCall) -> Result<Value, MethodCallRefusal> {
+        Err(MethodCallRefusal::Refused(
+            RuntimeError::ControlError(SmolStr::new_static(
+                trust_runtime_core::native::tool::DURING_A_SCAN,
+            ))
+            .to_string(),
+        ))
     }
 }
 
@@ -370,6 +401,10 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
             return Err(StepRefusal::Deferred);
         }
         self.program.step(request)
+    }
+
+    fn call_method(&self, call: &MethodCall) -> Result<Value, MethodCallRefusal> {
+        self.program.call_method(call)
     }
 }
 
@@ -691,11 +726,7 @@ impl<P: RunnerPlatform, C> IoQueuePort for RunnerHost<'_, P, C> {
         &self,
         read: &mut dyn FnMut(&trust_runtime_core::native::image::Image<'_>),
     ) -> bool {
-        let Some(view) = self.program.compiled_state() else {
-            return false;
-        };
-        read(&view.memory.image());
-        true
+        self.program.with_image(read)
     }
 }
 
@@ -745,10 +776,6 @@ impl<P: RunnerPlatform, C> VariableQueuePort for RunnerHost<'_, P, C> {
         &self,
         read: &mut dyn FnMut(&trust_runtime_core::native::image::Image<'_>),
     ) -> bool {
-        let Some(view) = self.program.compiled_state() else {
-            return false;
-        };
-        read(&view.memory.image());
-        true
+        self.program.with_image(read)
     }
 }

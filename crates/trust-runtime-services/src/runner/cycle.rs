@@ -13,6 +13,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::memory::Generation;
+use trust_runtime_core::native::tool::MethodCallError;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainApplyEvent};
 use trust_runtime_core::value::{Duration, Value};
@@ -21,6 +22,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 use super::hold::HoldHandle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::LineSources;
+use crate::method_call::MethodCall;
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
@@ -260,6 +262,24 @@ pub trait ResourceCycle {
         restart_at: Duration,
         deadline: Option<MonotonicInstant>,
     ) -> Result<StepOutcome, StepRefusal>;
+
+    /// Makes a tool's method call between scans at the program's logical time `now` (`method.call`,
+    /// specification 44 §13.3): the method's result, `NULL` for a method without one. The default
+    /// is a cycle that runs no compiled program, which refuses it.
+    ///
+    /// # Errors
+    ///
+    /// The kernel's [`MethodCallError`]: its refusal, the program as it was, or the method's fault,
+    /// which the loop handles as a faulted scan's.
+    fn call_method(
+        &mut self,
+        _call: &MethodCall,
+        _now: Duration,
+    ) -> Result<Value, MethodCallError> {
+        Err(MethodCallError::Refused(RuntimeError::ControlError(
+            SmolStr::new_static("this program has no methods to call"),
+        )))
+    }
 
     /// Gives the cycle the loop's pass for a scan that a debugger holds (specification 13, "Safe
     /// Points"; specification 34, STATE-07). The loop calls it once, when it starts.

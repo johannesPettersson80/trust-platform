@@ -603,6 +603,11 @@ where
             let program =
                 LentProgram::new(&mut self.cycle, &self.last_step, &self.clock, completed);
             let after_response = self.shell.serve(received, &program);
+            // A method that a `method.call` called and that faulted faults the resource as a
+            // faulted scan does, once its request is answered (specification 44 §13.3).
+            if let Some(fault) = program.take_method_fault() {
+                self.fault_method(fault);
+            }
             if let Some((id, request)) = self.shell.step.take_held() {
                 self.finish_loading_step(id, request);
             }
@@ -672,6 +677,9 @@ mod link_contract_tests;
 
 #[cfg(test)]
 mod live_values_contract_tests;
+
+#[cfg(test)]
+mod method_call_contract_tests;
 
 #[cfg(test)]
 mod reply_contract_tests;
