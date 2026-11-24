@@ -50,15 +50,17 @@ pub trait WriteSink {
         false
     }
 
-    /// The boundary applied the queued one-shot write of `value` at `address` (`io.write`): a cycle
-    /// trace records it (specification 48 RU-59). Reported only to a sink that [`Self::records`].
+    /// The boundary applied the one-shot write of `value` at `address` that `source` queued
+    /// (`io.write`, or Control Studio's): a cycle trace records it (specification 48 RU-59).
+    /// Reported only to a sink that [`Self::records`].
     fn address_written(
         &mut self,
+        source: ChangeSource,
         address: &IoAddress,
         value: &Value,
         variables: &dyn CompiledVariables,
     ) {
-        let _ = (address, value, variables);
+        let _ = (source, address, value, variables);
     }
 
     /// A force set or released since the last cycle start, reported once, as the cycle start
@@ -293,12 +295,19 @@ where
     S: WriteSink,
 {
     if !areas.contains(&IoArea::Output) {
-        for (address, value) in queues.io_writes.drain(..) {
+        // Each write's source is at its index; the list is taken whole, so that an early return
+        // leaves no source behind for the writes queued next.
+        let mut sources = core::mem::take(&mut queues.io_write_sources);
+        for (index, (address, value)) in queues.io_writes.drain(..).enumerate() {
             let reported = sink.records().then(|| value.clone());
             match variables.write_image(&address, value) {
                 Ok(()) => {
                     if let Some(value) = &reported {
-                        sink.address_written(&address, value, &*variables);
+                        let source = sources
+                            .get(index)
+                            .copied()
+                            .unwrap_or(ChangeSource::ControlLink);
+                        sink.address_written(source, &address, value, &*variables);
                     }
                 }
                 Err(error) => {
@@ -310,6 +319,9 @@ where
                 }
             }
         }
+        // Put back empty, so that the next writes' sources reuse its memory.
+        sources.clear();
+        queues.io_write_sources = sources;
     }
     if areas.contains(&IoArea::Input) {
         compiled_forces(queues, generation, variables, time, sink)?;

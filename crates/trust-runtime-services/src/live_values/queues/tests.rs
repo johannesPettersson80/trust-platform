@@ -187,6 +187,37 @@ fn withdraw_removes_only_the_matching_write() {
 }
 
 #[test]
+fn an_io_writes_source_stays_at_its_index_through_a_withdrawal_and_a_drain() {
+    // Specification 48 Appendix C, C.6: a cycle trace records each one-shot write with its
+    // source, which the queue keeps at the write's index. %QW0 comes from the control link, %QW2
+    // and %QW4 from Control Studio; withdrawing %QW2 removes its source too, and a drain or a clear
+    // leaves none behind. Catches a source that slides onto the next write, and one left over.
+    let mut queues = empty_queues();
+    queues
+        .try_enqueue_io_write(address("%QW0"), Value::LInt(1))
+        .expect("the first write fits");
+    queues
+        .try_enqueue_io_write_from(address("%QW2"), Value::LInt(2), ChangeSource::ControlStudio)
+        .expect("the second write fits");
+    queues
+        .try_enqueue_io_write_from(address("%QW4"), Value::LInt(3), ChangeSource::ControlStudio)
+        .expect("the third write fits");
+    queues.withdraw_io_write(&address("%QW2"), &Value::LInt(2));
+    assert_eq!(
+        queues.io_write_sources,
+        vec![ChangeSource::ControlLink, ChangeSource::ControlStudio]
+    );
+    assert_eq!(queues.drain_io_writes().len(), 2);
+    assert_eq!(queues.io_write_sources, vec![]);
+
+    queues
+        .try_enqueue_io_write_from(address("%QW0"), Value::LInt(4), ChangeSource::ControlStudio)
+        .expect("the queue is empty again");
+    queues.clear();
+    assert_eq!(queues.io_write_sources, vec![]);
+}
+
+#[test]
 fn the_forced_snapshot_lists_every_force() {
     let mut queues = empty_queues();
     queues

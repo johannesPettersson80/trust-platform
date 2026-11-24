@@ -6,12 +6,18 @@ use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_services::trace::Recorder;
 
 impl DebugControl {
-    /// Queue a one-shot I/O write. A refused write is reported as `write_rejected` and queues
-    /// nothing; protocol and control producers use `try_enqueue_io_write` to receive the refusal.
-    /// Control Studio's experiments and abort bindings write their addresses this way
-    /// (specification 35, A3.5).
+    /// Queue Control Studio's one-shot I/O write: its experiments and abort bindings write their
+    /// addresses this way (specification 35, A3.5), and a cycle trace records the write as Control
+    /// Studio's (specification 48 Appendix C, C.6). A refused write is reported as
+    /// `write_rejected` and queues nothing; protocol and control producers use
+    /// `try_enqueue_io_write` to receive the refusal.
     pub fn enqueue_io_write(&self, address: IoAddress, value: Value) {
-        if self.try_enqueue_io_write(address.clone(), value).is_err() {
+        let queued = self.lock().live_values.try_enqueue_io_write_from(
+            address.clone(),
+            value,
+            ChangeSource::ControlStudio,
+        );
+        if queued.is_err() {
             self.report_refused_request(SmolStr::new(format!("{address:?}")));
         }
     }
@@ -130,12 +136,14 @@ impl DebugControl {
     /// §13.3): each at its place, converted to the place's type. A write resolved in another program
     /// generation than `generation` is dropped, since its place names nothing in this program; a
     /// write the program refuses is reported as `write_rejected` at `time`, never a fault: the writer
-    /// reads its variable back.
+    /// reads its variable back. A recording keeps each write applied as Control Studio's
+    /// (specification 48 Appendix C, C.6).
     pub(crate) fn apply_control_writes(
         &self,
-        program: &mut dyn ProgramWrite,
+        variables: &mut dyn CompiledVariables,
         generation: Generation,
         time: Duration,
+        mut trace: Option<&mut Recorder>,
     ) {
         let writes = {
             let mut state = self.lock();
@@ -148,12 +156,17 @@ impl DebugControl {
             if write.generation != generation {
                 continue;
             }
-            if let Err(error) = program.write_at(&write.at, &write.value) {
-                self.push_runtime_event(RuntimeEvent::WriteRejected {
+            match variables.write_located(&write.at, &write.value) {
+                Ok(()) => {
+                    if let Some(trace) = trace.as_deref_mut() {
+                        trace.written(ChangeSource::ControlStudio, &write.label, &*variables);
+                    }
+                }
+                Err(error) => self.push_runtime_event(RuntimeEvent::WriteRejected {
                     target: write.label,
                     error: error.to_string(),
                     time,
-                });
+                }),
             }
         }
     }
@@ -487,12 +500,13 @@ impl WriteSink for RejectedEvents<'_> {
 
     fn address_written(
         &mut self,
+        source: ChangeSource,
         address: &IoAddress,
         value: &Value,
         variables: &dyn CompiledVariables,
     ) {
         if let Some(trace) = self.trace.as_deref_mut() {
-            trace.address_written(ChangeSource::ControlLink, address, value, variables);
+            trace.address_written(source, address, value, variables);
         }
     }
 

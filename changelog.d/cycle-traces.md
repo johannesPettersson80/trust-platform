@@ -27,3 +27,5 @@
 - A cycle trace also keeps what screens change: each write a screen's command makes, and each
   method a screen calls, with its inputs as Structured Text literals, as the next cycle's change
   of a screen (specification 48 RU-59).
+- A cycle trace also keeps Control Studio's experiment writes, of variables and of addresses, as
+  Control Studio's changes (specification 48 RU-59).
