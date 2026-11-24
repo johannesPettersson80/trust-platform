@@ -53,6 +53,9 @@ mod status;
 #[cfg(test)]
 #[path = "plant/symbol_signal_tests.rs"]
 mod symbol_signal_tests;
+#[cfg(test)]
+#[path = "plant/trace_tests.rs"]
+mod trace_tests;
 #[path = "plant/uncertainty.rs"]
 mod uncertainty;
 #[path = "plant/validation.rs"]

@@ -1092,14 +1092,23 @@ impl CompiledRuntime {
                 Ok(symbol) => program.write_symbol(symbol, value),
                 Err(_) => Err(RuntimeError::UndefinedVariable(name.clone())),
             };
-            if let Err(error) = result
-                && let Some(debug) = &self.debug
-            {
-                debug.push_runtime_event(RuntimeEvent::WriteRejected {
-                    target: name.clone(),
-                    error: error.to_string(),
-                    time: self.current_time,
-                });
+            match result {
+                // A recording keeps the mesh's write as the next cycle's change (specification 48
+                // RU-59).
+                Ok(()) => self.record_written(
+                    trust_runtime_core::trace::ChangeSource::Mesh,
+                    &[],
+                    &[name.as_str()],
+                ),
+                Err(error) => {
+                    if let Some(debug) = &self.debug {
+                        debug.push_runtime_event(RuntimeEvent::WriteRejected {
+                            target: name.clone(),
+                            error: error.to_string(),
+                            time: self.current_time,
+                        });
+                    }
+                }
             }
         }
     }
