@@ -62,7 +62,11 @@ fn trust_dev_replay(trace: &Path, project: &Path) -> Output {
         .arg(trace)
         .arg("--project")
         .arg(project)
-        .env("TRUST_RUNTIME", env!("CARGO_BIN_EXE_trust-runtime"))
+        .env(
+            "TRUST_RUNTIME",
+            std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+                .expect("Cargo provides trust-runtime to its integration tests"),
+        )
         .output()
         .expect("run trust-dev replay")
 }
