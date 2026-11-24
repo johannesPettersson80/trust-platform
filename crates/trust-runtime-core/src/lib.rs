@@ -57,6 +57,8 @@ pub mod retain;
 pub mod scheduler;
 /// Portable task configuration records.
 pub mod task;
+/// Cycle traces, the `.trusttrace` file (specification 48 RU-59, Appendix C).
+pub mod trace;
 /// Portable runtime value model pieces.
 pub mod value;
 /// Portable watchdog, retain-mode, and fault-policy model records.
