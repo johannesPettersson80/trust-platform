@@ -153,7 +153,7 @@ const MAX_TRANSFER_BYTES: usize = 64 * 1024 * 1024;
 
 /// The cycle traces of a runtime (specification 48 RU-59): the slot its scan thread records into and
 /// its control link reads, and a new slot, which holds no trace.
-pub use crate::runtime::{new_traces, FlightSettings, SharedTraces, TraceSlot};
+pub use crate::runtime::{new_traces, trace_file_name, FlightSettings, SharedTraces, TraceSlot};
 
 /// The transfers of this process (specification 34, PORT-05). Its boot number is the process start
 /// in seconds since the epoch, so a transfer id does not repeat after a restart.
