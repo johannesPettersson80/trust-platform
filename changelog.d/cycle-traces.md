@@ -32,6 +32,9 @@
 - A cycle trace names each variable and each method call's instance as the debugger names it,
   whatever form the request named it in: `set main.pumps[2].speed` is recorded as
   `Main.Pumps[2].Speed` (specification 48 Appendix C, C.6).
+- A cycle trace also keeps what simulated plants and the mesh change between scans: a plant's
+  feedback at addresses and program variables, the measurement it gives a `Control.PID`, and each
+  value the mesh writes (specification 48 RU-59).
 - A simulator replays a cycle trace (`simulator.replay`, after uploading the trace with
   `transfer.begin {"for": "trace"}`): it takes the recorded memory, runs the recorded cycles on the
   recorded input images with the recorded tasks at their times, and reports the first cycle whose

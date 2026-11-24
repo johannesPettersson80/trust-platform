@@ -44,8 +44,9 @@ impl Recorder {
         }
     }
 
-    /// A one-shot write of `value` at `address` (`io.write`) that the boundary applied, recorded as
-    /// the bytes it gives the process image.
+    /// A one-shot write of `value` at `address` that was applied, recorded as the bytes it gives the
+    /// process image: the boundary's (`io.write`), or one made between two cycles, such as a plant's
+    /// feedback, which is the next cycle's ([`Self::change`]).
     pub fn address_written(
         &mut self,
         source: ChangeSource,
@@ -53,7 +54,7 @@ impl Recorder {
         value: &Value,
         variables: &dyn CompiledVariables,
     ) {
-        if !self.cycle.open {
+        if !self.takes_changes() {
             return;
         }
         self.with_address_bytes(address, value, variables, |recorder, bytes| {
