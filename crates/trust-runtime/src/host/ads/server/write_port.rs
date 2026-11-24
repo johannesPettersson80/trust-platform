@@ -100,9 +100,14 @@ impl RuntimeWritePort for AdsServerRuntimeWritePort {
             )
         })?;
         // A compiled program resolves the global's name through its symbol table when it applies
-        // the write (specification 44 §13.3).
+        // the write (specification 44 §13.3); a cycle trace records it as a protocol server's
+        // (specification 48 Appendix C, C.6).
         self.debug
-            .try_enqueue_global_write(global_name, value)
+            .try_enqueue_global_write_from(
+                global_name,
+                value,
+                trust_runtime_core::trace::ChangeSource::ProtocolServer,
+            )
             .map_err(|refused| {
                 // The bounded request queue is full, so the device cannot take the write now.
                 // NoMemory is ADS's code for an exhausted resource cap, which the queue bound is.
@@ -178,6 +183,38 @@ mod tests {
             now: Duration::from_millis(10),
             compiled: None,
         }
+    }
+
+    #[test]
+    fn an_ads_write_is_queued_as_a_protocol_servers() {
+        // Specification 48 Appendix C, C.6: a cycle trace records a change with its source, and an
+        // ADS client's write reaches the program through the ADS server, a protocol server (6), not
+        // through the control link. Catches the write queued as the control link's.
+        let config = config();
+        let symbols = build_runtime_symbol_snapshot(&config, &snapshot_with_setpoint())
+            .expect("symbol snapshot");
+        let symbol = symbols.symbols.first().expect("symbol").clone();
+        let policy = AdsServerClientPolicy::new(&config);
+        let debug = DebugControl::new();
+        let (resource, _rx) = ResourceControl::stub(StdClock::new());
+        let write_port = AdsServerRuntimeWritePort::new(config, policy, debug.clone(), resource)
+            .expect("write port");
+        let client = ClientId::new(AmsNetId::new("5.23.91.12.1.1")).with_source_ip("192.168.10.50");
+
+        write_port
+            .write(
+                &symbol,
+                &ads_bytes_from_value(&symbol.data_type, &Value::Real(1.0)).unwrap(),
+                &client,
+            )
+            .expect("the ADS write is queued");
+
+        let queued = debug.drain_var_writes();
+        assert_eq!(queued.len(), 1);
+        assert_eq!(
+            queued[0].source,
+            trust_runtime_core::trace::ChangeSource::ProtocolServer
+        );
     }
 
     #[test]

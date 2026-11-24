@@ -14,7 +14,7 @@ use super::memory::{
 };
 use super::program::{slot, Binding, ModuleCode, NativeProgram};
 use super::reflect::{
-    is_instance_type, resolve_for_write, resolve_path, symbol_constant, Located, PathError,
+    is_instance_type, path_of, resolve_for_write, resolve_path, symbol_constant, Located, PathError,
 };
 use super::values::damaged;
 use smol_str::SmolStr;
@@ -259,6 +259,17 @@ pub trait CompiledVariables {
         false
     }
 
+    /// The path the debugger names the variable `name` names by, whatever form `name` takes: the
+    /// display name of the symbol whose variable holds it, then the names of the members and the
+    /// indices of the elements down to it ([`path_of`]), so that `main.pumps[2].speed` is
+    /// `Main.Pumps[2].Speed`. A cycle trace names each variable it records so (specification 48
+    /// Appendix C, C.6). `None` for a name that reaches no variable, and the default, a program
+    /// without a symbol table, names none.
+    fn display_path(&self, name: &str) -> Option<alloc::string::String> {
+        let _ = name;
+        None
+    }
+
     /// The input image that the drivers and Live Values fill (`%I`), which the program samples into
     /// its input area when its tasks run (specification 44 §13.3): a cycle trace records it as the
     /// scan sampled it (specification 48 RU-59). The default, a program without one, is empty.
@@ -395,6 +406,14 @@ impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
 
     fn read_area_bytes(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {
         self.read_area(id, offset, out)
+    }
+
+    fn display_path(&self, name: &str) -> Option<alloc::string::String> {
+        let image = self.image();
+        let (place, type_index) = named_place(&image, name).ok()?;
+        path_of(&image, &Located { place, type_index })
+            .ok()
+            .flatten()
     }
 
     fn input_image(&self) -> &[u8] {

@@ -15,6 +15,7 @@ use super::io_subsystem::LinkIo;
 use super::program_access::{Located, ProgramWrite};
 use crate::hmi::alarms::AlarmEvent;
 use crate::hmi::exchange::HmiExchange;
+use crate::hmi::member_paths::MemberPath;
 use crate::hmi::program_instances::{declares_block, instances_of};
 use crate::value::{Duration, Value};
 
@@ -44,6 +45,9 @@ pub(crate) struct Served {
     pub(crate) exchange: Arc<HmiExchange>,
     /// The alarm records the calls made, for the OpenOT history (specification 40, §5.2).
     pub(crate) alarm_records: Vec<AlarmEvent>,
+    /// The path of each write the screens' commands made, which a cycle trace records as a
+    /// screen's (specification 48 RU-59).
+    pub(crate) written: Vec<MemberPath>,
 }
 
 /// The exchange and the program's `Hmi.Display` blocks.
@@ -135,14 +139,15 @@ impl HmiSubsystem {
         let silent =
             self.links
                 .silent_inputs(now_ms, scan.links, scan.bindings, scan.binding_names);
-        let records = exchange.serve(program, scan.cycle, &silent);
-        self.served
-            .get_or_insert_with(|| Served {
-                exchange: Arc::clone(&exchange),
-                alarm_records: Vec::new(),
-            })
-            .alarm_records
-            .extend(records);
+        let mut written = Vec::new();
+        let records = exchange.serve(program, scan.cycle, &silent, &mut written);
+        let served = self.served.get_or_insert_with(|| Served {
+            exchange: Arc::clone(&exchange),
+            alarm_records: Vec::new(),
+            written: Vec::new(),
+        });
+        served.alarm_records.extend(records);
+        served.written.extend(written);
     }
 
     /// After a scan: what its calls of `Hmi.Display` left, `None` when it made none.
@@ -224,6 +229,74 @@ mod tests {
         harness.cycle();
         scan_end(&mut harness, &mut hmi);
         assert_eq!(exchange.calls(), 2, "called again: served again");
+    }
+
+    /// Specification 48 RU-59: the exchange applies a screen's write at the end of a scan in which
+    /// the program called `Hmi.Display` (specification 39 §18 Phase 5 item 4), so the write is
+    /// the next cycle's change, a screen's (source 2), by the path the debugger names the variable
+    /// by and as the bytes it then holds. Worked by hand: `Screens.Level := 7`, queued before a
+    /// recording of 2 cycles, is applied at the end of its first scan and is its second cycle's
+    /// change, INT 7, the bytes 07 00. Catches a screen's write not recorded, recorded in the
+    /// cycle before, or lost between two cycles.
+    #[test]
+    fn a_screens_write_is_recorded_as_the_next_cycles_change() {
+        use crate::hmi::commands::write::WriteAction;
+        use trust_runtime_core::trace::{decode, Change, ChangeKind, ChangeSource};
+        use trust_runtime_services::trace::requests::{
+            RecordRequest, TraceName, TraceState, Until,
+        };
+
+        const LEVEL: &str = concat!(
+            "PROGRAM Screens\n",
+            "VAR\n    Display : Hmi.Display;\n    Level : INT;\nEND_VAR\n",
+            "    Display();\n",
+            "END_PROGRAM\n",
+        );
+        let mut harness = TestHarness::from_sources(&[HMI, LEVEL]).expect("compiles");
+        let exchange = Arc::new(HmiExchange::new());
+        harness
+            .runtime_mut()
+            .set_hmi_exchange(Arc::clone(&exchange));
+        harness.cycle();
+        let traces = crate::runtime::new_traces();
+        let request = RecordRequest {
+            until: Until::Cycles(2),
+            task: None,
+        };
+        harness
+            .runtime_mut()
+            .start_trace(&request, (&SmolStr::new("hmi"), "test"), &traces)
+            .unwrap();
+        let written = exchange.queue_write(
+            MemberPath::parse("screens.level").unwrap(),
+            WriteAction::Set(serde_json::json!(7)),
+        );
+        harness.cycle();
+        assert!(
+            matches!(written.try_recv(), Ok(Ok(_))),
+            "applied after the first scan"
+        );
+        harness.cycle();
+
+        let slot = crate::runtime::lock_traces(&traces);
+        let TraceState::Ended { bytes, .. } = slot.state(TraceName::Id(1)) else {
+            panic!("the recording of 2 cycles has ended");
+        };
+        let mut file = vec![0; bytes];
+        assert_eq!(slot.part(TraceName::Id(1), 0, &mut file), Some(bytes));
+        let trace = decode(&file).unwrap().trace;
+        assert_eq!(trace.cycles[0].changes, vec![]);
+        assert_eq!(
+            trace.cycles[1].changes,
+            vec![Change {
+                source: ChangeSource::Screen,
+                kind: ChangeKind::VariableWrite {
+                    path: "Screens.Level".into(),
+                    type_name: "INT".into(),
+                    value: vec![7, 0],
+                },
+            }]
+        );
     }
 
     /// Specification 39, §21.2: a restart or an online change withdraws the method commands queued
