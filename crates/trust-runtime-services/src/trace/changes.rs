@@ -136,6 +136,15 @@ impl Recorder {
         );
     }
 
+    /// A change from outside that the trace cannot hold, such as a method input that no literal
+    /// spells: the recording ends `memory_full` at the end of the cycle the change belongs to. A
+    /// change before the first cycle is in the start state, and one after the end is not recorded.
+    pub fn change_lost(&mut self) {
+        if self.takes_changes() {
+            self.cycle.overflow = true;
+        }
+    }
+
     /// Force changes were lost since the last cycle start: the recording ends `memory_full` at the
     /// cycle's end.
     pub fn force_changes_lost(&mut self) {

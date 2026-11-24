@@ -11,6 +11,7 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{FrameId, Generation, InstanceId};
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::Value;
 
 use super::{
@@ -183,6 +184,37 @@ fn withdraw_removes_only_the_matching_write() {
         ],
         "only the %QW0 write carrying value 1 is withdrawn"
     );
+}
+
+#[test]
+fn an_io_writes_source_stays_at_its_index_through_a_withdrawal_and_a_drain() {
+    // Specification 48 Appendix C, C.6: a cycle trace records each one-shot write with its
+    // source, which the queue keeps at the write's index. %QW0 comes from the control link, %QW2
+    // and %QW4 from Control Studio; withdrawing %QW2 removes its source too, and a drain or a clear
+    // leaves none behind. Catches a source that slides onto the next write, and one left over.
+    let mut queues = empty_queues();
+    queues
+        .try_enqueue_io_write(address("%QW0"), Value::LInt(1))
+        .expect("the first write fits");
+    queues
+        .try_enqueue_io_write_from(address("%QW2"), Value::LInt(2), ChangeSource::ControlStudio)
+        .expect("the second write fits");
+    queues
+        .try_enqueue_io_write_from(address("%QW4"), Value::LInt(3), ChangeSource::ControlStudio)
+        .expect("the third write fits");
+    queues.withdraw_io_write(&address("%QW2"), &Value::LInt(2));
+    assert_eq!(
+        queues.io_write_sources,
+        vec![ChangeSource::ControlLink, ChangeSource::ControlStudio]
+    );
+    assert_eq!(queues.drain_io_writes().len(), 2);
+    assert_eq!(queues.io_write_sources, vec![]);
+
+    queues
+        .try_enqueue_io_write_from(address("%QW0"), Value::LInt(4), ChangeSource::ControlStudio)
+        .expect("the queue is empty again");
+    queues.clear();
+    assert_eq!(queues.io_write_sources, vec![]);
 }
 
 #[test]
@@ -613,4 +645,36 @@ fn every_force_change_is_kept_in_order_until_the_cycle_start_and_past_its_bound_
     assert_eq!(queues.force_changes.len(), FORCE_CHANGES_CAPACITY);
     assert!(queues.force_changes_lost);
     assert_eq!(FORCE_CHANGES_CAPACITY, 2 * REQUEST_QUEUE_CAPACITY);
+}
+
+#[test]
+fn a_queued_write_keeps_its_source_and_a_replacing_write_its_own() {
+    // Specification 48 Appendix C, C.6: a cycle trace records each change with its source. A write
+    // the control link queues is the control link's; a protocol server's write that replaces it in
+    // place takes the protocol server's; a batch (`variables.write`) is a service's. Catches a
+    // source lost when a write replaces another, and every write recorded as the control link's.
+    let speed = PendingVarTarget::Global("Main.speed".into());
+    let count = PendingVarTarget::Global("Main.count".into());
+    let mut queues = LiveValueQueues::new();
+    queues
+        .try_upsert_var_write(speed.clone(), Value::Int(1))
+        .unwrap();
+    queues
+        .try_upsert_var_writes(vec![(count.clone(), Value::DInt(2))], ChangeSource::Service)
+        .unwrap();
+    queues
+        .try_upsert_var_write_from(speed.clone(), Value::Int(3), ChangeSource::ProtocolServer)
+        .unwrap();
+    let writes = queues.drain_var_writes();
+    let entries: Vec<_> = writes
+        .iter()
+        .map(|write| (write.target.clone(), write.value.clone(), write.source))
+        .collect();
+    assert_eq!(
+        entries,
+        vec![
+            (speed, Value::Int(3), ChangeSource::ProtocolServer),
+            (count, Value::DInt(2), ChangeSource::Service),
+        ]
+    );
 }

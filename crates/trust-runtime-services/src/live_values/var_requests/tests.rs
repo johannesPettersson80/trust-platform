@@ -110,7 +110,9 @@ impl VariableQueuePort for FakeQueues {
         &self,
         writes: Vec<(PendingVarTarget, Value)>,
     ) -> Result<(), RequestQueueFull> {
-        self.queues.borrow_mut().try_upsert_var_writes(writes)
+        self.queues
+            .borrow_mut()
+            .try_upsert_var_writes(writes, trust_runtime_core::trace::ChangeSource::Service)
     }
 
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
