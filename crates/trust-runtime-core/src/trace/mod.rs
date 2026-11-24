@@ -9,7 +9,6 @@
 
 mod names;
 mod read;
-#[cfg(feature = "std")]
 pub mod readings;
 pub mod replay;
 mod write;

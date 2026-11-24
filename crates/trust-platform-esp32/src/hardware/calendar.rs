@@ -140,7 +140,10 @@ pub struct CalendarClock;
 impl WallClock for CalendarClock {
     fn unix_millis() -> Result<i64, FaultCode> {
         let millis = utc_ms().unwrap_or_else(|| now_us() / 1_000);
-        i64::try_from(millis).map_err(|_| FaultCode::Overflow)
+        let millis = i64::try_from(millis).map_err(|_| FaultCode::Overflow)?;
+        // A recording keeps each reading, as a computer's clock does (specification 48 RU-59).
+        trust_runtime_core::trace::readings::record(millis);
+        Ok(millis)
     }
 }
 
