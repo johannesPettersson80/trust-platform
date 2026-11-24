@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use smol_str::SmolStr;
 use trust_plc_abi::FaultRecord;
 use trust_runtime_core::deployment::sha256;
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::native::image::{Image, SectionId, StmtRecord, SymbolRecord, TaskRecord};
 use trust_runtime_core::native::memory::type_name;
@@ -240,6 +241,36 @@ impl CompiledRuntime {
             .method_called(ChangeSource::ControlLink, &call.instance, call);
     }
 
+    /// Whether a recording runs, which keeps the changes from outside (specification 48 RU-59): a
+    /// writer names what it wrote for [`Self::record_written`] only then.
+    pub(crate) fn records_changes(&self) -> bool {
+        self.trace.is_some()
+    }
+
+    /// Writes that `source` made between two scans, such as a plant's feedback or the mesh's
+    /// values, which a running recording keeps as its next cycle's changes in the order they were
+    /// made (specification 48 RU-59): each write of `addresses` as the bytes it gave the process
+    /// image, then each variable of `paths` as the bytes it then holds.
+    pub(crate) fn record_written(
+        &mut self,
+        source: ChangeSource,
+        addresses: &[(IoAddress, Value)],
+        paths: &[&str],
+    ) {
+        let Some(session) = &mut self.trace else {
+            return;
+        };
+        let program = self.cycle.program();
+        for (address, value) in addresses {
+            session
+                .recorder
+                .address_written(source, address, value, program);
+        }
+        for path in paths {
+            session.recorder.written(source, path, program);
+        }
+    }
+
     /// The screens' writes made between two scans (specification 39 §18; specification 48
     /// RU-59): each a screen's change of the next cycle, as the bytes the variable then holds.
     pub(super) fn record_screen_writes(&mut self, written: &[MemberPath]) {
@@ -427,3 +458,35 @@ fn utc_ms() -> i64 {
         .and_then(|since| i64::try_from(since.as_millis()).ok())
         .unwrap_or(0)
 }
+
+/// A recording of `runtime`'s next `cycles` cycles, started for a test, and the slot it publishes to.
+#[cfg(test)]
+pub(crate) fn record_cycles(runtime: &mut CompiledRuntime, cycles: u64) -> SharedTraces {
+    let traces = new_traces();
+    let request = RecordRequest {
+        until: Until::Cycles(cycles),
+        task: None,
+    };
+    runtime
+        .start_trace(&request, (&SmolStr::new("test"), "test"), &traces)
+        .expect("the recording starts");
+    traces
+}
+
+/// The trace that the recording `record_cycles` started has ended with, read back as a reader reads
+/// its file.
+#[cfg(test)]
+pub(crate) fn ended_trace(traces: &SharedTraces) -> trust_runtime_core::trace::Trace {
+    let slot = lock(traces);
+    let TraceState::Ended { bytes, .. } = slot.state(TraceName::Id(1)) else {
+        panic!("the recording has ended");
+    };
+    let mut file = vec![0; bytes];
+    assert_eq!(slot.part(TraceName::Id(1), 0, &mut file), Some(bytes));
+    trust_runtime_core::trace::decode(&file)
+        .expect("a trace")
+        .trace
+}
+
+#[cfg(test)]
+mod tests;
