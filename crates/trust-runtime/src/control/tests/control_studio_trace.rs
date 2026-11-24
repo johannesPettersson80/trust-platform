@@ -7,7 +7,8 @@ fn control_studios_writes_are_recorded_with_its_source() {
     // the trace names as the debugger does, Main.Kp (specification 48 Appendix C, C.6), 4.0
     // (LREAL 0x4010000000000000, little-endian 00 00 00 00 00 00 10 40); the control link's
     // `io.write` writes %ML0 11.0 (0x4026000000000000), then Control Studio's address write %ML0
-    // 12.5 (0x4029000000000000). Catches Control Studio's variable write not recorded, its
+    // 12.5 (0x4029000000000000), each as the LWORD that an LREAL bound at an L-size address is in
+    // the process image (`coerce_to_io`). Catches Control Studio's variable write not recorded, its
     // address write recorded as the control link's, and the control link's as Control Studio's.
     use trust_runtime_core::trace::{decode, Change, ChangeKind, ChangeSource, IoArea};
     use trust_runtime_services::trace::requests::{RecordRequest, TraceName, TraceState, Until};
@@ -36,9 +37,11 @@ fn control_studios_writes_are_recorded_with_its_source() {
     let marker = crate::io::IoAddress::parse("%ML0").expect("an address");
     state
         .debug
-        .try_enqueue_io_write(marker.clone(), Value::LReal(11.0))
+        .try_enqueue_io_write(marker.clone(), Value::LWord(11.0_f64.to_bits()))
         .expect("the control link's write is queued");
-    state.debug.enqueue_io_write(marker, Value::LReal(12.5));
+    state
+        .debug
+        .enqueue_io_write(marker, Value::LWord(12.5_f64.to_bits()));
     assert!(harness.cycle().errors.is_empty());
     assert_eq!(studio_value(&harness, "Main.Kp"), Value::LReal(4.0));
 
