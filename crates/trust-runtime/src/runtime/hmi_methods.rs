@@ -161,9 +161,10 @@ END_PROGRAM
         // Specification 48 RU-59 and Appendix C, C.6 (kind 7): a screen's method call between two
         // scans is the next cycle's change, a screen's (source 2), with the instance by the path
         // the debugger names it by and each input as its Structured Text literal. Worked by hand:
-        // the recording of 2 cycles has the call `Add` of `Main.Items[2]` with `Amount` 3, made
-        // between its two cycles, in its second, the input's literal `3`. Catches a screen's call
-        // not recorded, recorded as the control link's, or without its literal.
+        // the recording of 2 cycles has the call `Add` of `main.items[2]`, an element the debugger
+        // names `Main.Items[2]`, with `Amount` 3, made between its two cycles, in its second, the
+        // input's literal `3`. Catches a screen's call not recorded, recorded as the control
+        // link's, without its literal, or with the element as the page wrote it.
         use trust_runtime_core::trace::{decode, Change, ChangeKind, ChangeSource};
         use trust_runtime_services::trace::requests::{
             RecordRequest, TraceName, TraceState, Until,
@@ -181,7 +182,7 @@ END_PROGRAM
             .start_trace(&request, (&SmolStr::new("hmi"), "test"), &traces)
             .unwrap();
         harness.cycle();
-        let path = MemberPath::parse("Main.Items[2]").unwrap();
+        let path = MemberPath::parse("main.items[2]").unwrap();
         harness
             .runtime_mut()
             .invoke_hmi_method(

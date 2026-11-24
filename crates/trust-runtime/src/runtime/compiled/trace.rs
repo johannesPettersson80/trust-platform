@@ -11,6 +11,7 @@ use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::native::image::{Image, SectionId, StmtRecord, SymbolRecord, TaskRecord};
 use trust_runtime_core::native::memory::type_name;
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{
     readings, ChangeRef, ChangeSource, CycleFault, ImageTables, Located, TraceEnd,
 };
@@ -228,34 +229,27 @@ impl CompiledRuntime {
     }
 
     /// A method call that a tool made between two scans (`method.call`), which a running recording
-    /// keeps as its next cycle's change (specification 48 RU-59): the instance by its symbol's
-    /// display name, or as the request named it when no symbol names it, such as an element.
+    /// keeps as its next cycle's change (specification 48 RU-59); the trace's file names the
+    /// instance as the debugger does.
     pub(crate) fn record_method_call(&mut self, call: &MethodCall) {
         let Some(session) = &mut self.trace else {
             return;
         };
-        let image = self.image.image();
-        let instance = display_name(&image, &call.instance);
         session
             .recorder
-            .method_called(ChangeSource::ControlLink, instance, call);
+            .method_called(ChangeSource::ControlLink, &call.instance, call);
     }
 
     /// The screens' writes made between two scans (specification 39 §18; specification 48
-    /// RU-59): each a screen's change of the next cycle, by the path the debugger names it by, as
-    /// the bytes the variable then holds.
+    /// RU-59): each a screen's change of the next cycle, as the bytes the variable then holds.
     pub(super) fn record_screen_writes(&mut self, written: &[MemberPath]) {
         let Some(session) = &mut self.trace else {
             return;
         };
-        let image = self.image.image();
         for path in written {
-            let text = path_text(path);
-            session.recorder.written(
-                ChangeSource::Screen,
-                display_name(&image, &text),
-                self.cycle.program(),
-            );
+            session
+                .recorder
+                .written(ChangeSource::Screen, &path_text(path), self.cycle.program());
         }
     }
 
@@ -286,12 +280,10 @@ impl CompiledRuntime {
             .zip(&literals)
             .map(|((name, _), literal)| (name.as_str(), literal.as_str()))
             .collect();
-        let image = self.image.image();
-        let text = path_text(path);
         session.recorder.change(
             ChangeSource::Screen,
             &ChangeRef::MethodCall {
-                instance: display_name(&image, &text),
+                instance: &path_text(path),
                 interface,
                 method,
                 inputs: &inputs,
@@ -306,7 +298,10 @@ impl CompiledRuntime {
             return;
         };
         let identity = &session.identity;
-        let file = session.recorder.file(
+        // The file names each variable as the debugger names it (specification 48 Appendix C,
+        // C.6), once the recording has ended and outside a scan.
+        let program = self.cycle.program();
+        let file = session.recorder.file_named(
             &Identity {
                 image_sha256: identity.image_sha256,
                 sources_hash: identity.sources_hash,
@@ -320,6 +315,7 @@ impl CompiledRuntime {
             },
             &session.located,
             &session.tables,
+            &mut |path| program.display_path(path),
         );
         // A recording has its file once it has ended, and only then.
         let (Some(file), Some(end)) = (file, session.recorder.end()) else {
@@ -343,15 +339,6 @@ impl CompiledRuntime {
             file,
         });
     }
-}
-
-/// The path the debugger names a variable or an instance by: its symbol's display name, or the
-/// path as given when no symbol names it, such as an element of an array.
-fn display_name<'a>(image: &Image<'a>, path: &'a str) -> &'a str {
-    image
-        .find_symbol(&path.to_ascii_uppercase())
-        .and_then(|(_, symbol)| image.string(symbol.display))
-        .unwrap_or(path)
 }
 
 /// The fault record a trace keeps of a faulted scan (Appendix C, C.6): the code and statement of

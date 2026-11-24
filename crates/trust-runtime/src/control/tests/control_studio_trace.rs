@@ -3,7 +3,8 @@ fn control_studios_writes_are_recorded_with_its_source() {
     // Specification 48 RU-59 and Appendix C, C.6: a cycle trace keeps every change from outside
     // with its source; Control Studio's (3) experiment writes, a variable's and an address's,
     // are applied at the cycle's start, its variable writes before the Live Values (specification
-    // 35 A3.5). Worked by hand, in a recording of one cycle: Control Studio writes Main.Kp 4.0
+    // 35 A3.5). Worked by hand, in a recording of one cycle: Control Studio writes main.kp, which
+    // the trace names as the debugger does, Main.Kp (specification 48 Appendix C, C.6), 4.0
     // (LREAL 0x4010000000000000, little-endian 00 00 00 00 00 00 10 40); the control link's
     // `io.write` writes %ML0 11.0 (0x4026000000000000), then Control Studio's address write %ML0
     // 12.5 (0x4029000000000000), each as the LWORD that an LREAL bound at an L-size address is in
@@ -28,7 +29,7 @@ fn control_studios_writes_are_recorded_with_its_source() {
         crate::debug::ControlWrite {
             at,
             generation: state.debug.generation(),
-            label: "Main.Kp".into(),
+            label: "main.kp".into(),
             value: Value::LReal(4.0),
         },
         state.debug.runtime_epoch(),
