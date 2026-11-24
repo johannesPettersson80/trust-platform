@@ -15,7 +15,7 @@ use trust_runtime_core::value::Value;
 use super::*;
 
 /// Areas of 2 (`%I`), 4 (`%Q`), 0, 8, 0 and 16 bytes; two tasks; a 10 ms resource; a 20 ms task.
-fn sizes() -> Sizes {
+pub(super) fn sizes() -> Sizes {
     Sizes {
         areas: [2, 4, 0, 8, 0, 16],
         tasks: 2,
@@ -24,7 +24,7 @@ fn sizes() -> Sizes {
     }
 }
 
-fn identity() -> Identity<'static> {
+pub(super) fn identity() -> Identity<'static> {
     Identity {
         image_sha256: [0x11; 32],
         sources_hash: [0x22; 32],
@@ -38,7 +38,7 @@ fn identity() -> Identity<'static> {
     }
 }
 
-fn image() -> ImageTables {
+pub(super) fn image() -> ImageTables {
     ImageTables {
         areas: vec![1],
         tasks: vec![2, 2],
@@ -49,12 +49,12 @@ fn image() -> ImageTables {
     }
 }
 
-fn ms(millis: i64) -> Duration {
+pub(super) fn ms(millis: i64) -> Duration {
     Duration::from_millis(millis)
 }
 
 /// A screen's write of the `INT` `Main.x`: 8 bytes of header and 19 of data, 32 bytes padded.
-const WRITE: ChangeRef<'static> = ChangeRef::VariableWrite {
+pub(super) const WRITE: ChangeRef<'static> = ChangeRef::VariableWrite {
     path: "Main.x",
     type_name: "INT",
     value: &[0x2A, 0],

@@ -17,7 +17,7 @@ use trust_runtime_core::native::reflect::Located;
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{ChangeRef, ChangeSource, IoArea};
 use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_services::trace::{Budget, Goal, Recorder, Sizes};
+use trust_runtime_services::trace::{Budget, FlightCycle, FlightRecorder, Goal, Recorder, Sizes};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Calls {
@@ -218,4 +218,64 @@ fn recording_cycles_allocates_nothing() {
     drop(meter);
     assert_eq!(calls, Calls::ZERO);
     assert_eq!(recorder.cycles(), 3);
+}
+
+#[test]
+fn the_flight_recorder_hands_over_between_its_recordings_allocating_nothing() {
+    // RU-59, "The flight recorder"; MEM-09: the flight recorder reserves both recordings when it is
+    // armed, and a hand-over empties the full one in place. Catches a hand-over that frees or grows
+    // a buffer: seven cycles of a flight recorder of two, three hand-overs, each new recording's
+    // start state given at once, a write between the cycles and one in each cycle.
+    let sizes = Sizes {
+        areas: [2, 4, 8, 16, 8, 32],
+        tasks: 2,
+        cycle_interval: Duration::from_millis(10),
+        task_interval: None,
+    };
+    let mut flight = FlightRecorder::arm(2, sizes, Budget::COMPUTER).expect("armed");
+    let write = ChangeRef::VariableWrite {
+        path: "Main.x",
+        type_name: "INT",
+        value: &[0x2A, 0],
+    };
+    let meter = Armed::new();
+    let mut hand_overs = 0;
+    for cycle in 0..7_i64 {
+        let now = Duration::from_millis(10 * cycle);
+        let recorder = flight.recorder();
+        if recorder.begin_cycle(now, 0) == trust_runtime_services::trace::Begin::First {
+            for id in 1..=6 {
+                if let Some(area) = recorder.start_area(id) {
+                    area.fill(id);
+                }
+            }
+        }
+        recorder.change(ChangeSource::Screen, &write);
+        recorder.activation(0, now.as_nanos());
+        recorder.wall_clock(1_795_000_000_000 + cycle);
+        recorder.inputs(&[1, 0]);
+        recorder.outputs(&[0, 0, 0x2A, 0]);
+        if flight.end_cycle(None) == FlightCycle::StartDue {
+            hand_overs += 1;
+            let next = flight.recorder();
+            for id in 1..=6 {
+                if let Some(area) = next.start_area(id) {
+                    area.fill(id);
+                }
+            }
+            next.start_force(
+                ChangeSource::ControlLink,
+                &ChangeRef::VariableForce {
+                    path: "Main.limit",
+                    type_name: "REAL",
+                    value: &[0, 0, 0xAC, 0x41],
+                },
+            );
+            next.change(ChangeSource::Mesh, &write);
+        }
+    }
+    let calls = COUNTED.with(Cell::get);
+    drop(meter);
+    assert_eq!(calls, Calls::ZERO);
+    assert_eq!(hand_overs, 3);
 }
