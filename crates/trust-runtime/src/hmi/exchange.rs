@@ -482,13 +482,15 @@ impl HmiExchange {
     /// that are due, applies the queued commands and settings, copies the values the open screens
     /// and the trends show, marks the values at the inputs of a link without data stale (`silent`)
     /// and reads the alarms. `cycle` is the runtime's cycle count, which the copy carries. Returns
-    /// the alarm records the call made, for the OpenOT history. The program is read outside the
-    /// lock, which the web server only takes to copy or queue.
+    /// the alarm records the call made, for the OpenOT history, and adds to `written` the path of
+    /// each write it made, which a cycle trace records as a screen's (specification 48 RU-59). The
+    /// program is read outside the lock, which the web server only takes to copy or queue.
     pub(crate) fn serve(
         &self,
         program: &mut dyn ProgramWrite,
         cycle: u64,
         silent: &[SilentInput],
+        written: &mut Vec<MemberPath>,
     ) -> Vec<AlarmEvent> {
         let (writes, settings, union, waiting, due) = {
             let mut state = self.state();
@@ -520,8 +522,12 @@ impl HmiExchange {
             .into_iter()
             .filter_map(|end| {
                 end.end(|path| {
-                    write_point(program, path, &WriteAction::Set(serde_json::json!(false)))
-                        .map_err(|refused| refused.reason)
+                    let outcome =
+                        write_point(program, path, &WriteAction::Set(serde_json::json!(false)));
+                    if outcome.is_ok() {
+                        written.push(path.clone());
+                    }
+                    outcome.map_err(|refused| refused.reason)
                 })
             })
             .collect();
@@ -530,6 +536,7 @@ impl HmiExchange {
         for write in writes {
             let outcome = write_point(program, &write.path, &write.action);
             if outcome.is_ok() {
+                written.push(write.path.clone());
                 let mut state = self.state();
                 // A later command to the point replaces an end still waiting there; a pulse's
                 // own end is scheduled as it starts.
@@ -551,6 +558,9 @@ impl HmiExchange {
         // Settings take effect together at this call, before the screens' copy (§21.4 item 4).
         for pending in settings {
             let outcome = settings_jobs::run(program, &pending.job);
+            if matches!(outcome, SettingsOutcome::Values(_)) {
+                written.extend(pending.job.changes.iter().map(|change| change.path.clone()));
+            }
             let _ = pending.respond_to.send(outcome);
         }
         let mut read = display_values::read(&*program, cycle, &union.paths);
@@ -645,6 +655,42 @@ mod queue_bound_tests {
 #[cfg(test)]
 mod remote_pulse_tests {
     use super::*;
+
+    #[test]
+    fn a_call_reports_each_path_it_wrote_and_not_a_refused_one() {
+        // Specification 48 RU-59: a cycle trace records a screen's write as a screen's change, so
+        // a call of the exchange tells which paths it wrote. Worked by hand: the first call writes
+        // the pulse `Main.Pulse` TRUE and refuses `Main.Missing`, which the program does not hold;
+        // the second ends the pulse, writing `Main.Pulse` FALSE. Catches a refused write reported,
+        // and a pulse's end not reported.
+        let mut plant = crate::harness::TestHarness::from_source(
+            "PROGRAM Main VAR Pulse : BOOL; END_VAR END_PROGRAM",
+        )
+        .unwrap();
+        plant.cycle();
+        let exchange = HmiExchange::new();
+        let pulse = MemberPath::parse("Main.Pulse").unwrap();
+        let _ = exchange.queue_write_with_id(
+            pulse.clone(),
+            WriteAction::Set(serde_json::json!(true)),
+            Some(Duration::ZERO),
+            None,
+        );
+        let _ = exchange.queue_write(
+            MemberPath::parse("Main.Missing").unwrap(),
+            WriteAction::Set(serde_json::json!(true)),
+        );
+        let mut written = Vec::new();
+        plant
+            .runtime_mut()
+            .with_program(|program| exchange.serve(program, 0, &[], &mut written));
+        assert_eq!(written, vec![pulse.clone()]);
+        written.clear();
+        plant
+            .runtime_mut()
+            .with_program(|program| exchange.serve(program, 0, &[], &mut written));
+        assert_eq!(written, vec![pulse]);
+    }
     #[test]
     fn pulse_end_is_owned_by_the_exchange_after_the_requester_disconnects() {
         let mut plant = crate::harness::TestHarness::from_source(
@@ -668,11 +714,11 @@ mod remote_pulse_tests {
         };
         plant
             .runtime_mut()
-            .with_program(|program| exchange.serve(program, 0, &[]));
+            .with_program(|program| exchange.serve(program, 0, &[], &mut Vec::new()));
         assert_eq!(value(&plant), Some(crate::value::Value::Bool(true)));
         plant
             .runtime_mut()
-            .with_program(|program| exchange.serve(program, 0, &[]));
+            .with_program(|program| exchange.serve(program, 0, &[], &mut Vec::new()));
         assert_eq!(value(&plant), Some(crate::value::Value::Bool(false)));
     }
 }

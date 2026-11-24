@@ -451,6 +451,7 @@ impl CompiledRuntime {
             drop(drivers);
             if let Some(served) = self.hmi.take_served() {
                 self.publish_alarm_records(&served.alarm_records);
+                self.record_screen_writes(&served.written);
                 // A method that faults has already faulted the resource; the scan reports the fault.
                 result = self.serve_hmi_methods(&served.exchange);
             }

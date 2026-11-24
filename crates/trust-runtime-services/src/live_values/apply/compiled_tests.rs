@@ -15,6 +15,7 @@ use trust_runtime_core::memory::{FrameId, Generation, InstanceId, IoArea};
 use trust_runtime_core::native::image::Image;
 use trust_runtime_core::native::reflect::Located;
 use trust_runtime_core::native::variables::CompiledVariables;
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::{compiled_cycle_start, compiled_images, ForceEffect, WriteSink};
@@ -411,13 +412,24 @@ impl WriteSink for Recorded {
         true
     }
 
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        _variables: &dyn CompiledVariables,
+    ) {
+        self.0.push(format!("wrote {target:?} {source:?}"));
+    }
+
     fn address_written(
         &mut self,
+        source: ChangeSource,
         address: &IoAddress,
         value: &Value,
         _variables: &dyn CompiledVariables,
     ) {
-        self.0.push(format!("wrote {address:?} {value:?}"));
+        self.0
+            .push(format!("wrote {address:?} {value:?} {source:?}"));
     }
 
     fn forced(&mut self, effect: ForceEffect<'_>, _variables: &dyn CompiledVariables) {
@@ -513,7 +525,12 @@ fn an_address_write_is_reported_to_a_recording_sink_once_applied() {
     assert_eq!(
         sink.0,
         vec![
-            format!("wrote {:?} {:?}", address("%IX0.1"), Value::Bool(true)),
+            format!(
+                "wrote {:?} {:?} {:?}",
+                address("%IX0.1"),
+                Value::Bool(true),
+                ChangeSource::ControlLink
+            ),
             format!("refused {:?}", address("%IB5")),
         ]
     );
@@ -534,4 +551,88 @@ fn an_address_write_is_reported_to_a_recording_sink_once_applied() {
     .unwrap();
     assert_eq!(silent.0, vec![]);
     assert_eq!(program.written.len(), 2);
+}
+
+#[test]
+fn each_applied_write_is_reported_with_its_source() {
+    // Specification 48 Appendix C, C.6: the cycle start reports each write it applied with the
+    // source that queued it, in arrival order: MAIN.SPEED from the control link, MAIN.COUNT from a
+    // service's `variables.write`. Catches a write reported with another source.
+    let speed = PendingVarTarget::Global("MAIN.SPEED".into());
+    let count = PendingVarTarget::Global("MAIN.COUNT".into());
+    let mut queues = LiveValueQueues::new();
+    let mut program = Program::default();
+    let mut sink = Recorded::default();
+    queues
+        .try_upsert_var_write(speed.clone(), Value::Int(1))
+        .unwrap();
+    queues
+        .try_upsert_var_writes(vec![(count.clone(), Value::DInt(2))], ChangeSource::Service)
+        .unwrap();
+    compiled_cycle_start(&mut queues, NOW, &mut program, at(0), &mut sink).unwrap();
+    assert_eq!(
+        sink.0,
+        vec![
+            format!("wrote {speed:?} {:?}", ChangeSource::ControlLink),
+            format!("wrote {count:?} {:?}", ChangeSource::Service),
+        ]
+    );
+}
+
+#[test]
+fn each_applied_address_write_is_reported_with_its_source() {
+    // Specification 48 Appendix C, C.6: the boundary reports each one-shot write it applied with
+    // the source that queued it, in arrival order: %IX0.1 from the control link (`io.write`), %MB1
+    // from Control Studio, and %IX0.2 from the control link again, after %MB1's earlier twin from
+    // Control Studio was withdrawn. Catches a write reported with another source, and a source
+    // that a withdrawal leaves behind for the next write.
+    let mut queues = LiveValueQueues::new();
+    let mut program = Program::default();
+    let mut sink = Recorded::default();
+    queues
+        .try_enqueue_io_write(address("%IX0.1"), Value::Bool(true))
+        .unwrap();
+    queues
+        .try_enqueue_io_write_from(address("%MB1"), Value::Byte(7), ChangeSource::ControlStudio)
+        .unwrap();
+    queues
+        .try_enqueue_io_write_from(address("%MB1"), Value::Byte(3), ChangeSource::ControlStudio)
+        .unwrap();
+    queues.withdraw_io_write(&address("%MB1"), &Value::Byte(7));
+    queues
+        .try_enqueue_io_write(address("%IX0.2"), Value::Bool(true))
+        .unwrap();
+    compiled_images(
+        &mut queues,
+        NOW,
+        &[IoArea::Input, IoArea::Memory],
+        &mut program,
+        at(0),
+        &mut sink,
+    )
+    .unwrap();
+    assert_eq!(
+        sink.0,
+        vec![
+            format!(
+                "wrote {:?} {:?} {:?}",
+                address("%IX0.1"),
+                Value::Bool(true),
+                ChangeSource::ControlLink
+            ),
+            format!(
+                "wrote {:?} {:?} {:?}",
+                address("%MB1"),
+                Value::Byte(3),
+                ChangeSource::ControlStudio
+            ),
+            format!(
+                "wrote {:?} {:?} {:?}",
+                address("%IX0.2"),
+                Value::Bool(true),
+                ChangeSource::ControlLink
+            ),
+        ]
+    );
+    assert_eq!(queues.io_write_sources, vec![]);
 }

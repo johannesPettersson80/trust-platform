@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{FrameId, Generation, InstanceId};
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::Value;
 
 /// Entries each bounded queue holds before it refuses a new request: pending one-shot I/O
@@ -50,6 +51,8 @@ pub struct PendingVarWrite {
     pub target: PendingVarTarget,
     /// The value to write.
     pub value: Value,
+    /// Where the write came from, which a cycle trace records (specification 48 Appendix C, C.6).
+    pub source: ChangeSource,
 }
 
 /// The destination of an active variable force.
@@ -95,6 +98,9 @@ pub struct ForcedSnapshot {
 pub struct LiveValueQueues {
     /// One-shot I/O writes, in arrival order; a repeated address is kept as a separate write.
     pub io_writes: Vec<(IoAddress, Value)>,
+    /// Where each write of `io_writes` came from, at the same index, which a cycle trace records
+    /// (specification 48 Appendix C, C.6); a write without one is the control link's.
+    pub io_write_sources: Vec<ChangeSource>,
     /// Pending variable writes; a write to a target already here replaces it in place.
     pub pending_var_writes: Vec<PendingVarWrite>,
     /// Active variable forces; a force to a target already here replaces it in place.
@@ -211,10 +217,31 @@ impl LiveValueQueues {
         address: IoAddress,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
+        self.try_enqueue_io_write_from(address, value, ChangeSource::ControlLink)
+    }
+
+    /// Queue a one-shot I/O write that comes from `source` rather than the control link, such as
+    /// Control Studio's, in arrival order: a cycle trace records it with its source (specification
+    /// 48 Appendix C, C.6).
+    ///
+    /// # Errors
+    ///
+    /// [`RequestQueueFull`] when the queue already holds [`REQUEST_QUEUE_CAPACITY`] writes; the
+    /// refused write is not queued.
+    pub fn try_enqueue_io_write_from(
+        &mut self,
+        address: IoAddress,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
         if self.io_writes.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
+        // The writes queued without a source, directly into `io_writes`, are the control link's.
+        self.io_write_sources
+            .resize(self.io_writes.len(), ChangeSource::ControlLink);
         self.io_writes.push((address, value));
+        self.io_write_sources.push(source);
         Ok(())
     }
 
@@ -228,12 +255,16 @@ impl LiveValueQueues {
             .rposition(|(queued, queued_value)| queued == address && queued_value == value)
         {
             self.io_writes.remove(index);
+            if index < self.io_write_sources.len() {
+                self.io_write_sources.remove(index);
+            }
         }
     }
 
     /// Take the queued one-shot I/O writes, in arrival order, leaving the queue empty.
     #[must_use]
     pub fn drain_io_writes(&mut self) -> Vec<(IoAddress, Value)> {
+        self.io_write_sources.clear();
         core::mem::take(&mut self.io_writes)
     }
 
@@ -248,6 +279,21 @@ impl LiveValueQueues {
         target: PendingVarTarget,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
+        self.try_upsert_var_write_from(target, value, ChangeSource::ControlLink)
+    }
+
+    /// [`Self::try_upsert_var_write`] for a write that comes from `source` rather than the control
+    /// link: a protocol server's, a screen's or Control Studio's.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::try_upsert_var_write`].
+    pub fn try_upsert_var_write_from(
+        &mut self,
+        target: PendingVarTarget,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
         let is_new = self
             .pending_var_writes
             .iter()
@@ -255,12 +301,12 @@ impl LiveValueQueues {
         if is_new && self.pending_var_writes.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
-        self.upsert_var_write(target, value);
+        self.upsert_var_write(target, value, source);
         Ok(())
     }
 
-    /// Queue the pending variable writes `writes` together, each replacing the earlier write to its
-    /// target in place, or none of them (specification 11 §6.8.1, "Writing variables").
+    /// Queue the pending variable writes `writes` from `source` together, each replacing the earlier
+    /// write to its target in place, or none of them (specification 11 §6.8.1, "Writing variables").
     ///
     /// # Errors
     ///
@@ -269,6 +315,7 @@ impl LiveValueQueues {
     pub fn try_upsert_var_writes(
         &mut self,
         writes: Vec<(PendingVarTarget, Value)>,
+        source: ChangeSource,
     ) -> Result<(), RequestQueueFull> {
         let mut new: Vec<&PendingVarTarget> = Vec::new();
         for (target, _) in &writes {
@@ -284,7 +331,7 @@ impl LiveValueQueues {
             return Err(RequestQueueFull);
         }
         for (target, value) in writes {
-            self.upsert_var_write(target, value);
+            self.upsert_var_write(target, value, source);
         }
         Ok(())
     }
@@ -299,6 +346,7 @@ impl LiveValueQueues {
     /// comes at a boundary where a recording has ended.
     pub fn clear(&mut self) {
         self.io_writes.clear();
+        self.io_write_sources.clear();
         self.pending_var_writes.clear();
         self.forced_vars.clear();
         self.forced_io.clear();
@@ -451,16 +499,20 @@ impl LiveValueQueues {
     }
 
     /// Append the pending write to `target`, or replace the earlier write to it in place.
-    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value) {
+    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value, source: ChangeSource) {
         if let Some(entry) = self
             .pending_var_writes
             .iter_mut()
             .find(|entry| entry.target == target)
         {
             entry.value = value;
+            entry.source = source;
         } else {
-            self.pending_var_writes
-                .push(PendingVarWrite { target, value });
+            self.pending_var_writes.push(PendingVarWrite {
+                target,
+                value,
+                source,
+            });
         }
     }
 

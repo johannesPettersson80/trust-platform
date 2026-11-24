@@ -11,10 +11,11 @@ use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::native::image::{Image, SectionId, StmtRecord, SymbolRecord, TaskRecord};
 use trust_runtime_core::native::memory::type_name;
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{
-    readings, ChangeSource, CycleFault, ImageTables, Located, TraceEnd,
+    readings, ChangeRef, ChangeSource, CycleFault, ImageTables, Located, TraceEnd,
 };
-use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::{st_literal, Duration, Value};
 use trust_runtime_services::method_call::MethodCall;
 use trust_runtime_services::trace::requests::{
     RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState, Until,
@@ -24,6 +25,8 @@ use trust_runtime_services::trace::{
 };
 
 use super::CompiledRuntime;
+use crate::hmi::commands::write::path_text;
+use crate::hmi::member_paths::MemberPath;
 
 /// The traces the control link reads: the recording that runs, and the last that ended.
 #[derive(Debug, Default)]
@@ -226,20 +229,66 @@ impl CompiledRuntime {
     }
 
     /// A method call that a tool made between two scans (`method.call`), which a running recording
-    /// keeps as its next cycle's change (specification 48 RU-59): the instance by its symbol's
-    /// display name, or as the request named it when no symbol names it, such as an element.
+    /// keeps as its next cycle's change (specification 48 RU-59); the trace's file names the
+    /// instance as the debugger does.
     pub(crate) fn record_method_call(&mut self, call: &MethodCall) {
         let Some(session) = &mut self.trace else {
             return;
         };
-        let image = self.image.image();
-        let instance = image
-            .find_symbol(&call.instance.to_ascii_uppercase())
-            .and_then(|(_, symbol)| image.string(symbol.display))
-            .unwrap_or(&call.instance);
         session
             .recorder
-            .method_called(ChangeSource::ControlLink, instance, call);
+            .method_called(ChangeSource::ControlLink, &call.instance, call);
+    }
+
+    /// The screens' writes made between two scans (specification 39 §18; specification 48
+    /// RU-59): each a screen's change of the next cycle, as the bytes the variable then holds.
+    pub(super) fn record_screen_writes(&mut self, written: &[MemberPath]) {
+        let Some(session) = &mut self.trace else {
+            return;
+        };
+        for path in written {
+            session
+                .recorder
+                .written(ChangeSource::Screen, &path_text(path), self.cycle.program());
+        }
+    }
+
+    /// A screen's method call between two scans (specification 39 §21.2; specification 48 RU-59):
+    /// a screen's change of the next cycle, each input as its Structured Text literal. The HMI
+    /// passes only values that a literal spells; an input without one ends the recording
+    /// `memory_full`, since a trace without that input would replay another call.
+    pub(crate) fn record_hmi_method_call(
+        &mut self,
+        path: &MemberPath,
+        interface: &str,
+        method: &str,
+        inputs: &[(SmolStr, Value)],
+    ) {
+        let Some(session) = &mut self.trace else {
+            return;
+        };
+        let Some(literals) = inputs
+            .iter()
+            .map(|(_, value)| st_literal(value))
+            .collect::<Option<Vec<_>>>()
+        else {
+            session.recorder.change_lost();
+            return;
+        };
+        let inputs: Vec<(&str, &str)> = inputs
+            .iter()
+            .zip(&literals)
+            .map(|((name, _), literal)| (name.as_str(), literal.as_str()))
+            .collect();
+        session.recorder.change(
+            ChangeSource::Screen,
+            &ChangeRef::MethodCall {
+                instance: &path_text(path),
+                interface,
+                method,
+                inputs: &inputs,
+            },
+        );
     }
 
     /// After a scan: the recording's progress for the control link, or once it has ended its file,
@@ -249,7 +298,10 @@ impl CompiledRuntime {
             return;
         };
         let identity = &session.identity;
-        let file = session.recorder.file(
+        // The file names each variable as the debugger names it (specification 48 Appendix C,
+        // C.6), once the recording has ended and outside a scan.
+        let program = self.cycle.program();
+        let file = session.recorder.file_named(
             &Identity {
                 image_sha256: identity.image_sha256,
                 sources_hash: identity.sources_hash,
@@ -263,6 +315,7 @@ impl CompiledRuntime {
             },
             &session.located,
             &session.tables,
+            &mut |path| program.display_path(path),
         );
         // A recording has its file once it has ended, and only then.
         let (Some(file), Some(end)) = (file, session.recorder.end()) else {
