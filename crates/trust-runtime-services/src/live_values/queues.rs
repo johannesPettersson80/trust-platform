@@ -104,6 +104,10 @@ pub struct LiveValueQueues {
     /// The forces set or released since the last cycle start, in the order they were, which the
     /// cycle start reports once (specification 48 RU-59); at most [`FORCE_CHANGES_CAPACITY`].
     pub force_changes: Vec<ForceChange>,
+    /// The force changes the last cycle start reported. A scan frees no memory (specification 34
+    /// MEM-09), so the cycle start sets them aside here, and the next force change, which comes
+    /// outside a scan, frees them.
+    retired_force_changes: Vec<ForceChange>,
     /// Whether force changes past [`FORCE_CHANGES_CAPACITY`] were not kept since the last cycle
     /// start.
     pub force_changes_lost: bool,
@@ -172,13 +176,28 @@ impl LiveValueQueues {
             && !self.force_changes_lost
     }
 
-    /// Keeps the force change `change` until the next cycle start reports it.
+    /// Keeps the force change `change` until the next cycle start reports it, and frees the changes
+    /// the last cycle start reported, since a force is set or released outside a scan.
     fn note_force(&mut self, change: ForceChange) {
+        self.retired_force_changes.clear();
         note_force_change(
             &mut self.force_changes,
             &mut self.force_changes_lost,
             change,
         );
+    }
+
+    /// Sets the force changes that the cycle start has reported aside, leaving none to report: a
+    /// scan frees no memory (specification 34 MEM-09), and a change can hold memory, such as an
+    /// address's path, so the next force change frees them, outside a scan.
+    pub fn retire_force_changes(&mut self) {
+        // The change that filled `force_changes` emptied `retired_force_changes`, so the swap leaves
+        // no change to report, in the memory the reported ones had.
+        if self.retired_force_changes.is_empty() {
+            core::mem::swap(&mut self.force_changes, &mut self.retired_force_changes);
+        } else {
+            self.force_changes.clear();
+        }
     }
 
     /// Queue a one-shot I/O write, in arrival order.
@@ -284,6 +303,7 @@ impl LiveValueQueues {
         self.forced_vars.clear();
         self.forced_io.clear();
         self.force_changes.clear();
+        self.retired_force_changes.clear();
         self.force_changes_lost = false;
     }
 
@@ -415,6 +435,7 @@ impl LiveValueQueues {
 
     /// Release every active variable force whose target matches `predicate`.
     pub fn clear_forced_vars(&mut self, predicate: impl Fn(&ForcedVarTarget) -> bool) {
+        self.retired_force_changes.clear();
         let (changes, lost) = (&mut self.force_changes, &mut self.force_changes_lost);
         self.forced_vars.retain(|entry| {
             let released = predicate(&entry.target);
