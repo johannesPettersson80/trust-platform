@@ -4,9 +4,11 @@
 //! before its first cycle ([`ResourcePort::replay_trace`](crate::ports::ResourcePort::replay_trace)); a runtime on the wall clock, every
 //! other, refuses it as `clock_not_manual`, the default.
 
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use serde_json::{json, Value as JsonValue};
+use trust_runtime_core::native::change::CarriedValueEvent;
 
 use crate::dispatch::transfers::{take_complete, transfer_member};
 use crate::ports::ControlHost;
@@ -162,6 +164,29 @@ impl ReplayReport {
             "later_differing_cycles": self.later_differing_cycles,
             "notes": self.notes,
         })
+    }
+}
+
+/// The note of a variable that a build laid out otherwise did not take as the trace holds it, as
+/// an online change's `online_change_value` event reports it (RU-60, "The start": "The report
+/// lists what the build could not carry over"; specification 11 §6.7.1): its path and what the
+/// carry did, with the trace's value where an online change has the running one.
+#[must_use]
+pub fn carried_note(event: &CarriedValueEvent) -> String {
+    match event {
+        CarriedValueEvent::New { name } => format!("{name}: new variable: declared initial value"),
+        CarriedValueEvent::Converted { name } => {
+            format!("{name}: declaration changed: the trace's value converted to it")
+        }
+        CarriedValueEvent::NotKept { name } => format!(
+            "{name}: declaration changed: the trace's value does not fit, declared initial value"
+        ),
+        CarriedValueEvent::Cleared { name } => {
+            format!("{name}: its target is gone or has another type: NULL")
+        }
+        CarriedValueEvent::More { count } => {
+            format!("{count} more variables did not keep the trace's values")
+        }
     }
 }
 

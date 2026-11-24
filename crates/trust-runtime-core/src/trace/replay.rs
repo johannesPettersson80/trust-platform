@@ -1,13 +1,21 @@
 //! What a replay of a cycle trace needs from the trace and from the build that replays it
 //! (specification 48 RU-60): the recorded tasks' names, whether the build lays its memory out as
-//! the recorded program did, and the located outputs whose bytes differ after a cycle.
+//! the recorded program did, the recorded program's image and memory that another build carries
+//! its values from, and the located outputs whose bytes differ after a cycle.
 
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use smol_str::SmolStr;
 
-use super::{section, ImageTables, IoArea, Located, TraceError};
-use crate::native::image::{Image, Record, SectionId, TaskRecord, TABLE_PREFIX_BYTES};
+use super::{section, ImageTables, IoArea, Located, Trace, TraceError};
+use crate::error::RuntimeError;
+use crate::io_address::IoAddress;
+use crate::native::image::{
+    EntryRecord, FileRecord, Image, ImageWriter, MemoryFigure, Record, RetainRecord, SectionId,
+    StmtRecord, Target, TaskRecord, TABLE_PREFIX_BYTES,
+};
+use crate::native::memory::ProgramMemory;
 use crate::native::reflect::resolve_path;
 use crate::native::{read_value, Types};
 use crate::value::Value;
@@ -51,6 +59,124 @@ pub fn same_layout(tables: &ImageTables, image: &Image<'_>) -> bool {
     tables.areas == image.section_bytes(SectionId::Areas)
         && tables.symbols == image.section_bytes(SectionId::Symbols)
         && tables.types == image.section_bytes(SectionId::Types)
+}
+
+/// The recorded program's image, put together from the trace's tables (Appendix C, C.2): its area,
+/// task, I/O binding, symbol and type tables and its string pool, with no module, and empty entry,
+/// statement, retain and file tables, no starting memory and an empty memory figure, which an image
+/// must hold (specification 44 §5.3) and which reading the memory does not use. A replay reads the
+/// recorded memory by it, and a build whose memory is laid out otherwise carries its values from
+/// it as an online change carries a running program's (RU-60, "The start"; specification 44 §12.2).
+///
+/// # Errors
+///
+/// [`TraceError::Malformed`] for a target no build has, and for tables that do not lay out as an
+/// image.
+pub fn recorded_image(trace: &Trace) -> Result<Vec<u8>, TraceError> {
+    let malformed = |reason| super::read::malformed(section::META, reason);
+    let target = Target::from_raw(trace.meta.target).ok_or(malformed("it names no target"))?;
+    let interface = u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap_or(u16::MAX);
+    let mut writer = ImageWriter::new(target, interface);
+    let tables = &trace.image;
+    for (id, bytes) in [
+        (SectionId::Areas, &tables.areas),
+        (SectionId::Tasks, &tables.tasks),
+        (SectionId::IoBind, &tables.iobind),
+        (SectionId::Symbols, &tables.symbols),
+        (SectionId::Types, &tables.types),
+        (SectionId::Strings, &tables.strings),
+    ] {
+        writer.section(id, bytes.clone());
+    }
+    writer.table::<EntryRecord>(&[], &[]);
+    writer.section(SectionId::Init, Vec::new());
+    writer.table::<StmtRecord>(&[], &[]);
+    writer.table::<RetainRecord>(&[], &[]);
+    writer.table::<FileRecord>(&[], &[]);
+    writer.section(SectionId::MemFig, MemoryFigure::default().bytes().to_vec());
+    writer
+        .finish()
+        .map_err(|_| super::read::malformed(section::IMAGE_AREAS, "its tables do not lay out"))
+}
+
+/// The recorded program's memory at the trace's start, read by its image ([`recorded_image`]):
+/// what a build whose memory is laid out otherwise carries its values from, as an online change
+/// carries a running program's (RU-60, "The start"; specification 44 §12.2). It is only read.
+pub struct RecordedMemory<'t> {
+    image: Image<'t>,
+    areas: &'t [(u32, Vec<u8>)],
+}
+
+impl<'t> RecordedMemory<'t> {
+    /// The memory of the recorded program of `image`, whose areas the trace's start state holds,
+    /// each with its id.
+    #[must_use]
+    pub fn new(image: Image<'t>, areas: &'t [(u32, Vec<u8>)]) -> Self {
+        Self { image, areas }
+    }
+}
+
+impl ProgramMemory for RecordedMemory<'_> {
+    fn image(&self) -> Image<'_> {
+        self.image
+    }
+
+    fn read_area(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {
+        let held = self
+            .areas
+            .iter()
+            .find(|(area, _)| *area == u32::from(id))
+            .and_then(|(_, bytes)| {
+                offset
+                    .checked_add(out.len())
+                    .and_then(|end| bytes.get(offset..end))
+            });
+        match held {
+            Some(bytes) => {
+                out.copy_from_slice(bytes);
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn write_area(&mut self, _id: u8, _offset: usize, _data: &[u8]) -> bool {
+        false
+    }
+
+    fn write_image(&mut self, _address: &IoAddress, _value: Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::ControlError(SmolStr::new_static(
+            "a trace's recorded memory is only read",
+        )))
+    }
+}
+
+/// Whether `image` names the variable `path`, as a debugger's path names it (RU-60, "Each cycle":
+/// a change of a variable the build lacks is skipped).
+#[must_use]
+pub fn names_variable(image: &Image<'_>, path: &str) -> bool {
+    resolve_path(image, path).is_ok()
+}
+
+/// A recorded value as a request gave it to the runtime: an integer or a bit string as the integer
+/// literal that the checked write types for the variable, as `set` types a literal, so that a
+/// build which changed the variable's type takes it when the new type holds it (RU-60, "Each
+/// cycle": the changes are applied "as the runtime applied them"); every other value as it is,
+/// and a number past the literal's range too.
+#[must_use]
+pub fn as_requested(value: Value) -> Value {
+    let literal = match value {
+        Value::SInt(number) => Some(i64::from(number)),
+        Value::Int(number) => Some(i64::from(number)),
+        Value::DInt(number) => Some(i64::from(number)),
+        Value::LInt(number) => Some(number),
+        Value::USInt(number) | Value::Byte(number) => Some(i64::from(number)),
+        Value::UInt(number) | Value::Word(number) => Some(i64::from(number)),
+        Value::UDInt(number) | Value::DWord(number) => Some(i64::from(number)),
+        Value::ULInt(number) | Value::LWord(number) => i64::try_from(number).ok(),
+        _ => None,
+    };
+    literal.map_or(value, Value::LInt)
 }
 
 /// The located output variables whose bytes differ between the trace's output image of a cycle

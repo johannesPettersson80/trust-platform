@@ -534,3 +534,70 @@ fn a_cycles_outputs_differ_by_the_located_output_variables() {
         Vec::<&Located>::new()
     );
 }
+
+#[test]
+fn a_recorded_image_holds_the_traces_tables_and_its_memory_reads_the_start() {
+    // Specification 48 RU-60, "The start": a build laid out otherwise carries the recorded memory as
+    // an online change carries a running program's, from the recorded program's image and memory.
+    // Worked by hand from `full_trace`: the image put together from its tables holds each of them
+    // in its own section, so it lays its memory out as they say; its memory reads area 6's bytes
+    // 3, 4, 5 at offset 2, but nothing past the area's 9 bytes, nothing of area 2, which the start
+    // does not hold, and takes no write. A trace that names no target (0) has no image. Catches a
+    // table put in another section, an area read at the wrong offset or past its end, a recorded
+    // memory that can be written, and an image made for a target no build has.
+    use super::replay::{recorded_image, same_layout, RecordedMemory};
+    use crate::native::image::{Image, SectionId};
+    use crate::native::memory::ProgramMemory;
+
+    let trace = full_trace();
+    let bytes = recorded_image(&trace).unwrap();
+    let image = Image::parse(&bytes).unwrap();
+    assert!(same_layout(&trace.image, &image));
+    for (id, table) in [
+        (SectionId::Tasks, &trace.image.tasks),
+        (SectionId::IoBind, &trace.image.iobind),
+        (SectionId::Strings, &trace.image.strings),
+    ] {
+        assert_eq!(image.section_bytes(id), &table[..], "{id:?}");
+    }
+    let mut memory = RecordedMemory::new(image, &trace.start.areas);
+    let mut out = [0; 3];
+    assert!(memory.read_area(6, 2, &mut out));
+    assert_eq!(out, [3, 4, 5]);
+    assert!(!memory.read_area(6, 7, &mut out));
+    assert!(!memory.read_area(2, 0, &mut out));
+    assert!(!memory.write_area(6, 0, &[0]));
+    let output = crate::io_address::IoAddress::parse("%QB0").unwrap();
+    assert!(memory
+        .write_image(&output, crate::value::Value::Byte(1))
+        .is_err());
+
+    let mut nowhere = full_trace();
+    nowhere.meta.target = 0;
+    assert!(matches!(
+        recorded_image(&nowhere),
+        Err(TraceError::Malformed {
+            section: "META",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn a_recorded_number_is_replayed_as_the_literal_a_request_gave() {
+    // Specification 48 RU-60, "Each cycle": a change is applied as the runtime applied it, and the
+    // runtime typed a request's integer literal for its variable, so an integer or a bit string is
+    // given back as that literal. Worked by hand: INT -5 is the literal -5, WORD 65 535 the literal
+    // 65 535, LWORD 5 the literal 5; ULINT 2^64 - 1 is past the literal's range and stays, and so do
+    // a REAL and a BOOL. Catches a sign lost, a bit string left typed, which a build that changed
+    // the variable's type refuses, and a number cut to the literal's range.
+    use super::replay::as_requested;
+    use crate::value::Value;
+
+    assert_eq!(as_requested(Value::Int(-5)), Value::LInt(-5));
+    assert_eq!(as_requested(Value::Word(65_535)), Value::LInt(65_535));
+    assert_eq!(as_requested(Value::LWord(5)), Value::LInt(5));
+    assert_eq!(as_requested(Value::ULInt(u64::MAX)), Value::ULInt(u64::MAX));
+    assert_eq!(as_requested(Value::Real(1.5)), Value::Real(1.5));
+    assert_eq!(as_requested(Value::Bool(true)), Value::Bool(true));
+}
