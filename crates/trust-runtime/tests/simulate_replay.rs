@@ -326,3 +326,114 @@ fn a_replay_applies_the_traces_address_forces_and_releases() {
             "first_difference": null, "later_differing_cycles": 0, "notes": []})
     );
 }
+
+/// A program whose output `level` is `limit`, a DINT, times `gain`, plus a count that grows by
+/// `step` each cycle.
+const BEFORE_CHANGE_ST: &str = "
+VAR_GLOBAL
+    limit : DINT := 5;
+    gain : INT := 2;
+    step : INT := 1;
+    level AT %QW0 : INT;
+END_VAR
+
+PROGRAM Main
+VAR
+    count : INT;
+END_VAR
+count := count + step;
+level := DINT_TO_INT(limit * gain) + count;
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// The program changed: `limit` is an INT and `step` a DINT, `gain` is gone and a fixed 2 takes
+/// its place, a new global `bias` is added, and the output at `%QW0` is named `height`.
+const AFTER_CHANGE_ST: &str = "
+VAR_GLOBAL
+    limit : INT := 5;
+    step : DINT := 1;
+    bias : INT;
+    height AT %QW0 : INT;
+END_VAR
+
+PROGRAM Main
+VAR
+    count : INT;
+END_VAR
+count := count + DINT_TO_INT(step);
+height := limit * 2 + count + bias;
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_changed_build_takes_the_traces_values_as_an_online_change_does_and_shows_where_it_differs() {
+    // Specification 48 RU-60: a build whose memory is laid out otherwise takes the trace's start
+    // as an online change carries a running program's values (specification 44 §12.2), and the
+    // report lists what it could not carry over; a change of a variable the build lacks is noted
+    // once and skipped. Worked by hand: the recorded program runs at 0 and 10 ms before the
+    // recording (`count` 2), then records 20, 30 and 40 ms, with `limit` set to 7, `gain` to 3 and
+    // `step` to 2 before 30 ms: `count` is 3, 5, 7 and `level` = `limit` * `gain` + `count` = 13,
+    // 26, 28. The changed build takes `count` 2, `limit` 5 converted from DINT to INT, `step` 1
+    // converted from INT to DINT, and the image `%QW0` by its address; its variables are carried
+    // by name, so `bias` and `height`, which the trace does not name, start at their initial values
+    // (specification 11 §6.7.1). The notes come in the order of the build's symbol table, sorted
+    // by canonical name (specification 44 §5.7): BIAS, HEIGHT, LIMIT, STEP, then the cycles'
+    // notes. Each recorded write is read by the trace's types and given back as the literal the
+    // request gave: `limit` 7, a DINT, which the INT takes, as `set limit 7` would be (the checked
+    // write only widens a typed number), and `step` 2, an INT, which the DINT takes; `gain` is
+    // skipped. The output at `%QW0`, `height` = `limit` * 2 + `count` + `bias`, is 13 at 20 ms,
+    // then 19 at 30 ms where the trace's `level` has 26, and 21 at 40 ms; both values are read as
+    // the trace's `level` is. Catches a changed build refused or started from its initial values,
+    // a recorded value read by the build's types (`step`'s 2 bytes do not read as a DINT), an
+    // output read by the build's types (the build has no `level`), a recorded number written typed
+    // so that the INT refuses it, and a change of a missing variable written anyway.
+    let mut recorder = Simulator::start(&project_with(BEFORE_CHANGE_ST));
+    recorder.advance(1, 2);
+    let started = recorder.request(2, "trace.record", json!({"cycles": 3}));
+    let trace_id = started["trace"].as_u64().expect("a recording's id");
+    recorder.advance(3, 1);
+    recorder.set(4, "limit", "7");
+    recorder.set(5, "gain", "3");
+    recorder.set(6, "step", "2");
+    recorder.advance(7, 2);
+    let (state, file) = recorder.trace(8, trace_id);
+    assert_eq!(state["reason"], json!("complete"));
+    let levels: Vec<i16> = decoded(&file)
+        .cycles
+        .iter()
+        .map(|cycle| i16::from_le_bytes([cycle.outputs[0], cycle.outputs[1]]))
+        .collect();
+    assert_eq!(levels, [13, 26, 28]);
+
+    let mut replayer = Simulator::start(&project_with(AFTER_CHANGE_ST));
+    let transfer = upload_trace(&mut replayer, 20, &file);
+    let replayed = replayer.request(30, "simulator.replay", json!({"transfer": transfer}));
+    assert_eq!(
+        replayed,
+        json!({"matched": false, "cycles": 3, "kind": "changed_program",
+        "first_difference": {"cycle": 1, "time_ns": 30_000_000, "outputs": [
+            {"path": "level", "address": "%QW0", "trace": 26, "build": 19}]},
+        "later_differing_cycles": 1,
+        "notes": [
+            "bias: new variable: declared initial value",
+            "height: new variable: declared initial value",
+            "limit: declaration changed: the trace's value converted to it",
+            "step: declaration changed: the trace's value converted to it",
+            "the build has no variable gain: its changes are skipped"
+        ]})
+    );
+}
