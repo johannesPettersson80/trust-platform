@@ -8,9 +8,11 @@
 //! `.trusttrace` file.
 
 mod changes;
+mod flight;
 pub mod requests;
 
 pub use changes::{address_size, trace_area, trace_bit};
+pub use flight::{FlightCycle, FlightRecorder};
 #[cfg(test)]
 mod tests;
 
@@ -157,6 +159,10 @@ pub struct Recorder {
     first: Option<(Duration, u64)>,
     task_runs: u64,
     end: Option<TraceEnd>,
+    /// Whether this recording continues another whose last cycle has just ended (the flight
+    /// recorder, [`Recorder::continue_empty`]): its start state was taken then, and a change made
+    /// before its first cycle is that cycle's.
+    continued: bool,
     reserved: usize,
     cycle: Scratch,
 }
@@ -224,6 +230,7 @@ impl Recorder {
                 first: None,
                 task_runs: 0,
                 end: None,
+                continued: false,
                 reserved: needed,
                 cycle: Scratch {
                     open: false,
@@ -281,9 +288,36 @@ impl Recorder {
         cycle.outputs.clear();
         if self.first.is_none() {
             self.first = Some((now, cycle_number));
-            return Begin::First;
+            // A continued recording took its start state when the cycle before it ended.
+            return if self.continued {
+                Begin::Next
+            } else {
+                Begin::First
+            };
         }
         Begin::Next
+    }
+
+    /// Empties the recording in place, its memory kept, to continue a recording whose last cycle
+    /// has just ended (the flight recorder): the runner gives its start state now
+    /// ([`Self::start_area`], [`Self::start_force`]), the memory and the forces as that cycle left
+    /// them, and a change made before this recording's first cycle is that cycle's. The two
+    /// recordings joined then hold every change once, and this one alone is a trace of its own. It
+    /// allocates nothing.
+    pub(crate) fn continue_empty(&mut self) {
+        self.records.clear();
+        self.record_ends.clear();
+        self.start_forces.clear();
+        self.start_force_count = 0;
+        self.first = None;
+        self.task_runs = 0;
+        self.end = None;
+        self.continued = true;
+        let cycle = &mut self.cycle;
+        cycle.open = false;
+        cycle.overflow = false;
+        cycle.changes.clear();
+        cycle.change_count = 0;
     }
 
     /// The reserved bytes of area `id` (1 `%I` to 6 `P`) at the start, for the runner to fill on
@@ -307,9 +341,10 @@ impl Recorder {
 
     /// Whether a change from outside is recorded now: one made in a cycle, or between two cycles of
     /// the recording, which is the next cycle's. One made before the first cycle is in the start
-    /// state, and one after the recording ended is not recorded.
+    /// state, but in a continued recording's first cycle ([`Self::continue_empty`]), and one after
+    /// the recording ended is not recorded.
     fn takes_changes(&self) -> bool {
-        self.cycle.open || (self.first.is_some() && self.end.is_none())
+        self.cycle.open || ((self.first.is_some() || self.continued) && self.end.is_none())
     }
 
     /// A change made from outside before the cycle, in the order the runtime applies it. One made
@@ -480,9 +515,15 @@ impl Recorder {
         image: &ImageTables,
     ) -> Option<Vec<u8>> {
         // A recording has no file until it has ended, and asking costs nothing.
-        self.end?;
+        let end = self.end?;
         let records: Vec<&[u8]> = self.cycle_records().collect();
-        self.encoded(identity, located, image, &records, &self.start_forces)
+        let start = self.start_with(&self.start_forces);
+        let tally = Tally {
+            cycles: self.cycles(),
+            end,
+            origin: TraceOrigin::OnDemand,
+        };
+        Some(self.encoded(identity, located, image, &records, &start, tally))
     }
 
     /// The trace's file as [`Self::file`] writes it, with each variable's path and each method
@@ -507,9 +548,21 @@ impl Recorder {
             .map(|record| named_cycle(record, name).unwrap_or_else(|_| record.to_vec()))
             .collect();
         let records: Vec<&[u8]> = named.iter().map(Vec::as_slice).collect();
-        let forces = named_changes(&self.start_forces, self.start_force_count, name)
-            .unwrap_or_else(|_| self.start_forces.clone());
-        self.encoded(identity, located, image, &records, &forces)
+        let forces = self.named_forces(name);
+        let start = self.start_with(&forces);
+        let tally = Tally {
+            cycles: self.cycles(),
+            end: self.end?,
+            origin: TraceOrigin::OnDemand,
+        };
+        Some(self.encoded(identity, located, image, &records, &start, tally))
+    }
+
+    /// The forces in effect at the start, with each variable's path named by `name` as
+    /// [`Self::file_named`] names them, or as recorded when they do not read again.
+    fn named_forces(&self, name: &mut dyn FnMut(&str) -> Option<String>) -> Vec<u8> {
+        named_changes(&self.start_forces, self.start_force_count, name)
+            .unwrap_or_else(|_| self.start_forces.clone())
     }
 
     /// Each recorded cycle's record, in order.
@@ -520,35 +573,11 @@ impl Recorder {
             .map(|(from, end)| &self.records[from..*end])
     }
 
-    /// The file of the ended recording with `records` and the start's `forces`.
-    fn encoded(
-        &self,
-        identity: &Identity<'_>,
-        located: &[Located],
-        image: &ImageTables,
-        records: &[&[u8]],
-        forces: &[u8],
-    ) -> Option<Vec<u8>> {
-        let end = self.end?;
-        let (_, first_cycle) = self.first.unwrap_or((Duration::ZERO, 0));
-        let meta = Meta {
-            image_sha256: identity.image_sha256,
-            sources_hash: identity.sources_hash,
-            target: identity.target,
-            end,
-            cycle_interval_ns: u64::try_from(self.sizes.cycle_interval.as_nanos()).unwrap_or(0),
-            first_cycle,
-            cycle_count: self.cycles(),
-            started_utc_ms: identity.started_utc_ms,
-            runtime_version: String::from(identity.runtime_version),
-            runtime_id: String::from(identity.runtime_id),
-            platform: String::from(identity.platform),
-            resource: String::from(identity.resource),
-            task: identity.task.map(String::from),
-            origin: TraceOrigin::OnDemand,
-        };
+    /// The start state this recording took, its areas and the forces `forces`, which name the
+    /// paths as the file does.
+    fn start_with<'f>(&self, forces: &'f [u8]) -> Start<'_, 'f> {
         let mut areas = Vec::new();
-        if self.first.is_some() {
+        if self.first.is_some() || self.continued {
             let mut start = 0;
             for (index, len) in self.sizes.areas.iter().enumerate() {
                 let id = u32::try_from(index + 1).unwrap_or(0);
@@ -556,13 +585,63 @@ impl Recorder {
                 start += len;
             }
         }
-        let start = StartParts {
-            areas: &areas,
-            force_count: self.start_force_count,
+        Start {
+            areas,
             forces,
-        };
-        Some(encode_records(&meta, located, &start, image, records))
+            force_count: self.start_force_count,
+        }
     }
+
+    /// The file of a trace that starts with `start`, this recording's, and holds `records`, with
+    /// the count, end and origin of `tally` and this recording's first cycle.
+    fn encoded(
+        &self,
+        identity: &Identity<'_>,
+        located: &[Located],
+        image: &ImageTables,
+        records: &[&[u8]],
+        start: &Start<'_, '_>,
+        tally: Tally,
+    ) -> Vec<u8> {
+        let (_, first_cycle) = self.first.unwrap_or((Duration::ZERO, 0));
+        let meta = Meta {
+            image_sha256: identity.image_sha256,
+            sources_hash: identity.sources_hash,
+            target: identity.target,
+            end: tally.end,
+            cycle_interval_ns: u64::try_from(self.sizes.cycle_interval.as_nanos()).unwrap_or(0),
+            first_cycle,
+            cycle_count: tally.cycles,
+            started_utc_ms: identity.started_utc_ms,
+            runtime_version: String::from(identity.runtime_version),
+            runtime_id: String::from(identity.runtime_id),
+            platform: String::from(identity.platform),
+            resource: String::from(identity.resource),
+            task: identity.task.map(String::from),
+            origin: tally.origin,
+        };
+        let parts = StartParts {
+            areas: &start.areas,
+            force_count: start.force_count,
+            forces: start.forces,
+        };
+        encode_records(&meta, located, &parts, image, records)
+    }
+}
+
+/// A trace's start state, as a recording took it ([`Recorder::start_with`]).
+struct Start<'a, 'f> {
+    areas: Vec<(u32, &'a [u8])>,
+    forces: &'f [u8],
+    force_count: usize,
+}
+
+/// What a trace's identity counts: its cycles, why it ended, and where it comes from.
+#[derive(Debug, Clone, Copy)]
+struct Tally {
+    cycles: u64,
+    end: TraceEnd,
+    origin: TraceOrigin,
 }
 
 /// The bytes a recording reserves: its records and their ends, the start state, the forces, a

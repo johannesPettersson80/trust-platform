@@ -23,7 +23,9 @@
   a cycle trace holds, its start state and the recorded image's tables among it, how it is recorded
   on demand and by the flight recorder, and how a replay starts another build from it and compares it
   (RU-59, RU-60, Appendix C), decided under the owner's delegation of 22 November 2026 ("do whats
-  most professional and best for us and the users").
+  most professional and best for us and the users"). 0.13, 24 November 2026: the flight recorder's
+  start state, the memory and forces as the cycle before its first cycle left them, and where a
+  fault's trace starts after a record that did not fit (RU-59), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1176,7 +1178,11 @@ traces", gives the requests.
     ended.
 - **The flight recorder.** With `[runtime.trace] flight_recorder = <n>`, the runtime always keeps
     the last `n` to `2n` cycles. It keeps their records, and the program's state at the first of
-    them, which it takes every `n` cycles.
+    them, which it takes every `n` cycles: the memory and the forces as the cycle before that one
+    left them, so that a change made between the two cycles, which the start state of a recording
+    on demand holds, is the first cycle's change here. A replay applies it before the first cycle
+    either way. A record that does not fit ends its `n` cycles early; the fault's trace then starts
+    at the next `n`, since it cannot join cycles across the lost one.
     - When the resource faults, it keeps those cycles up to the faulted one as the fault's trace, and
         `trust-runtime ctl fault-trace [--out <file>]` saves it.
     - A runtime with a folder of its files (specification 11 §6.8.0a) also writes the trace there,
