@@ -35,3 +35,9 @@
 - A cycle trace also keeps what simulated plants and the mesh change between scans: a plant's
   feedback at addresses and program variables, the measurement it gives a `Control.PID`, and each
   value the mesh writes (specification 48 RU-59).
+- A simulator replays a cycle trace (`simulator.replay`, after uploading the trace with
+  `transfer.begin {"for": "trace"}`): it takes the recorded memory, runs the recorded cycles on the
+  recorded input images with the recorded tasks at their times, and reports the first cycle whose
+  outputs or fault differ (specification 48 RU-60). It replays a build whose memory is laid out as
+  the recorded program's, and lists in its notes the trace's changes from outside, forces and
+  readings of the wall clock, which it does not apply yet.
