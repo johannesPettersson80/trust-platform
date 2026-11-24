@@ -444,8 +444,6 @@ pub(super) fn cycle_fault(image: &Image<'_>, record: &FaultRecord) -> CycleFault
     }
 }
 
-/// The task named `name`, compared without regard to case: its index in the image's task table and
-/// its interval.
 /// The name of a trace's file written at the UTC time `utc_secs`: `<prefix>-<UTC date and
 /// time>.trusttrace`, the date and time in the basic form of ISO 8601, as
 /// `trace-20261124T013000Z.trusttrace` (specification 11 §6.8.1, "Cycle traces"): `trace` for a
@@ -500,6 +498,8 @@ pub(super) fn recordings<'a>(
     }
 }
 
+/// The task named `name`, compared without regard to case: its index in the image's task table and
+/// its interval.
 fn task_by_name(image: &Image<'_>, name: &str) -> Option<(u32, Duration)> {
     let tasks = image.table::<TaskRecord>().ok()?;
     tasks.iter().zip(0_u32..).find_map(|(task, index)| {
