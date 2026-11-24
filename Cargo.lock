@@ -7634,6 +7634,7 @@ dependencies = [
  "trust-runtime",
  "trust-runtime-core",
  "trust-runtime-services",
+ "trust-sim",
  "trust-syntax",
  "trust-test-support",
  "trust-wasm-analysis",

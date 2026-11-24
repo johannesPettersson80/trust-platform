@@ -37,3 +37,7 @@
   differs, at its logical time, each output that differs with the trace's value and the build's, how
   many later cycles differ, and the notes. A trace recorded at commissioning thereby becomes a test
   of the next change (specification 48 RU-60).
+- `trust-dev replay <trace> [--project <path>]` builds the project as it is now and replays a cycle
+  trace in a simulator of it. It prints the report and ends with 0 when every cycle matches, with 1
+  when a cycle differs, and with 2 and the reason when the trace or the build cannot be replayed
+  (specification 48 RU-60).

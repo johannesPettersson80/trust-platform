@@ -14,6 +14,7 @@ mod ctl;
 mod docs;
 mod git;
 mod prompt;
+mod replay;
 mod run;
 mod rust;
 mod rust_audit;
@@ -89,6 +90,16 @@ enum Command {
         /// Output format (`markdown`, `html`, `both`).
         #[arg(long, value_enum, default_value_t = cli::DocsFormat::Both)]
         format: cli::DocsFormat,
+    },
+    /// Replay a cycle trace in a simulator of the project as it is now: build the project, run the
+    /// trace's cycles and compare each cycle's outputs (specification 48 RU-60). Ends with 0 when
+    /// every cycle matches, 1 when one differs, 2 when the trace or the build cannot be replayed.
+    Replay {
+        /// The trace, a `.trusttrace` file that `trust-runtime ctl record` saved.
+        trace: PathBuf,
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
     },
     /// The project's Rust POUs (specification 48).
     Rust {
@@ -280,6 +291,7 @@ fn run() -> anyhow::Result<()> {
             out_dir,
             format,
         } => docs::run_docs(project, out_dir, format),
+        Command::Replay { trace, project } => replay::run_replay(&trace, project),
         Command::Service { action } => match action {
             ServiceAction::Bindings { name, out, project } => {
                 service::run_bindings(project, &name, &out)
