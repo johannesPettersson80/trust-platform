@@ -87,6 +87,7 @@ package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Laven
     component "HMI, ADS and OPC UA servers, historian\nread the published CompiledState\nthrough the symbol table" as hostServices
     component "ADS and OPC UA clients, MQTT tags,\nOpenOT telemetry: variables by name;\nsamples after the inputs, outputs and\nproducers after the scan" as hostClients
     component "Cycle trace (runtime/compiled/trace.rs, spec 48 RU-59)\nTraceSession: the recorder's reserved memory, which\nthe observer fills each scan: start state, changes,\nactivations, CURRENT_DT readings, images, fault;\nTraceSlot: the running and the ended trace,\nshared with the control threads" as hostTrace
+    component "Replay (runtime/compiled/replay.rs, spec 48 RU-60)\nsimulator.replay before the first cycle: the recorded\nmemory, then each recorded cycle's tasks on its input\nimage (ResourceCycle::replay_scan); outputs compared" as hostReplay
     hostImage --> hostRuntime : CompiledRuntime::load_deployed\n(AdmittedImage kept, module mmapped)
     hostTrust ..> hostRuntime : admits at load and\nat each online change
     hostRunner --> hostRuntime : execute_cycle / restart /\nonline change / step
@@ -98,6 +99,9 @@ package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Laven
     hostRuntime --> hostTrace : observer: each\nscan's record
     hostControl --> hostRunner : trace.record / trace.stop\n(TraceStart, TraceStop between scans)
     hostControl --> hostTrace : trace.read: state and\nthe file's parts
+    hostControl --> hostRunner : simulator.replay\n(ReplayTrace between scans)
+    hostRunner --> hostReplay : replay_trace
+    hostReplay --> hostRuntime : execute_cycle_with:\nthe recorded cycle
 }
 
 note bottom of chipPkg
