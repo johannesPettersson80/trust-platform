@@ -9,6 +9,11 @@ struct ProgramWiring {
     /// The identify state, which the control state shares with every program of the process
     /// (specification 11, "Identify"). A program's start sets its output.
     identify: trust_runtime::io::IdentifyHandle,
+    /// The slot of the cycle traces that the control link reads, which every program's flight
+    /// recorder reports its fault's trace into (specification 11 §6.8.1, "Cycle traces").
+    traces: trust_runtime::control::SharedTraces,
+    /// The runtime's identity as `status` gives it, which a trace names; none without a project.
+    runtime_id: Option<smol_str::SmolStr>,
 }
 
 /// The cycle interval of a bundle's program, and the computer's default for a launch without one.
@@ -59,6 +64,15 @@ fn start_program(
     if let Some(bundle) = bundle {
         apply_bundle_services(program, bundle)?;
     }
+    // The project's flight recorder, kept by every program start, a restart's reload among them
+    // (specification 48 RU-59).
+    program.set_flight_recorder(bundle.zip(wiring.runtime_id.clone()).map(|(bundle, runtime_id)| {
+        trust_runtime::control::FlightSettings {
+            cycles: bundle.runtime.flight_recorder,
+            traces: wiring.traces.clone(),
+            runtime_id,
+        }
+    }));
     // A warm start takes the retained values of the retain file (specification 44 §11).
     program.restart_with_retain_store(restart_mode)?;
     Ok(())

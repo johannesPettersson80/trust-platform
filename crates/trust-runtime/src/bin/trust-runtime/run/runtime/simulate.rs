@@ -67,6 +67,15 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
     identify.set(identify_state(Some(&bundle))?);
     runtime.set_watchdog_policy(bundle.runtime.watchdog);
     runtime.set_fault_policy(bundle.runtime.fault_policy);
+    // The project's flight recorder, its fault's trace in the slot that the control link reads
+    // (specification 48 RU-59; specification 11 §6.8.1).
+    let runtime_id = trust_runtime::runtime_id::runtime_identity(bundle.root.as_path())?.id;
+    let traces = trust_runtime::control::new_traces();
+    runtime.set_flight_recorder(Some(trust_runtime::control::FlightSettings {
+        cycles: bundle.runtime.flight_recorder,
+        traces: traces.clone(),
+        runtime_id: runtime_id.clone(),
+    }));
     // The safe outputs of `io.toml` apply; its drivers do not run: the simulation is the process
     // image's only source.
     let mut io = bundle.io.clone();
@@ -100,8 +109,8 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
         runner = runner.with_simulation(simulation);
     }
     let mut handle = runner.spawn("trust-runtime-simulator")?;
-    let runtime_id = trust_runtime::runtime_id::runtime_identity(bundle.root.as_path())?.id;
     let state = ControlState::local(trust_runtime::control::LocalControl {
+        traces,
         debug,
         identify,
         resource: handle.control(),

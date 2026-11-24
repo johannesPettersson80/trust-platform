@@ -3,7 +3,10 @@ use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariabl
 use trust_runtime_services::live_values::apply::{self, ForceEffect, WriteSink};
 use trust_runtime_services::live_values::queues::REQUEST_QUEUE_CAPACITY;
 use trust_runtime_core::trace::ChangeSource;
-use trust_runtime_services::trace::Recorder;
+use trust_runtime_services::trace::Recordings;
+
+/// An address's force as Live Values hold it: the address and the value it is forced to.
+type IoForce = (IoAddress, Value);
 
 impl DebugControl {
     /// Queue Control Studio's one-shot I/O write: its experiments and abort bindings write their
@@ -143,7 +146,7 @@ impl DebugControl {
         variables: &mut dyn CompiledVariables,
         generation: Generation,
         time: Duration,
-        mut trace: Option<&mut Recorder>,
+        mut trace: Recordings<'_>,
     ) {
         let writes = {
             let mut state = self.lock();
@@ -157,11 +160,9 @@ impl DebugControl {
                 continue;
             }
             match variables.write_located(&write.at, &write.value) {
-                Ok(()) => {
-                    if let Some(trace) = trace.as_deref_mut() {
-                        trace.written(ChangeSource::ControlStudio, &write.label, &*variables);
-                    }
-                }
+                Ok(()) => trace.each(|recorder| {
+                    recorder.written(ChangeSource::ControlStudio, &write.label, &*variables);
+                }),
                 Err(error) => self.push_runtime_event(RuntimeEvent::WriteRejected {
                     target: write.label,
                     error: error.to_string(),
@@ -373,6 +374,15 @@ impl DebugControl {
         self.lock().live_values.forced_snapshot()
     }
 
+    /// Lends the active forces, the variables' and the addresses', to `with` under the lock
+    /// without copying them: the flight recorder records them as a recording's start state between
+    /// two scans every `n` cycles (specification 48 RU-59), which allocates nothing (specification
+    /// 34 MEM-09).
+    pub(crate) fn with_forces(&self, with: &mut dyn FnMut(&[ForcedVar], &[IoForce])) {
+        let state = self.lock();
+        with(&state.live_values.forced_vars, &state.live_values.forced_io);
+    }
+
     fn try_set_forced_var(
         &self,
         target: ForcedVarTarget,
@@ -410,7 +420,7 @@ impl DebugControl {
         generation: Generation,
         variables: &mut dyn CompiledVariables,
         time: Duration,
-        trace: Option<&mut Recorder>,
+        trace: Recordings<'_>,
     ) -> Result<(), RuntimeError> {
         let mut sink = RejectedEvents {
             events: Vec::new(),
@@ -468,7 +478,7 @@ impl DebugControl {
 /// cycle trace being recorded, the writes the apply made are recorded too.
 struct RejectedEvents<'r> {
     events: Vec<RuntimeEvent>,
-    trace: Option<&'r mut Recorder>,
+    trace: Recordings<'r>,
 }
 
 impl WriteSink for RejectedEvents<'_> {
@@ -489,13 +499,12 @@ impl WriteSink for RejectedEvents<'_> {
         target: &PendingVarTarget,
         variables: &dyn CompiledVariables,
     ) {
-        if let Some(trace) = self.trace.as_deref_mut() {
-            trace.written_target(source, target, variables);
-        }
+        self.trace
+            .each(|recorder| recorder.written_target(source, target, variables));
     }
 
     fn records(&self) -> bool {
-        self.trace.is_some()
+        !self.trace.is_empty()
     }
 
     fn address_written(
@@ -505,21 +514,17 @@ impl WriteSink for RejectedEvents<'_> {
         value: &Value,
         variables: &dyn CompiledVariables,
     ) {
-        if let Some(trace) = self.trace.as_deref_mut() {
-            trace.address_written(source, address, value, variables);
-        }
+        self.trace
+            .each(|recorder| recorder.address_written(source, address, value, variables));
     }
 
     fn forced(&mut self, effect: ForceEffect<'_>, variables: &dyn CompiledVariables) {
-        if let Some(trace) = self.trace.as_deref_mut() {
-            trace.forced(ChangeSource::ControlLink, effect, variables);
-        }
+        self.trace
+            .each(|recorder| recorder.forced(ChangeSource::ControlLink, effect, variables));
     }
 
     fn force_changes_lost(&mut self) {
-        if let Some(trace) = self.trace.as_deref_mut() {
-            trace.force_changes_lost();
-        }
+        self.trace.each(|recorder| recorder.force_changes_lost());
     }
 }
 
