@@ -36,6 +36,65 @@ pub fn checksum_parts(parts: &[&[u8]]) -> u32 {
     }
 }
 
+/// The [`checksum`] of bytes that arrive in pieces: the CRC-32 of their concatenation, worked out
+/// piece by piece without joining them. A chip serves a cycle trace part by part from the records
+/// it holds, with no whole file to check at once (specification 48 RU-59, "Memory").
+#[derive(Clone)]
+pub struct Crc32Stream {
+    #[cfg(feature = "std")]
+    hasher: crc32fast::Hasher,
+    #[cfg(not(feature = "std"))]
+    state: u32,
+}
+
+impl Default for Crc32Stream {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Crc32Stream {
+    /// The checksum of no bytes yet.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            #[cfg(feature = "std")]
+            hasher: crc32fast::Hasher::new(),
+            #[cfg(not(feature = "std"))]
+            state: u32::MAX,
+        }
+    }
+
+    /// Adds `bytes` after the bytes added before.
+    pub fn update(&mut self, bytes: &[u8]) {
+        #[cfg(feature = "std")]
+        self.hasher.update(bytes);
+        #[cfg(not(feature = "std"))]
+        {
+            self.state = compact_update(self.state, bytes);
+        }
+    }
+
+    /// The checksum of every byte added, in the order added.
+    #[must_use]
+    pub fn finish(self) -> u32 {
+        #[cfg(feature = "std")]
+        {
+            self.hasher.finalize()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            !self.state
+        }
+    }
+}
+
+impl core::fmt::Debug for Crc32Stream {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str("Crc32Stream")
+    }
+}
+
 #[cfg(any(not(feature = "std"), test))]
 fn compact(bytes: &[u8]) -> u32 {
     compact_parts(&[bytes])
@@ -45,20 +104,46 @@ fn compact(bytes: &[u8]) -> u32 {
 fn compact_parts(parts: &[&[u8]]) -> u32 {
     let mut crc = u32::MAX;
     for part in parts {
-        for &byte in *part {
-            crc ^= u32::from(byte);
-            for _ in 0..8 {
-                let polynomial = 0u32.wrapping_sub(crc & 1) & 0xedb8_8320;
-                crc = (crc >> 1) ^ polynomial;
-            }
-        }
+        crc = compact_update(crc, part);
     }
     !crc
+}
+
+/// The compact loop's state after `bytes`, from the state `crc` (before the final XOR).
+#[cfg(any(not(feature = "std"), test))]
+fn compact_update(mut crc: u32, bytes: &[u8]) -> u32 {
+    for &byte in bytes {
+        crc ^= u32::from(byte);
+        for _ in 0..8 {
+            let polynomial = 0u32.wrapping_sub(crc & 1) & 0xedb8_8320;
+            crc = (crc >> 1) ^ polynomial;
+        }
+    }
+    crc
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stream_gives_the_checksum_of_its_pieces_joined() {
+        // The IEEE check value: "123456789" sums to 0xCBF43926, however it is split, and the
+        // compact loop's state carries from piece to piece the same way. Worked by hand for each
+        // split point. Catches a stream that restarts at each piece, that applies the final XOR
+        // per piece, or that drops an empty piece's place.
+        assert_eq!(Crc32Stream::new().finish(), 0);
+        let data = b"123456789";
+        for split in 0..=data.len() {
+            let mut stream = Crc32Stream::new();
+            stream.update(&data[..split]);
+            stream.update(&[]);
+            stream.update(&data[split..]);
+            assert_eq!(stream.finish(), 0xcbf4_3926, "split at {split}");
+            let state = compact_update(compact_update(u32::MAX, &data[..split]), &data[split..]);
+            assert_eq!(!state, 0xcbf4_3926, "compact split at {split}");
+        }
+    }
 
     #[test]
     fn compact_matches_ieee_vectors_and_acceleration() {
