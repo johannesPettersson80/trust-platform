@@ -12,6 +12,8 @@
 //! The debugger is the debugger of compiled programs, through the control protocol's debug
 //! operations (specification 44 §13.2): each hold is read from `debug.stops`.
 //!
+//! A breakpoint hold also ends a cycle trace's recording (specification 48 RU-59).
+//!
 //! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::sync::{Arc, Mutex, OnceLock};
@@ -25,11 +27,14 @@ use trust_runtime::harness::SourceFile;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
 use trust_runtime::native::{build, Options, Target, Toolchain};
 use trust_runtime::retain::RetainStore;
-use trust_runtime::scheduler::{ResourceHandle, ResourceRunner, ResourceState, StdClock};
+use trust_runtime::scheduler::{
+    ResourceCommand, ResourceHandle, ResourceRunner, ResourceState, StdClock, TraceStart,
+};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::{CompiledDebugger, CompiledRuntime, RestartMode, RetainSnapshot};
 use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
 use trust_runtime_services::protocol::ControlRequest;
+use trust_runtime_services::trace::requests::{RecordRequest, TraceName, TraceState, Until};
 
 /// The longest a fixture waits for a stop event, so a missing hold fails instead of blocking.
 const WAIT: WallDuration = WallDuration::from_secs(5);
@@ -511,4 +516,76 @@ fn a_program_started_again_after_a_stop_is_held_by_the_debugger_again() {
         Some("breakpoint"),
         "the restarted program's scan stops at the breakpoint again"
     );
+}
+
+/// Spec 48 RU-59 and spec 11 "Cycle traces": a breakpoint that holds the program ends a recording
+/// `paused` with the cycles before the held one, which the trace has once the held scan has ended;
+/// until then the recording reads as recording. Worked by hand: the recording of a million cycles
+/// holds `k` cycles when the breakpoint holds the next scan, still reads as recording with those
+/// `k` while held, and once resumed ends `paused` with the same `k`. Catches a hold that leaves the
+/// recording running, a held cycle recorded, and a trace that ends before the hold is released.
+#[test]
+fn a_breakpoint_hold_ends_a_recording_paused_with_the_cycles_before() {
+    let (runtime, debug, _probes) = fixture();
+    let debugger = debugger_of(&debug);
+    let mut handle = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
+        .spawn("trace-breakpoint-hold")
+        .expect("spawn the resource");
+    let traces = trust_runtime::control::new_traces();
+    let (reply, replies) = std::sync::mpsc::channel();
+    handle
+        .control()
+        .send_command(ResourceCommand::StartTrace(Box::new(TraceStart {
+            request: RecordRequest {
+                until: Until::Cycles(1_000_000),
+                task: None,
+            },
+            runtime_id: "trace-breakpoint-hold".into(),
+            platform: "test",
+            traces: Arc::clone(&traces),
+            respond_to: reply,
+        })))
+        .expect("send the recording");
+    let started = replies
+        .recv_timeout(WAIT)
+        .expect("the scan thread answers")
+        .expect("the recording starts");
+    assert_eq!(started.trace, 1);
+    let state = || {
+        traces
+            .lock()
+            .expect("the trace slot")
+            .state(TraceName::Id(1))
+    };
+    assert!(wait_until(Instant::now() + WAIT, || matches!(
+        state(),
+        TraceState::Recording { cycles } if cycles >= 2
+    )));
+
+    set_breakpoints(&debugger, &["kept := kept + DINT#1;"]);
+    assert!(
+        next_stop(&debugger).is_some(),
+        "the breakpoint holds a scan"
+    );
+    let TraceState::Recording { cycles: before } = state() else {
+        panic!("a held recording reads as recording: {:?}", state());
+    };
+    set_breakpoints(&debugger, &[]);
+    debugger.resume();
+    assert!(wait_until(Instant::now() + WAIT, || matches!(
+        state(),
+        TraceState::Ended { .. }
+    )));
+    assert!(
+        matches!(
+            state(),
+            TraceState::Ended { reason: trust_runtime_core::trace::TraceEnd::Paused, cycles, .. }
+                if cycles == before
+        ),
+        "{:?} after {before} cycles",
+        state()
+    );
+
+    handle.stop();
+    handle.join().expect("the resource thread ends");
 }

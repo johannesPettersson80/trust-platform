@@ -819,3 +819,49 @@ fn a_recording_keeps_forces_where_they_are_set_and_released_and_address_writes()
     assert!(status.success(), "{status}");
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn a_recording_keeps_a_method_call_as_its_next_cycles_change() {
+    // Specification 48 RU-59 and Appendix C, C.6 (kind 7), on the 10 ms resource with the sequence
+    // above. Worked by hand: after the cycle at 0 ms, trace 1 for 2 cycles records the cycle at
+    // 10 ms; `Start` of the instance asked for as `main.heating`, with `Setpoint` 21.5, is called
+    // between that cycle and the next, so the cycle at 20 ms holds the call: the instance by the
+    // path the debugger names it by, `Main.Heating`, the interface and method as asked, and the
+    // input with its literal as given. Catches a call not recorded, recorded in the cycle before,
+    // or recorded under the request's spelling.
+    let project = project_with(SEQUENCE_ST);
+    let mut simulator = Simulator::start(&project);
+    simulator.advance(1, 1);
+    let started =
+        simulator.call(&json!({"id": 2, "type": "trace.record", "params": {"cycles": 2}}));
+    assert_eq!(started["result"]["trace"], json!(1), "{started}");
+    simulator.advance(3, 1);
+    let called = simulator.call(&json!({"id": 4, "type": "method.call", "params": {
+        "instance": "main.heating", "interface": "ISequence", "method": "Start",
+        "inputs": {"Setpoint": "21.5"}
+    }}));
+    assert_eq!(called["result"], json!({"value": true}), "{called}");
+    simulator.advance(5, 1);
+
+    let (state, file) = simulator.trace(6, 1);
+    assert_eq!(state["reason"], json!("complete"));
+    let trace = decoded(&file);
+    assert_eq!(trace.cycles[0].changes, vec![]);
+    assert_eq!(
+        trace.cycles[1].changes,
+        [Change {
+            source: ChangeSource::ControlLink,
+            kind: ChangeKind::MethodCall {
+                instance: "Main.Heating".into(),
+                interface: "ISequence".into(),
+                method: "Start".into(),
+                inputs: vec![("Setpoint".into(), "21.5".into())],
+            },
+        }]
+    );
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}

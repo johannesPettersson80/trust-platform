@@ -30,7 +30,7 @@ use crate::io::{IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
 use crate::runtime::program_access::Access;
 use crate::value::Duration;
 use trust_runtime_core::trace::readings;
-use trust_runtime_core::trace::ChangeSource;
+use trust_runtime_core::trace::{ChangeSource, TraceEnd};
 use trust_runtime_services::trace::{Begin, Recorder};
 
 use super::trace::TraceSession;
@@ -391,6 +391,7 @@ impl HostedCompiledScan<'_> {
     /// activation, the input image as the scan sampled it, the output image it wrote, and the
     /// cycle's end with the wall clock's readings.
     fn record_phase(&mut self, phase: CyclePhase, now: Duration, images: &FlatImages) {
+        let held = matches!(phase, CyclePhase::CycleEnd) && self.held_in_scan();
         let Some(session) = self.trace.as_deref_mut() else {
             return;
         };
@@ -407,12 +408,26 @@ impl HostedCompiledScan<'_> {
             }
             // The output image is the scan's own here (`CycleHooks::on_compiled_phase`).
             CyclePhase::AfterOutputSample => recorder.outputs(&images.outputs),
+            // A breakpoint or a step that held this scan ends the recording `paused` with the
+            // cycles before; the held cycle is not one a replay could run (specification 48 RU-59).
+            CyclePhase::CycleEnd if held => {
+                take_readings(recorder);
+                recorder.finish(TraceEnd::Paused);
+            }
             CyclePhase::CycleEnd => {
                 take_readings(recorder);
                 recorder.end_cycle(None);
             }
             _ => {}
         }
+    }
+
+    /// Whether the debugger held this scan at a breakpoint or a step: the time it held scans grew
+    /// since the scan began.
+    fn held_in_scan(&self) -> bool {
+        self.debug
+            .as_ref()
+            .is_some_and(|debug| debug.watchdog_pause_elapsed() > self.held_at_start)
     }
 }
 

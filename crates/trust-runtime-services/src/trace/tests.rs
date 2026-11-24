@@ -542,3 +542,43 @@ fn a_force_is_recorded_once_where_it_is_set_or_released_and_not_in_the_first_cyc
         ]
     );
 }
+
+#[test]
+fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first() {
+    // Specification 48 RU-59: a change made between two cycles, such as a method call, is the next
+    // cycle's; one made before the trace's first cycle is in its start state, and one after the
+    // recording ended is not recorded. Here `Start` of `Main.Heating`'s ISequence, with the literal
+    // 21.5 for `Setpoint`, is called before the first cycle, between the two, and after the end.
+    // Catches a call recorded in the cycle before, recorded where the start state already holds
+    // it, lost between two cycles, and recorded without its inputs' literals.
+    use crate::method_call::MethodCall;
+
+    let call = MethodCall {
+        instance: "main.heating".into(),
+        interface: "ISequence".into(),
+        method: "Start".into(),
+        inputs: vec![("Setpoint".into(), Value::LReal(21.5))],
+        literals: vec!["21.5".into()],
+    };
+    let mut recorder = Recorder::arm(Goal::Cycles(2), sizes(), Budget::COMPUTER).unwrap();
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+    assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+    assert!(cycle(&mut recorder, 10, &[0], &[0, 0], &[0; 4]));
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+
+    let trace = read(&recorder);
+    assert_eq!(trace.cycles[0].changes, vec![]);
+    assert_eq!(
+        trace.cycles[1].changes,
+        vec![Change {
+            source: ChangeSource::ControlLink,
+            kind: ChangeKind::MethodCall {
+                instance: "Main.Heating".into(),
+                interface: "ISequence".into(),
+                method: "Start".into(),
+                inputs: vec![("Setpoint".into(), "21.5".into())],
+            },
+        }]
+    );
+}

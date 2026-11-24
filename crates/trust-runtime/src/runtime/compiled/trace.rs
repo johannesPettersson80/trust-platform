@@ -11,8 +11,11 @@ use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::native::image::{Image, SectionId, StmtRecord, SymbolRecord, TaskRecord};
 use trust_runtime_core::native::memory::type_name;
-use trust_runtime_core::trace::{readings, CycleFault, ImageTables, Located, TraceEnd};
+use trust_runtime_core::trace::{
+    readings, ChangeSource, CycleFault, ImageTables, Located, TraceEnd,
+};
 use trust_runtime_core::value::Duration;
+use trust_runtime_services::method_call::MethodCall;
 use trust_runtime_services::trace::requests::{
     RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState, Until,
 };
@@ -220,6 +223,23 @@ impl CompiledRuntime {
             readings::disarm();
         }
         self.publish_trace();
+    }
+
+    /// A method call that a tool made between two scans (`method.call`), which a running recording
+    /// keeps as its next cycle's change (specification 48 RU-59): the instance by its symbol's
+    /// display name, or as the request named it when no symbol names it, such as an element.
+    pub(crate) fn record_method_call(&mut self, call: &MethodCall) {
+        let Some(session) = &mut self.trace else {
+            return;
+        };
+        let image = self.image.image();
+        let instance = image
+            .find_symbol(&call.instance.to_ascii_uppercase())
+            .and_then(|(_, symbol)| image.string(symbol.display))
+            .unwrap_or(&call.instance);
+        session
+            .recorder
+            .method_called(ChangeSource::ControlLink, instance, call);
     }
 
     /// After a scan: the recording's progress for the control link, or once it has ended its file,
