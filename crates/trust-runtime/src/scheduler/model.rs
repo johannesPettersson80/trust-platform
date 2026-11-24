@@ -85,6 +85,11 @@ pub enum ResourceCommand {
             Result<Value, trust_runtime_services::method_call::MethodCallRefusal>,
         >,
     },
+    /// Starts a cycle trace at the next cycle (`trace.record`, specification 11 section 6.8.1;
+    /// specification 48 RU-59), its memory reserved between two scans.
+    StartTrace(Box<TraceStart>),
+    /// Ends a cycle trace at once (`trace.stop`).
+    StopTrace(TraceStop),
 }
 
 /// What a program start leaves to the scan thread: the scheduling settings of the program's own
@@ -131,6 +136,8 @@ fn command_class(command: &ResourceCommand) -> CommandClass {
         | ResourceCommand::ProgramInstalled
         | ResourceCommand::StepCycle { .. }
         | ResourceCommand::CallMethod { .. }
+        | ResourceCommand::StartTrace(_)
+        | ResourceCommand::StopTrace(_)
         | ResourceCommand::MeshCatalogue { .. }
         | ResourceCommand::SimulationSnapshot { .. }
         | ResourceCommand::SimulationTraceClear { .. } => CommandClass::Service,

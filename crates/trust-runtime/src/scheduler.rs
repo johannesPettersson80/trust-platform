@@ -14,6 +14,7 @@ use crate::error::RuntimeError;
 use crate::value::Duration;
 use crate::value::Value;
 use crate::CompiledRuntime;
+use trust_runtime_core::trace::TraceEnd;
 
 pub use trust_runtime_core::scheduler::ResourceState;
 
@@ -63,6 +64,9 @@ mod stepped;
 mod stopped;
 mod stopping;
 mod supervisor;
+mod trace_commands;
+
+pub use self::trace_commands::{TraceStart, TraceStop};
 
 #[cfg(test)]
 mod tests;

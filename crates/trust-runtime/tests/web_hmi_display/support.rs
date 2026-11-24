@@ -334,6 +334,7 @@ fn start_inner(
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),
         transfers: trust_runtime::control::new_transfer_session(),
+        traces: trust_runtime::control::new_traces(),
     });
     let control = Arc::clone(&state);
     // Port 0: the operating system chooses a free port, and the server reports the one it bound.

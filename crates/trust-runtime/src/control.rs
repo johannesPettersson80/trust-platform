@@ -151,6 +151,10 @@ impl OfflinePlantSession {
 /// container a computer admits (specification 34 §5.1, PORT-05).
 const MAX_TRANSFER_BYTES: usize = 64 * 1024 * 1024;
 
+/// The cycle traces of a runtime (specification 48 RU-59): the slot its scan thread records into and
+/// its control link reads, and a new slot, which holds no trace.
+pub use crate::runtime::{new_traces, SharedTraces, TraceSlot};
+
 /// The transfers of this process (specification 34, PORT-05). Its boot number is the process start
 /// in seconds since the epoch, so a transfer id does not repeat after a restart.
 #[must_use]
@@ -337,6 +341,9 @@ pub struct ControlState {
     pub ads_server_runtime: Arc<Mutex<Option<crate::ads::server::AdsServerRuntime>>>,
     /// The transfers of this process (specification 34, PORT-05); see [`new_transfer_session`].
     pub transfers: Arc<Mutex<TransferSession>>,
+    /// The cycle traces the scan thread records and the control link reads (specification 48
+    /// RU-59).
+    pub traces: SharedTraces,
 }
 
 impl ControlState {

@@ -213,11 +213,13 @@ fn a_task_goal_records_every_cycle_until_the_tasks_runs() {
 
 #[test]
 fn a_faulted_cycle_is_the_last_and_holds_its_fault() {
-    // Catches a recording that drops the faulted cycle or records on after it.
+    // Catches a recording that drops the faulted cycle or records on after it, and a faulted cycle
+    // recorded without the inputs its scan sampled, which a replay gives the faulting scan.
     let mut recorder = Recorder::arm(Goal::Cycles(5), sizes(), Budget::COMPUTER).unwrap();
     assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
     recorder.begin_cycle(ms(10), 1);
     recorder.activation(0, ms(10).as_nanos());
+    recorder.inputs(&[0x05, 0x80]);
     let fault = CycleFault {
         code: 3,
         pou: 12,
@@ -231,6 +233,7 @@ fn a_faulted_cycle_is_the_last_and_holds_its_fault() {
         (TraceEnd::Faulted, 2)
     );
     assert_eq!(trace.cycles[1].fault, Some(fault));
+    assert_eq!(trace.cycles[1].inputs, vec![0x05, 0x80]);
 }
 
 #[test]

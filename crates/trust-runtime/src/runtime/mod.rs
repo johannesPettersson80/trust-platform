@@ -35,6 +35,8 @@ pub(crate) use bound_global::test_support::NamedGlobals;
 pub use bound_global::BoundGlobal;
 pub(crate) use bound_global::GlobalPort;
 pub use builder::RuntimeBuilder;
+pub(crate) use compiled::trace::lock as lock_traces;
+pub use compiled::trace::{new_traces, SharedTraces, TraceSlot};
 pub use compiled::{
     CompiledDebugger, CompiledRuntime, CompiledState, CompiledVariable, NamedVariable,
 };

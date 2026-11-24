@@ -342,6 +342,30 @@ impl Recorder {
         self.value = value;
     }
 
+    /// A force in effect at the start, on the trace's first cycle ([`Begin::First`]), once the
+    /// boundary applied it: recorded as the bytes the forced variable holds, read back as
+    /// [`Self::written`] reads them.
+    pub fn start_forced(
+        &mut self,
+        source: ChangeSource,
+        path: &str,
+        variables: &dyn CompiledVariables,
+    ) {
+        let mut value = core::mem::take(&mut self.value);
+        match variables.read_named_bytes(path, &mut value) {
+            Ok((len, type_name)) => self.start_force(
+                source,
+                &ChangeRef::VariableForce {
+                    path,
+                    type_name: &type_name,
+                    value: &value[..len],
+                },
+            ),
+            Err(_) => self.cycle.overflow = true,
+        }
+        self.value = value;
+    }
+
     /// Readings of the wall clock were lost, which the room for them could not keep: the recording
     /// ends `memory_full` at the cycle's end.
     pub fn readings_lost(&mut self) {

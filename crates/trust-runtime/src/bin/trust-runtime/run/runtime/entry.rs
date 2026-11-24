@@ -331,6 +331,7 @@ pub fn run_runtime(
 
     let state = Arc::new(ControlState {
         transfers: trust_runtime::control::new_transfer_session(),
+        traces: trust_runtime::control::new_traces(),
         debug: debug.clone(),
         identify,
         resource: control.clone(),

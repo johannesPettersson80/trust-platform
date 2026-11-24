@@ -259,6 +259,13 @@ pub trait CompiledVariables {
         false
     }
 
+    /// The input image that the drivers and Live Values fill (`%I`), which the program samples into
+    /// its input area when its tasks run (specification 44 §13.3): a cycle trace records it as the
+    /// scan sampled it (specification 48 RU-59). The default, a program without one, is empty.
+    fn input_image(&self) -> &[u8] {
+        &[]
+    }
+
     /// Writes `value` to the global, the qualified variable or the member or element that `name`
     /// names, a name the symbol table holds or else a path ([`resolve_for_write`]). A constant, or
     /// a member or an element of one, is refused, and so is an instance, which holds no value of
@@ -333,6 +340,10 @@ impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
         self.write(id, offset, data)
     }
 
+    fn input_image(&self) -> &[u8] {
+        &self.inputs
+    }
+
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
         self.write_address(address, value)
     }
@@ -369,6 +380,10 @@ impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
 
     fn read_area_bytes(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {
         self.read_area(id, offset, out)
+    }
+
+    fn input_image(&self) -> &[u8] {
+        ProgramMemory::input_image(self)
     }
 
     fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {

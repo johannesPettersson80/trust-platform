@@ -374,7 +374,8 @@ fn a_variables_bytes_and_an_areas_bytes_are_what_a_trace_records() {
     // Worked by hand: `Main.Pumps[2].Speed` is the INT at offset 6 of area 6 (above), so after a
     // write of 42 its bytes are 42 as two little-endian bytes, and area 6 holds them at 6..8.
     // Catches bytes read from another place or at another size, another type's name, bytes written
-    // past the value, and a value given room it lacks.
+    // past the value, a value given room it lacks, and an input image read from the input area,
+    // which holds the last scan's sample.
     let bytes = image();
     let mut program = program(&bytes);
     CompiledVariables::write_named(&mut program, "main.pumps[2].speed", &Value::LInt(42)).unwrap();
@@ -394,8 +395,24 @@ fn a_variables_bytes_and_an_areas_bytes_are_what_a_trace_records() {
         Err(RuntimeError::UndefinedVariable(_))
     ));
     let mut area = [0_u8; 24];
-    assert!(CompiledVariables::read_area_bytes(&program, 6, 0, &mut area));
+    assert!(CompiledVariables::read_area_bytes(
+        &program, 6, 0, &mut area
+    ));
     assert_eq!(&area[6..8], &42i16.to_le_bytes());
+    // The input image a scan samples is the one the drivers and Live Values fill, which the program
+    // copies into its input area only when its tasks run: after a write of 7 to `%IB1` the image
+    // reads 00 07 while area 1 still reads 00 00.
+    let input = IoAddress::parse("%IB1").unwrap();
+    CompiledVariables::write_image(&mut program, &input, Value::Byte(7)).unwrap();
+    assert_eq!(CompiledVariables::input_image(&program), [0, 7]);
+    let mut inputs = [0xFF_u8; 2];
+    assert!(CompiledVariables::read_area_bytes(
+        &program,
+        1,
+        0,
+        &mut inputs
+    ));
+    assert_eq!(inputs, [0, 0]);
 }
 
 #[test]

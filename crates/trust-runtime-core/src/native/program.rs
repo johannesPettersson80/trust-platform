@@ -378,6 +378,12 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.cycle_interval = interval;
     }
 
+    /// The resource's cycle interval, as the runner last set it ([`Self::set_cycle_interval`]).
+    #[must_use]
+    pub fn cycle_interval(&self) -> Duration {
+        self.cycle_interval
+    }
+
     /// The tasks by name and priority, in the image's order; the programs without a task are the
     /// task of priority [`BACKGROUND_PRIORITY`].
     pub fn tasks(&self) -> impl Iterator<Item = (&str, u32)> {

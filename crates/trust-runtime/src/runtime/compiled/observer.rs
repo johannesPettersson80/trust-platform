@@ -29,6 +29,12 @@ use crate::error::RuntimeError;
 use crate::io::{IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
 use crate::runtime::program_access::Access;
 use crate::value::Duration;
+use trust_runtime_core::trace::readings;
+use trust_runtime_core::trace::ChangeSource;
+use trust_runtime_services::live_values::queues::ForcedVarTarget;
+use trust_runtime_services::trace::{Begin, Recorder};
+
+use super::trace::TraceSession;
 
 /// The computer's [`CycleHooks`] for one scan of a compiled program.
 pub(super) struct HostedCompiledScan<'a> {
@@ -69,6 +75,9 @@ pub(super) struct HostedCompiledScan<'a> {
     pub(super) drivers: &'a Mutex<Vec<IoDriverEntry>>,
     /// The bytes of the input image, the MQTT tags' included, which a link's test reads into.
     pub(super) input_len: usize,
+    /// The cycle trace being recorded, which the scan's phases and the writes at its start fill
+    /// (specification 48 RU-59).
+    pub(super) trace: Option<&'a mut TraceSession>,
 }
 
 /// The name of the task at a task boundary, `$background` for the programs outside every task, as
@@ -176,8 +185,9 @@ impl CycleHooks for HostedCompiledScan<'_> {
         &mut self,
         phase: CyclePhase,
         now: Duration,
-        _images: &FlatImages,
+        images: &FlatImages,
     ) -> Result<(), RuntimeError> {
+        self.record_phase(phase, now, images);
         match phase {
             CyclePhase::CycleStart => {
                 if let Some(debug) = &self.debug {
@@ -283,13 +293,25 @@ impl CycleHooks for HostedCompiledScan<'_> {
         now: Duration,
         variables: &mut dyn CompiledVariables,
     ) -> Result<(), RuntimeError> {
+        // A recording's start state is the program's memory before the cycle's writes
+        // (specification 48 RU-59).
+        if point == CompiledAccessPoint::CycleStart {
+            take_start(self.trace.as_deref_mut(), variables);
+        }
         if let Some(debug) = &self.debug {
             // Control Studio's experiment writes of this scan, before the Live Values, which a
             // force then holds over them (specification 35 A3.5).
             if point == CompiledAccessPoint::CycleStart {
                 debug.apply_control_writes(&mut Access(variables), self.generation, now);
             }
-            debug.apply_compiled_live_values(point, self.generation, variables, now)?;
+            let recorder = self
+                .trace
+                .as_deref_mut()
+                .map(|session| &mut session.recorder);
+            debug.apply_compiled_live_values(point, self.generation, variables, now, recorder)?;
+        }
+        if point == CompiledAccessPoint::CycleStart {
+            take_forces(self.trace.as_deref_mut(), self.debug.as_ref(), variables);
         }
         let now_ms = u64::try_from(now.as_millis()).unwrap_or(0);
         match point {
@@ -330,6 +352,11 @@ impl CycleHooks for HostedCompiledScan<'_> {
                     },
                     i64::try_from(now_ms).unwrap_or(i64::MAX),
                 );
+                // A recording keeps the input image as the scan samples it, once everything that
+                // writes it before the program has (specification 48 RU-59).
+                if let Some(session) = self.trace.as_deref_mut() {
+                    session.recorder.inputs(variables.input_image());
+                }
                 Ok(())
             }
             CompiledAccessPoint::BeforeOutputs => {
@@ -358,6 +385,84 @@ impl CycleHooks for HostedCompiledScan<'_> {
             });
         }
     }
+}
+
+impl HostedCompiledScan<'_> {
+    /// The cycle trace's part of a phase (specification 48 RU-59): the cycle's start, each task's
+    /// activation, the input image as the scan sampled it, the output image it wrote, and the
+    /// cycle's end with the wall clock's readings.
+    fn record_phase(&mut self, phase: CyclePhase, now: Duration, images: &FlatImages) {
+        let Some(session) = self.trace.as_deref_mut() else {
+            return;
+        };
+        let recorder = &mut session.recorder;
+        match phase {
+            CyclePhase::CycleStart => {
+                if recorder.begin_cycle(now, self.cycle) == Begin::First {
+                    session.start_pending = true;
+                }
+                readings::arm();
+            }
+            CyclePhase::TaskStart(index) => {
+                recorder.activation(u32::try_from(index).unwrap_or(u32::MAX), now.as_nanos());
+            }
+            // The output image is the scan's own here (`CycleHooks::on_compiled_phase`).
+            CyclePhase::AfterOutputSample => recorder.outputs(&images.outputs),
+            CyclePhase::CycleEnd => {
+                take_readings(recorder);
+                recorder.end_cycle(None);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The start state of a recording's first cycle: each area before the cycle's writes.
+fn take_start(session: Option<&mut TraceSession>, variables: &dyn CompiledVariables) {
+    let Some(session) = session.filter(|session| session.start_pending) else {
+        return;
+    };
+    for id in 1..=6 {
+        if let Some(area) = session.recorder.start_area(id) {
+            variables.read_area_bytes(id, 0, area);
+        }
+    }
+}
+
+/// The forces in effect at a recording's first cycle, once the cycle's start applied them, each by
+/// its path: the start state is then whole.
+fn take_forces(
+    session: Option<&mut TraceSession>,
+    debug: Option<&DebugControl>,
+    variables: &dyn CompiledVariables,
+) {
+    let Some(session) = session.filter(|session| session.start_pending) else {
+        return;
+    };
+    if let Some(debug) = debug {
+        for force in debug.forced_snapshot().vars {
+            if let ForcedVarTarget::Global(path) | ForcedVarTarget::Retain(path) = &force.target {
+                session
+                    .recorder
+                    .start_forced(ChangeSource::ControlLink, path, variables);
+            }
+        }
+    }
+    session.start_pending = false;
+}
+
+/// Hands the wall clock's readings of the scan to `recorder` and stops keeping them: readings the
+/// room could not keep end the recording `memory_full`.
+pub(super) fn take_readings(recorder: &mut Recorder) {
+    let mut handed = 0;
+    let read = readings::take(&mut |reading| {
+        recorder.wall_clock(reading);
+        handed += 1;
+    });
+    if read > handed {
+        recorder.readings_lost();
+    }
+    readings::disarm();
 }
 
 #[cfg(test)]

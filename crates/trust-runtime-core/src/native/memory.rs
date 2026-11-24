@@ -81,6 +81,12 @@ pub trait ProgramMemory {
     /// Writes `data` at `offset` of area `id`; `false` outside the area.
     fn write_area(&mut self, id: u8, offset: usize, data: &[u8]) -> bool;
 
+    /// The input image that the drivers and Live Values fill (`%I`), which the program copies into
+    /// its input area when its tasks run; empty for memory without one.
+    fn input_image(&self) -> &[u8] {
+        &[]
+    }
+
     /// The frames of the held scan's call stack, innermost first; none between scans.
     fn frames(&self) -> Vec<StopFrame> {
         Vec::new()

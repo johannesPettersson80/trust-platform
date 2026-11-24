@@ -162,6 +162,7 @@ fn control_state(
 
     Arc::new(ControlState {
         transfers: trust_runtime::control::new_transfer_session(),
+        traces: trust_runtime::control::new_traces(),
         debug,
         identify: trust_runtime::io::IdentifyHandle::default(),
         resource,

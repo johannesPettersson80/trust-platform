@@ -472,6 +472,18 @@ END_PROGRAM
                         ),
                     ));
                 }
+                ResourceCommand::StartTrace(start) => {
+                    let _ = start.respond_to.send(Err(
+                        trust_runtime_services::trace::requests::TraceRefusal::Unavailable(
+                            "unsupported request".to_string(),
+                        ),
+                    ));
+                }
+                ResourceCommand::StopTrace(stop) => {
+                    let _ = stop
+                        .respond_to
+                        .send(trust_runtime_services::trace::requests::TraceState::Unknown);
+                }
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::ProgramInstalled
                 | ResourceCommand::Pause
@@ -490,6 +502,7 @@ END_PROGRAM
 
     Arc::new(ControlState {
         transfers: trust_runtime::control::new_transfer_session(),
+        traces: trust_runtime::control::new_traces(),
         debug,
         identify: trust_runtime::io::IdentifyHandle::default(),
         resource,
