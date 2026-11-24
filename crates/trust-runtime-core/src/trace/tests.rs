@@ -449,3 +449,88 @@ fn a_trace_of_records_reads_back_as_the_trace() {
     assert_eq!(bytes, encode(&trace));
     assert_eq!(decode(&bytes).unwrap().trace, trace);
 }
+
+#[test]
+fn a_traces_tasks_are_named_from_its_own_tables() {
+    // Specification 48 RU-60, "Each cycle": a cycle's activations index the recorded image's task
+    // table, and the build's tasks of the same names run them, so the names come from the trace's
+    // own task table and string pool. Worked by hand: two records naming offset 1 and offset 6 of
+    // the pool "\0Fast\0Slow\0" are `Fast` and `Slow`; a count of 3 with two records' bytes is
+    // malformed. Catches a name read at the wrong offset, a record read past the table, and a
+    // malformed table taken.
+    use super::replay::task_names;
+    use crate::native::image::{Record, TaskRecord, NONE, TABLE_PREFIX_BYTES};
+
+    let record = |name| {
+        let mut bytes = vec![0; TaskRecord::BYTES];
+        TaskRecord {
+            name,
+            interval_ns: 10_000_000,
+            priority: 0,
+            single: NONE,
+            program_count: 0,
+            program_first: 0,
+            flags: 0,
+        }
+        .write(&mut bytes);
+        bytes
+    };
+    let table = |count: u32| {
+        let mut tasks = vec![0; TABLE_PREFIX_BYTES];
+        tasks[..4].copy_from_slice(&count.to_le_bytes());
+        tasks.extend(record(1));
+        tasks.extend(record(6));
+        ImageTables {
+            tasks,
+            strings: b"\0Fast\0Slow\0".to_vec(),
+            ..ImageTables::default()
+        }
+    };
+    assert_eq!(task_names(&table(2)).unwrap(), [text("Fast"), text("Slow")]);
+    assert!(matches!(
+        task_names(&table(3)),
+        Err(TraceError::Malformed {
+            section: "ITASKS",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn a_cycles_outputs_differ_by_the_located_output_variables() {
+    // Specification 48 RU-60, "Each cycle": a replay compares the output image after a cycle with
+    // the trace's by the trace's located output variables at their addresses: a variable of one bit
+    // by its bit, any other by its bytes; an input is not compared, and a variable one image does
+    // not hold differs. Worked by hand: the trace's outputs 02 00 05 00 .. 01 (ten bytes) and the
+    // build's 06 00 06 00: `Lamp` %QX0.1 is set in both (bit 2, which differs, is no variable's);
+    // `Speed` %QW2 is 5 against 6; `Start` %IX0.0 is an input; `Far` %QB9 lies past the build's
+    // image. Catches a bit compared by its whole byte, an input compared, and a variable past an
+    // image taken as equal.
+    use super::replay::differing_outputs;
+
+    let located = |path: &str, area, bit, offset, size| Located {
+        path: text(path),
+        type_name: text("ANY"),
+        area,
+        bit,
+        offset,
+        size,
+    };
+    let variables = [
+        located("Lamp", IoArea::Output, Some(1), 0, 1),
+        located("Speed", IoArea::Output, None, 2, 2),
+        located("Start", IoArea::Input, Some(0), 0, 1),
+        located("Far", IoArea::Output, None, 9, 1),
+    ];
+    let trace = [0b0000_0010, 0, 5, 0, 0, 0, 0, 0, 0, 1];
+    let build = [0b0000_0110, 0, 6, 0];
+    let differing: Vec<&str> = differing_outputs(&variables, &trace, &build)
+        .iter()
+        .map(|variable| variable.path.as_str())
+        .collect();
+    assert_eq!(differing, ["Speed", "Far"]);
+    assert_eq!(
+        differing_outputs(&variables, &trace, &trace),
+        Vec::<&Located>::new()
+    );
+}

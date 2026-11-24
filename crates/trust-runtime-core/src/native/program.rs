@@ -882,28 +882,11 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let tasks = &self.tasks;
         sort_ready_tasks_by_priority(&mut ready, |index| tasks[index].priority);
         let mut result = Ok(());
-        'tasks: for entry in &ready {
-            hooks.task_started(entry.index);
-            if let Err(error) = hooks.task_boundary(entry.index, true, self) {
+        for entry in &ready {
+            if let Err(error) = self.run_task(entry.index, now, hooks) {
                 result = Err(error);
-                break 'tasks;
+                break;
             }
-            for position in 0..self.tasks[entry.index].programs.len() {
-                let program = self.tasks[entry.index].programs[position];
-                let task = u32::try_from(entry.index).unwrap_or(u32::MAX);
-                hooks.program_started(program);
-                let called = self.call(program, task, now, Some(&mut *hooks));
-                hooks.program_finished(program);
-                if let Err(error) = called {
-                    result = Err(error);
-                    break 'tasks;
-                }
-            }
-            if let Err(error) = hooks.task_boundary(entry.index, false, self) {
-                result = Err(error);
-                break 'tasks;
-            }
-            hooks.task_finished(entry.index);
         }
         self.ready = ready;
         result?;
@@ -913,26 +896,45 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             {
                 continue;
             }
-            hooks.task_started(index);
-            hooks.task_boundary(index, true, self)?;
-            for position in 0..self.tasks[index].programs.len() {
-                let program = self.tasks[index].programs[position];
-                hooks.program_started(program);
-                let called = self.call_within(
+            self.run_task(index, now, hooks)?;
+        }
+        self.publish()
+    }
+
+    /// Runs task `index`'s programs at logical time `now`, between the task's boundaries: a task
+    /// with an interval or an event as that task, the programs without a task outside one, with
+    /// the cycle's interval (specification 44 §8.2).
+    fn run_task(
+        &mut self,
+        index: usize,
+        now: Duration,
+        hooks: &mut dyn ScanHooks,
+    ) -> Result<(), RuntimeError> {
+        hooks.task_started(index);
+        hooks.task_boundary(index, true, self)?;
+        let background = self.tasks[index].priority == BACKGROUND_PRIORITY;
+        for position in 0..self.tasks[index].programs.len() {
+            let program = self.tasks[index].programs[position];
+            hooks.program_started(program);
+            let called = if background {
+                self.call_within(
                     program,
                     u32::MAX,
                     self.cycle_interval,
                     now,
                     self.budget,
                     Some(&mut *hooks),
-                );
-                hooks.program_finished(program);
-                called?;
-            }
-            hooks.task_boundary(index, false, self)?;
-            hooks.task_finished(index);
+                )
+            } else {
+                let task = u32::try_from(index).unwrap_or(u32::MAX);
+                self.call(program, task, now, Some(&mut *hooks))
+            };
+            hooks.program_finished(program);
+            called?;
         }
-        self.publish()
+        hooks.task_boundary(index, false, self)?;
+        hooks.task_finished(index);
+        Ok(())
     }
 
     /// Calls entry `entry` for task `task` at logical time `now`, with the task's interval, or none
@@ -1223,6 +1225,7 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
 
 mod assertions;
 mod online_change;
+mod replay;
 mod rust_times;
 #[cfg(test)]
 pub(crate) mod tests;
