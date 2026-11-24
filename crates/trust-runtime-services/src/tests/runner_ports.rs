@@ -1012,6 +1012,18 @@ impl ResourceCycle for ScriptedCycle<'_> {
     fn compiled_view(&self) -> Option<CompiledView<'_>> {
         self.cycle.compiled_view()
     }
+
+    fn variables_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
+        self.cycle.variables_memory()
+    }
+
+    fn display_path(&self, path: &str) -> Option<alloc::string::String> {
+        self.cycle.display_path(path)
+    }
+
+    fn last_fault_site(&self) -> Option<(u32, u32)> {
+        self.cycle.last_fault_site()
+    }
 }
 
 /// The loop under test.

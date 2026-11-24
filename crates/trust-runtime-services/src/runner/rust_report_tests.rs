@@ -39,8 +39,18 @@ fn the_loops_live_values_hooks_pass_the_rust_pou_reports_to_its_observer() {
     let records = Records::new(Still, Still.now(), 200);
     let debug = ChipDebug::new(0);
     let live = DeviceLiveValues::empty();
+    let (traces, fault, holds) = (
+        core::cell::RefCell::new(super::super::trace::ChipTraces::default()),
+        core::cell::Cell::new(false),
+        core::cell::Cell::new(0),
+    );
+    let traces = super::super::trace::SharedTraces {
+        traces: &traces,
+        fault: &fault,
+        holds: &holds,
+    };
     let mut observer = ScanObserver::new(&[], &[], &records, &Still, &debug);
-    let mut hooks = LiveValuesHooks::new(&live, &records, 1, &mut observer);
+    let mut hooks = LiveValuesHooks::new(&live, &records, traces, 1, &mut observer);
     let now = Duration::from_millis(20);
     hooks.on_rust_times_fresh();
     hooks.on_rust_pou(

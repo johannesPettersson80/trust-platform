@@ -28,7 +28,8 @@
   fault's trace starts after a record that did not fit (RU-59), decided under the same delegation.
   0.14, 24 November 2026: one rule that sizes a recording's rooms to the memory a runtime has, and a
   chip serving an ended trace's file part by part from its records (RU-59, "Memory"), decided under
-  the same delegation.
+  the same delegation. 0.15, 24 November 2026: the memory a chip can give a recording, its free heap
+  less what it keeps beside any program (RU-59, "Memory"), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1201,7 +1202,9 @@ traces", gives the requests.
     forces at the start, 64 KiB for one written value, and 4 MiB more for the whole recording),
     each at most a share of the memory the runtime has, where it knows it: a sixteenth for a
     cycle's changes and for the forces, a sixty-fourth for a cycle's readings, a thirty-second for
-    one value and a quarter for the recording. A chip thereby records within its memory, and a
+    one value and a quarter for the recording. The memory a chip has for a recording is its free
+    heap less what it keeps beside any program (specification 34 MEM-12), so that a recording
+    never takes the working memory the chip needs. A chip thereby records within its memory, and a
     cycle that outgrows its room ends the recording `memory_full` there as on a computer. A chip
     keeps an ended trace's records and serves its file part by part from them, the same file a
     computer writes.

@@ -375,6 +375,14 @@ pub trait StatusPort {
     fn heap(&self) -> Option<HeapFacts> {
         None
     }
+
+    /// The heap bytes a cycle trace's recording may reserve now (specification 48 RU-59,
+    /// "Memory"), or `None` on a runtime that does not know its memory, a computer among them. The
+    /// default is the heap's free bytes; a chip keeps back what it keeps beside any program.
+    fn recording_room(&self) -> Option<usize> {
+        self.heap()
+            .map(|heap| heap.capacity_bytes.saturating_sub(heap.used_bytes))
+    }
 }
 
 /// One installed program, as `program.active` reports it: its install sequence, the SHA-256 of the

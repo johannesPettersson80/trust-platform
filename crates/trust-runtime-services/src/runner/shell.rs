@@ -109,6 +109,11 @@ pub(super) struct Shell<L, W, P, C> {
     pub(super) step: StepState,
     /// The change of a `config.set` and the scheduler's copies it left for the loop.
     pub(super) config: ConfigState,
+    /// The cycle traces: the recording on demand and the slot `trace.read` reads.
+    traces: RefCell<super::trace::ChipTraces>,
+    /// The scans the debugger has held since the loop began, which a recording compares to tell
+    /// a held scan, one no replay could run.
+    pub(super) holds: Cell<u64>,
     pub(super) clock: C,
 }
 
@@ -149,7 +154,18 @@ where
             change: ChangeState::default(),
             step: StepState::default(),
             config: ConfigState::default(),
+            traces: RefCell::new(super::trace::ChipTraces::default()),
+            holds: Cell::new(0),
             clock,
+        }
+    }
+
+    /// The cycle traces, borrowed by one call at a time (see the module documentation).
+    pub(super) fn traces(&self) -> super::trace::SharedTraces<'_> {
+        super::trace::SharedTraces {
+            traces: &self.traces,
+            fault: &self.fault,
+            holds: &self.holds,
         }
     }
 
@@ -363,6 +379,7 @@ where
             change: &self.change,
             step: &self.step,
             config: &self.config,
+            traces: self.traces(),
         };
         let prepared = reply_within(response, self.max_frame_len, &host);
         self.send(&prepared.response);
@@ -509,6 +526,7 @@ where
             change: &self.change,
             step: &self.step,
             config: &self.config,
+            traces: self.traces(),
         };
         Some(prepare_line_within(line, &host, client.as_deref(), max_len))
     }
@@ -545,6 +563,7 @@ where
             && self.wait.try_borrow_mut().is_ok()
             && self.platform.try_borrow_mut().is_ok()
             && self.frame.try_borrow_mut().is_ok()
+            && self.traces.try_borrow_mut().is_ok()
             && self.debug.is_free()
     }
 }
