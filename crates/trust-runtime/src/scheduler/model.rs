@@ -90,6 +90,17 @@ pub enum ResourceCommand {
     StartTrace(Box<TraceStart>),
     /// Ends a cycle trace at once (`trace.stop`).
     StopTrace(TraceStop),
+    /// Replays a cycle trace in a simulator before its first cycle (`simulator.replay`,
+    /// specification 11 section 6.8.1; specification 48 RU-60).
+    ReplayTrace {
+        trace: Vec<u8>,
+        respond_to: std::sync::mpsc::Sender<
+            Result<
+                trust_runtime_services::simulator_replay::ReplayReport,
+                trust_runtime_services::simulator_replay::ReplayRefusal,
+            >,
+        >,
+    },
 }
 
 /// What a program start leaves to the scan thread: the scheduling settings of the program's own
@@ -138,6 +149,7 @@ fn command_class(command: &ResourceCommand) -> CommandClass {
         | ResourceCommand::CallMethod { .. }
         | ResourceCommand::StartTrace(_)
         | ResourceCommand::StopTrace(_)
+        | ResourceCommand::ReplayTrace { .. }
         | ResourceCommand::MeshCatalogue { .. }
         | ResourceCommand::SimulationSnapshot { .. }
         | ResourceCommand::SimulationTraceClear { .. } => CommandClass::Service,

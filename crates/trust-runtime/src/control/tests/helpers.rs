@@ -227,6 +227,11 @@ fn control_test_state_with_status_reports(
                         .respond_to
                         .send(trust_runtime_services::trace::requests::TraceState::Unknown);
                 }
+                ResourceCommand::ReplayTrace { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::simulator_replay::ReplayRefusal::ClockNotManual,
+                    ));
+                }
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::ProgramInstalled
                 | ResourceCommand::Pause

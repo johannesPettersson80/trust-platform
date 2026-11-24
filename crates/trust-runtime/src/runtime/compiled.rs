@@ -13,6 +13,7 @@ mod methods;
 mod named;
 mod observer;
 mod process_io;
+mod replay;
 mod services;
 mod state;
 mod tags;
@@ -331,6 +332,15 @@ impl CompiledRuntime {
     /// [`RuntimeError::ResourceFaulted`] while a fault is latched; the scan's error otherwise, after
     /// the safe outputs a halt drives.
     pub fn execute_cycle(&mut self) -> Result<(), RuntimeError> {
+        self.execute_cycle_with(None)
+    }
+
+    /// The cycle of [`Self::execute_cycle`]; with `replay`, a replay's cycle (specification 48
+    /// RU-60): exactly the recorded cycle's task activations, on its input image.
+    fn execute_cycle_with(
+        &mut self,
+        replay: Option<replay::ReplayedCycle<'_>>,
+    ) -> Result<(), RuntimeError> {
         if self.faulted() {
             return Err(RuntimeError::ResourceFaulted);
         }
@@ -374,7 +384,13 @@ impl CompiledRuntime {
             trace: self.trace.as_mut(),
             flight: self.flight.as_mut(),
         };
-        let mut result = self.cycle.run_scan(now, deadline, &mut observer);
+        let mut result = match replay {
+            Some(replayed) => {
+                self.cycle
+                    .replay_scan(now, replayed.activations, replayed.inputs, &mut observer)
+            }
+            None => self.cycle.run_scan(now, deadline, &mut observer),
+        };
         let task_runs = std::mem::take(&mut observer.task_runs);
         // A failed scan is a recording's last cycle, with its fault, the flight recorder's too
         // (specification 48 RU-59).

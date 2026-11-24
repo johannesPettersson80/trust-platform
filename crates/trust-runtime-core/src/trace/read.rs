@@ -427,7 +427,7 @@ const fn bad(section: &'static str, reason: &'static str) -> TraceError {
 }
 
 /// A malformed section, by its id.
-const fn malformed(section: u32, reason: &'static str) -> TraceError {
+pub(super) const fn malformed(section: u32, reason: &'static str) -> TraceError {
     bad(name(section), reason)
 }
 

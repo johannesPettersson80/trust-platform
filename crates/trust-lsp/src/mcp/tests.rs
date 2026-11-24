@@ -417,8 +417,11 @@ fn a_call_is_cancelled_at_the_provider_once() {
     assert_eq!(answers["8"]["result"], json!({ "answered": cancelled[0] }));
 }
 
-/// A provider call that panics gets the failure answer at once, not at the answer time. Catches a
-/// panic answered only when the answer time ends, or never.
+/// A provider call that panics gets the failure answer at once, not at the answer time (specification
+/// 43 §3.1). Catches a panic answered only when the answer time ends, or never. The answer comes
+/// after the panic hook, which prints a backtrace where `RUST_BACKTRACE` is set, as in CI; it came
+/// after 6.8 s on a loaded macOS runner (24 November 2026), so the bound is half the answer time,
+/// not `PATIENCE`.
 #[test]
 fn a_provider_call_that_panics_gets_the_failure_answer_at_once() {
     let provider = TestTools::new();
@@ -426,7 +429,7 @@ fn a_provider_call_that_panics_gets_the_failure_answer_at_once() {
     let answers = serve(&provider, LIMITS, &[call(9, "panics")]);
     assert_eq!(answers["9"]["error"], failure());
     assert!(
-        started.elapsed() < PATIENCE,
+        started.elapsed() < LIMITS.answer_time / 2,
         "answered after {:?}",
         started.elapsed()
     );
