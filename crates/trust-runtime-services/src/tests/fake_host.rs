@@ -630,7 +630,9 @@ impl VariableQueuePort for FakeHost {
         &self,
         writes: Vec<(PendingVarTarget, Value)>,
     ) -> Result<(), RequestQueueFull> {
-        self.live_values.borrow_mut().try_upsert_var_writes(writes)
+        self.live_values
+            .borrow_mut()
+            .try_upsert_var_writes(writes, trust_runtime_core::trace::ChangeSource::Service)
     }
 
     fn with_program_image(

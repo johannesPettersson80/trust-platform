@@ -301,7 +301,11 @@ impl CycleHooks for HostedCompiledScan<'_> {
             // Control Studio's experiment writes of this scan, before the Live Values, which a
             // force then holds over them (specification 35 A3.5).
             if point == CompiledAccessPoint::CycleStart {
-                debug.apply_control_writes(&mut Access(variables), self.generation, now);
+                let recorder = self
+                    .trace
+                    .as_deref_mut()
+                    .map(|session| &mut session.recorder);
+                debug.apply_control_writes(variables, self.generation, now, recorder);
             }
             let recorder = self
                 .trace

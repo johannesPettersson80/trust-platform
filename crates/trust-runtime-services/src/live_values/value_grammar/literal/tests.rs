@@ -267,3 +267,94 @@ fn an_enumeration_value_in_codesys_dotted_form_is_its_typed_value() {
         );
     }
 }
+
+#[test]
+fn a_scalars_literal_from_the_core_reads_back_as_that_scalar() {
+    // Specification 48 Appendix C, C.6: a cycle trace records a method's inputs as Structured Text
+    // literals, which a replay reads with this grammar. The literal that the core writes of each
+    // scalar (`trust_runtime_core::value::st_literal`) reads back as that scalar. Catches a real
+    // written without its decimal point (4000.0 read as an integer) or rounded, a text whose quote,
+    // dollar or control characters do not read back, a double-byte text in single quotes, an
+    // enumeration's type that a namespace qualifies, which no literal takes, and a duration in a
+    // unit the grammar does not read.
+    use trust_runtime_core::value::{st_literal, Duration, EnumValue, Value};
+
+    let read = |value: Value| {
+        let text = st_literal(&value).expect("a scalar's literal");
+        parse_literal(&text).unwrap_or_else(|reason| panic!("{text} does not read: {reason}"))
+    };
+    assert_eq!(read(Value::Bool(true)), Literal::Bool(true));
+    assert_eq!(
+        read(Value::Int(-5)),
+        Literal::Integer {
+            value: -5,
+            based: false
+        }
+    );
+    assert_eq!(
+        read(Value::ULInt(u64::MAX)),
+        Literal::Integer {
+            value: i128::from(u64::MAX),
+            based: false
+        }
+    );
+    assert_eq!(
+        read(Value::Word(0xBEEF)),
+        Literal::Integer {
+            value: 0xBEEF,
+            based: false
+        }
+    );
+    for real in [21.5_f64, 4000.0, 1e21, -1.25e-7, 0.1] {
+        let Literal::Real(text) = read(Value::LReal(real)) else {
+            panic!("{real} reads as no real literal");
+        };
+        assert_eq!(text.parse::<f64>().unwrap(), real, "{text}");
+    }
+    let Literal::Real(text) = read(Value::Real(0.1_f32)) else {
+        panic!("a REAL reads as no real literal");
+    };
+    assert_eq!(text.parse::<f32>().unwrap(), 0.1_f32, "{text}");
+    assert_eq!(
+        read(Value::Time(Duration::from_millis(1_500))),
+        Literal::Duration {
+            long: false,
+            nanos: 1_500_000_000
+        }
+    );
+    assert_eq!(
+        read(Value::LTime(Duration::from_nanos(7))),
+        Literal::Duration {
+            long: true,
+            nanos: 7
+        }
+    );
+    let text = "it's $5\nnext\t\u{1}";
+    assert_eq!(
+        read(Value::String(text.into())),
+        Literal::Text {
+            wide: false,
+            text: text.into()
+        }
+    );
+    let wide = "say \"hi\" for $5's\r\n\u{1}";
+    assert_eq!(
+        read(Value::WString(wide.into())),
+        Literal::Text {
+            wide: true,
+            text: wide.into()
+        }
+    );
+    // A namespace's type, `Plant.Mode`, by its own name, which the standard's `Enum_Value` takes.
+    let mode = EnumValue::from_canonical_parts("Plant.Mode".into(), "Auto".into(), 1);
+    assert_eq!(
+        read(Value::Enum(Box::new(mode))),
+        Literal::Typed {
+            type_name: "Mode".into(),
+            literal: Box::new(Literal::Name("Auto".into()))
+        }
+    );
+    assert_eq!(st_literal(&Value::LReal(f64::NAN)), None);
+    assert_eq!(st_literal(&Value::Real(f32::INFINITY)), None);
+    assert_eq!(st_literal(&Value::Null), None);
+}

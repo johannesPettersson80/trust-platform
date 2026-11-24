@@ -66,6 +66,8 @@ impl CompiledRuntime {
         match self.call_method(&path_text(path), interface, method, inputs, *budget) {
             Ok((value, used)) => {
                 *budget = budget.saturating_sub(used);
+                // A recording keeps the call as a screen's (specification 48 RU-59).
+                self.record_hmi_method_call(path, interface, method, inputs);
                 Ok(value)
             }
             // A method that faulted has faulted the resource, as a faulted scan does.
@@ -152,6 +154,67 @@ END_PROGRAM
             assert_eq!(value(&harness, path), Some(Value::DInt(expected)));
         }
         assert!(budget < 10000);
+    }
+
+    #[test]
+    fn a_screens_method_call_is_recorded_as_the_next_cycles_change() {
+        // Specification 48 RU-59 and Appendix C, C.6 (kind 7): a screen's method call between two
+        // scans is the next cycle's change, a screen's (source 2), with the instance by the path
+        // the debugger names it by and each input as its Structured Text literal. Worked by hand:
+        // the recording of 2 cycles has the call `Add` of `main.items[2]`, an element the debugger
+        // names `Main.Items[2]`, with `Amount` 3, made between its two cycles, in its second, the
+        // input's literal `3`. Catches a screen's call not recorded, recorded as the control
+        // link's, without its literal, or with the element as the page wrote it.
+        use trust_runtime_core::trace::{decode, Change, ChangeKind, ChangeSource};
+        use trust_runtime_services::trace::requests::{
+            RecordRequest, TraceName, TraceState, Until,
+        };
+
+        let mut harness = TestHarness::from_source(PROGRAM).unwrap();
+        harness.cycle();
+        let traces = crate::runtime::new_traces();
+        let request = RecordRequest {
+            until: Until::Cycles(2),
+            task: None,
+        };
+        harness
+            .runtime_mut()
+            .start_trace(&request, (&SmolStr::new("hmi"), "test"), &traces)
+            .unwrap();
+        harness.cycle();
+        let path = MemberPath::parse("main.items[2]").unwrap();
+        harness
+            .runtime_mut()
+            .invoke_hmi_method(
+                &path,
+                "ICounter",
+                "Add",
+                &[("Amount".into(), Value::DInt(3))],
+                &mut 10_000,
+            )
+            .unwrap();
+        harness.cycle();
+
+        let slot = crate::runtime::lock_traces(&traces);
+        let TraceState::Ended { bytes, .. } = slot.state(TraceName::Id(1)) else {
+            panic!("the recording of 2 cycles has ended");
+        };
+        let mut file = vec![0; bytes];
+        assert_eq!(slot.part(TraceName::Id(1), 0, &mut file), Some(bytes));
+        let trace = decode(&file).unwrap().trace;
+        assert_eq!(trace.cycles[0].changes, vec![]);
+        assert_eq!(
+            trace.cycles[1].changes,
+            vec![Change {
+                source: ChangeSource::Screen,
+                kind: ChangeKind::MethodCall {
+                    instance: "Main.Items[2]".into(),
+                    interface: "ICounter".into(),
+                    method: "Add".into(),
+                    inputs: vec![("Amount".into(), "3".into())],
+                },
+            }]
+        );
     }
 
     #[test]

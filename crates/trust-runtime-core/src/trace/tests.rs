@@ -601,3 +601,59 @@ fn a_recorded_number_is_replayed_as_the_literal_a_request_gave() {
     assert_eq!(as_requested(Value::Real(1.5)), Value::Real(1.5));
     assert_eq!(as_requested(Value::Bool(true)), Value::Bool(true));
 }
+
+#[test]
+fn a_files_variables_and_instances_are_named_as_the_debugger_names_them() {
+    // Appendix C, C.6: a trace names each variable and each method call's instance as the debugger
+    // names it, whatever form the request named it in; the recording keeps the names as given and
+    // its file names them. Here the debugger names `Main.x` `Main.X`, `Main.limit` `Main.Limit` and
+    // `Main.Heating` `Plant1.Heating`, and gives `Tank.level` no name. Worked by hand from
+    // `full_trace`: the write, the release, the method call and the start's force take the new
+    // names; `Tank.level` and every address change stay as they were, and so do the values, the
+    // inputs and the cycle without changes, byte for byte. Catches a path left as recorded, an
+    // instance not named, a name given to a path the debugger does not name, and any other change.
+    let mut debugger = |path: &str| -> Option<String> {
+        match path {
+            "Main.x" => Some(text("Main.X")),
+            "Main.limit" => Some(text("Main.Limit")),
+            "Main.Heating" => Some(text("Plant1.Heating")),
+            _ => None,
+        }
+    };
+    let trace = full_trace();
+    let mut expected = full_trace();
+    let changes = &mut expected.cycles[0].changes;
+    if let ChangeKind::VariableWrite { path, .. } = &mut changes[0].kind {
+        *path = text("Main.X");
+    }
+    if let ChangeKind::VariableRelease { path } = &mut changes[1].kind {
+        *path = text("Main.Limit");
+    }
+    if let ChangeKind::MethodCall { instance, .. } = &mut changes[4].kind {
+        *instance = text("Plant1.Heating");
+    }
+    if let ChangeKind::VariableForce { path, .. } = &mut expected.start.forces[0].kind {
+        *path = text("Main.Limit");
+    }
+    for (cycle, expected) in trace.cycles.iter().zip(&expected.cycles) {
+        let mut record = Vec::new();
+        encode_cycle(cycle, &mut record);
+        let named = named_cycle(&record, &mut debugger).unwrap();
+        assert_eq!(&super::read::read_cycle(&named).unwrap(), expected);
+        assert_eq!(named_cycle(&record, &mut |_| None).unwrap(), record);
+    }
+    let mut forces = Vec::new();
+    for force in &trace.start.forces {
+        encode_change(
+            force.source,
+            &force.kind.borrowed(&mut Vec::new()),
+            &mut forces,
+        );
+    }
+    let count = trace.start.forces.len();
+    let named = named_changes(&forces, count, &mut debugger).unwrap();
+    assert_eq!(
+        super::read::read_change_run(&named, count).unwrap(),
+        expected.start.forces
+    );
+}
