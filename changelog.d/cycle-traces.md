@@ -21,6 +21,17 @@
   next cycle's change, with each input's literal as given. A breakpoint or a step that holds the
   program ends the recording `paused` with the cycles before the held one (specification 48 RU-59;
   specification 11, "Cycle traces").
+- A cycle trace records each change with where it came from: the control link's, a service's
+  `variables.write` as a service's, and an ADS client's write as a protocol server's (specification
+  48 Appendix C, C.6).
+- A cycle trace also keeps what screens change: each write a screen's command makes, and each
+  method a screen calls, with its inputs as Structured Text literals, as the next cycle's change
+  of a screen (specification 48 RU-59).
+- A cycle trace also keeps Control Studio's experiment writes, of variables and of addresses, as
+  Control Studio's changes (specification 48 RU-59).
+- A cycle trace names each variable and each method call's instance as the debugger names it,
+  whatever form the request named it in: `set main.pumps[2].speed` is recorded as
+  `Main.Pumps[2].Speed` (specification 48 Appendix C, C.6).
 - A simulator replays a cycle trace (`simulator.replay`, after uploading the trace with
   `transfer.begin {"for": "trace"}`): it takes the recorded memory, runs the recorded cycles on the
   recorded input images with the recorded tasks at their times, and reports the first cycle whose
