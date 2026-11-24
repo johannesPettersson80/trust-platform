@@ -1139,15 +1139,19 @@ traces", gives the requests.
     - each task activation in it, in the order the tasks ran, with the task's logical time
         (`TIME()`, the kernel's `now_ns`, specification 44 §8.2);
     - every change made to the program from outside before the cycle, in the order the runtime
-        applied it, with its source. A change made between two cycles, such as a method call, is
-        the next cycle's; one made before the trace's first cycle is in its start state:
+        applied it, with its source. A change made between two cycles, such as a method call or a
+        screen's write (specification 39 §18), is the next cycle's; one made before the trace's
+        first cycle is in its start state:
         - a variable's write: the control link's `set`, `var.write` and `variables.write`, a
             screen's write, Control Studio's, a service's (RU-63), the mesh's, a protocol server's
             such as OPC UA's, or a plant's;
         - a force set or released, on a variable or on an address, in the cycle it is set or
             released before, not in each cycle it holds;
         - an address's one-shot write (`io.write`);
-        - a tool's method call (`method.call`), with its inputs;
+        - a method call, a tool's (`method.call`) or a screen command's (specification 39 §21.2),
+            with each input as a Structured Text literal: a tool's as its request gave it, and a
+            screen's as IEC 61131-3 writes the value (Tables 5 to 8), an enumeration's value after
+            its type's own name and `#` (`Mode#Auto`, §6.4.4.2);
     - the input image as the cycle's scan sampled it, and the output image the cycle wrote, `%I`
         and `%Q` whole;
     - each reading of the wall clock (`CURRENT_DT`) in the cycle, in order. The wall clock is the

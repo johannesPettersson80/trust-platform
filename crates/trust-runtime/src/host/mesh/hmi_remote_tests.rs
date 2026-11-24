@@ -100,7 +100,7 @@ fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
             plant.cycle();
             let cycle = plant.runtime().cycle_counter();
             plant.runtime_mut().with_program(|program| {
-                exchange.serve(program, cycle, &[]);
+                exchange.serve(program, cycle, &[], &mut Vec::new());
             });
             for command in commands.try_iter() {
                 match command {

@@ -35,7 +35,7 @@ fn value(plant: &TestHarness, path: &MemberPath) -> Option<Value> {
 fn serve(exchange: &HmiExchange, plant: &mut TestHarness) {
     plant
         .runtime_mut()
-        .with_program(|program| exchange.serve(program, 0, &[]));
+        .with_program(|program| exchange.serve(program, 0, &[], &mut Vec::new()));
 }
 
 /// A report that keeps what it is told.

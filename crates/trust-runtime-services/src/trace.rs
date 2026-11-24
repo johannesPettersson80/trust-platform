@@ -305,11 +305,18 @@ impl Recorder {
         self.start_force_count += 1;
     }
 
-    /// A change made from outside before the cycle, in the order the runtime applies it.
+    /// Whether a change from outside is recorded now: one made in a cycle, or between two cycles of
+    /// the recording, which is the next cycle's. One made before the first cycle is in the start
+    /// state, and one after the recording ended is not recorded.
+    fn takes_changes(&self) -> bool {
+        self.cycle.open || (self.first.is_some() && self.end.is_none())
+    }
+
+    /// A change made from outside before the cycle, in the order the runtime applies it. One made
+    /// between two cycles is the next cycle's, one made before the first cycle is in the start
+    /// state, and one made after the recording ended is not recorded.
     pub fn change(&mut self, source: ChangeSource, change: &ChangeRef<'_>) {
-        // A change made between two cycles is the next cycle's; one made before the first cycle is
-        // in the start state, and one after the recording ended is not recorded.
-        if !self.cycle.open && (self.first.is_none() || self.end.is_some()) {
+        if !self.takes_changes() {
             return;
         }
         let cycle = &mut self.cycle;
@@ -323,10 +330,11 @@ impl Recorder {
 
     /// A write from outside to the variable `path`, which `variables` has applied: recorded as the
     /// bytes the variable now holds, at its declared size, with its type's name, read back into
-    /// the reserved room for a value. A value longer than that room, or one that cannot be read
-    /// back, ends the recording `memory_full` at the cycle's end.
+    /// the reserved room for a value. A write between two cycles, such as a screen's, is the next
+    /// cycle's ([`Self::change`]). A value longer than that room, or one that cannot be read back,
+    /// ends the recording `memory_full` at the end of the cycle the write belongs to.
     pub fn written(&mut self, source: ChangeSource, path: &str, variables: &dyn CompiledVariables) {
-        if !self.cycle.open {
+        if !self.takes_changes() {
             return;
         }
         // The room is taken out while its bytes are recorded and put back: moving a vector
