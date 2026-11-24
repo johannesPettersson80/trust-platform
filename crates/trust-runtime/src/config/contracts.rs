@@ -24,6 +24,10 @@ pub struct RuntimeConfig {
     /// device's default (1,000 on a computer), so a deployment record can tell that the project
     /// set none (specification 11, the event store).
     pub event_capacity: Option<usize>,
+    /// `runtime.trace.flight_recorder`: the cycles `n` of which the flight recorder keeps the last
+    /// `n` to `2n`, and the fault's trace when the resource faults (specification 48 RU-59, "The
+    /// flight recorder"); 0, as when the project sets none, keeps no flight recorder.
+    pub flight_recorder: u64,
     /// `runtime.identify.output`: the output that `identify` blinks (specification 11,
     /// "Identify"). `None` means the runtime has no identify output.
     pub identify_output: Option<IdentifyOutputConfig>,
