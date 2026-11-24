@@ -139,6 +139,35 @@ pub struct Identity<'a> {
     pub started_utc_ms: i64,
 }
 
+/// The recordings that one cycle feeds: a recording on demand (`trace.record`) and the flight
+/// recorder's current one ([`FlightRecorder::recorder`]), each when there is one (specification 48
+/// RU-59). Every change, activation, reading and image of the cycle goes to both.
+#[derive(Debug, Default)]
+pub struct Recordings<'a> {
+    /// The recording on demand.
+    pub on_demand: Option<&'a mut Recorder>,
+    /// The flight recorder's current recording.
+    pub flight: Option<&'a mut Recorder>,
+}
+
+impl Recordings<'_> {
+    /// Whether no recording runs, so that nothing needs recording.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.on_demand.is_none() && self.flight.is_none()
+    }
+
+    /// Calls `record` with each recording.
+    pub fn each(&mut self, mut record: impl FnMut(&mut Recorder)) {
+        if let Some(recorder) = self.on_demand.as_deref_mut() {
+            record(recorder);
+        }
+        if let Some(recorder) = self.flight.as_deref_mut() {
+            record(recorder);
+        }
+    }
+}
+
 /// A recording of a cycle trace (module docs).
 #[derive(Debug)]
 pub struct Recorder {

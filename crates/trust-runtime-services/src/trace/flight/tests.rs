@@ -71,16 +71,22 @@ fn a_fault_keeps_the_full_recording_and_the_faulted_one_from_the_full_ones_start
     // trace that starts from the wrong recording or the first start, a change at a hand-over lost
     // or kept twice, and a fault's trace given before a fault.
     let mut flight = FlightRecorder::arm(2, sizes(), Budget::COMPUTER).expect("armed");
+    flight.began(1_000);
     assert_eq!(cycle(&mut flight, 0, None), FlightCycle::Recording);
     assert_eq!(cycle(&mut flight, 10, None), FlightCycle::StartDue);
+    flight.began(2_000);
     flight.recorder().change(ChangeSource::Screen, &WRITE);
     assert_eq!(cycle(&mut flight, 20, None), FlightCycle::Recording);
     assert_eq!(cycle(&mut flight, 30, None), FlightCycle::StartDue);
+    flight.began(3_000);
     assert_eq!(flight.fault_file(&identity(), &[], &image()), None);
+    assert_eq!(flight.fault_began_utc_ms(), None);
     flight.recorder().change(ChangeSource::Screen, &WRITE);
     assert_eq!(cycle(&mut flight, 40, Some(fault())), FlightCycle::Faulted);
     assert!(flight.faulted());
     assert_eq!(flight.fault_cycles(), Some(3));
+    // The trace begins with the second recording, which began at 2,000 ms.
+    assert_eq!(flight.fault_began_utc_ms(), Some(2_000));
 
     let trace = read(&flight);
     assert_eq!(trace.meta.origin, TraceOrigin::FlightRecorder);

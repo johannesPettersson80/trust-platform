@@ -347,6 +347,7 @@ fn handle_cycle_error<C: Clock + Clone>(
     // A recording ends when its resource faults, before the fault is published (specification 48
     // RU-59): a fault in a scan ended it with that cycle already, one outside a scan ends it here.
     runner.runtime.end_trace(TraceEnd::Faulted);
+    runner.runtime.fault_flight();
     match cycle_error_action(watchdog, runner.runtime.fault_policy(), err) {
         CycleErrorAction::Restart(reason) => retry_or_wait(runner, shared, restarts, &reason),
         CycleErrorAction::WatchdogHalt(watchdog_err) => {
@@ -369,6 +370,7 @@ fn handle_watchdog_overrun<C: Clock + Clone>(
     let action = watchdog_overrun_action(watchdog, active_elapsed)?;
     // The overrun faults the resource after its cycle was recorded (specification 48 RU-59).
     runner.runtime.end_trace(TraceEnd::Faulted);
+    runner.runtime.fault_flight();
     match action {
         OverrunAction::Restart => Some(retry_or_wait(
             runner,

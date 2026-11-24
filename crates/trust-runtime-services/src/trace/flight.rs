@@ -40,6 +40,8 @@ pub struct FlightRecorder {
     joined: bool,
     /// Whether the resource faulted, which ended the recording: its trace is then the fault's.
     fault: bool,
+    /// The UTC time, in milliseconds, when each recording began ([`Self::began`]).
+    began_utc_ms: [i64; 2],
 }
 
 impl FlightRecorder {
@@ -62,6 +64,7 @@ impl FlightRecorder {
             current: 0,
             joined: false,
             fault: false,
+            began_utc_ms: [0; 2],
         })
     }
 
@@ -100,6 +103,28 @@ impl FlightRecorder {
         FlightCycle::StartDue
     }
 
+    /// The current recording began at the UTC time `utc_ms`, in milliseconds: the runner says so
+    /// when it arms the flight recorder and at each hand-over, and the fault's trace's identity
+    /// gives the time its first recording began ([`Self::fault_began_utc_ms`]).
+    pub fn began(&mut self, utc_ms: i64) {
+        self.began_utc_ms[self.current] = utc_ms;
+    }
+
+    /// The UTC time, in milliseconds, when the fault's trace's first recording began, once the
+    /// recording has ended at a fault.
+    #[must_use]
+    pub fn fault_began_utc_ms(&self) -> Option<i64> {
+        if !self.fault {
+            return None;
+        }
+        let start = if self.joined {
+            1 - self.current
+        } else {
+            self.current
+        };
+        Some(self.began_utc_ms[start])
+    }
+
     /// The resource faulted outside a scan: the recording ends with the cycles before, as the
     /// fault's trace.
     pub fn fault(&mut self) {
@@ -111,6 +136,16 @@ impl FlightRecorder {
     #[must_use]
     pub const fn faulted(&self) -> bool {
         self.fault
+    }
+
+    /// Why the fault's trace ended, once the recording has ended at a fault: `faulted`, or
+    /// `memory_full` when the faulted cycle did not fit.
+    #[must_use]
+    pub fn fault_end(&self) -> Option<TraceEnd> {
+        if !self.fault {
+            return None;
+        }
+        self.recordings[self.current].end()
     }
 
     /// The cycles the fault's trace holds, once the recording has ended at a fault.

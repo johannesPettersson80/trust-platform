@@ -200,6 +200,19 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        // The resource runs without its flight recorder (specification 11 §6.8.1).
+        trust_runtime::debug::RuntimeEvent::TraceMemory { needed, free, time } => {
+            logger.log(
+                LogLevel::Warn,
+                "runtime_trace_memory",
+                json!({
+                    "event_id": "TRUST-RT-TRACE-MEMORY-001",
+                    "needed": needed,
+                    "free": free,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         _ => {}
     }
 }
