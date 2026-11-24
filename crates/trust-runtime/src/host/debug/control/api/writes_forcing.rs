@@ -1,6 +1,6 @@
 use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
-use trust_runtime_services::live_values::apply::{self, WriteSink};
+use trust_runtime_services::live_values::apply::{self, ForceEffect, WriteSink};
 use trust_runtime_services::live_values::queues::REQUEST_QUEUE_CAPACITY;
 use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_services::trace::Recorder;
@@ -448,14 +448,39 @@ impl WriteSink for RejectedEvents<'_> {
         });
     }
 
-    /// A cycle trace records a write by its path (specification 48 RU-59). A member of an
-    /// instance, which the debugger names by the instance's identity, is recorded with the other
-    /// sources of a later lane.
+    /// A cycle trace records each change the control link made, as Live Values applied it
+    /// (specification 48 RU-59): a variable by the path the debugger names it by, an address by
+    /// the bytes it gives the process image, and a force once, where it is set or released.
     fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
-        if let (Some(trace), PendingVarTarget::Global(path) | PendingVarTarget::Retain(path)) =
-            (self.trace.as_deref_mut(), target)
-        {
-            trace.written(ChangeSource::ControlLink, path, variables);
+        if let Some(trace) = self.trace.as_deref_mut() {
+            trace.written_target(ChangeSource::ControlLink, target, variables);
+        }
+    }
+
+    fn records(&self) -> bool {
+        self.trace.is_some()
+    }
+
+    fn address_written(
+        &mut self,
+        address: &IoAddress,
+        value: &Value,
+        variables: &dyn CompiledVariables,
+    ) {
+        if let Some(trace) = self.trace.as_deref_mut() {
+            trace.address_written(ChangeSource::ControlLink, address, value, variables);
+        }
+    }
+
+    fn forced(&mut self, effect: ForceEffect<'_>, variables: &dyn CompiledVariables) {
+        if let Some(trace) = self.trace.as_deref_mut() {
+            trace.forced(ChangeSource::ControlLink, effect, variables);
+        }
+    }
+
+    fn force_changes_lost(&mut self) {
+        if let Some(trace) = self.trace.as_deref_mut() {
+            trace.force_changes_lost();
         }
     }
 }

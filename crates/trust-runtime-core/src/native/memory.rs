@@ -425,6 +425,26 @@ pub fn member_symbol(image: &Image<'_>, instance: u32, member: &str) -> Result<u
     Ok(index)
 }
 
+/// The path the debugger names member `member` of instance `instance` by: the display name of the
+/// member's symbol (specification 48 Appendix C, C.6), found without building the qualified name,
+/// as [`member_symbol`] finds the symbol.
+#[must_use]
+pub fn member_display_path<'i>(image: &Image<'i>, instance: u32, member: &str) -> Option<&'i str> {
+    let symbols = image.table::<SymbolRecord>().ok()?;
+    let owner = image.string(symbols.get(instance)?.canonical)?;
+    symbols.iter().find_map(|symbol| {
+        let rest = image
+            .string(symbol.canonical)?
+            .strip_prefix(owner)?
+            .strip_prefix('.')?;
+        if rest.eq_ignore_ascii_case(member) {
+            image.string(symbol.display)
+        } else {
+            None
+        }
+    })
+}
+
 /// The index and the record of the POU symbol of POU `pou` (specification 44 §5.7): a debug image
 /// has one for each POU, named `@` and the POU's canonical name.
 #[must_use]

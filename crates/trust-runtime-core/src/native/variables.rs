@@ -327,6 +327,21 @@ pub trait CompiledVariables {
     fn write_located(&mut self, at: &Located, value: &Value) -> Result<(), RuntimeError>;
 }
 
+/// The bytes that a write of `value` gives the flat process image at `address` (specification 48
+/// Appendix C, C.6): `value` typed as the address and its bound variable take it, as a write types
+/// it, and encoded as the image holds it ([`crate::io_image::flat_image_bytes`]). `None` for a
+/// value that the address does not take.
+#[must_use]
+pub fn image_value_bytes(
+    image: &Image<'_>,
+    address: &IoAddress,
+    value: &Value,
+    out: &mut [u8],
+) -> Option<usize> {
+    let typed = literal::for_address(image, address, value.clone()).ok()?;
+    crate::io_image::flat_image_bytes(address.size, &typed, out)
+}
+
 impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
     fn image(&self) -> Image<'_> {
         NativeProgram::image(self)

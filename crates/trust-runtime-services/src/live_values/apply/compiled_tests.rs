@@ -17,7 +17,7 @@ use trust_runtime_core::native::reflect::Located;
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::value::{Duration, Value};
 
-use super::{compiled_cycle_start, compiled_images, WriteSink};
+use super::{compiled_cycle_start, compiled_images, ForceEffect, WriteSink};
 use crate::live_values::queues::{ForcedVarTarget, LiveValueQueues, PendingVarTarget};
 
 #[derive(Default)]
@@ -396,4 +396,142 @@ fn a_variable_force_is_applied_again_after_the_inputs_between_the_image_writes_a
         "no variable force before the outputs"
     );
     assert_eq!(refusals.0, Vec::new(), "nothing is refused");
+}
+
+/// What a recording sink is told: each refusal, address write and force effect, as text.
+#[derive(Default)]
+struct Recorded(Vec<String>);
+
+impl WriteSink for Recorded {
+    fn refused(&mut self, target: &str, _error: &RuntimeError, _time: Duration) {
+        self.0.push(format!("refused {target}"));
+    }
+
+    fn records(&self) -> bool {
+        true
+    }
+
+    fn address_written(
+        &mut self,
+        address: &IoAddress,
+        value: &Value,
+        _variables: &dyn CompiledVariables,
+    ) {
+        self.0.push(format!("wrote {address:?} {value:?}"));
+    }
+
+    fn forced(&mut self, effect: ForceEffect<'_>, _variables: &dyn CompiledVariables) {
+        self.0.push(match effect {
+            ForceEffect::VariableSet(target) => format!("set {target:?}"),
+            ForceEffect::VariableReleased(target) => format!("released {target:?}"),
+            ForceEffect::AddressSet(address, value) => format!("set {address:?} {value:?}"),
+            ForceEffect::AddressReleased(address) => format!("released {address:?}"),
+        });
+    }
+
+    fn force_changes_lost(&mut self) {
+        self.0.push("lost".to_string());
+    }
+}
+
+#[test]
+fn a_force_change_is_reported_once_as_the_cycle_start_leaves_it() {
+    // Specification 48 RU-59: a cycle trace records a force where it is set or released, once, as
+    // the cycle start leaves it. Between two cycle starts, MAIN.SPEED is forced at 5; MAIN.COUNT is
+    // forced and released; MAIN.NOTHING, which the program does not hold, is forced; %QW0 is forced
+    // at 9 and then at 10. The cycle start refuses NOTHING, then reports, in the order of each
+    // target's last change: SPEED set, COUNT released, %QW0 set at 10. It does not report NOTHING's
+    // set, which never took effect. The next cycle start reports nothing, though the forces still
+    // hold, and lost changes are reported. Catches a force reported in each cycle it holds, a change
+    // reported twice, an earlier value reported, and a refused force reported as set.
+    let speed = ForcedVarTarget::Global("MAIN.SPEED".into());
+    let count = ForcedVarTarget::Global("MAIN.COUNT".into());
+    let nothing = ForcedVarTarget::Global("MAIN.NOTHING".into());
+    let level = address("%QW0");
+    let mut queues = LiveValueQueues::new();
+    let mut program = Program::default();
+    let mut sink = Recorded::default();
+    queues
+        .try_upsert_forced_var(speed.clone(), Value::Int(5))
+        .unwrap();
+    queues
+        .try_upsert_forced_var(count.clone(), Value::DInt(1))
+        .unwrap();
+    queues.clear_forced_vars(|target| *target == count);
+    queues
+        .try_upsert_forced_var(nothing.clone(), Value::Int(1))
+        .unwrap();
+    queues
+        .try_upsert_forced_io(level.clone(), Value::Word(9))
+        .unwrap();
+    queues
+        .try_upsert_forced_io(level.clone(), Value::Word(10))
+        .unwrap();
+
+    compiled_cycle_start(&mut queues, NOW, &mut program, at(0), &mut sink).unwrap();
+    assert_eq!(
+        sink.0,
+        vec![
+            "refused MAIN.NOTHING".to_string(),
+            format!("set {speed:?}"),
+            format!("released {count:?}"),
+            format!("set {level:?} {:?}", Value::Word(10)),
+        ]
+    );
+    assert_eq!(queues.force_changes, vec![]);
+
+    sink.0.clear();
+    compiled_cycle_start(&mut queues, NOW, &mut program, at(10), &mut sink).unwrap();
+    assert_eq!(sink.0, Vec::<String>::new());
+    queues.force_changes_lost = true;
+    compiled_cycle_start(&mut queues, NOW, &mut program, at(20), &mut sink).unwrap();
+    assert_eq!(sink.0, vec!["lost".to_string()]);
+    assert!(!queues.force_changes_lost);
+}
+
+#[test]
+fn an_address_write_is_reported_to_a_recording_sink_once_applied() {
+    // Specification 48 RU-59: a cycle trace records `io.write` as the boundary applied it. %IX0.1 is
+    // written TRUE and %IB5, outside the stand-in's image, is refused: the recording sink is told of
+    // the first only, after it reached the program; a sink that records nothing is told of neither.
+    // Catches a refused write recorded, and a write recorded before it was applied.
+    let mut queues = LiveValueQueues::new();
+    let mut program = Program::default();
+    let mut sink = Recorded::default();
+    for (text, value) in [("%IX0.1", Value::Bool(true)), ("%IB5", Value::Byte(3))] {
+        queues.try_enqueue_io_write(address(text), value).unwrap();
+    }
+    compiled_images(
+        &mut queues,
+        NOW,
+        &[IoArea::Input, IoArea::Memory],
+        &mut program,
+        at(0),
+        &mut sink,
+    )
+    .unwrap();
+    assert_eq!(
+        sink.0,
+        vec![
+            format!("wrote {:?} {:?}", address("%IX0.1"), Value::Bool(true)),
+            format!("refused {:?}", address("%IB5")),
+        ]
+    );
+    assert_eq!(program.written.len(), 1);
+
+    let mut silent = Refusals::default();
+    queues
+        .try_enqueue_io_write(address("%IX0.1"), Value::Bool(false))
+        .unwrap();
+    compiled_images(
+        &mut queues,
+        NOW,
+        &[IoArea::Input, IoArea::Memory],
+        &mut program,
+        at(10),
+        &mut silent,
+    )
+    .unwrap();
+    assert_eq!(silent.0, vec![]);
+    assert_eq!(program.written.len(), 2);
 }

@@ -250,6 +250,13 @@ impl Simulator {
         reply["result"].clone()
     }
 
+    /// Sends the request `kind` with `params`, asserts that it was answered, and gives its result.
+    fn request(&mut self, id: u64, kind: &str, params: Value) -> Value {
+        let reply = self.call(&json!({"id": id, "type": kind, "params": params}));
+        assert_eq!(reply["ok"], json!(true), "{reply}");
+        reply["result"].clone()
+    }
+
     /// Sets the global `name` to `value` before the next scan (`set`).
     fn set(&mut self, id: u64, name: &str, value: &str) {
         let queued = self.call(&json!({"id": id, "type": "set", "params": {
@@ -715,6 +722,97 @@ fn a_recording_ends_faulted_when_its_resource_faults_outside_a_scan() {
     };
     assert_eq!(cycle.time_ns, 10_000_000);
     assert_eq!(cycle.fault, None);
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn a_recording_keeps_forces_where_they_are_set_and_released_and_address_writes() {
+    // Specification 48 RU-59 with Appendix C, C.5 and C.6, on the resource above. Worked by hand:
+    // %IX0.0 (`start`) is forced TRUE before the recording, so the trace's start state holds that
+    // force, one byte 1 at bit 0 of %I's byte 0, and its first cycle (10 ms) records no change.
+    // `limit` forced at 9 before the cycle at 20 ms is that cycle's change, the INT's bytes 09 00.
+    // Before the cycle at 30 ms, `limit` is released, %IX0.0's force released and %IX0.1 written
+    // TRUE: that cycle's changes are those three, in that order, the release naming %IX0.0's one
+    // byte and the write its byte 1 at bit 1. The forced input reads 1 in the first two cycles.
+    // Catches a force recorded in each cycle it holds, or twice where the start state holds it, a
+    // release lost, an address change recorded without its bit or bytes, and changes out of order.
+    let project = project_with(RECORDED_ST);
+    let mut simulator = Simulator::start(&project);
+    assert_eq!(
+        simulator.advance(1, 1),
+        json!({"time_ns": 0, "cycles": 1, "state": "running"})
+    );
+    simulator.request(2, "io.force", json!({"address": "%IX0.0", "value": "TRUE"}));
+    let started =
+        simulator.call(&json!({"id": 3, "type": "trace.record", "params": {"cycles": 3}}));
+    assert_eq!(started["result"]["trace"], json!(1), "{started}");
+    simulator.advance(4, 1);
+    simulator.request(
+        5,
+        "var.force",
+        json!({"target": "global:limit", "value": "9"}),
+    );
+    simulator.advance(6, 1);
+    simulator.request(7, "var.unforce", json!({"target": "global:limit"}));
+    simulator.request(8, "io.unforce", json!({"address": "%IX0.0"}));
+    simulator.request(9, "io.write", json!({"address": "%IX0.1", "value": "TRUE"}));
+    simulator.advance(10, 1);
+
+    let (state, file) = simulator.trace(11, 1);
+    assert_eq!(state["reason"], json!("complete"));
+    let trace = decoded(&file);
+    let control = |kind| Change {
+        source: ChangeSource::ControlLink,
+        kind,
+    };
+    assert_eq!(
+        trace.start.forces,
+        [control(ChangeKind::AddressForce {
+            area: IoArea::Input,
+            bit: Some(0),
+            offset: 0,
+            bytes: vec![1],
+        })]
+    );
+    let changes: Vec<Vec<Change>> = trace
+        .cycles
+        .iter()
+        .map(|cycle| cycle.changes.clone())
+        .collect();
+    assert_eq!(
+        changes,
+        [
+            vec![],
+            vec![control(ChangeKind::VariableForce {
+                path: "limit".into(),
+                type_name: "INT".into(),
+                value: vec![9, 0],
+            })],
+            vec![
+                control(ChangeKind::VariableRelease {
+                    path: "limit".into(),
+                }),
+                control(ChangeKind::AddressRelease {
+                    area: IoArea::Input,
+                    bit: Some(0),
+                    offset: 0,
+                    size: 1,
+                }),
+                control(ChangeKind::AddressWrite {
+                    area: IoArea::Input,
+                    bit: Some(1),
+                    offset: 0,
+                    bytes: vec![1],
+                }),
+            ],
+        ]
+    );
+    assert_eq!(trace.cycles[0].inputs, [1]);
+    assert_eq!(trace.cycles[1].inputs, [1]);
 
     drop(simulator.input.take());
     let status = simulator.child.wait().expect("the simulator ends");

@@ -26,7 +26,7 @@ use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
 use trust_plc_abi::module::run;
 use trust_plc_abi::Cx;
 
-use super::CompiledVariables;
+use super::{image_value_bytes, CompiledVariables};
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
 use crate::native::image::{
@@ -35,7 +35,7 @@ use crate::native::image::{
     StringPool, SymbolRecord, Target, TaskRecord, TypeRecord, NONE, SYMBOL_CONSTANT,
     SYMBOL_PROGRAM, TABLE_PREFIX_BYTES,
 };
-use crate::native::memory::Place;
+use crate::native::memory::{member_display_path, Place};
 use crate::native::program::{admit, Device, ModuleCode, NativeProgram};
 use crate::native::reflect::{
     array_shape, leaf_type, path_of, resolve_for_write, resolve_path, Located, PathError,
@@ -554,4 +554,35 @@ fn a_write_past_the_input_or_output_area_is_refused_and_the_image_keeps_its_leng
     );
     assert_eq!((program.inputs.len(), program.outputs.len()), (2, 1));
     assert_eq!(program.inputs, [0, 7]);
+}
+
+#[test]
+fn a_members_path_and_an_address_values_bytes_are_what_a_trace_records() {
+    // Specification 48 Appendix C, C.6: a member written or forced through its instance is recorded
+    // by the path the debugger names it by, its symbol's display name, and an address's change by
+    // the bytes its value gives the image, typed as a write types it. Worked by hand from the image
+    // above: the instance Main is symbol 2, so its member `count` is `Main.Count`; symbol 1, Limit,
+    // holds no member; the untyped literal 7 at %IB1 is the BYTE 7, 16#1234 at %IW0 the WORD's bytes
+    // 34 12, and TRUE at %IX0.3 one byte 1. Catches the canonical name recorded, a member found in
+    // another instance or by a prefix, and a literal left untyped.
+    let bytes = image();
+    let program = program(&bytes);
+    let image = program.image();
+    assert_eq!(member_display_path(&image, 2, "count"), Some("Main.Count"));
+    assert_eq!(member_display_path(&image, 2, "PUMPS"), Some("Main.Pumps"));
+    assert_eq!(member_display_path(&image, 2, "Pump"), None);
+    assert_eq!(member_display_path(&image, 1, "count"), None);
+    assert_eq!(member_display_path(&image, 99, "count"), None);
+
+    let address = |text: &str| IoAddress::parse(text).unwrap();
+    let mut out = [0_u8; 8];
+    let typed = |text: &str, value: Value, out: &mut [u8]| {
+        image_value_bytes(&image, &address(text), &value, out)
+    };
+    assert_eq!(typed("%IB1", Value::LInt(7), &mut out), Some(1));
+    assert_eq!(out[0], 7);
+    assert_eq!(typed("%IW0", Value::LInt(0x1234), &mut out), Some(2));
+    assert_eq!(&out[..2], &[0x34, 0x12]);
+    assert_eq!(typed("%IX0.3", Value::Bool(true), &mut out), Some(1));
+    assert_eq!(out[0], 1);
 }

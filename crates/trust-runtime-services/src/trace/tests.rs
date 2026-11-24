@@ -470,3 +470,75 @@ fn a_written_value_longer_than_its_room_ends_the_recording_memory_full() {
         (TraceEnd::MemoryFull, 1)
     );
 }
+
+#[test]
+fn a_force_is_recorded_once_where_it_is_set_or_released_and_not_in_the_first_cycle() {
+    // Specification 48 RU-59: a force is recorded in the cycle it is set or released before, as the
+    // bytes the forced variable holds or by its path. The trace's first cycle records none: its
+    // start state holds the forces in effect. Here the INT `Main.x` (42) is forced in the first and
+    // second cycles and released in the second; lost force changes then end the recording
+    // memory_full with the cycles before. Catches a force recorded twice, once in the start state
+    // and once as the first cycle's change, a release recorded without its path, and lost changes
+    // passed over.
+    use crate::live_values::apply::ForceEffect;
+    use crate::live_values::queues::{ForcedVarTarget, PendingVarTarget};
+
+    let target = ForcedVarTarget::Global("Main.x".into());
+    let mut recorder = Recorder::arm(Goal::Cycles(5), sizes(), Budget::COMPUTER).unwrap();
+    recorder.begin_cycle(ms(0), 0);
+    recorder.forced(
+        ChangeSource::ControlLink,
+        ForceEffect::VariableSet(&target),
+        &Variables,
+    );
+    assert!(!recorder.end_cycle(None));
+    recorder.begin_cycle(ms(10), 1);
+    recorder.forced(
+        ChangeSource::ControlLink,
+        ForceEffect::VariableSet(&target),
+        &Variables,
+    );
+    recorder.forced(
+        ChangeSource::ControlLink,
+        ForceEffect::VariableReleased(&target),
+        &Variables,
+    );
+    recorder.written_target(
+        ChangeSource::ControlLink,
+        &PendingVarTarget::Global("Main.x".into()),
+        &Variables,
+    );
+    assert!(!recorder.end_cycle(None));
+    recorder.begin_cycle(ms(20), 2);
+    recorder.force_changes_lost();
+    assert!(recorder.end_cycle(None));
+
+    let trace = read(&recorder);
+    assert_eq!(
+        (trace.meta.end, trace.cycles.len()),
+        (TraceEnd::MemoryFull, 2)
+    );
+    assert_eq!(trace.cycles[0].changes, vec![]);
+    let control = |kind| Change {
+        source: ChangeSource::ControlLink,
+        kind,
+    };
+    assert_eq!(
+        trace.cycles[1].changes,
+        vec![
+            control(ChangeKind::VariableForce {
+                path: "Main.x".into(),
+                type_name: "INT".into(),
+                value: vec![0x2A, 0],
+            }),
+            control(ChangeKind::VariableRelease {
+                path: "Main.x".into(),
+            }),
+            control(ChangeKind::VariableWrite {
+                path: "Main.x".into(),
+                type_name: "INT".into(),
+                value: vec![0x2A, 0],
+            }),
+        ]
+    );
+}

@@ -13,3 +13,7 @@
   `trace-<UTC date and time>.trusttrace` in the current folder, after checking each part's CRC-32
   and the whole trace's SHA-256. It prints the cycles, why the recording ended and the file's size.
   Ctrl+C ends the recording early and saves what it holds (specification 11, "Cycle traces").
+- A cycle trace also keeps variable and address forces where they are set and released, not in
+  each cycle they hold, `io.write`'s one-shot writes as the bytes they give the process image, and
+  a write or force of an instance's member by the path the debugger names it by (specification 48
+  RU-59).
