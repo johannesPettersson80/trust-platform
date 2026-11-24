@@ -383,6 +383,14 @@ pub trait StatusPort {
         self.heap()
             .map(|heap| heap.capacity_bytes.saturating_sub(heap.used_bytes))
     }
+
+    /// The most bytes of a trace's file that one `trace.read` part carries here (specification 11
+    /// §6.8.1, "Cycle traces"): [`PART_BYTES`](crate::trace::requests::PART_BYTES), or fewer on a
+    /// chip, whose answer to a part must fit the working memory it keeps beside its program. The
+    /// default is `PART_BYTES`.
+    fn trace_part_bytes(&self) -> usize {
+        crate::trace::requests::PART_BYTES
+    }
 }
 
 /// One installed program, as `program.active` reports it: its install sequence, the SHA-256 of the

@@ -428,3 +428,45 @@ fn a_chip_sizes_a_recording_by_the_heap_it_can_give_one() {
     let chip = reserved(Some(90_000));
     assert_eq!(computer - chip, 4_354_998, "{computer} and {chip}");
 }
+
+#[test]
+fn a_chip_serves_a_trace_in_the_parts_its_memory_can_carry() {
+    // Specification 11 §6.8.1, "Cycle traces": a part carries at most 4,096 bytes, as many as the
+    // runtime can answer at once, and the client follows `next_offset`. Worked by hand on a chip
+    // whose parts carry 256 bytes: the parts of a recording of 2 cycles start at 0, 256, 512 and
+    // so on, each 256 bytes but the last, and together they are the file its state names. Catches a
+    // chip that serves 4,096-byte parts whatever its memory, whose answer outgrew the C6's working
+    // memory and faulted its program (checklist G197).
+    let fixture = probe();
+    let mut runner = fixture.runner_with(TestPlatform {
+        trace_part_bytes: 256,
+        ..TestPlatform::default()
+    });
+    fixture.pass_at(&mut runner, 0);
+    let started = fixture.call_at(&mut runner, 0, &record(2, 2));
+    assert_eq!(started["result"]["trace"], json!(1), "{started}");
+    fixture.pass_at(&mut runner, 10);
+    fixture.pass_at(&mut runner, 20);
+    let state = fixture.call_at(&mut runner, 20, &read(3, 1));
+    let bytes = usize::try_from(state["result"]["bytes"].as_u64().unwrap()).unwrap();
+    assert!(bytes > 512, "a file of three parts at least: {state}");
+    let mut file = Vec::new();
+    while file.len() < bytes {
+        let part = fixture.call_at(
+            &mut runner,
+            20,
+            &json!({"id": 4, "type": "trace.read", "params": {"trace": 1, "offset": file.len()}}),
+        );
+        let data = STANDARD
+            .decode(part["result"]["data"].as_str().expect("a part's data"))
+            .expect("a part's data is base64");
+        assert_eq!(data.len(), 256.min(bytes - file.len()), "{part}");
+        assert_eq!(
+            part["result"]["next_offset"],
+            json!(file.len() + data.len())
+        );
+        file.extend_from_slice(&data);
+    }
+    let decoded = decode(&file).expect("the parts make the file");
+    assert_eq!(decoded.trace.cycles.len(), 2);
+}

@@ -585,6 +585,10 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
     fn recording_room(&self) -> Option<usize> {
         self.platform.recording_room()
     }
+
+    fn trace_part_bytes(&self) -> usize {
+        self.platform.trace_part_bytes()
+    }
 }
 
 impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> {

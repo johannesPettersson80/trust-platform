@@ -92,6 +92,8 @@ pub(crate) struct TestPlatform {
     /// The heap a cycle trace's recording may take, as a chip's platform gives it; `None` for a
     /// computer, which does not know its memory.
     pub(crate) recording_room: Option<usize>,
+    /// The most bytes of a trace's file one `trace.read` part carries.
+    pub(crate) trace_part_bytes: usize,
     /// A chip's device settings: its interfaces and the stored record; `None` for a computer.
     pub(crate) device: Option<(DeviceInterfaces, StoredSettings)>,
     /// How many times the loop reset the device; a test keeps a clone to read them.
@@ -132,6 +134,7 @@ impl Default for TestPlatform {
             network: None,
             heap: None,
             recording_room: None,
+            trace_part_bytes: crate::trace::requests::PART_BYTES,
             device: None,
             resets: Rc::new(Cell::new(0)),
             unloads: Rc::new(Cell::new(0)),
@@ -199,6 +202,10 @@ impl StatusPort for TestPlatform {
 
     fn recording_room(&self) -> Option<usize> {
         self.recording_room
+    }
+
+    fn trace_part_bytes(&self) -> usize {
+        self.trace_part_bytes
     }
 
     /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).

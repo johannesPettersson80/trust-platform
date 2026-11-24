@@ -57,6 +57,7 @@ use crate::settings::{RuntimeSettings, TokenChange};
 use crate::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
+use crate::trace::requests::PART_BYTES;
 
 /// What a chip supplies to the shared platform as its profile (specification 34, ARCH-11): the values
 /// that name it and describe it, and the reason of its watchdog reset.
@@ -514,6 +515,17 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
 
     fn heap(&self) -> Option<HeapFacts> {
         self.heap.map(|meter| meter())
+    }
+
+    /// An eighth of what the chip keeps beside any program, at most `PART_BYTES`: the answer to a
+    /// part holds the part, its base64 text and the line that carries it, about 3.7 times the part,
+    /// and so fits the working memory (specification 34 MEM-12). A chip that keeps nothing beside
+    /// its programs serves `PART_BYTES`.
+    fn trace_part_bytes(&self) -> usize {
+        match self.kept_beside_programs {
+            0 => PART_BYTES,
+            kept => (kept / 8).clamp(1, PART_BYTES),
+        }
     }
 
     /// The heap's free bytes less what the chip keeps beside any program.
@@ -1094,5 +1106,21 @@ mod tests {
         });
         platform.set_kept_beside_programs(8_192);
         assert_eq!(platform.recording_room(), Some(38_968));
+    }
+
+    /// Specification 11 §6.8.1, "Cycle traces", with specification 34 MEM-12: a chip serves a
+    /// trace's file in parts its working memory can answer, an eighth of what it keeps beside any
+    /// program and at most 4,096 bytes. Worked by hand: 8,192 bytes kept give parts of 1,024; a
+    /// chip that keeps nothing serves 4,096; 100,000 kept would give 12,500, so 4,096. Catches a
+    /// chip that serves 4,096-byte parts whose answer, about 15 KB, outgrows its 8 KiB working
+    /// memory, as the C6 bench found (checklist G197).
+    #[test]
+    fn a_chip_serves_trace_parts_of_an_eighth_of_what_it_keeps_beside_programs() {
+        let mut platform = platform_with(reset_of(ResetCauseName::PowerOn, "", 1));
+        assert_eq!(platform.trace_part_bytes(), 4_096);
+        platform.set_kept_beside_programs(8_192);
+        assert_eq!(platform.trace_part_bytes(), 1_024);
+        platform.set_kept_beside_programs(100_000);
+        assert_eq!(platform.trace_part_bytes(), 4_096);
     }
 }
