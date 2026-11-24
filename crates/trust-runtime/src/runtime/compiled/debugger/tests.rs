@@ -7,8 +7,9 @@
 //! `n = 22`. The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::sync::mpsc::channel;
+use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value as Json};
 use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
@@ -138,4 +139,73 @@ fn a_read_that_finds_a_holds_stop_answers_from_the_halted_state() {
         Some(Value::DInt(22)),
         "after the hold, the reads answer from the scan that ended"
     );
+}
+
+#[test]
+fn a_write_that_finds_a_holds_stop_is_written_into_the_held_scan() {
+    // Specification 44 §13.2: a control thread that finds a hold's stop writes into the held scan.
+    // Worked by hand: the second scan holds at `n := n + DINT#10;` with `n` 12. A `debug.set` of
+    // `n` := 40, sent from another thread as soon as the stop is recorded and before the scan
+    // thread waits, is written into the held scan and answered `written` with 40; released, the
+    // scan adds 10 and ends at 50. Catches a hold that begins only once the scan thread waits,
+    // after its stop was recorded: such a write was answered as not written, for the client to
+    // queue, and the scan ended at 22 (checklist G290; main's CI on Windows, run 45418024028).
+    let mut runtime = runtime();
+    let debug = DebugControl::new();
+    runtime.set_debug_control(debug.clone());
+    let debugger = debug.compiled().expect("the compiled program's debugger");
+    runtime.execute_cycle().expect("the first scan completes");
+
+    let line = line_of("n := n + DINT#10;");
+    let set = ask(
+        &debugger,
+        "breakpoints.set",
+        Some(json!({ "source": PATH, "lines": [line] })),
+    );
+    assert_eq!(set["ok"], json!(true), "{set}");
+    let (send, answers) = channel();
+    *debugger
+        .shared
+        .hold_decided
+        .lock()
+        .expect("no test thread panicked") = Some(Box::new(move |debugger: &CompiledDebugger| {
+        // Between the stop and the wait: a control thread writes now, and the scan thread goes
+        // on to wait once the write is handed over or answered.
+        let writer = CompiledDebugger {
+            shared: Arc::clone(&debugger.shared),
+        };
+        let send = send.clone();
+        let writing = thread::spawn(move || {
+            let written = ask(
+                &writer,
+                "debug.set",
+                Some(json!({"path": "n", "value": "40"})),
+            );
+            let _ = send.send(written);
+        });
+        let deadline = Instant::now() + WAIT;
+        while !writing.is_finished()
+            && debugger.lock().held_writes.is_empty()
+            && Instant::now() < deadline
+        {
+            thread::sleep(Duration::from_millis(1));
+        }
+    }));
+    let scan = thread::spawn(move || {
+        let result = runtime.execute_cycle();
+        (runtime, result)
+    });
+
+    let written = answers
+        .recv_timeout(WAIT)
+        .expect("the write is answered at the hold");
+    debugger.resume();
+    let (runtime, result) = scan.join().expect("the scan thread ends");
+    result.expect("the second scan completes");
+    assert_eq!(
+        written["result"],
+        json!({"path": "n", "type": "DINT", "value": "40", "written": true}),
+        "{written}"
+    );
+    assert_eq!(runtime.read_variable("n"), Ok(Value::DInt(50)));
 }
