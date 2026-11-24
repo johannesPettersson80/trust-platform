@@ -98,6 +98,9 @@ pub struct ForcedSnapshot {
 pub struct LiveValueQueues {
     /// One-shot I/O writes, in arrival order; a repeated address is kept as a separate write.
     pub io_writes: Vec<(IoAddress, Value)>,
+    /// Where each write of `io_writes` came from, at the same index, which a cycle trace records
+    /// (specification 48 Appendix C, C.6); a write without one is the control link's.
+    pub io_write_sources: Vec<ChangeSource>,
     /// Pending variable writes; a write to a target already here replaces it in place.
     pub pending_var_writes: Vec<PendingVarWrite>,
     /// Active variable forces; a force to a target already here replaces it in place.
@@ -214,10 +217,31 @@ impl LiveValueQueues {
         address: IoAddress,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
+        self.try_enqueue_io_write_from(address, value, ChangeSource::ControlLink)
+    }
+
+    /// Queue a one-shot I/O write that comes from `source` rather than the control link, such as
+    /// Control Studio's, in arrival order: a cycle trace records it with its source (specification
+    /// 48 Appendix C, C.6).
+    ///
+    /// # Errors
+    ///
+    /// [`RequestQueueFull`] when the queue already holds [`REQUEST_QUEUE_CAPACITY`] writes; the
+    /// refused write is not queued.
+    pub fn try_enqueue_io_write_from(
+        &mut self,
+        address: IoAddress,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
         if self.io_writes.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
+        // The writes queued without a source, directly into `io_writes`, are the control link's.
+        self.io_write_sources
+            .resize(self.io_writes.len(), ChangeSource::ControlLink);
         self.io_writes.push((address, value));
+        self.io_write_sources.push(source);
         Ok(())
     }
 
@@ -231,12 +255,16 @@ impl LiveValueQueues {
             .rposition(|(queued, queued_value)| queued == address && queued_value == value)
         {
             self.io_writes.remove(index);
+            if index < self.io_write_sources.len() {
+                self.io_write_sources.remove(index);
+            }
         }
     }
 
     /// Take the queued one-shot I/O writes, in arrival order, leaving the queue empty.
     #[must_use]
     pub fn drain_io_writes(&mut self) -> Vec<(IoAddress, Value)> {
+        self.io_write_sources.clear();
         core::mem::take(&mut self.io_writes)
     }
 
@@ -318,6 +346,7 @@ impl LiveValueQueues {
     /// comes at a boundary where a recording has ended.
     pub fn clear(&mut self) {
         self.io_writes.clear();
+        self.io_write_sources.clear();
         self.pending_var_writes.clear();
         self.forced_vars.clear();
         self.forced_io.clear();
