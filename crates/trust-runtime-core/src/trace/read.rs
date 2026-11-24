@@ -250,7 +250,7 @@ fn read_stat(bytes: &[u8]) -> Result<StartState, TraceError> {
 }
 
 /// `CYCL` (C.6).
-fn read_cycle(bytes: &[u8]) -> Result<Cycle, TraceError> {
+pub(super) fn read_cycle(bytes: &[u8]) -> Result<Cycle, TraceError> {
     let mut at = Cursor::new(bytes, "CYCL");
     let time_ns = at.i64()?;
     let activations = at.u32()? as usize;
@@ -289,6 +289,22 @@ fn read_cycle(bytes: &[u8]) -> Result<Cycle, TraceError> {
         return Err(malformed(section::CYCL, "bytes follow the cycle's record"));
     }
     Ok(cycle)
+}
+
+/// The `count` changes that `bytes` holds one after another, as `STAT` holds its forces after their
+/// count.
+pub(super) fn read_change_run(bytes: &[u8], count: usize) -> Result<Vec<Change>, TraceError> {
+    let mut at = Cursor::new(bytes, "STAT");
+    let changes = (0..count)
+        .map(|_| read_change(&mut at))
+        .collect::<Result<Vec<_>, _>>()?;
+    if !at.at_end() {
+        return Err(malformed(
+            section::STAT,
+            "bytes follow the start state's forces",
+        ));
+    }
+    Ok(changes)
 }
 
 /// A count of changes and the changes, as `STAT` holds its forces.

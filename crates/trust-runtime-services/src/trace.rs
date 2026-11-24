@@ -19,9 +19,9 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{
-    change_len, cycle_record_len, encode_change, encode_cycle_parts, encode_records, Activation,
-    ChangeRef, ChangeSource, CycleFault, CycleParts, ImageTables, Located, Meta, StartParts,
-    TraceEnd, TraceOrigin,
+    change_len, cycle_record_len, encode_change, encode_cycle_parts, encode_records, named_changes,
+    named_cycle, Activation, ChangeRef, ChangeSource, CycleFault, CycleParts, ImageTables, Located,
+    Meta, StartParts, TraceEnd, TraceOrigin,
 };
 use trust_runtime_core::value::Duration;
 
@@ -470,13 +470,64 @@ impl Recorder {
     }
 
     /// The trace's `.trusttrace` file once the recording has ended: `identity`, the recorded
-    /// image's located variables and tables, the start state and every recorded cycle.
+    /// image's located variables and tables, the start state and every recorded cycle, with the
+    /// variables named as the requests named them.
     #[must_use]
     pub fn file(
         &self,
         identity: &Identity<'_>,
         located: &[Located],
         image: &ImageTables,
+    ) -> Option<Vec<u8>> {
+        // A recording has no file until it has ended, and asking costs nothing.
+        self.end?;
+        let records: Vec<&[u8]> = self.cycle_records().collect();
+        self.encoded(identity, located, image, &records, &self.start_forces)
+    }
+
+    /// The trace's file as [`Self::file`] writes it, with each variable's path and each method
+    /// call's instance named by `name`, the name the debugger gives it, or kept when `name` gives
+    /// none (Appendix C, C.6). The recording keeps the names as the requests gave them, since a scan
+    /// cannot look a name up without allocating (specification 34 MEM-09); the file, written after
+    /// the recording, names them.
+    #[must_use]
+    pub fn file_named(
+        &self,
+        identity: &Identity<'_>,
+        located: &[Located],
+        image: &ImageTables,
+        name: &mut dyn FnMut(&str) -> Option<String>,
+    ) -> Option<Vec<u8>> {
+        // A recording has no file until it has ended, and asking costs nothing.
+        self.end?;
+        // Every record and force reads again, since this recorder wrote them; one that did not
+        // would keep its names.
+        let named: Vec<Vec<u8>> = self
+            .cycle_records()
+            .map(|record| named_cycle(record, name).unwrap_or_else(|_| record.to_vec()))
+            .collect();
+        let records: Vec<&[u8]> = named.iter().map(Vec::as_slice).collect();
+        let forces = named_changes(&self.start_forces, self.start_force_count, name)
+            .unwrap_or_else(|_| self.start_forces.clone());
+        self.encoded(identity, located, image, &records, &forces)
+    }
+
+    /// Each recorded cycle's record, in order.
+    fn cycle_records(&self) -> impl Iterator<Item = &[u8]> {
+        let starts = core::iter::once(0).chain(self.record_ends.iter().copied());
+        starts
+            .zip(&self.record_ends)
+            .map(|(from, end)| &self.records[from..*end])
+    }
+
+    /// The file of the ended recording with `records` and the start's `forces`.
+    fn encoded(
+        &self,
+        identity: &Identity<'_>,
+        located: &[Located],
+        image: &ImageTables,
+        records: &[&[u8]],
+        forces: &[u8],
     ) -> Option<Vec<u8>> {
         let end = self.end?;
         let (_, first_cycle) = self.first.unwrap_or((Duration::ZERO, 0));
@@ -508,15 +559,9 @@ impl Recorder {
         let start = StartParts {
             areas: &areas,
             force_count: self.start_force_count,
-            forces: &self.start_forces,
+            forces,
         };
-        let mut records = Vec::with_capacity(self.record_ends.len());
-        let mut from = 0;
-        for end in &self.record_ends {
-            records.push(&self.records[from..*end]);
-            from = *end;
-        }
-        Some(encode_records(&meta, located, &start, image, &records))
+        Some(encode_records(&meta, located, &start, image, records))
     }
 }
 

@@ -29,3 +29,6 @@
   of a screen (specification 48 RU-59).
 - A cycle trace also keeps Control Studio's experiment writes, of variables and of addresses, as
   Control Studio's changes (specification 48 RU-59).
+- A cycle trace names each variable and each method call's instance as the debugger names it,
+  whatever form the request named it in: `set main.pumps[2].speed` is recorded as
+  `Main.Pumps[2].Speed` (specification 48 Appendix C, C.6).

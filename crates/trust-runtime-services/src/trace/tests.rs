@@ -573,6 +573,84 @@ fn a_write_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first() 
 }
 
 #[test]
+fn the_file_names_each_variable_as_the_debugger_names_it() {
+    // Appendix C, C.6: a trace names each variable and each method call's instance as the debugger
+    // names it, whatever form the request named it in. The recording keeps `main.limit`,
+    // `main.x`, `main.heating` and `tank.level` as given; its file names the first three `Main.limit`,
+    // `Main.x` and `Main.Heating`, and keeps `tank.level`, which the debugger does not name. The
+    // plain file keeps every name as given. Catches a file that keeps the requests' names, a start
+    // force or an instance not named, and a name given where the debugger gives none.
+    let mut recorder = Recorder::arm(Goal::Cycles(1), sizes(), Budget::COMPUTER).unwrap();
+    assert_eq!(recorder.begin_cycle(ms(0), 7), Begin::First);
+    recorder.start_force(
+        ChangeSource::ControlLink,
+        &ChangeRef::VariableForce {
+            path: "main.limit",
+            type_name: "REAL",
+            value: &21.5f32.to_le_bytes(),
+        },
+    );
+    let write = |path| ChangeRef::VariableWrite {
+        path,
+        type_name: "INT",
+        value: &[0x2A, 0],
+    };
+    recorder.change(ChangeSource::Screen, &write("main.x"));
+    recorder.change(
+        ChangeSource::ControlLink,
+        &ChangeRef::MethodCall {
+            instance: "main.heating",
+            interface: "ISequence",
+            method: "Start",
+            inputs: &[("Setpoint", "21.5")],
+        },
+    );
+    recorder.change(ChangeSource::Plant, &write("tank.level"));
+    recorder.activation(0, 0);
+    recorder.inputs(&[0, 0]);
+    recorder.outputs(&[0; 4]);
+    assert!(recorder.end_cycle(None));
+
+    let mut debugger = |path: &str| -> Option<String> {
+        match path {
+            "main.limit" => Some("Main.limit".into()),
+            "main.x" => Some("Main.x".into()),
+            "main.heating" => Some("Main.Heating".into()),
+            _ => None,
+        }
+    };
+    let file = recorder
+        .file_named(&identity(), &[], &image(), &mut debugger)
+        .expect("an ended recording");
+    let trace = decode(&file).expect("a trace").trace;
+    let names = |trace: &Trace| -> Vec<String> {
+        let start = trace.start.forces.iter();
+        start
+            .chain(&trace.cycles[0].changes)
+            .map(|change| match &change.kind {
+                ChangeKind::VariableWrite { path, .. }
+                | ChangeKind::VariableForce { path, .. }
+                | ChangeKind::VariableRelease { path } => path.clone(),
+                ChangeKind::MethodCall { instance, .. } => instance.clone(),
+                other => panic!("no change of {other:?} was recorded"),
+            })
+            .collect()
+    };
+    assert_eq!(
+        names(&trace),
+        ["Main.limit", "Main.x", "Main.Heating", "tank.level"]
+    );
+    assert_eq!(
+        names(&read(&recorder)),
+        ["main.limit", "main.x", "main.heating", "tank.level"]
+    );
+    let ChangeKind::MethodCall { inputs, .. } = &trace.cycles[0].changes[1].kind else {
+        panic!("the method call is the cycle's second change");
+    };
+    assert_eq!(inputs, &[("Setpoint".to_string(), "21.5".to_string())]);
+}
+
+#[test]
 fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first() {
     // Specification 48 RU-59: a change made between two cycles, such as a method call, is the next
     // cycle's; one made before the trace's first cycle is in its start state, and one after the
