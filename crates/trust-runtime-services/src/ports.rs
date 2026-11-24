@@ -38,6 +38,7 @@ use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::simulator_advance::{Advance, AdvanceRefusal, Advanced};
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::trace::requests::{RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState};
 use crate::transfer::{Received, StoredUpload, TransferError, TransferId, TransferSession};
 
 /// Access rights of the control connection.
@@ -228,6 +229,32 @@ pub trait ResourcePort {
         Err(MethodCallRefusal::Refused(
             "this runtime runs no program to call".to_string(),
         ))
+    }
+    /// Starts a recording of a cycle trace at the resource's next cycle (`trace.record`,
+    /// specification 11 §6.8.1, "Cycle traces"; specification 48 RU-59), its memory reserved
+    /// first. The default refuses: a runtime records traces when it implements this.
+    ///
+    /// # Errors
+    ///
+    /// The [`TraceRefusal`] that names why no recording starts.
+    fn trace_record(&self, _request: &RecordRequest) -> Result<TraceStarted, TraceRefusal> {
+        Err(TraceRefusal::Unavailable(
+            "this runtime records no cycle trace".to_string(),
+        ))
+    }
+    /// The state of the trace `name` (`trace.read`).
+    fn trace_state(&self, _name: TraceName) -> TraceState {
+        TraceState::Unknown
+    }
+    /// Copies the bytes of the ended trace `name`'s file from `offset` into `out`, as many as `out`
+    /// holds, and gives how many it copied; `None` for a trace it does not hold or that has not
+    /// ended (`trace.read`).
+    fn trace_part(&self, _name: TraceName, _offset: usize, _out: &mut [u8]) -> Option<usize> {
+        None
+    }
+    /// Ends the recording `trace` at once and gives its state (`trace.stop`).
+    fn trace_stop(&self, _trace: u64) -> TraceState {
+        TraceState::Unknown
     }
 }
 

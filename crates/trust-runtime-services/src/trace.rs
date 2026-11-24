@@ -1,0 +1,564 @@
+//! Recording a cycle trace (specification 48 RU-59; the file, Appendix C).
+//!
+//! A recording reserves its memory when it is armed ([`Recorder::arm`]). Between the phases of each
+//! scan the runner hands it the cycle's start, the changes made from outside, the task activations,
+//! the wall clock's readings and the images, which it copies into that memory without allocating
+//! (specification 34 MEM-09); at the cycle's end the record joins the trace. What does not fit ends
+//! the recording `memory_full`, with the cycles before it. Once ended, [`Recorder::file`] gives the
+//! `.trusttrace` file.
+
+pub mod requests;
+#[cfg(test)]
+mod tests;
+
+use alloc::string::String;
+use alloc::vec::Vec;
+
+use trust_runtime_core::trace::{
+    change_len, cycle_record_len, encode_change, encode_cycle_parts, encode_records, Activation,
+    ChangeRef, ChangeSource, CycleFault, CycleParts, ImageTables, Located, Meta, StartParts,
+    TraceEnd, TraceOrigin,
+};
+use trust_runtime_core::value::Duration;
+
+/// What a recording records until (specification 11 §6.8.1, `trace.record`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Goal {
+    /// This many cycles of the resource.
+    Cycles(u64),
+    /// The cycles within this much logical time from the first.
+    Duration(Duration),
+    /// The cycles until the task of this index has run this many times, every cycle recorded.
+    TaskRuns {
+        /// The task's index in the image's task table.
+        task: u32,
+        /// How many runs.
+        runs: u64,
+    },
+}
+
+/// The program a recording reserves its memory for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sizes {
+    /// The bytes of the areas of specification 44 §7.1 but the stack, by id 1 (`%I`) to 6 (`P`).
+    pub areas: [usize; 6],
+    /// The image's tasks.
+    pub tasks: usize,
+    /// The resource's cycle interval.
+    pub cycle_interval: Duration,
+    /// The interval of the task a [`Goal::TaskRuns`] counts, when it has one.
+    pub task_interval: Option<Duration>,
+}
+
+/// What a recording may hold besides each cycle's fixed part: its time, activations and images.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Budget {
+    /// Bytes of changes in one cycle.
+    pub cycle_changes: usize,
+    /// Wall-clock readings in one cycle.
+    pub cycle_readings: usize,
+    /// Bytes of changes and readings in the whole recording, beyond the cycles' fixed parts.
+    pub extra: usize,
+    /// Bytes of the forces in effect at the start.
+    pub forces: usize,
+}
+
+impl Budget {
+    /// A computer's: 64 KiB of changes and 256 readings in a cycle, 4 MiB more for the recording,
+    /// 64 KiB of forces.
+    pub const COMPUTER: Self = Self {
+        cycle_changes: 64 * 1024,
+        cycle_readings: 256,
+        extra: 4 * 1024 * 1024,
+        forces: 64 * 1024,
+    };
+}
+
+/// Why a recording could not be armed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReserveError {
+    /// The memory the recording needs could not be reserved.
+    InsufficientMemory {
+        /// The bytes the recording needs.
+        needed: usize,
+    },
+}
+
+impl core::fmt::Display for ReserveError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InsufficientMemory { needed } => write!(
+                f,
+                "the recording needs {needed} bytes, which this runtime cannot reserve"
+            ),
+        }
+    }
+}
+
+/// How a cycle begins for a recording ([`Recorder::begin_cycle`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Begin {
+    /// The trace's first cycle: before its changes the runner gives the start state,
+    /// [`Recorder::start_area`] for each area and [`Recorder::start_force`] for each force.
+    First,
+    /// A later cycle.
+    Next,
+    /// The recording has ended; the cycle is not recorded.
+    Ended,
+}
+
+/// What the recorded program was and where it ran, for the trace's identity (Appendix C, C.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Identity<'a> {
+    /// The running image's SHA-256.
+    pub image_sha256: [u8; 32],
+    /// The image's sources' hash.
+    pub sources_hash: [u8; 32],
+    /// The image's target id.
+    pub target: u32,
+    /// The runtime's version.
+    pub runtime_version: &'a str,
+    /// The device's identity (`runtime_id`).
+    pub runtime_id: &'a str,
+    /// The platform.
+    pub platform: &'a str,
+    /// The resource's name.
+    pub resource: &'a str,
+    /// The task a [`Goal::TaskRuns`] counted, by name.
+    pub task: Option<&'a str>,
+    /// The UTC time the recording began, in milliseconds.
+    pub started_utc_ms: i64,
+}
+
+/// A recording of a cycle trace (module docs).
+#[derive(Debug)]
+pub struct Recorder {
+    goal: Goal,
+    sizes: Sizes,
+    /// The cycles' records, each a multiple of 8 bytes, and where each ends.
+    records: Vec<u8>,
+    record_ends: Vec<usize>,
+    /// What the recording reserved, which its buffers never outgrow: an allocator may give a buffer
+    /// more room than asked, and a recording ends `memory_full` at the same place on every device.
+    limits: Limits,
+    /// The areas 1 to 6 at the start, one after the other, and the forces then in effect.
+    start_areas: Vec<u8>,
+    start_forces: Vec<u8>,
+    start_force_count: usize,
+    first: Option<(Duration, u64)>,
+    task_runs: u64,
+    end: Option<TraceEnd>,
+    reserved: usize,
+    cycle: Scratch,
+}
+
+/// The room a recording reserved for each of its buffers.
+#[derive(Debug, Clone, Copy)]
+struct Limits {
+    records: usize,
+    cycles: usize,
+    forces: usize,
+    changes: usize,
+    readings: usize,
+    activations: usize,
+}
+
+/// The cycle being recorded, in memory reserved for one cycle.
+#[derive(Debug)]
+struct Scratch {
+    open: bool,
+    overflow: bool,
+    time: Duration,
+    activations: Vec<Activation>,
+    readings: Vec<i64>,
+    changes: Vec<u8>,
+    change_count: usize,
+    inputs: Vec<u8>,
+    outputs: Vec<u8>,
+}
+
+impl Recorder {
+    /// Reserves the memory of a recording toward `goal` of a program of `sizes`, within `budget`.
+    ///
+    /// # Errors
+    ///
+    /// [`ReserveError::InsufficientMemory`], with the bytes needed, when they cannot be reserved.
+    pub fn arm(goal: Goal, sizes: Sizes, budget: Budget) -> Result<Self, ReserveError> {
+        let cycles = estimated_cycles(goal, &sizes);
+        let records = cycles
+            .saturating_mul(fixed_record_len(&sizes))
+            .saturating_add(budget.extra);
+        let areas = sizes
+            .areas
+            .iter()
+            .fold(0_usize, |sum, len| sum.saturating_add(*len));
+        let activations = sizes.tasks.max(1);
+        let needed = [
+            records,
+            cycles
+                .saturating_add(1)
+                .saturating_mul(core::mem::size_of::<usize>()),
+            areas,
+            budget.forces,
+            activations.saturating_mul(core::mem::size_of::<Activation>()),
+            budget.cycle_readings.saturating_mul(8),
+            budget.cycle_changes,
+            sizes.areas[0],
+            sizes.areas[1],
+        ]
+        .iter()
+        .fold(0_usize, |sum, part| sum.saturating_add(*part));
+        let refused = || ReserveError::InsufficientMemory { needed };
+        let mut recorder = Self {
+            goal,
+            sizes,
+            records: Vec::new(),
+            record_ends: Vec::new(),
+            limits: Limits {
+                records,
+                cycles: cycles.saturating_add(1),
+                forces: budget.forces,
+                changes: budget.cycle_changes,
+                readings: budget.cycle_readings,
+                activations,
+            },
+            start_areas: Vec::new(),
+            start_forces: Vec::new(),
+            start_force_count: 0,
+            first: None,
+            task_runs: 0,
+            end: None,
+            reserved: needed,
+            cycle: Scratch {
+                open: false,
+                overflow: false,
+                time: Duration::ZERO,
+                activations: Vec::new(),
+                readings: Vec::new(),
+                changes: Vec::new(),
+                change_count: 0,
+                inputs: Vec::new(),
+                outputs: Vec::new(),
+            },
+        };
+        recorder
+            .records
+            .try_reserve_exact(records)
+            .map_err(|_| refused())?;
+        recorder
+            .record_ends
+            .try_reserve_exact(cycles.saturating_add(1))
+            .map_err(|_| refused())?;
+        recorder
+            .start_areas
+            .try_reserve_exact(areas)
+            .map_err(|_| refused())?;
+        recorder.start_areas.resize(areas, 0);
+        recorder
+            .start_forces
+            .try_reserve_exact(budget.forces)
+            .map_err(|_| refused())?;
+        let cycle = &mut recorder.cycle;
+        cycle
+            .activations
+            .try_reserve_exact(activations)
+            .map_err(|_| refused())?;
+        cycle
+            .readings
+            .try_reserve_exact(budget.cycle_readings)
+            .map_err(|_| refused())?;
+        cycle
+            .changes
+            .try_reserve_exact(budget.cycle_changes)
+            .map_err(|_| refused())?;
+        cycle
+            .inputs
+            .try_reserve_exact(sizes.areas[0])
+            .map_err(|_| refused())?;
+        cycle
+            .outputs
+            .try_reserve_exact(sizes.areas[1])
+            .map_err(|_| refused())?;
+        Ok(recorder)
+    }
+
+    /// The bytes the recording reserved, as `trace.record` answers them.
+    #[must_use]
+    pub const fn reserved_bytes(&self) -> usize {
+        self.reserved
+    }
+
+    /// The cycles the trace holds.
+    #[must_use]
+    pub fn cycles(&self) -> u64 {
+        self.record_ends.len() as u64
+    }
+
+    /// Why the recording ended, once it has.
+    #[must_use]
+    pub const fn end(&self) -> Option<TraceEnd> {
+        self.end
+    }
+
+    /// The cycle of the runtime's count `cycle_number` begins at the logical time `now`.
+    pub fn begin_cycle(&mut self, now: Duration, cycle_number: u64) -> Begin {
+        if self.end.is_some() {
+            return Begin::Ended;
+        }
+        if let (Goal::Duration(duration), Some((first, _))) = (self.goal, self.first)
+            && now.as_nanos().saturating_sub(first.as_nanos()) >= duration.as_nanos()
+        {
+            self.finish(TraceEnd::Complete);
+            return Begin::Ended;
+        }
+        let cycle = &mut self.cycle;
+        cycle.open = true;
+        cycle.overflow = false;
+        cycle.time = now;
+        cycle.activations.clear();
+        cycle.readings.clear();
+        cycle.changes.clear();
+        cycle.change_count = 0;
+        cycle.inputs.clear();
+        cycle.outputs.clear();
+        if self.first.is_none() {
+            self.first = Some((now, cycle_number));
+            return Begin::First;
+        }
+        Begin::Next
+    }
+
+    /// The reserved bytes of area `id` (1 `%I` to 6 `P`) at the start, for the runner to fill on
+    /// the trace's first cycle ([`Begin::First`]).
+    pub fn start_area(&mut self, id: u8) -> Option<&mut [u8]> {
+        let index = usize::from(id).checked_sub(1).filter(|index| *index < 6)?;
+        let start: usize = self.sizes.areas[..index].iter().sum();
+        self.start_areas
+            .get_mut(start..start + self.sizes.areas[index])
+    }
+
+    /// A force in effect at the start, on the trace's first cycle ([`Begin::First`]).
+    pub fn start_force(&mut self, source: ChangeSource, force: &ChangeRef<'_>) {
+        if !fits(&self.start_forces, change_len(force), self.limits.forces) {
+            self.cycle.overflow = true;
+            return;
+        }
+        encode_change(source, force, &mut self.start_forces);
+        self.start_force_count += 1;
+    }
+
+    /// A change made from outside before the cycle, in the order the runtime applies it.
+    pub fn change(&mut self, source: ChangeSource, change: &ChangeRef<'_>) {
+        let cycle = &mut self.cycle;
+        if !cycle.open {
+            return;
+        }
+        if !fits(&cycle.changes, change_len(change), self.limits.changes) {
+            cycle.overflow = true;
+            return;
+        }
+        encode_change(source, change, &mut cycle.changes);
+        cycle.change_count += 1;
+    }
+
+    /// The task of index `task` starts with the logical time `now_ns`.
+    pub fn activation(&mut self, task: u32, now_ns: i64) {
+        let cycle = &mut self.cycle;
+        if !cycle.open {
+            return;
+        }
+        if cycle.activations.len() >= self.limits.activations {
+            cycle.overflow = true;
+            return;
+        }
+        cycle.activations.push(Activation { task, now_ns });
+    }
+
+    /// The program read the wall clock (`CURRENT_DT`): UTC milliseconds.
+    pub fn wall_clock(&mut self, millis: i64) {
+        let cycle = &mut self.cycle;
+        if !cycle.open {
+            return;
+        }
+        if cycle.readings.len() >= self.limits.readings {
+            cycle.overflow = true;
+            return;
+        }
+        cycle.readings.push(millis);
+    }
+
+    /// The input image as the scan sampled it.
+    pub fn inputs(&mut self, image: &[u8]) {
+        copy_image(&mut self.cycle, image, true, self.sizes.areas[0]);
+    }
+
+    /// The output image the cycle wrote.
+    pub fn outputs(&mut self, image: &[u8]) {
+        copy_image(&mut self.cycle, image, false, self.sizes.areas[1]);
+    }
+
+    /// The cycle ends, faulted with `fault` or not. Its record joins the trace when the trace has
+    /// room for it; it returns whether the recording has ended.
+    pub fn end_cycle(&mut self, fault: Option<CycleFault>) -> bool {
+        if !self.cycle.open {
+            return self.end.is_some();
+        }
+        self.cycle.open = false;
+        if self.cycle.overflow {
+            self.finish(TraceEnd::MemoryFull);
+            return true;
+        }
+        let cycle = &self.cycle;
+        let parts = CycleParts {
+            time_ns: cycle.time.as_nanos(),
+            activations: &cycle.activations,
+            wall_clock_ms: &cycle.readings,
+            change_count: cycle.change_count,
+            changes: &cycle.changes,
+            inputs: &cycle.inputs,
+            outputs: &cycle.outputs,
+            fault,
+        };
+        if !fits(&self.records, cycle_record_len(&parts), self.limits.records)
+            || self.record_ends.len() >= self.limits.cycles
+        {
+            self.finish(TraceEnd::MemoryFull);
+            return true;
+        }
+        encode_cycle_parts(&parts, &mut self.records);
+        self.record_ends.push(self.records.len());
+        if let Goal::TaskRuns { task, .. } = self.goal {
+            let runs = cycle
+                .activations
+                .iter()
+                .filter(|run| run.task == task)
+                .count();
+            self.task_runs = self.task_runs.saturating_add(runs as u64);
+        }
+        let complete = match self.goal {
+            Goal::Cycles(count) => self.cycles() >= count,
+            Goal::Duration(_) => false,
+            Goal::TaskRuns { runs, .. } => self.task_runs >= runs,
+        };
+        if fault.is_some() {
+            self.finish(TraceEnd::Faulted);
+        } else if complete {
+            self.finish(TraceEnd::Complete);
+        }
+        self.end.is_some()
+    }
+
+    /// Ends the recording, if it has not ended: a cycle that is open is not recorded.
+    pub fn finish(&mut self, end: TraceEnd) {
+        self.cycle.open = false;
+        if self.end.is_none() {
+            self.end = Some(end);
+        }
+    }
+
+    /// The trace's `.trusttrace` file once the recording has ended: `identity`, the recorded
+    /// image's located variables and tables, the start state and every recorded cycle.
+    #[must_use]
+    pub fn file(
+        &self,
+        identity: &Identity<'_>,
+        located: &[Located],
+        image: &ImageTables,
+    ) -> Option<Vec<u8>> {
+        let end = self.end?;
+        let (_, first_cycle) = self.first.unwrap_or((Duration::ZERO, 0));
+        let meta = Meta {
+            image_sha256: identity.image_sha256,
+            sources_hash: identity.sources_hash,
+            target: identity.target,
+            end,
+            cycle_interval_ns: u64::try_from(self.sizes.cycle_interval.as_nanos()).unwrap_or(0),
+            first_cycle,
+            cycle_count: self.cycles(),
+            started_utc_ms: identity.started_utc_ms,
+            runtime_version: String::from(identity.runtime_version),
+            runtime_id: String::from(identity.runtime_id),
+            platform: String::from(identity.platform),
+            resource: String::from(identity.resource),
+            task: identity.task.map(String::from),
+            origin: TraceOrigin::OnDemand,
+        };
+        let mut areas = Vec::new();
+        if self.first.is_some() {
+            let mut start = 0;
+            for (index, len) in self.sizes.areas.iter().enumerate() {
+                let id = u32::try_from(index + 1).unwrap_or(0);
+                areas.push((id, &self.start_areas[start..start + len]));
+                start += len;
+            }
+        }
+        let start = StartParts {
+            areas: &areas,
+            force_count: self.start_force_count,
+            forces: &self.start_forces,
+        };
+        let mut records = Vec::with_capacity(self.record_ends.len());
+        let mut from = 0;
+        for end in &self.record_ends {
+            records.push(&self.records[from..*end]);
+            from = *end;
+        }
+        Some(encode_records(&meta, located, &start, image, &records))
+    }
+}
+
+/// The cycles a recording of `goal` reserves memory for: a duration's cycles at the resource's
+/// interval, a task's runs at the task's.
+fn estimated_cycles(goal: Goal, sizes: &Sizes) -> usize {
+    let nanos = |duration: Duration| u64::try_from(duration.as_nanos()).unwrap_or(0);
+    let interval = nanos(sizes.cycle_interval).max(1);
+    let cycles = match goal {
+        Goal::Cycles(count) => count,
+        Goal::Duration(duration) => nanos(duration).div_ceil(interval),
+        Goal::TaskRuns { runs, .. } => {
+            let per_run = sizes
+                .task_interval
+                .map_or(1, |task| nanos(task).max(1).div_ceil(interval));
+            runs.saturating_mul(per_run)
+        }
+    };
+    usize::try_from(cycles).unwrap_or(usize::MAX)
+}
+
+/// The record of a cycle without changes or readings (Appendix C, C.6), with every task and a
+/// fault: 24 bytes, 16 for each activation, the two padded images and their 16 bytes of lengths,
+/// and 16 for the fault.
+fn fixed_record_len(sizes: &Sizes) -> usize {
+    let padded = |len: usize| len.saturating_add(7) & !7;
+    24_usize
+        .saturating_add(sizes.tasks.max(1).saturating_mul(16))
+        .saturating_add(16)
+        .saturating_add(padded(sizes.areas[0]))
+        .saturating_add(padded(sizes.areas[1]))
+        .saturating_add(16)
+}
+
+/// Whether `bytes` more fit into `buffer` within the `limit` it reserved.
+fn fits(buffer: &[u8], bytes: usize, limit: usize) -> bool {
+    buffer
+        .len()
+        .checked_add(bytes)
+        .is_some_and(|len| len <= limit)
+}
+
+fn copy_image(cycle: &mut Scratch, image: &[u8], inputs: bool, limit: usize) {
+    if !cycle.open {
+        return;
+    }
+    let target = if inputs {
+        &mut cycle.inputs
+    } else {
+        &mut cycle.outputs
+    };
+    if image.len() > limit {
+        cycle.overflow = true;
+        return;
+    }
+    target.clear();
+    target.extend_from_slice(image);
+}

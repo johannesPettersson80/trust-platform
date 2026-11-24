@@ -17,7 +17,10 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 pub use read::{decode, Decoded};
-pub use write::{encode, encode_cycle};
+pub use write::{
+    change_len, cycle_record_len, encode, encode_change, encode_cycle, encode_cycle_parts,
+    encode_records, ChangeRef, CycleParts, StartParts,
+};
 
 /// The file's magic (Appendix C, C.1).
 pub const MAGIC: [u8; 8] = *b"TRSTT001";
@@ -384,20 +387,6 @@ pub enum ChangeKind {
         /// Each input's name and Structured Text literal.
         inputs: Vec<(String, String)>,
     },
-}
-
-impl ChangeKind {
-    const fn code(&self) -> u8 {
-        match self {
-            Self::VariableWrite { .. } => 1,
-            Self::VariableForce { .. } => 2,
-            Self::VariableRelease { .. } => 3,
-            Self::AddressWrite { .. } => 4,
-            Self::AddressForce { .. } => 5,
-            Self::AddressRelease { .. } => 6,
-            Self::MethodCall { .. } => 7,
-        }
-    }
 }
 
 /// Why a trace could not be read (Appendix C, C.2).

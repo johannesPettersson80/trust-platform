@@ -359,3 +359,93 @@ fn a_damaged_header_or_required_section_refuses_the_trace() {
         Err(TraceError::Truncated("the header"))
     );
 }
+
+#[test]
+fn a_record_from_parts_is_the_cycles_record_and_its_length_is_known() {
+    // Catches a recorder's record that differs from the cycle's, or a length the recorder reserves
+    // that is not what is written: the full trace's faulted cycle, with every change kind of the first.
+    let trace = full_trace();
+    for cycle in &trace.cycles {
+        let mut whole = Vec::new();
+        encode_cycle(cycle, &mut whole);
+        let mut changes = Vec::new();
+        for change in &cycle.changes {
+            let mut pairs = Vec::new();
+            let borrowed = change.kind.borrowed(&mut pairs);
+            let before = changes.len();
+            encode_change(change.source, &borrowed, &mut changes);
+            assert_eq!(changes.len() - before, change_len(&borrowed));
+        }
+        let parts = CycleParts {
+            time_ns: cycle.time_ns,
+            activations: &cycle.activations,
+            wall_clock_ms: &cycle.wall_clock_ms,
+            change_count: cycle.changes.len(),
+            changes: &changes,
+            inputs: &cycle.inputs,
+            outputs: &cycle.outputs,
+            fault: cycle.fault,
+        };
+        let mut from_parts = Vec::new();
+        encode_cycle_parts(&parts, &mut from_parts);
+        assert_eq!(from_parts, whole);
+        assert_eq!(cycle_record_len(&parts), whole.len());
+    }
+}
+
+#[test]
+fn a_record_written_into_reserved_room_allocates_nothing() {
+    // Catches a writer that grows its buffer during a scan (specification 34 MEM-09): with room for
+    // the record, the buffer keeps its place and its capacity.
+    let cycle = &full_trace().cycles[1];
+    let parts = CycleParts {
+        time_ns: cycle.time_ns,
+        activations: &cycle.activations,
+        wall_clock_ms: &cycle.wall_clock_ms,
+        change_count: 0,
+        changes: &[],
+        inputs: &cycle.inputs,
+        outputs: &cycle.outputs,
+        fault: cycle.fault,
+    };
+    let mut out = Vec::with_capacity(cycle_record_len(&parts));
+    let (place, capacity) = (out.as_ptr(), out.capacity());
+    encode_cycle_parts(&parts, &mut out);
+    assert_eq!((out.as_ptr(), out.capacity()), (place, capacity));
+    assert_eq!(out.len(), capacity);
+}
+
+#[test]
+fn a_trace_of_records_reads_back_as_the_trace() {
+    // Catches a file assembled from a recorder's records that reads back otherwise than the trace.
+    let trace = full_trace();
+    let records: Vec<Vec<u8>> = trace
+        .cycles
+        .iter()
+        .map(|cycle| {
+            let mut bytes = Vec::new();
+            encode_cycle(cycle, &mut bytes);
+            bytes
+        })
+        .collect();
+    let records: Vec<&[u8]> = records.iter().map(Vec::as_slice).collect();
+    let mut forces = Vec::new();
+    for force in &trace.start.forces {
+        let mut pairs = Vec::new();
+        encode_change(force.source, &force.kind.borrowed(&mut pairs), &mut forces);
+    }
+    let areas: Vec<(u32, &[u8])> = trace
+        .start
+        .areas
+        .iter()
+        .map(|(id, bytes)| (*id, bytes.as_slice()))
+        .collect();
+    let start = StartParts {
+        areas: &areas,
+        force_count: trace.start.forces.len(),
+        forces: &forces,
+    };
+    let bytes = encode_records(&trace.meta, &trace.located, &start, &trace.image, &records);
+    assert_eq!(bytes, encode(&trace));
+    assert_eq!(decode(&bytes).unwrap().trace, trace);
+}

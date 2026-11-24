@@ -5,20 +5,15 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use super::{
-    section, Change, ChangeKind, Cycle, Located, Meta, StartState, Trace, FORMAT_VERSION,
-    HEADER_BYTES, MAGIC, SECTION_ENTRY_BYTES,
+    section, Activation, ChangeKind, ChangeSource, Cycle, CycleFault, ImageTables, IoArea, Located,
+    Meta, Trace, FORMAT_VERSION, HEADER_BYTES, MAGIC, SECTION_ENTRY_BYTES,
 };
 use crate::crc32;
 
 /// The `.trusttrace` file of `trace` (Appendix C).
 #[must_use]
 pub fn encode(trace: &Trace) -> Vec<u8> {
-    let mut strings = StringPool::default();
-    let meta = meta_bytes(&trace.meta, &mut strings);
-    let syms = syms_bytes(&trace.located, &mut strings);
-    let stat = stat_bytes(&trace.start);
-    let strs = strings.bytes;
-    let cycles: Vec<Vec<u8>> = trace
+    let records: Vec<Vec<u8>> = trace
         .cycles
         .iter()
         .map(|cycle| {
@@ -27,7 +22,45 @@ pub fn encode(trace: &Trace) -> Vec<u8> {
             bytes
         })
         .collect();
-    let image = &trace.image;
+    let records: Vec<&[u8]> = records.iter().map(Vec::as_slice).collect();
+    let mut forces = Vec::new();
+    for force in &trace.start.forces {
+        encode_change(
+            force.source,
+            &force.kind.borrowed(&mut Vec::new()),
+            &mut forces,
+        );
+    }
+    let areas: Vec<(u32, &[u8])> = trace
+        .start
+        .areas
+        .iter()
+        .map(|(id, bytes)| (*id, bytes.as_slice()))
+        .collect();
+    let start = StartParts {
+        areas: &areas,
+        force_count: trace.start.forces.len(),
+        forces: &forces,
+    };
+    encode_records(&trace.meta, &trace.located, &start, &trace.image, &records)
+}
+
+/// The `.trusttrace` file of a trace whose cycles are already records (C.6), as a recorder holds
+/// them: the identity, the located variables, the start state, the recorded image's tables, and one
+/// `CYCL` section for each record.
+#[must_use]
+pub fn encode_records(
+    meta: &Meta,
+    located: &[Located],
+    start: &StartParts<'_>,
+    image: &ImageTables,
+    records: &[&[u8]],
+) -> Vec<u8> {
+    let mut strings = StringPool::default();
+    let meta = meta_bytes(meta, &mut strings);
+    let syms = syms_bytes(located, &mut strings);
+    let stat = stat_bytes(start);
+    let strs = strings.bytes;
     let mut sections: Vec<(u32, &[u8])> = vec![
         (section::META, &meta),
         (section::STRS, &strs),
@@ -40,8 +73,41 @@ pub fn encode(trace: &Trace) -> Vec<u8> {
         (section::IMAGE_TYPES, &image.types),
         (section::IMAGE_STRINGS, &image.strings),
     ];
-    sections.extend(cycles.iter().map(|bytes| (section::CYCL, bytes.as_slice())));
+    sections.extend(records.iter().map(|record| (section::CYCL, *record)));
     assemble(&sections)
+}
+
+/// The start state from its parts (C.5): each area's id and bytes, and the forces in effect as
+/// `force_count` changes that [`encode_change`] wrote into `forces`.
+#[derive(Debug, Clone, Copy)]
+pub struct StartParts<'a> {
+    /// Each area's id and bytes.
+    pub areas: &'a [(u32, &'a [u8])],
+    /// How many forces `forces` holds.
+    pub force_count: usize,
+    /// The forces, each a change [`encode_change`] wrote.
+    pub forces: &'a [u8],
+}
+
+/// A cycle's record from its parts (C.6), as a recorder gathers them during a scan.
+#[derive(Debug, Clone, Copy)]
+pub struct CycleParts<'a> {
+    /// The cycle's logical time, in nanoseconds.
+    pub time_ns: i64,
+    /// Each task activation, in order.
+    pub activations: &'a [Activation],
+    /// Each reading of the wall clock, in order.
+    pub wall_clock_ms: &'a [i64],
+    /// How many changes `changes` holds.
+    pub change_count: usize,
+    /// The changes, each one [`encode_change`] wrote.
+    pub changes: &'a [u8],
+    /// The input image as the scan sampled it.
+    pub inputs: &'a [u8],
+    /// The output image the cycle wrote.
+    pub outputs: &'a [u8],
+    /// The fault that ended the cycle.
+    pub fault: Option<CycleFault>,
 }
 
 /// Appends one cycle's record to `out`, in the layout of a `CYCL` section (Appendix C, C.6).
@@ -49,29 +115,325 @@ pub fn encode(trace: &Trace) -> Vec<u8> {
 /// Its blocks are padded to 8 bytes from the start of `out`, so `out` holds whole records: its
 /// length is a multiple of 8, as every record this module writes is.
 pub fn encode_cycle(cycle: &Cycle, out: &mut Vec<u8>) {
-    put_i64(out, cycle.time_ns);
-    put_u32(out, count(cycle.activations.len()));
-    put_u32(out, count(cycle.changes.len()));
-    put_u32(out, count(cycle.wall_clock_ms.len()));
-    put_u32(out, u32::from(cycle.fault.is_some()));
-    for activation in &cycle.activations {
+    let mut changes = Vec::new();
+    for change in &cycle.changes {
+        encode_change(
+            change.source,
+            &change.kind.borrowed(&mut Vec::new()),
+            &mut changes,
+        );
+    }
+    encode_cycle_parts(
+        &CycleParts {
+            time_ns: cycle.time_ns,
+            activations: &cycle.activations,
+            wall_clock_ms: &cycle.wall_clock_ms,
+            change_count: cycle.changes.len(),
+            changes: &changes,
+            inputs: &cycle.inputs,
+            outputs: &cycle.outputs,
+            fault: cycle.fault,
+        },
+        out,
+    );
+}
+
+/// Appends the record of `parts` to `out`, which holds whole records (see [`encode_cycle`]). It
+/// grows `out` by [`cycle_record_len`] bytes, so that it allocates nothing when `out` has room.
+pub fn encode_cycle_parts(parts: &CycleParts<'_>, out: &mut Vec<u8>) {
+    put_i64(out, parts.time_ns);
+    put_u32(out, count(parts.activations.len()));
+    put_u32(out, count(parts.change_count));
+    put_u32(out, count(parts.wall_clock_ms.len()));
+    put_u32(out, u32::from(parts.fault.is_some()));
+    for activation in parts.activations {
         put_u32(out, activation.task);
         put_u32(out, 0);
         put_i64(out, activation.now_ns);
     }
-    for reading in &cycle.wall_clock_ms {
+    for reading in parts.wall_clock_ms {
         put_i64(out, *reading);
     }
-    for change in &cycle.changes {
-        encode_change(change, out);
-    }
-    put_block(out, &cycle.inputs);
-    put_block(out, &cycle.outputs);
-    if let Some(fault) = cycle.fault {
+    out.extend_from_slice(parts.changes);
+    put_block(out, parts.inputs);
+    put_block(out, parts.outputs);
+    if let Some(fault) = parts.fault {
         put_u32(out, fault.code);
         put_u32(out, fault.pou);
         put_u32(out, fault.statement);
         put_u32(out, 0);
+    }
+}
+
+/// The bytes [`encode_cycle_parts`] appends for `parts`.
+#[must_use]
+pub fn cycle_record_len(parts: &CycleParts<'_>) -> usize {
+    24 + 16 * parts.activations.len()
+        + 8 * parts.wall_clock_ms.len()
+        + parts.changes.len()
+        + 8
+        + padded(parts.inputs.len())
+        + 8
+        + padded(parts.outputs.len())
+        + if parts.fault.is_some() { 16 } else { 0 }
+}
+
+/// A change to record, borrowed (C.6): what a [`ChangeKind`] holds, without owning it, so that a
+/// recorder writes a change during a scan without allocating.
+#[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
+pub enum ChangeRef<'a> {
+    VariableWrite {
+        path: &'a str,
+        type_name: &'a str,
+        value: &'a [u8],
+    },
+    VariableForce {
+        path: &'a str,
+        type_name: &'a str,
+        value: &'a [u8],
+    },
+    VariableRelease {
+        path: &'a str,
+    },
+    AddressWrite {
+        area: IoArea,
+        bit: Option<u8>,
+        offset: u32,
+        bytes: &'a [u8],
+    },
+    AddressForce {
+        area: IoArea,
+        bit: Option<u8>,
+        offset: u32,
+        bytes: &'a [u8],
+    },
+    AddressRelease {
+        area: IoArea,
+        bit: Option<u8>,
+        offset: u32,
+        size: u32,
+    },
+    MethodCall {
+        instance: &'a str,
+        interface: &'a str,
+        method: &'a str,
+        /// Each input's name and Structured Text literal.
+        inputs: &'a [(&'a str, &'a str)],
+    },
+}
+
+impl ChangeKind {
+    /// The change borrowed, as [`encode_change`] takes it, its method call's inputs gathered into
+    /// `pairs`.
+    pub fn borrowed<'a>(&'a self, pairs: &'a mut Vec<(&'a str, &'a str)>) -> ChangeRef<'a> {
+        match self {
+            Self::VariableWrite {
+                path,
+                type_name,
+                value,
+            } => ChangeRef::VariableWrite {
+                path,
+                type_name,
+                value,
+            },
+            Self::VariableForce {
+                path,
+                type_name,
+                value,
+            } => ChangeRef::VariableForce {
+                path,
+                type_name,
+                value,
+            },
+            Self::VariableRelease { path } => ChangeRef::VariableRelease { path },
+            Self::AddressWrite {
+                area,
+                bit,
+                offset,
+                bytes,
+            } => ChangeRef::AddressWrite {
+                area: *area,
+                bit: *bit,
+                offset: *offset,
+                bytes,
+            },
+            Self::AddressForce {
+                area,
+                bit,
+                offset,
+                bytes,
+            } => ChangeRef::AddressForce {
+                area: *area,
+                bit: *bit,
+                offset: *offset,
+                bytes,
+            },
+            Self::AddressRelease {
+                area,
+                bit,
+                offset,
+                size,
+            } => ChangeRef::AddressRelease {
+                area: *area,
+                bit: *bit,
+                offset: *offset,
+                size: *size,
+            },
+            Self::MethodCall {
+                instance,
+                interface,
+                method,
+                inputs,
+            } => {
+                pairs.extend(
+                    inputs
+                        .iter()
+                        .map(|(name, literal)| (name.as_str(), literal.as_str())),
+                );
+                ChangeRef::MethodCall {
+                    instance,
+                    interface,
+                    method,
+                    inputs: pairs,
+                }
+            }
+        }
+    }
+}
+
+/// Appends a change to `out` (C.6): its kind, its source, the length of its data, and its data,
+/// padded to 8 bytes from the start of `out`, which holds whole changes. It grows `out` by
+/// [`change_len`] bytes, so that it allocates nothing when `out` has room.
+pub fn encode_change(source: ChangeSource, change: &ChangeRef<'_>, out: &mut Vec<u8>) {
+    out.push(kind_code(change));
+    out.push(source as u8);
+    out.extend_from_slice(&[0; 2]);
+    put_u32(out, count(data_len(change)));
+    match change {
+        ChangeRef::VariableWrite {
+            path,
+            type_name,
+            value,
+        }
+        | ChangeRef::VariableForce {
+            path,
+            type_name,
+            value,
+        } => {
+            put_text(out, path);
+            put_text(out, type_name);
+            put_u32(out, count(value.len()));
+            out.extend_from_slice(value);
+        }
+        ChangeRef::VariableRelease { path } => put_text(out, path),
+        ChangeRef::AddressWrite {
+            area,
+            bit,
+            offset,
+            bytes,
+        }
+        | ChangeRef::AddressForce {
+            area,
+            bit,
+            offset,
+            bytes,
+        } => {
+            out.push(*area as u8);
+            out.push(bit.unwrap_or(u8::MAX));
+            out.extend_from_slice(&[0; 2]);
+            put_u32(out, *offset);
+            put_u32(out, count(bytes.len()));
+            out.extend_from_slice(bytes);
+        }
+        ChangeRef::AddressRelease {
+            area,
+            bit,
+            offset,
+            size,
+        } => {
+            out.push(*area as u8);
+            out.push(bit.unwrap_or(u8::MAX));
+            out.extend_from_slice(&[0; 2]);
+            put_u32(out, *offset);
+            put_u32(out, *size);
+        }
+        ChangeRef::MethodCall {
+            instance,
+            interface,
+            method,
+            inputs,
+        } => {
+            put_text(out, instance);
+            put_text(out, interface);
+            put_text(out, method);
+            let inputs = &inputs[..inputs.len().min(usize::from(u16::MAX))];
+            out.extend_from_slice(
+                &u16::try_from(inputs.len())
+                    .unwrap_or(u16::MAX)
+                    .to_le_bytes(),
+            );
+            for (name, literal) in inputs {
+                put_text(out, name);
+                put_text(out, literal);
+            }
+        }
+    }
+    pad(out);
+}
+
+/// The bytes [`encode_change`] appends for `change`.
+#[must_use]
+pub fn change_len(change: &ChangeRef<'_>) -> usize {
+    padded(8 + data_len(change))
+}
+
+/// The length of a change's data (C.6), before its padding.
+fn data_len(change: &ChangeRef<'_>) -> usize {
+    match change {
+        ChangeRef::VariableWrite {
+            path,
+            type_name,
+            value,
+        }
+        | ChangeRef::VariableForce {
+            path,
+            type_name,
+            value,
+        } => text_len(path) + text_len(type_name) + 4 + value.len(),
+        ChangeRef::VariableRelease { path } => text_len(path),
+        ChangeRef::AddressWrite { bytes, .. } | ChangeRef::AddressForce { bytes, .. } => {
+            12 + bytes.len()
+        }
+        ChangeRef::AddressRelease { .. } => 12,
+        ChangeRef::MethodCall {
+            instance,
+            interface,
+            method,
+            inputs,
+        } => {
+            let inputs = &inputs[..inputs.len().min(usize::from(u16::MAX))];
+            text_len(instance)
+                + text_len(interface)
+                + text_len(method)
+                + 2
+                + inputs
+                    .iter()
+                    .map(|(name, literal)| text_len(name) + text_len(literal))
+                    .sum::<usize>()
+        }
+    }
+}
+
+const fn kind_code(change: &ChangeRef<'_>) -> u8 {
+    match change {
+        ChangeRef::VariableWrite { .. } => 1,
+        ChangeRef::VariableForce { .. } => 2,
+        ChangeRef::VariableRelease { .. } => 3,
+        ChangeRef::AddressWrite { .. } => 4,
+        ChangeRef::AddressForce { .. } => 5,
+        ChangeRef::AddressRelease { .. } => 6,
+        ChangeRef::MethodCall { .. } => 7,
     }
 }
 
@@ -153,102 +515,20 @@ fn syms_bytes(located: &[Located], strings: &mut StringPool) -> Vec<u8> {
 }
 
 /// `STAT` (C.5): the areas, then the forces in effect.
-fn stat_bytes(start: &StartState) -> Vec<u8> {
+fn stat_bytes(start: &StartParts<'_>) -> Vec<u8> {
     let mut out = Vec::new();
     put_u32(&mut out, count(start.areas.len()));
     put_u32(&mut out, 0);
-    for (id, bytes) in &start.areas {
+    for (id, bytes) in start.areas {
         put_u32(&mut out, *id);
         put_u32(&mut out, count(bytes.len()));
         out.extend_from_slice(bytes);
         pad(&mut out);
     }
-    put_u32(&mut out, count(start.forces.len()));
+    put_u32(&mut out, count(start.force_count));
     put_u32(&mut out, 0);
-    for force in &start.forces {
-        encode_change(force, &mut out);
-    }
+    out.extend_from_slice(start.forces);
     out
-}
-
-/// A change (C.6): its kind, its source, the length of its data, and its data, padded.
-fn encode_change(change: &Change, out: &mut Vec<u8>) {
-    let mut data = Vec::new();
-    match &change.kind {
-        ChangeKind::VariableWrite {
-            path,
-            type_name,
-            value,
-        }
-        | ChangeKind::VariableForce {
-            path,
-            type_name,
-            value,
-        } => {
-            put_text(&mut data, path);
-            put_text(&mut data, type_name);
-            put_u32(&mut data, count(value.len()));
-            data.extend_from_slice(value);
-        }
-        ChangeKind::VariableRelease { path } => put_text(&mut data, path),
-        ChangeKind::AddressWrite {
-            area,
-            bit,
-            offset,
-            bytes,
-        }
-        | ChangeKind::AddressForce {
-            area,
-            bit,
-            offset,
-            bytes,
-        } => {
-            data.push(*area as u8);
-            data.push(bit.unwrap_or(u8::MAX));
-            data.extend_from_slice(&[0; 2]);
-            put_u32(&mut data, *offset);
-            put_u32(&mut data, count(bytes.len()));
-            data.extend_from_slice(bytes);
-        }
-        ChangeKind::AddressRelease {
-            area,
-            bit,
-            offset,
-            size,
-        } => {
-            data.push(*area as u8);
-            data.push(bit.unwrap_or(u8::MAX));
-            data.extend_from_slice(&[0; 2]);
-            put_u32(&mut data, *offset);
-            put_u32(&mut data, *size);
-        }
-        ChangeKind::MethodCall {
-            instance,
-            interface,
-            method,
-            inputs,
-        } => {
-            put_text(&mut data, instance);
-            put_text(&mut data, interface);
-            put_text(&mut data, method);
-            let inputs = &inputs[..inputs.len().min(usize::from(u16::MAX))];
-            data.extend_from_slice(
-                &u16::try_from(inputs.len())
-                    .unwrap_or(u16::MAX)
-                    .to_le_bytes(),
-            );
-            for (name, literal) in inputs {
-                put_text(&mut data, name);
-                put_text(&mut data, literal);
-            }
-        }
-    }
-    out.push(change.kind.code());
-    out.push(change.source as u8);
-    out.extend_from_slice(&[0; 2]);
-    put_u32(out, count(data.len()));
-    out.extend_from_slice(&data);
-    pad(out);
 }
 
 /// The texts of `META` and `SYMS`, each once, NUL-terminated, the empty string at offset 0.
@@ -281,12 +561,23 @@ impl StringPool {
 /// A text inside a cycle (C.6): its length in 2 bytes and its UTF-8 bytes. A text longer than
 /// 65,535 bytes, which no runtime name is, is cut at the last character that fits.
 fn put_text(out: &mut Vec<u8>, text: &str) {
+    let end = text_end(text);
+    out.extend_from_slice(&u16::try_from(end).unwrap_or(u16::MAX).to_le_bytes());
+    out.extend_from_slice(&text.as_bytes()[..end]);
+}
+
+/// Where [`put_text`] cuts `text`.
+fn text_end(text: &str) -> usize {
     let mut end = text.len().min(usize::from(u16::MAX));
     while !text.is_char_boundary(end) {
         end -= 1;
     }
-    out.extend_from_slice(&u16::try_from(end).unwrap_or(u16::MAX).to_le_bytes());
-    out.extend_from_slice(&text.as_bytes()[..end]);
+    end
+}
+
+/// The bytes [`put_text`] writes for `text`.
+fn text_len(text: &str) -> usize {
+    2 + text_end(text)
 }
 
 /// A length-prefixed block padded to 8 bytes: an image of a cycle.
