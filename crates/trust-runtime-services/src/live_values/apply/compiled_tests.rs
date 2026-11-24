@@ -15,6 +15,7 @@ use trust_runtime_core::memory::{FrameId, Generation, InstanceId, IoArea};
 use trust_runtime_core::native::image::Image;
 use trust_runtime_core::native::reflect::Located;
 use trust_runtime_core::native::variables::CompiledVariables;
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::{compiled_cycle_start, compiled_images, ForceEffect, WriteSink};
@@ -411,6 +412,15 @@ impl WriteSink for Recorded {
         true
     }
 
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        _variables: &dyn CompiledVariables,
+    ) {
+        self.0.push(format!("wrote {target:?} {source:?}"));
+    }
+
     fn address_written(
         &mut self,
         address: &IoAddress,
@@ -534,4 +544,30 @@ fn an_address_write_is_reported_to_a_recording_sink_once_applied() {
     .unwrap();
     assert_eq!(silent.0, vec![]);
     assert_eq!(program.written.len(), 2);
+}
+
+#[test]
+fn each_applied_write_is_reported_with_its_source() {
+    // Specification 48 Appendix C, C.6: the cycle start reports each write it applied with the
+    // source that queued it, in arrival order: MAIN.SPEED from the control link, MAIN.COUNT from a
+    // service's `variables.write`. Catches a write reported with another source.
+    let speed = PendingVarTarget::Global("MAIN.SPEED".into());
+    let count = PendingVarTarget::Global("MAIN.COUNT".into());
+    let mut queues = LiveValueQueues::new();
+    let mut program = Program::default();
+    let mut sink = Recorded::default();
+    queues
+        .try_upsert_var_write(speed.clone(), Value::Int(1))
+        .unwrap();
+    queues
+        .try_upsert_var_writes(vec![(count.clone(), Value::DInt(2))], ChangeSource::Service)
+        .unwrap();
+    compiled_cycle_start(&mut queues, NOW, &mut program, at(0), &mut sink).unwrap();
+    assert_eq!(
+        sink.0,
+        vec![
+            format!("wrote {speed:?} {:?}", ChangeSource::ControlLink),
+            format!("wrote {count:?} {:?}", ChangeSource::Service),
+        ]
+    );
 }

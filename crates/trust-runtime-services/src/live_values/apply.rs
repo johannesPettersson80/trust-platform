@@ -17,6 +17,7 @@ use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::native::variables::CompiledVariables;
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::queues::{
@@ -33,8 +34,13 @@ pub trait WriteSink {
     /// (specification 48 RU-59). Forces, which the boundary applies again every cycle, are not
     /// reported here. The default records nothing, and nothing is worked out for it: the target
     /// itself is passed, so that a sink that records nothing allocates nothing.
-    fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
-        let _ = (target, variables);
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        variables: &dyn CompiledVariables,
+    ) {
+        let _ = (source, target, variables);
     }
 
     /// Whether the sink records what the boundary applies, so that a value it reports is worked
@@ -131,7 +137,11 @@ where
     S: WriteSink,
 {
     for write in queues.pending_var_writes.drain(..) {
-        let PendingVarWrite { target, value } = write;
+        let PendingVarWrite {
+            target,
+            value,
+            source,
+        } = write;
         let result = match &target {
             PendingVarTarget::Global(name) => variables.write_named(name, &value),
             PendingVarTarget::Retain(label) => compiled_retained(variables, label, &value),
@@ -142,7 +152,7 @@ where
             PendingVarTarget::Local(_, _) => Err(RuntimeError::ReferenceLifetime),
         };
         match result {
-            Ok(()) => sink.written(&target, &*variables),
+            Ok(()) => sink.written(source, &target, &*variables),
             Err(error) => {
                 let operational = is_cycle_operational_error(&error);
                 sink.refused(&pending_var_label(&target), &error, time);

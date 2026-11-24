@@ -11,6 +11,7 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{FrameId, Generation, InstanceId};
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::Value;
 
 use super::{
@@ -613,4 +614,36 @@ fn every_force_change_is_kept_in_order_until_the_cycle_start_and_past_its_bound_
     assert_eq!(queues.force_changes.len(), FORCE_CHANGES_CAPACITY);
     assert!(queues.force_changes_lost);
     assert_eq!(FORCE_CHANGES_CAPACITY, 2 * REQUEST_QUEUE_CAPACITY);
+}
+
+#[test]
+fn a_queued_write_keeps_its_source_and_a_replacing_write_its_own() {
+    // Specification 48 Appendix C, C.6: a cycle trace records each change with its source. A write
+    // the control link queues is the control link's; a protocol server's write that replaces it in
+    // place takes the protocol server's; a batch (`variables.write`) is a service's. Catches a
+    // source lost when a write replaces another, and every write recorded as the control link's.
+    let speed = PendingVarTarget::Global("Main.speed".into());
+    let count = PendingVarTarget::Global("Main.count".into());
+    let mut queues = LiveValueQueues::new();
+    queues
+        .try_upsert_var_write(speed.clone(), Value::Int(1))
+        .unwrap();
+    queues
+        .try_upsert_var_writes(vec![(count.clone(), Value::DInt(2))], ChangeSource::Service)
+        .unwrap();
+    queues
+        .try_upsert_var_write_from(speed.clone(), Value::Int(3), ChangeSource::ProtocolServer)
+        .unwrap();
+    let writes = queues.drain_var_writes();
+    let entries: Vec<_> = writes
+        .iter()
+        .map(|write| (write.target.clone(), write.value.clone(), write.source))
+        .collect();
+    assert_eq!(
+        entries,
+        vec![
+            (speed, Value::Int(3), ChangeSource::ProtocolServer),
+            (count, Value::DInt(2), ChangeSource::Service),
+        ]
+    );
 }

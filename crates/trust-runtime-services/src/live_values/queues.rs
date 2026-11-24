@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{FrameId, Generation, InstanceId};
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::Value;
 
 /// Entries each bounded queue holds before it refuses a new request: pending one-shot I/O
@@ -50,6 +51,8 @@ pub struct PendingVarWrite {
     pub target: PendingVarTarget,
     /// The value to write.
     pub value: Value,
+    /// Where the write came from, which a cycle trace records (specification 48 Appendix C, C.6).
+    pub source: ChangeSource,
 }
 
 /// The destination of an active variable force.
@@ -248,6 +251,21 @@ impl LiveValueQueues {
         target: PendingVarTarget,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
+        self.try_upsert_var_write_from(target, value, ChangeSource::ControlLink)
+    }
+
+    /// [`Self::try_upsert_var_write`] for a write that comes from `source` rather than the control
+    /// link: a protocol server's, a screen's or Control Studio's.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::try_upsert_var_write`].
+    pub fn try_upsert_var_write_from(
+        &mut self,
+        target: PendingVarTarget,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
         let is_new = self
             .pending_var_writes
             .iter()
@@ -255,12 +273,12 @@ impl LiveValueQueues {
         if is_new && self.pending_var_writes.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
-        self.upsert_var_write(target, value);
+        self.upsert_var_write(target, value, source);
         Ok(())
     }
 
-    /// Queue the pending variable writes `writes` together, each replacing the earlier write to its
-    /// target in place, or none of them (specification 11 §6.8.1, "Writing variables").
+    /// Queue the pending variable writes `writes` from `source` together, each replacing the earlier
+    /// write to its target in place, or none of them (specification 11 §6.8.1, "Writing variables").
     ///
     /// # Errors
     ///
@@ -269,6 +287,7 @@ impl LiveValueQueues {
     pub fn try_upsert_var_writes(
         &mut self,
         writes: Vec<(PendingVarTarget, Value)>,
+        source: ChangeSource,
     ) -> Result<(), RequestQueueFull> {
         let mut new: Vec<&PendingVarTarget> = Vec::new();
         for (target, _) in &writes {
@@ -284,7 +303,7 @@ impl LiveValueQueues {
             return Err(RequestQueueFull);
         }
         for (target, value) in writes {
-            self.upsert_var_write(target, value);
+            self.upsert_var_write(target, value, source);
         }
         Ok(())
     }
@@ -451,16 +470,20 @@ impl LiveValueQueues {
     }
 
     /// Append the pending write to `target`, or replace the earlier write to it in place.
-    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value) {
+    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value, source: ChangeSource) {
         if let Some(entry) = self
             .pending_var_writes
             .iter_mut()
             .find(|entry| entry.target == target)
         {
             entry.value = value;
+            entry.source = source;
         } else {
-            self.pending_var_writes
-                .push(PendingVarWrite { target, value });
+            self.pending_var_writes.push(PendingVarWrite {
+                target,
+                value,
+                source,
+            });
         }
     }
 
