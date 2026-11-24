@@ -21,3 +21,6 @@
   next cycle's change, with each input's literal as given. A breakpoint or a step that holds the
   program ends the recording `paused` with the cycles before the held one (specification 48 RU-59;
   specification 11, "Cycle traces").
+- A cycle trace records each change with where it came from: the control link's, a service's
+  `variables.write` as a service's, and an ADS client's write as a protocol server's (specification
+  48 Appendix C, C.6).

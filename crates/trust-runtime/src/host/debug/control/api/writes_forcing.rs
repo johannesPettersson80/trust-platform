@@ -50,6 +50,22 @@ impl DebugControl {
         self.try_enqueue_var_write(PendingVarTarget::Global(name.into()), value)
     }
 
+    /// Queue a global write that comes from `source` rather than the control link, such as a
+    /// protocol server's, which a cycle trace records with its source (specification 48 Appendix
+    /// C, C.6). A new target past the queue bound is refused.
+    pub fn try_enqueue_global_write_from(
+        &self,
+        name: impl Into<SmolStr>,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
+        self.lock().live_values.try_upsert_var_write_from(
+            PendingVarTarget::Global(name.into()),
+            value,
+            source,
+        )
+    }
+
     /// Queue a retained write from a control or protocol request. A new target past the queue
     /// bound is refused.
     pub fn try_enqueue_retain_write(
@@ -196,7 +212,10 @@ impl DebugControl {
         &self,
         writes: Vec<(PendingVarTarget, Value)>,
     ) -> Result<(), RequestQueueFull> {
-        self.lock().live_values.try_upsert_var_writes(writes)
+        // `variables.write` is a service's (specification 48 RU-63).
+        self.lock()
+            .live_values
+            .try_upsert_var_writes(writes, ChangeSource::Service)
     }
 
     /// Force a global variable from a control or protocol request. A new target past the queue
@@ -451,9 +470,14 @@ impl WriteSink for RejectedEvents<'_> {
     /// A cycle trace records each change the control link made, as Live Values applied it
     /// (specification 48 RU-59): a variable by the path the debugger names it by, an address by
     /// the bytes it gives the process image, and a force once, where it is set or released.
-    fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        variables: &dyn CompiledVariables,
+    ) {
         if let Some(trace) = self.trace.as_deref_mut() {
-            trace.written_target(ChangeSource::ControlLink, target, variables);
+            trace.written_target(source, target, variables);
         }
     }
 
