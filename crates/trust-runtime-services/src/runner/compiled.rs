@@ -119,6 +119,14 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
     }
 }
 
+/// The recorded cycle that a replay's scan runs (specification 48 RU-60): its task activations,
+/// each a task's index and logical time, and its input image.
+#[derive(Clone, Copy)]
+struct Replayed<'r> {
+    activations: &'r [(usize, Duration)],
+    inputs: &'r [u8],
+}
+
 impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRetain>
     CompiledCycle<'i, C, I, K, H, R>
 {
@@ -323,6 +331,81 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: Cyc
         observer.on_compiled_phase(CyclePhase::AfterOutputSample, now, &self.images)?;
         self.io.write_outputs(&self.program.outputs)
     }
+
+    /// The scan of [`ResourceCycle::run_scan`] and, with `replay`, of [`ResourceCycle::replay_scan`]:
+    /// the trace's activations and input image (specification 48 RU-60) in place of the tasks due
+    /// and the drivers' read.
+    fn scan_with(
+        &mut self,
+        now: Duration,
+        deadline: Option<MonotonicInstant>,
+        observer: &mut dyn CycleHooks,
+        replay: Option<Replayed<'_>>,
+    ) -> Result<(), RuntimeError> {
+        if let Some(fault) = &self.fault {
+            return Err(fault.clone());
+        }
+        self.now = now;
+        self.arm();
+        let held_before = self.debug.holds.held_at(|| self.clock.now());
+        observer.on_compiled_phase(CyclePhase::CycleStart, now, &self.images)?;
+        observer.on_compiled_access(CompiledAccessPoint::CycleStart, now, &mut self.program)?;
+        observer.on_compiled_phase(CyclePhase::BeforeInputSample, now, &self.images)?;
+        match replay {
+            // A replay's scan takes the trace's input image, the bytes both images have
+            // (specification 48 RU-60).
+            Some(Replayed { inputs, .. }) => {
+                let shared = inputs.len().min(self.program.inputs.len());
+                self.program.inputs[..shared].copy_from_slice(&inputs[..shared]);
+            }
+            None => self.io.read_inputs(&mut self.program.inputs)?,
+        }
+        observer.on_compiled_access(CompiledAccessPoint::AfterInputs, now, &mut self.program)?;
+        let mut phases = TaskPhases {
+            observer: &mut *observer,
+            now,
+            images: &self.images,
+            task_index: &self.task_index,
+            error: None,
+            operations: self.operations,
+            observer_operations: 0,
+            debug: &self.debug,
+            clock: &self.clock,
+        };
+        let before = self.operations.map(|operations| operations());
+        let result = match replay {
+            Some(Replayed { activations, .. }) => {
+                self.program.replay_scan(activations, &mut phases)
+            }
+            None => self.program.scan(now, &mut phases),
+        };
+        // The observer's own operations inside the scan are the services', not the program's.
+        let observer_operations = phases.observer_operations;
+        self.last_allocations = before
+            .zip(self.operations.map(|operations| operations()))
+            .map(|(before, after)| {
+                u64::from(after.wrapping_sub(before).wrapping_sub(observer_operations))
+            });
+        // The program's outputs are published, not yet committed: a failure from here on restores
+        // the image the drivers last took, so a safe state starts from it (specification 10 §4.7).
+        let outcome = phases
+            .error
+            .map_or(result, Err)
+            .and_then(|()| self.commit(now, deadline, held_before, observer));
+        // What the scan's calls changed in a debug image's Rust POU records, a faulted scan's too
+        // (specification 48 RU-49).
+        self.program.report_rust_times(now, observer);
+        match outcome {
+            Ok(()) => {
+                self.committed.clone_from(&self.program.outputs);
+                observer.on_compiled_phase(CyclePhase::CycleEnd, now, &self.images)
+            }
+            Err(error) => {
+                self.program.outputs.clone_from(&self.committed);
+                Err(error)
+            }
+        }
+    }
 }
 
 impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRetain> ResourceCycle
@@ -402,56 +485,25 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         deadline: Option<MonotonicInstant>,
         observer: &mut dyn CycleHooks,
     ) -> Result<(), RuntimeError> {
-        if let Some(fault) = &self.fault {
-            return Err(fault.clone());
-        }
-        self.now = now;
-        self.arm();
-        let held_before = self.debug.holds.held_at(|| self.clock.now());
-        observer.on_compiled_phase(CyclePhase::CycleStart, now, &self.images)?;
-        observer.on_compiled_access(CompiledAccessPoint::CycleStart, now, &mut self.program)?;
-        observer.on_compiled_phase(CyclePhase::BeforeInputSample, now, &self.images)?;
-        self.io.read_inputs(&mut self.program.inputs)?;
-        observer.on_compiled_access(CompiledAccessPoint::AfterInputs, now, &mut self.program)?;
-        let mut phases = TaskPhases {
-            observer: &mut *observer,
+        self.scan_with(now, deadline, observer, None)
+    }
+
+    fn replay_scan(
+        &mut self,
+        now: Duration,
+        activations: &[(usize, Duration)],
+        inputs: &[u8],
+        observer: &mut dyn CycleHooks,
+    ) -> Result<(), RuntimeError> {
+        self.scan_with(
             now,
-            images: &self.images,
-            task_index: &self.task_index,
-            error: None,
-            operations: self.operations,
-            observer_operations: 0,
-            debug: &self.debug,
-            clock: &self.clock,
-        };
-        let before = self.operations.map(|operations| operations());
-        let result = self.program.scan(now, &mut phases);
-        // The observer's own operations inside the scan are the services', not the program's.
-        let observer_operations = phases.observer_operations;
-        self.last_allocations = before
-            .zip(self.operations.map(|operations| operations()))
-            .map(|(before, after)| {
-                u64::from(after.wrapping_sub(before).wrapping_sub(observer_operations))
-            });
-        // The program's outputs are published, not yet committed: a failure from here on restores
-        // the image the drivers last took, so a safe state starts from it (specification 10 §4.7).
-        let outcome = phases
-            .error
-            .map_or(result, Err)
-            .and_then(|()| self.commit(now, deadline, held_before, observer));
-        // What the scan's calls changed in a debug image's Rust POU records, a faulted scan's too
-        // (specification 48 RU-49).
-        self.program.report_rust_times(now, observer);
-        match outcome {
-            Ok(()) => {
-                self.committed.clone_from(&self.program.outputs);
-                observer.on_compiled_phase(CyclePhase::CycleEnd, now, &self.images)
-            }
-            Err(error) => {
-                self.program.outputs.clone_from(&self.committed);
-                Err(error)
-            }
-        }
+            None,
+            observer,
+            Some(Replayed {
+                activations,
+                inputs,
+            }),
+        )
     }
 
     fn latch_fault(&mut self, fault: RuntimeError) {

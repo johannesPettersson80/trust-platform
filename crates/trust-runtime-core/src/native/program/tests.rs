@@ -62,6 +62,15 @@ entry!(reading_interval, |cx, areas| {
     Ok(())
 });
 
+// The program `MAIN` of the replay tests: byte 0 counts its activations, byte 3 is the logical time
+// of its last one, in ms.
+entry!(timing, |cx, areas| {
+    let view: &[Cell<u8>; 8] = areas.view(cx, AREA_INSTANCES)?;
+    view[0].set(view[0].get().wrapping_add(1));
+    view[3].set(u8::try_from(cx.now_ns / MS).unwrap_or(u8::MAX));
+    Ok(())
+});
+
 /// A recursion that does not end: each call counts in byte 0 and calls itself again.
 fn deeper(cx: &mut Cx, view: &[Cell<u8>; 8]) -> Result<(), Fault> {
     view[0].set(view[0].get().wrapping_add(1));
@@ -77,7 +86,7 @@ entry!(recursing, |cx, areas| {
 });
 
 /// The module of the tests: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 recurses,
-/// 56 reads its task's interval.
+/// 56 reads its task's interval, 60 counts and keeps the time of its activation.
 struct StandIn;
 
 impl ModuleCode for StandIn {
@@ -88,6 +97,7 @@ impl ModuleCode for StandIn {
             32 => Some(Entry::from_fn(nothing)),
             48 => Some(Entry::from_fn(recursing)),
             56 => Some(Entry::from_fn(reading_interval)),
+            60 => Some(Entry::from_fn(timing)),
             _ => None,
         }
     }
@@ -455,6 +465,66 @@ fn an_activation_reads_its_tasks_interval() {
         .scan(Duration::from_nanos(40 * MS), &mut NoHooks)
         .unwrap();
     assert_eq!(interval_read(&program), 20);
+}
+
+/// Specification 48 RU-60: a replay's scan runs exactly the activations of a recorded cycle, in
+/// their order, each at the logical time it ran at, whatever task is due. Worked by hand, with
+/// `MAIN` in its 10 ms task counting from 5 (byte 0) and keeping the time of its activation (byte
+/// 3): one activation at 20 ms counts 6 and reads 20; none counts nothing, though its task is due;
+/// two activations at 5 and 7 ms, off its interval, count 8 and read 7 last; an activation of a
+/// task the program lacks is refused. Catches a replay that runs the due tasks instead of the given
+/// ones, runs a task at the scan's time, or runs a repeated activation once.
+#[test]
+fn a_replays_scan_runs_the_activations_it_is_given_at_their_times() {
+    let device = device();
+    let bytes = image(60, 100, 50, device.target);
+    let image = admit(&bytes, &device).unwrap();
+    let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    let replay = |program: &mut NativeProgram<'_, StandIn>, activations: &[(usize, i64)]| {
+        let activations: Vec<(usize, Duration)> = activations
+            .iter()
+            .map(|&(task, ms)| (task, Duration::from_nanos(ms * MS)))
+            .collect();
+        program.replay_scan(&activations, &mut NoHooks).unwrap();
+        let mut bytes = [0u8; 4];
+        program.read(AREA_INSTANCES, 0, &mut bytes);
+        (bytes[0], bytes[3])
+    };
+    assert_eq!(replay(&mut program, &[(0, 20)]), (6, 20));
+    assert_eq!(replay(&mut program, &[]), (6, 20));
+    assert_eq!(replay(&mut program, &[(0, 5), (0, 7)]), (8, 7));
+    assert_eq!(
+        program.replay_scan(&[(1, Duration::ZERO)], &mut NoHooks),
+        Err(RuntimeError::InvalidExecutionState)
+    );
+}
+
+/// Specification 48 RU-60, "The start": a build lays its memory out as the recorded program did
+/// when its area, symbol and type tables equal the trace's. A trace of this image has its layout;
+/// the image with a marker image of 4 bytes has another area table and so another layout. Catches a
+/// layout judged by fewer tables than the three, or by none.
+#[test]
+fn a_trace_of_an_image_has_its_layout_and_another_images_has_not() {
+    use crate::trace::replay::same_layout;
+    use crate::trace::ImageTables;
+
+    let device = device();
+    let bytes = image(0, 100, 50, device.target);
+    let image = admit(&bytes, &device).unwrap();
+    let section = |id| image.section_bytes(id).to_vec();
+    let tables = ImageTables {
+        areas: section(SectionId::Areas),
+        tasks: section(SectionId::Tasks),
+        iobind: section(SectionId::IoBind),
+        symbols: section(SectionId::Symbols),
+        types: section(SectionId::Types),
+        strings: section(SectionId::Strings),
+    };
+    assert!(same_layout(&tables, &image));
+    let other = image_with(0, 100, 50, device.target, output_bit(), 4, 0);
+    let other = admit(&other, &device).unwrap();
+    assert!(!same_layout(&tables, &other));
 }
 
 /// The program of an online change runs its programs without a task at the running program's

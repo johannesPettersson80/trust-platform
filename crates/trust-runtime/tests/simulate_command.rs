@@ -865,3 +865,120 @@ fn a_recording_keeps_a_method_call_as_its_next_cycles_change() {
     assert!(status.success(), "{status}");
     let _ = std::fs::remove_dir_all(project);
 }
+
+/// A program that counts its activations in the task `Fast` of `interval_ms` and writes the count
+/// times `factor` to the located output `level` at `%QW0`.
+fn counting_st(factor: u32, interval_ms: u32) -> String {
+    format!(
+        "
+VAR_GLOBAL
+    level AT %QW0 : INT;
+END_VAR
+PROGRAM Main
+VAR
+    count : INT := 0;
+END_VAR
+count := count + 1;
+level := count * {factor};
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#{interval_ms}ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"
+    )
+}
+
+/// Uploads `trace` for a replay (`transfer.begin {"for": "trace"}` and its parts, specification 11
+/// §6.8.1, "Replaying a trace") from request `id` on, and gives the transfer's id.
+fn upload_trace(simulator: &mut Simulator, id: u64, trace: &[u8]) -> Value {
+    let digest: String = Sha256::digest(trace)
+        .iter()
+        .fold(String::new(), |mut text, byte| {
+            text.push_str(&format!("{byte:02x}"));
+            text
+        });
+    let begun = simulator.request(
+        id,
+        "transfer.begin",
+        json!({"bytes": trace.len(), "sha256": digest, "for": "trace"}),
+    );
+    let transfer = begun["transfer"].clone();
+    for (index, part) in trace.chunks(4_096).enumerate() {
+        simulator.request(
+            id + 1 + u64::try_from(index).unwrap(),
+            "transfer.part",
+            json!({
+                "transfer": transfer,
+                "offset": index * 4_096,
+                "data": base64::engine::general_purpose::STANDARD.encode(part),
+                "crc32": format!("{:08x}", trust_runtime_core::crc32::checksum(part)),
+            }),
+        );
+    }
+    transfer
+}
+
+#[test]
+fn a_trace_replays_in_a_simulator_of_its_build_and_shows_where_a_changed_build_differs() {
+    // Specification 48 RU-60 and specification 11 §6.8.1, "Replaying a trace": a simulator takes
+    // a trace before its first cycle, runs the recorded cycles on the recorded inputs with the
+    // recorded tasks, and compares each cycle's outputs. Worked by hand: `count * 10` gives `level`
+    // 10, 20 and 30 in the 3 recorded cycles. A simulator of the same build replays them with every
+    // output matched, as the same program, and holds the last state, `count` 3. A build whose
+    // program writes `count * 20`, with the same declarations, first differs at cycle 0, 10 in the
+    // trace against 20, and in the 2 cycles after it too, as a changed program. A simulator that
+    // has run cycles, here the replay's, refuses another replay as `simulator_started`. A build
+    // whose task has a 20 ms interval matches, since the recorded activations run, not its own
+    // schedule. Catches a replay that runs the build's own schedule instead of the recorded tasks,
+    // compares nothing, misses the first difference or its values, or replays after a cycle.
+    let project = project_with(&counting_st(10, 10));
+    let mut recorder = Simulator::start(&project);
+    let started = recorder.request(1, "trace.record", json!({"cycles": 3}));
+    let trace_id = started["trace"].as_u64().expect("a recording's id");
+    recorder.advance(2, 3);
+    let (_, file) = recorder.trace(3, trace_id);
+    let recorded = decoded(&file);
+    assert_eq!(recorded.cycles.len(), 3);
+
+    let mut same = Simulator::start(&project);
+    let transfer = upload_trace(&mut same, 10, &file);
+    let replayed = same.request(20, "simulator.replay", json!({"transfer": transfer}));
+    assert_eq!(
+        replayed,
+        json!({"matched": true, "cycles": 3, "kind": "same_program",
+            "first_difference": null, "later_differing_cycles": 0, "notes": []})
+    );
+    assert_eq!(same.read(21, "P1.count"), json!(3));
+
+    // The recorded tasks run, not the build's own schedule: a build whose task `Fast` has a 20 ms
+    // interval, the same declarations and logic, matches every recorded cycle.
+    let slower = project_with(&counting_st(10, 20));
+    let mut scheduled = Simulator::start(&slower);
+    let transfer = upload_trace(&mut scheduled, 22, &file);
+    let replayed = scheduled.request(29, "simulator.replay", json!({"transfer": transfer}));
+    assert_eq!(replayed["matched"], json!(true), "{replayed}");
+    assert_eq!(replayed["kind"], json!("changed_program"));
+
+    let changed = project_with(&counting_st(20, 10));
+    let mut other = Simulator::start(&changed);
+    let transfer = upload_trace(&mut other, 30, &file);
+    let replayed = other.request(40, "simulator.replay", json!({"transfer": transfer}));
+    assert_eq!(replayed["matched"], json!(false), "{replayed}");
+    assert_eq!(replayed["kind"], json!("changed_program"));
+    assert_eq!(replayed["cycles"], json!(3));
+    assert_eq!(replayed["later_differing_cycles"], json!(2));
+    assert_eq!(
+        replayed["first_difference"],
+        json!({"cycle": 0, "time_ns": recorded.cycles[0].time_ns, "outputs": [
+            {"path": "level", "address": "%QW0", "trace": 10, "build": 20}]})
+    );
+
+    let transfer = upload_trace(&mut other, 50, &file);
+    let refused = other.call(&json!({"id": 60, "type": "simulator.replay",
+        "params": {"transfer": transfer}}));
+    assert_eq!(refused["ok"], json!(false), "{refused}");
+    assert_eq!(refused["error_code"], json!("simulator_started"));
+}

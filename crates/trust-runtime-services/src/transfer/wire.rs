@@ -51,7 +51,8 @@ pub struct BeginRequest {
     /// The SHA-256 of the whole container.
     pub digest: [u8; 32],
     /// Whether the upload is a chip's firmware (`"for": "firmware"`, specification 34 TARGET-04)
-    /// rather than a program (`"for": "program"`, the default).
+    /// rather than a program (`"for": "program"`, the default) or a cycle trace that the simulator
+    /// replays (`"for": "trace"`, specification 11 §6.8.1), which are held in memory alike.
     pub firmware: bool,
 }
 
@@ -113,8 +114,8 @@ struct TransferParams<'a> {
 /// # Errors
 ///
 /// [`WireError::Params`] when `params` is not an object with `bytes` and `sha256`, and
-/// [`WireError::Member`] when `sha256` is not 64 hexadecimal digits or `for` is neither `program`
-/// nor `firmware`.
+/// [`WireError::Member`] when `sha256` is not 64 hexadecimal digits or `for` is none of `program`,
+/// `firmware` and `trace`.
 pub fn begin_request(params: &Value) -> Result<BeginRequest, WireError> {
     let params =
         BeginParams::deserialize(params).map_err(|err| WireError::Params(err.to_string()))?;
@@ -123,12 +124,12 @@ pub fn begin_request(params: &Value) -> Result<BeginRequest, WireError> {
         expected: "64 hexadecimal digits",
     })?;
     let firmware = match params.target {
-        None | Some("program") => false,
+        None | Some("program" | "trace") => false,
         Some("firmware") => true,
         Some(_) => {
             return Err(WireError::Member {
                 name: "for",
-                expected: "\"program\" or \"firmware\"",
+                expected: "\"program\", \"firmware\" or \"trace\"",
             })
         }
     };

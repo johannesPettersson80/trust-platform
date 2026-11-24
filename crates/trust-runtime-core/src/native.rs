@@ -24,6 +24,10 @@ mod start;
 pub mod stop;
 pub mod tool;
 mod values;
+
+/// The type table's reader and the decoder of a value's bytes, which a trace's replay reads its
+/// located variables with (specification 48 RU-60).
+pub(crate) use values::{read_value, Types};
 pub mod variables;
 
 pub use functions::{RuntimeReals, KERNEL_API, KERNEL_FUNCTIONS};

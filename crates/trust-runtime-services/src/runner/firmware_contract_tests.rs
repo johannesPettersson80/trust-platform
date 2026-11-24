@@ -326,7 +326,7 @@ fn a_firmware_update_is_refused_where_it_cannot_run() {
     );
     assert_eq!(
         wrong_for["error"],
-        json!("invalid params: for must be \"program\" or \"firmware\""),
+        json!("invalid params: for must be \"program\", \"firmware\" or \"trace\""),
         "{wrong_for}"
     );
 

@@ -33,6 +33,7 @@ use crate::protocol::{
 };
 use crate::resource::operations;
 use crate::simulator_advance;
+use crate::simulator_replay;
 use crate::status::{self, EventRead};
 use crate::trace;
 
@@ -300,6 +301,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "restart" => operations::restart(id, request.params.clone(), host),
         "cycle.step" => cycle_step::request(id, request.params.as_ref(), host),
         "simulator.advance" => simulator_advance::request(id, request.params.as_ref(), host),
+        "simulator.replay" => simulator_replay::request(id, request.params.as_ref(), host),
         "method.call" => method_call::request(id, request.params.as_ref(), host),
         "trace.record" => trace::requests::record(id, request.params.as_ref(), host),
         "trace.read" => trace::requests::read(id, request.params.as_ref(), host),
