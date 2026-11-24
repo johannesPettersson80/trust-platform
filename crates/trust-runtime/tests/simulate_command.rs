@@ -133,6 +133,23 @@ fn project() -> PathBuf {
 }
 
 #[test]
+fn a_simulators_first_request_finds_its_resource_started() {
+    // Specification 11 §6.8.1, "Simulator for machine tests": the simulator reads its first request
+    // once its resource has started. Five simulators each answer their very first request, `status`,
+    // sent as soon as the process runs, with the resource running at the logical time 0, before any
+    // cycle. Catches a simulator that serves its link while its scan thread is still booting, whose
+    // first request a loaded machine finds in `boot`: main's CI refused a replay test's first
+    // `trace.record` so, "resource is boot and its scheduler does not accept commands" (checklist
+    // G302; run 45401586091).
+    let project = project();
+    for _ in 0..5 {
+        let mut simulator = Simulator::start(&project);
+        let status = simulator.call(&json!({"id": 1, "type": "status"}));
+        assert_eq!(status["result"]["state"], json!("running"), "{status}");
+    }
+}
+
+#[test]
 fn a_simulator_runs_the_cycles_its_test_asks_for_and_ends_with_its_input() {
     // The program counts its cycles on a 10 ms resource and divides by zero in its third, and the
     // project halts on a fault. Worked by hand: 2 cycles run at 0 and 10 ms, so the time is 10 ms
