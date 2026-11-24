@@ -342,6 +342,14 @@ impl Recorder {
         self.value = value;
     }
 
+    /// Readings of the wall clock were lost, which the room for them could not keep: the recording
+    /// ends `memory_full` at the cycle's end.
+    pub fn readings_lost(&mut self) {
+        if self.cycle.open {
+            self.cycle.overflow = true;
+        }
+    }
+
     /// The task of index `task` starts with the logical time `now_ns`.
     pub fn activation(&mut self, task: u32, now_ns: i64) {
         let cycle = &mut self.cycle;
