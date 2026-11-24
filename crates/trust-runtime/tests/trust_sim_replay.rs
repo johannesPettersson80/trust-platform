@@ -37,8 +37,11 @@ END_CONFIGURATION
     )
 }
 
+/// This build's trust-runtime, which Cargo names to its integration tests when they run.
 fn runtime() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_trust-runtime"))
+    std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+        .expect("Cargo provides trust-runtime to its integration tests")
+        .into()
 }
 
 #[test]
