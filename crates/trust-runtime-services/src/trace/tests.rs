@@ -544,6 +544,35 @@ fn a_force_is_recorded_once_where_it_is_set_or_released_and_not_in_the_first_cyc
 }
 
 #[test]
+fn a_write_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first() {
+    // Specification 48 RU-59: a screen writes between two scans, so its write is the next cycle's;
+    // one made before the trace's first cycle is in its start state, and one after the recording
+    // ended is not recorded. Here a screen writes `Main.x` (INT 42, the bytes 2A 00) before the
+    // first cycle, between the two, and after the end. Catches a write between two cycles lost,
+    // which every screen's write is, and one recorded before the first cycle or after the end.
+    let mut recorder = Recorder::arm(Goal::Cycles(2), sizes(), Budget::COMPUTER).unwrap();
+    recorder.written(ChangeSource::Screen, "Main.x", &Variables);
+    assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
+    recorder.written(ChangeSource::Screen, "Main.x", &Variables);
+    assert!(cycle(&mut recorder, 10, &[0], &[0, 0], &[0; 4]));
+    recorder.written(ChangeSource::Screen, "Main.x", &Variables);
+
+    let trace = read(&recorder);
+    assert_eq!(trace.cycles[0].changes, vec![]);
+    assert_eq!(
+        trace.cycles[1].changes,
+        vec![Change {
+            source: ChangeSource::Screen,
+            kind: ChangeKind::VariableWrite {
+                path: "Main.x".into(),
+                type_name: "INT".into(),
+                value: vec![0x2A, 0],
+            },
+        }]
+    );
+}
+
+#[test]
 fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first() {
     // Specification 48 RU-59: a change made between two cycles, such as a method call, is the next
     // cycle's; one made before the trace's first cycle is in its start state, and one after the

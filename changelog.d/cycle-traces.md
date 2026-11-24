@@ -24,3 +24,6 @@
 - A cycle trace records each change with where it came from: the control link's, a service's
   `variables.write` as a service's, and an ADS client's write as a protocol server's (specification
   48 Appendix C, C.6).
+- A cycle trace also keeps what screens change: each write a screen's command makes, and each
+  method a screen calls, with its inputs as Structured Text literals, as the next cycle's change
+  of a screen (specification 48 RU-59).
