@@ -270,14 +270,13 @@ impl Recorder {
             self.finish(TraceEnd::Complete);
             return Begin::Ended;
         }
+        // The changes made since the last cycle ended are this cycle's (`change`), and so is their
+        // overflow; the rest starts afresh.
         let cycle = &mut self.cycle;
         cycle.open = true;
-        cycle.overflow = false;
         cycle.time = now;
         cycle.activations.clear();
         cycle.readings.clear();
-        cycle.changes.clear();
-        cycle.change_count = 0;
         cycle.inputs.clear();
         cycle.outputs.clear();
         if self.first.is_none() {
@@ -308,10 +307,12 @@ impl Recorder {
 
     /// A change made from outside before the cycle, in the order the runtime applies it.
     pub fn change(&mut self, source: ChangeSource, change: &ChangeRef<'_>) {
-        let cycle = &mut self.cycle;
-        if !cycle.open {
+        // A change made between two cycles is the next cycle's; one made before the first cycle is
+        // in the start state, and one after the recording ended is not recorded.
+        if !self.cycle.open && (self.first.is_none() || self.end.is_some()) {
             return;
         }
+        let cycle = &mut self.cycle;
         if !fits(&cycle.changes, change_len(change), self.limits.changes) {
             cycle.overflow = true;
             return;
@@ -396,6 +397,18 @@ impl Recorder {
             return self.end.is_some();
         }
         self.cycle.open = false;
+        let ended = self.record_cycle(fault);
+        // The next cycle's changes start from none.
+        let cycle = &mut self.cycle;
+        cycle.changes.clear();
+        cycle.change_count = 0;
+        cycle.overflow = false;
+        ended
+    }
+
+    /// The open cycle's record joins the trace when the trace has room for it, and the recording
+    /// ends where the cycle completes its goal or faulted; it gives whether the recording has ended.
+    fn record_cycle(&mut self, fault: Option<CycleFault>) -> bool {
         if self.cycle.overflow {
             self.finish(TraceEnd::MemoryFull);
             return true;

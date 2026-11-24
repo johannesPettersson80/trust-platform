@@ -3751,7 +3751,9 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
     - Once the recording has ended, it answers `{"state": "ended", "reason": "...", "cycles": n,
         "bytes": L, "sha256": "..."}`, with the end of specification 48 Appendix C, C.3 (`complete`,
         `stopped`, `resource_stopped`, `restarted`, `faulted`, `program_changed`, `paused`,
-        `memory_full`).
+        `memory_full`). A breakpoint or a step that holds the program ends the recording `paused`
+        with the cycles before the held one, which the trace has once the held scan has ended: until
+        then the recording reads as recording.
     - With `offset`, it answers the trace's bytes from there, at most 4,096 of them: `{"offset": o,
         "data": "<base64>", "crc32": "<8 hexadecimal digits>", "next_offset": o2}`. This is a part as
         `transfer.part` carries one the other way (specification 34 PORT-05).

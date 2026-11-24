@@ -4,6 +4,8 @@
 //! force by the bytes they give the process image. A force is recorded once, in the cycle it is set
 //! or released before; the trace's start state holds the forces in effect at its first cycle.
 
+use alloc::vec::Vec;
+
 use trust_runtime_core::io_address::{IoAddress, IoSize};
 use trust_runtime_core::memory::IoArea as ImageArea;
 use trust_runtime_core::native::memory::member_display_path;
@@ -14,6 +16,7 @@ use trust_runtime_core::value::Value;
 use super::Recorder;
 use crate::live_values::apply::ForceEffect;
 use crate::live_values::queues::{ForcedVar, ForcedVarTarget, PendingVarTarget};
+use crate::method_call::MethodCall;
 
 impl Recorder {
     /// A queued write of `target` that `variables` has applied, recorded by the target's path as
@@ -110,6 +113,27 @@ impl Recorder {
                 },
             ),
         }
+    }
+
+    /// A method call that a tool made between two scans (`method.call`), recorded as the next
+    /// cycle's change: the instance by the path the debugger names it by (`instance`), the
+    /// interface, the method, and each input's name with its literal as the request gave it.
+    pub fn method_called(&mut self, source: ChangeSource, instance: &str, call: &MethodCall) {
+        let inputs: Vec<(&str, &str)> = call
+            .inputs
+            .iter()
+            .zip(&call.literals)
+            .map(|((name, _), literal)| (name.as_str(), literal.as_str()))
+            .collect();
+        self.change(
+            source,
+            &ChangeRef::MethodCall {
+                instance,
+                interface: &call.interface,
+                method: &call.method,
+                inputs: &inputs,
+            },
+        );
     }
 
     /// Force changes were lost since the last cycle start: the recording ends `memory_full` at the

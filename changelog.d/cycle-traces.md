@@ -17,3 +17,7 @@
   each cycle they hold, `io.write`'s one-shot writes as the bytes they give the process image, and
   a write or force of an instance's member by the path the debugger names it by (specification 48
   RU-59).
+- A cycle trace also keeps a tool's method calls (`method.call`), made between two scans, as the
+  next cycle's change, with each input's literal as given. A breakpoint or a step that holds the
+  program ends the recording `paused` with the cycles before the held one (specification 48 RU-59;
+  specification 11, "Cycle traces").

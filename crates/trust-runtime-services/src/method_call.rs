@@ -44,6 +44,9 @@ pub struct MethodCall {
     pub method: SmolStr,
     /// The given inputs by name; the kernel converts each value to its input's type.
     pub inputs: Vec<(SmolStr, Value)>,
+    /// Each input's Structured Text literal as the request gave it, in the order of `inputs`: a
+    /// cycle trace records the call with them (specification 48 Appendix C, C.6).
+    pub literals: Vec<SmolStr>,
 }
 
 /// Why a runtime made no call, or why the call failed.
@@ -187,11 +190,17 @@ fn typed<Q: VariableQueuePort>(asked: Asked, host: &Q) -> Result<MethodCall, Str
             })
             .collect::<Result<Vec<_>, String>>()?,
     };
+    let literals = asked
+        .inputs
+        .iter()
+        .map(|(_, text)| SmolStr::new(text))
+        .collect();
     Ok(MethodCall {
         instance: asked.instance,
         interface: asked.interface,
         method: asked.method,
         inputs,
+        literals,
     })
 }
 

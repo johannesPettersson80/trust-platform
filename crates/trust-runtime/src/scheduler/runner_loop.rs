@@ -1200,7 +1200,11 @@ fn call_method(
         &call.inputs,
         ALLOWANCE,
     ) {
-        Ok((value, _)) => (Ok(value), None),
+        Ok((value, _)) => {
+            // A recording keeps the call as its next cycle's change (specification 48 RU-59).
+            runtime.record_method_call(call);
+            (Ok(value), None)
+        }
         Err(error) if !faulted_before && runtime.faulted() => (
             Err(MethodCallRefusal::Faulted(error.to_string())),
             Some(error),

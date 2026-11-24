@@ -1139,7 +1139,8 @@ traces", gives the requests.
     - each task activation in it, in the order the tasks ran, with the task's logical time
         (`TIME()`, the kernel's `now_ns`, specification 44 §8.2);
     - every change made to the program from outside before the cycle, in the order the runtime
-        applied it, with its source:
+        applied it, with its source. A change made between two cycles, such as a method call, is
+        the next cycle's; one made before the trace's first cycle is in its start state:
         - a variable's write: the control link's `set`, `var.write` and `variables.write`, a
             screen's write, Control Studio's, a service's (RU-63), the mesh's, a protocol server's
             such as OPC UA's, or a plant's;
