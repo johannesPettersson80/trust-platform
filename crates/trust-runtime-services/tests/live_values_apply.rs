@@ -187,6 +187,38 @@ fn counted<R>(apply: impl FnOnce() -> R) -> (R, Calls) {
     (result, calls)
 }
 
+/// Specification 34 MEM-09: a cycle start frees no memory, also when it reports a force change made
+/// after an earlier cycle start reported one. `%QX0.0` is forced TRUE before the first cycle start
+/// and FALSE between the two; an address's force change holds its path's memory. The second force,
+/// outside a scan, frees the change the first cycle start reported, so neither cycle start frees
+/// any. Catches reported changes freed by a cycle start, and reported changes kept until the next
+/// cycle start frees them.
+#[test]
+fn a_cycle_start_frees_no_force_change_it_reported() {
+    let output = IoAddress::parse("%QX0.0").expect("a valid output address");
+    let mut queues = LiveValueQueues::new();
+    let mut program = Program {
+        probe_depth: Value::Int(1),
+        led: Value::Bool(false),
+    };
+    let now = Duration::from_millis(10);
+    let cycle_start = |queues: &mut LiveValueQueues, program: &mut Program| {
+        let (result, calls) = counted(|| {
+            apply::compiled_cycle_start(queues, Generation::FIRST, program, now, &mut NoReport)
+        });
+        result.expect("the cycle start refuses nothing");
+        calls
+    };
+    queues
+        .try_upsert_forced_io(output.clone(), Value::Bool(true))
+        .expect("the force queue has room");
+    assert_eq!(cycle_start(&mut queues, &mut program), Calls::ZERO);
+    queues
+        .try_upsert_forced_io(output, Value::Bool(false))
+        .expect("the force queue has room");
+    assert_eq!(cycle_start(&mut queues, &mut program), Calls::ZERO);
+}
+
 /// Spec 34 §8 and MEM-04 (bounded-c: an in-scan hook allocates nothing): applying the queued
 /// writes and the active forces allocates nothing while no request is refused.
 ///
