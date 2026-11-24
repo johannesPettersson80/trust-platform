@@ -218,7 +218,7 @@ fn report_force_changes<S>(
             sink.forced(effect, variables);
         }
     }
-    queues.force_changes.clear();
+    queues.retire_force_changes();
 }
 
 /// The active variable forces of a compiled program, in the order the targets were first forced,
