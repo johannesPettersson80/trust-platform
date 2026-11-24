@@ -1,15 +1,22 @@
 //! Replaying a cycle trace in the simulator (specification 48 RU-60; specification 11 §6.8.1,
-//! "Replaying a trace"): the build takes the trace's start state and runs each recorded cycle at
-//! its logical time, with its task activations and its input image; each cycle's outputs, or its
-//! fault, are compared with the trace's.
+//! "Replaying a trace"): the build takes the trace's start state and forces, and runs each recorded
+//! cycle at its logical time after the cycle's changes from outside, with its task activations, its
+//! input image and its wall-clock readings; each cycle's outputs, or its fault, are compared with
+//! the trace's.
 
 use trust_plc_abi::FaultCode;
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::native::image::TaskRecord;
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::replay::{
-    differing_outputs, located_address, located_bytes, located_value, same_layout, task_names,
+    differing_outputs, located_address, located_bytes, located_value, path_value, same_layout,
+    task_names,
 };
-use trust_runtime_core::trace::{decode, Cycle, CycleFault, Located};
-use trust_runtime_core::value::Duration;
+use trust_runtime_core::trace::{
+    decode, readings, Change, ChangeKind, Cycle, CycleFault, IoArea, Located,
+};
+use trust_runtime_core::value::{Duration, Value};
+use trust_runtime_services::method_call::{typed_call, ALLOWANCE};
 use trust_runtime_services::simulator_replay::{
     Difference, FirstDifference, OutputDifference, ReplayKind, ReplayRefusal, ReplayReport,
 };
@@ -28,10 +35,11 @@ pub(super) struct ReplayedCycle<'r> {
 
 impl CompiledRuntime {
     /// Replays the cycle trace `bytes` before the simulator's first cycle (specification 48 RU-60):
-    /// the build takes the recorded memory byte for byte, then runs each recorded cycle at its
-    /// logical time, the build's tasks of the recorded names at the recorded times, on the recorded
-    /// input image, and compares its outputs, or its fault, with the trace's. A build that faults
-    /// runs no further cycle.
+    /// the build takes the recorded memory byte for byte and the recorded forces, then applies each
+    /// recorded cycle's changes from outside and runs the cycle at its logical time, the build's
+    /// tasks of the recorded names at the recorded times, on the recorded input image with the
+    /// recorded wall-clock readings, and compares its outputs, or its fault, with the trace's. A
+    /// build that faults runs no further cycle.
     ///
     /// # Errors
     ///
@@ -90,23 +98,24 @@ impl CompiledRuntime {
                 return Err(invalid(format!("its start state does not fit area {id}")));
             }
         }
-        if !trace.start.forces.is_empty() {
-            notes.push("the forces in effect at the trace's start are not applied".to_string());
+        // The trace's forces start in effect (RU-60, "The start").
+        for force in &trace.start.forces {
+            self.apply_change(force, &mut notes);
         }
+        // The build reads the recorded wall clock while the replay runs, and its own again after.
+        let _playback = Playback;
         let mut first_difference = None;
         let mut later_differing_cycles = 0;
         let mut cycles = 0;
         for (index, cycle) in trace.cycles.iter().enumerate() {
-            note_once(
-                &mut notes,
-                !cycle.changes.is_empty(),
-                "the trace's changes from outside are not applied",
-            );
-            note_once(
-                &mut notes,
-                !cycle.wall_clock_ms.is_empty(),
-                "the trace's readings of the wall clock are not given to the build",
-            );
+            // The changes come between the scans, as the runtime applied them: at the previous
+            // cycle's logical time, and before the cycle's wall-clock readings, which belong to
+            // its scan (a recording keeps only a scan's readings).
+            for change in &cycle.changes {
+                self.apply_change(change, &mut notes);
+            }
+            self.set_current_time(Duration::from_nanos(cycle.time_ns));
+            readings::play(&cycle.wall_clock_ms);
             let activations: Vec<(usize, Duration)> = cycle
                 .activations
                 .iter()
@@ -115,7 +124,6 @@ impl CompiledRuntime {
                     task.map(|task| (task, Duration::from_nanos(activation.now_ns)))
                 })
                 .collect();
-            self.set_current_time(Duration::from_nanos(cycle.time_ns));
             let result = self.execute_cycle_with(Some(ReplayedCycle {
                 activations: &activations,
                 inputs: &cycle.inputs,
@@ -146,6 +154,123 @@ impl CompiledRuntime {
             later_differing_cycles,
             notes,
         })
+    }
+
+    /// Applies a change from outside as the runtime applied it before the recorded cycle (RU-60,
+    /// "Each cycle"): a variable's write through the checked write; a force set or released through
+    /// Live Values, which holds it from the cycle's start on; an address's write into the process
+    /// image; a method call between the scans. A trace names a forced variable by its path, a
+    /// global's name or an instance member's path as the debugger names it, and Live Values forces
+    /// a variable named so through the checked write, which reaches either. A variable, address or
+    /// method the build lacks, or a value it refuses, is noted once and skipped.
+    fn apply_change(&mut self, change: &Change, notes: &mut Vec<String>) {
+        let image = self.image.image();
+        let lacks = |what: &str, path: &str| {
+            format!("the build has no {what} {path}: its changes are skipped")
+        };
+        match &change.kind {
+            ChangeKind::VariableWrite { path, value, .. } => {
+                let Some(value) = path_value(&image, path, value) else {
+                    return note_once(notes, &lacks("variable", path));
+                };
+                if CompiledVariables::write_named(self.cycle.program_mut(), path, &value).is_err() {
+                    note_once(notes, &format!("the build refuses a write of {path}"));
+                }
+            }
+            ChangeKind::VariableForce { path, value, .. } => {
+                let Some(value) = path_value(&image, path, value) else {
+                    return note_once(notes, &lacks("variable", path));
+                };
+                let forced = self
+                    .debug
+                    .as_ref()
+                    .is_some_and(|debug| debug.try_force_global(path.as_str(), value).is_ok());
+                if !forced {
+                    note_once(notes, &format!("the build cannot force {path}"));
+                }
+            }
+            ChangeKind::VariableRelease { path } => {
+                if let Some(debug) = &self.debug {
+                    debug.release_global(path);
+                }
+            }
+            ChangeKind::AddressWrite {
+                area,
+                bit,
+                offset,
+                bytes,
+            } => {
+                let (text, address) = address_change(*area, *bit, *offset, bytes);
+                let Some((address, value)) = address else {
+                    return note_once(notes, &lacks("address", &text));
+                };
+                if CompiledVariables::write_image(self.cycle.program_mut(), &address, value)
+                    .is_err()
+                {
+                    note_once(notes, &format!("the build refuses a write of {text}"));
+                }
+            }
+            ChangeKind::AddressForce {
+                area,
+                bit,
+                offset,
+                bytes,
+            } => {
+                let (text, address) = address_change(*area, *bit, *offset, bytes);
+                let Some((address, value)) = address else {
+                    return note_once(notes, &lacks("address", &text));
+                };
+                let forced = self
+                    .debug
+                    .as_ref()
+                    .is_some_and(|debug| debug.try_force_io(address, value).is_ok());
+                if !forced {
+                    note_once(notes, &format!("the build cannot force {text}"));
+                }
+            }
+            ChangeKind::AddressRelease {
+                area,
+                bit,
+                offset,
+                size,
+            } => {
+                let bytes = vec![0; usize::try_from(*size).unwrap_or(1).max(1)];
+                if let (Some(debug), (_, Some((address, _)))) =
+                    (&self.debug, address_change(*area, *bit, *offset, &bytes))
+                {
+                    debug.release_io(&address);
+                }
+            }
+            ChangeKind::MethodCall {
+                instance,
+                interface,
+                method,
+                inputs,
+            } => {
+                let inputs: Vec<(&str, &str)> = inputs
+                    .iter()
+                    .map(|(name, literal)| (name.as_str(), literal.as_str()))
+                    .collect();
+                let called = typed_call(&image, instance, interface, method, &inputs)
+                    .map_err(|_| ())
+                    .and_then(|call| {
+                        self.call_method(
+                            &call.instance,
+                            &call.interface,
+                            &call.method,
+                            &call.inputs,
+                            ALLOWANCE,
+                        )
+                        .map_err(|_| ())
+                    });
+                if called.is_err() {
+                    note_once(
+                        notes,
+                        &format!("the build cannot call {method} of {instance}"),
+                    );
+                }
+            }
+        }
     }
 
     /// How the cycle just replayed differs from the recorded `cycle`: its outputs, by the trace's
@@ -195,10 +320,61 @@ impl CompiledRuntime {
     }
 }
 
-/// Adds `note` to `notes` when `holds`, once.
-fn note_once(notes: &mut Vec<String>, holds: bool, note: &str) {
-    if holds && !notes.iter().any(|noted| noted == note) {
+/// Adds `note` to `notes`, once.
+fn note_once(notes: &mut Vec<String>, note: &str) {
+    if !notes.iter().any(|noted| noted == note) {
         notes.push(note.to_string());
+    }
+}
+
+/// The process image's address that a trace's address change names, as IEC 61131-3 writes it, and
+/// the address with the value of its bytes as a write of it takes them: a bit as BOOL, one, two,
+/// four and eight bytes as BYTE, WORD, DWORD and LWORD (specification 44 §7.3); none for another
+/// length.
+fn address_change(
+    area: IoArea,
+    bit: Option<u8>,
+    offset: u32,
+    bytes: &[u8],
+) -> (String, Option<(IoAddress, Value)>) {
+    let area = match area {
+        IoArea::Input => 'I',
+        IoArea::Output => 'Q',
+        IoArea::Memory => 'M',
+    };
+    let typed = match (bit, bytes) {
+        (Some(bit), [byte]) => Some((format!("%{area}X{offset}.{bit}"), Value::Bool(*byte == 1))),
+        (None, [byte]) => Some((format!("%{area}B{offset}"), Value::Byte(*byte))),
+        (None, &[a, b]) => Some((
+            format!("%{area}W{offset}"),
+            Value::Word(u16::from_le_bytes([a, b])),
+        )),
+        (None, &[a, b, c, d]) => Some((
+            format!("%{area}D{offset}"),
+            Value::DWord(u32::from_le_bytes([a, b, c, d])),
+        )),
+        (None, &[a, b, c, d, e, f, g, h]) => Some((
+            format!("%{area}L{offset}"),
+            Value::LWord(u64::from_le_bytes([a, b, c, d, e, f, g, h])),
+        )),
+        _ => None,
+    };
+    match typed {
+        Some((text, value)) => {
+            let address = IoAddress::parse(&text).ok().map(|address| (address, value));
+            (text, address)
+        }
+        None => (format!("%{area}{offset} ({} bytes)", bytes.len()), None),
+    }
+}
+
+/// Plays the trace's wall-clock readings to the build while it lives, and ends them when the
+/// replay ends however it ends.
+struct Playback;
+
+impl Drop for Playback {
+    fn drop(&mut self) {
+        readings::stop_playing();
     }
 }
 

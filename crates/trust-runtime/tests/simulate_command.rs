@@ -4,52 +4,19 @@
 //!
 //! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+mod simulator_support;
 
-use base64::Engine as _;
-use serde_json::{json, Value};
+use std::path::PathBuf;
+
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use trust_runtime_core::native::image::{Image, StmtRecord, SymbolRecord};
 use trust_runtime_core::trace::{
-    decode, Activation, Change, ChangeKind, ChangeSource, CycleFault, IoArea, Located, Trace,
-    TraceEnd, TraceOrigin,
+    Activation, Change, ChangeKind, ChangeSource, CycleFault, IoArea, Located, TraceEnd,
+    TraceOrigin,
 };
 
-/// A resource that runs a cycle every 10 ms, halts on a fault, and writes no retain file.
-const RUNTIME_TOML: &str = "[bundle]
-version = 1
-
-[resource]
-name = \"Probe\"
-cycle_interval_ms = 10
-
-[runtime.control]
-mode = \"production\"
-debug_enabled = false
-
-[runtime.log]
-level = \"info\"
-
-[runtime.retain]
-mode = \"none\"
-save_interval_ms = 1000
-
-[runtime.watchdog]
-enabled = false
-timeout_ms = 1000
-action = \"halt\"
-
-[runtime.fault]
-policy = \"halt\"
-";
-
-/// The project's I/O: the simulated driver, which a simulator does not start either.
-const IO_TOML: &str = "[io]
-driver = \"simulated\"
-params = {}
-";
+use simulator_support::{decoded, project_with, Simulator};
 
 /// Counts its cycles, stamps each with `CURRENT_DT()`, and divides by zero in its third.
 const MAIN_ST: &str = "
@@ -161,149 +128,8 @@ target = "%IX0.0"
 value = "TRUE"
 "#;
 
-fn trust_runtime() -> Command {
-    Command::new(
-        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
-            .expect("Cargo provides trust-runtime to its integration tests"),
-    )
-}
-
 fn project() -> PathBuf {
     project_with(MAIN_ST)
-}
-
-/// A built project of the resource above whose program is `main_st`.
-fn project_with(main_st: &str) -> PathBuf {
-    let project = trust_test_support::unique_temp_path("simulate-command");
-    std::fs::create_dir_all(project.join("src")).expect("create the project");
-    std::fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("write runtime.toml");
-    std::fs::write(project.join("io.toml"), IO_TOML).expect("write io.toml");
-    std::fs::write(project.join("src/main.st"), main_st).expect("write main.st");
-    let built = trust_runtime()
-        .arg("build")
-        .arg("--project")
-        .arg(&project)
-        .output()
-        .expect("run trust-runtime build");
-    assert!(
-        built.status.success(),
-        "trust-runtime build failed:\n{}",
-        String::from_utf8_lossy(&built.stderr)
-    );
-    project
-}
-
-struct Simulator {
-    child: Child,
-    input: Option<ChildStdin>,
-    output: BufReader<ChildStdout>,
-}
-
-impl Simulator {
-    fn start(project: &Path) -> Self {
-        let mut child = trust_runtime()
-            .arg("simulate")
-            .arg("--project")
-            .arg(project)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .expect("start trust-runtime simulate");
-        let input = child.stdin.take();
-        let output = BufReader::new(child.stdout.take().expect("the simulator's output"));
-        Self {
-            child,
-            input,
-            output,
-        }
-    }
-
-    /// Sends `request` as one line and reads the one line that answers it.
-    fn call(&mut self, request: &Value) -> Value {
-        let input = self.input.as_mut().expect("the simulator's input");
-        writeln!(input, "{request}").expect("write a request");
-        input.flush().expect("flush the request");
-        let mut line = String::new();
-        self.output.read_line(&mut line).expect("read a response");
-        serde_json::from_str(&line)
-            .unwrap_or_else(|error| panic!("a response line that is not JSON ({error}): {line:?}"))
-    }
-
-    fn counter(&mut self, id: u64) -> Value {
-        self.read(id, "Main.counter")
-    }
-
-    /// The value of the variable at `path` that the last completed scan left.
-    fn read(&mut self, id: u64, path: &str) -> Value {
-        let reply =
-            self.call(&json!({"id": id, "type": "variables.read", "params": {"paths": [path]}}));
-        assert_eq!(reply["ok"], json!(true), "{reply}");
-        reply["result"]["values"][0]["value"].clone()
-    }
-
-    /// Runs `cycles` cycles and answers the advance's result.
-    fn advance(&mut self, id: u64, cycles: u64) -> Value {
-        let reply = self
-            .call(&json!({"id": id, "type": "simulator.advance", "params": {"cycles": cycles}}));
-        assert_eq!(reply["ok"], json!(true), "{reply}");
-        reply["result"].clone()
-    }
-
-    /// Sends the request `kind` with `params`, asserts that it was answered, and gives its result.
-    fn request(&mut self, id: u64, kind: &str, params: Value) -> Value {
-        let reply = self.call(&json!({"id": id, "type": kind, "params": params}));
-        assert_eq!(reply["ok"], json!(true), "{reply}");
-        reply["result"].clone()
-    }
-
-    /// Sets the global `name` to `value` before the next scan (`set`).
-    fn set(&mut self, id: u64, name: &str, value: &str) {
-        let queued = self.call(&json!({"id": id, "type": "set", "params": {
-            "target": format!("global:{name}"), "value": value
-        }}));
-        assert_eq!(queued["ok"], json!(true), "{queued}");
-    }
-
-    /// The ended trace `trace`'s state, and its file read part by part from request `id` on, each
-    /// part's offset, CRC-32 and next offset checked, and the whole file's SHA-256 against the
-    /// state's.
-    fn trace(&mut self, id: u64, trace: u64) -> (Value, Vec<u8>) {
-        let state = self.call(&json!({"id": id, "type": "trace.read", "params": {"trace": trace}}));
-        assert_eq!(state["ok"], json!(true), "{state}");
-        let state = state["result"].clone();
-        let bytes = state["bytes"].as_u64().expect("an ended trace's bytes");
-        let mut file = Vec::new();
-        let mut request = id;
-        while u64::try_from(file.len()).unwrap() < bytes {
-            request += 1;
-            let part = self.call(&json!({"id": request, "type": "trace.read", "params": {
-                "trace": trace, "offset": file.len()
-            }}));
-            assert_eq!(part["ok"], json!(true), "{part}");
-            let part = &part["result"];
-            assert_eq!(part["offset"], json!(file.len()));
-            let data = base64::engine::general_purpose::STANDARD
-                .decode(part["data"].as_str().expect("a part's data"))
-                .expect("a part's data is base64");
-            assert!(!data.is_empty() && data.len() <= 4096, "{part}");
-            assert_eq!(
-                part["crc32"],
-                json!(format!("{:08x}", crc32fast::hash(&data)))
-            );
-            file.extend_from_slice(&data);
-            assert_eq!(part["next_offset"], json!(file.len()));
-        }
-        assert_eq!(state["sha256"], json!(hex(&Sha256::digest(&file))));
-        (state, file)
-    }
-
-    /// Calls `method` of interface `interface` of `Main.Heating` with `inputs`.
-    fn call_method(&mut self, id: u64, interface: &str, method: &str, inputs: Value) -> Value {
-        self.call(&json!({"id": id, "type": "method.call", "params": {
-            "instance": "Main.Heating", "interface": interface, "method": method, "inputs": inputs
-        }}))
-    }
 }
 
 #[test]
@@ -412,16 +238,6 @@ fn a_tool_calls_a_method_between_scans_and_a_faulting_method_faults_the_resource
     let status = simulator.child.wait().expect("the simulator ends");
     assert!(status.success(), "{status}");
     let _ = std::fs::remove_dir_all(project);
-}
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn decoded(file: &[u8]) -> Trace {
-    let decoded = decode(file).expect("the trace decodes");
-    assert_eq!(decoded.damaged_cycle, None);
-    decoded.trace
 }
 
 /// The control link's write of the INT global `limit`: its bytes, little-endian.
@@ -864,121 +680,4 @@ fn a_recording_keeps_a_method_call_as_its_next_cycles_change() {
     let status = simulator.child.wait().expect("the simulator ends");
     assert!(status.success(), "{status}");
     let _ = std::fs::remove_dir_all(project);
-}
-
-/// A program that counts its activations in the task `Fast` of `interval_ms` and writes the count
-/// times `factor` to the located output `level` at `%QW0`.
-fn counting_st(factor: u32, interval_ms: u32) -> String {
-    format!(
-        "
-VAR_GLOBAL
-    level AT %QW0 : INT;
-END_VAR
-PROGRAM Main
-VAR
-    count : INT := 0;
-END_VAR
-count := count + 1;
-level := count * {factor};
-END_PROGRAM
-CONFIGURATION Plant
-RESOURCE Probe ON PLC
-    TASK Fast (INTERVAL := T#{interval_ms}ms, PRIORITY := 1);
-    PROGRAM P1 WITH Fast : Main;
-END_RESOURCE
-END_CONFIGURATION
-"
-    )
-}
-
-/// Uploads `trace` for a replay (`transfer.begin {"for": "trace"}` and its parts, specification 11
-/// §6.8.1, "Replaying a trace") from request `id` on, and gives the transfer's id.
-fn upload_trace(simulator: &mut Simulator, id: u64, trace: &[u8]) -> Value {
-    let digest: String = Sha256::digest(trace)
-        .iter()
-        .fold(String::new(), |mut text, byte| {
-            text.push_str(&format!("{byte:02x}"));
-            text
-        });
-    let begun = simulator.request(
-        id,
-        "transfer.begin",
-        json!({"bytes": trace.len(), "sha256": digest, "for": "trace"}),
-    );
-    let transfer = begun["transfer"].clone();
-    for (index, part) in trace.chunks(4_096).enumerate() {
-        simulator.request(
-            id + 1 + u64::try_from(index).unwrap(),
-            "transfer.part",
-            json!({
-                "transfer": transfer,
-                "offset": index * 4_096,
-                "data": base64::engine::general_purpose::STANDARD.encode(part),
-                "crc32": format!("{:08x}", trust_runtime_core::crc32::checksum(part)),
-            }),
-        );
-    }
-    transfer
-}
-
-#[test]
-fn a_trace_replays_in_a_simulator_of_its_build_and_shows_where_a_changed_build_differs() {
-    // Specification 48 RU-60 and specification 11 §6.8.1, "Replaying a trace": a simulator takes
-    // a trace before its first cycle, runs the recorded cycles on the recorded inputs with the
-    // recorded tasks, and compares each cycle's outputs. Worked by hand: `count * 10` gives `level`
-    // 10, 20 and 30 in the 3 recorded cycles. A simulator of the same build replays them with every
-    // output matched, as the same program, and holds the last state, `count` 3. A build whose
-    // program writes `count * 20`, with the same declarations, first differs at cycle 0, 10 in the
-    // trace against 20, and in the 2 cycles after it too, as a changed program. A simulator that
-    // has run cycles, here the replay's, refuses another replay as `simulator_started`. A build
-    // whose task has a 20 ms interval matches, since the recorded activations run, not its own
-    // schedule. Catches a replay that runs the build's own schedule instead of the recorded tasks,
-    // compares nothing, misses the first difference or its values, or replays after a cycle.
-    let project = project_with(&counting_st(10, 10));
-    let mut recorder = Simulator::start(&project);
-    let started = recorder.request(1, "trace.record", json!({"cycles": 3}));
-    let trace_id = started["trace"].as_u64().expect("a recording's id");
-    recorder.advance(2, 3);
-    let (_, file) = recorder.trace(3, trace_id);
-    let recorded = decoded(&file);
-    assert_eq!(recorded.cycles.len(), 3);
-
-    let mut same = Simulator::start(&project);
-    let transfer = upload_trace(&mut same, 10, &file);
-    let replayed = same.request(20, "simulator.replay", json!({"transfer": transfer}));
-    assert_eq!(
-        replayed,
-        json!({"matched": true, "cycles": 3, "kind": "same_program",
-            "first_difference": null, "later_differing_cycles": 0, "notes": []})
-    );
-    assert_eq!(same.read(21, "P1.count"), json!(3));
-
-    // The recorded tasks run, not the build's own schedule: a build whose task `Fast` has a 20 ms
-    // interval, the same declarations and logic, matches every recorded cycle.
-    let slower = project_with(&counting_st(10, 20));
-    let mut scheduled = Simulator::start(&slower);
-    let transfer = upload_trace(&mut scheduled, 22, &file);
-    let replayed = scheduled.request(29, "simulator.replay", json!({"transfer": transfer}));
-    assert_eq!(replayed["matched"], json!(true), "{replayed}");
-    assert_eq!(replayed["kind"], json!("changed_program"));
-
-    let changed = project_with(&counting_st(20, 10));
-    let mut other = Simulator::start(&changed);
-    let transfer = upload_trace(&mut other, 30, &file);
-    let replayed = other.request(40, "simulator.replay", json!({"transfer": transfer}));
-    assert_eq!(replayed["matched"], json!(false), "{replayed}");
-    assert_eq!(replayed["kind"], json!("changed_program"));
-    assert_eq!(replayed["cycles"], json!(3));
-    assert_eq!(replayed["later_differing_cycles"], json!(2));
-    assert_eq!(
-        replayed["first_difference"],
-        json!({"cycle": 0, "time_ns": recorded.cycles[0].time_ns, "outputs": [
-            {"path": "level", "address": "%QW0", "trace": 10, "build": 20}]})
-    );
-
-    let transfer = upload_trace(&mut other, 50, &file);
-    let refused = other.call(&json!({"id": 60, "type": "simulator.replay",
-        "params": {"transfer": transfer}}));
-    assert_eq!(refused["ok"], json!(false), "{refused}");
-    assert_eq!(refused["error_code"], json!("simulator_started"));
 }

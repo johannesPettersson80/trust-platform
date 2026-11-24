@@ -39,5 +39,7 @@
   `transfer.begin {"for": "trace"}`): it takes the recorded memory, runs the recorded cycles on the
   recorded input images with the recorded tasks at their times, and reports the first cycle whose
   outputs or fault differ (specification 48 RU-60). It replays a build whose memory is laid out as
-  the recorded program's, and lists in its notes the trace's changes from outside, forces and
-  readings of the wall clock, which it does not apply yet.
+  the recorded program's. The trace's forces start in effect, each cycle's changes from outside
+  (writes and forces of variables and addresses, their releases, and method calls) are applied
+  before the cycle as the runtime applied them, and the scan reads the recorded `CURRENT_DT`
+  values. A variable, address or method the build lacks is listed once in the notes and skipped.

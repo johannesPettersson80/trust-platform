@@ -171,12 +171,7 @@ fn parse(params: Option<&JsonValue>) -> Result<Asked, String> {
 fn typed<Q: VariableQueuePort>(asked: Asked, host: &Q) -> Result<MethodCall, String> {
     let mut typed = None;
     host.with_program_image(&mut |image| {
-        typed = Some(
-            match method_inputs(image, &asked.interface, &asked.method) {
-                Ok(declared) => typed_inputs(image, &declared, &asked.inputs),
-                Err(_) => Ok(Vec::new()),
-            },
-        );
+        typed = Some(image_typed_inputs(image, &asked));
     });
     let inputs = match typed {
         Some(inputs) => inputs?,
@@ -202,6 +197,54 @@ fn typed<Q: VariableQueuePort>(asked: Asked, host: &Q) -> Result<MethodCall, Str
         inputs,
         literals,
     })
+}
+
+/// The call of `instance`'s `method` of `interface` with `inputs`, each an input's name and
+/// Structured Text literal, typed as `image` declares the method's inputs: what `method.call`
+/// makes of its request, and what a replay makes of a recorded call (specification 48 RU-60).
+///
+/// # Errors
+///
+/// As `method.call` refuses its inputs: an input the method does not have, and a literal the
+/// input's type does not take, which names the input.
+pub fn typed_call(
+    image: &Image<'_>,
+    instance: &str,
+    interface: &str,
+    method: &str,
+    inputs: &[(&str, &str)],
+) -> Result<MethodCall, String> {
+    let asked = Asked {
+        instance: SmolStr::new(instance),
+        interface: SmolStr::new(interface),
+        method: SmolStr::new(method),
+        inputs: inputs
+            .iter()
+            .map(|(input, literal)| (SmolStr::new(input), (*literal).to_string()))
+            .collect(),
+    };
+    let inputs = image_typed_inputs(image, &asked)?;
+    let literals = asked
+        .inputs
+        .iter()
+        .map(|(_, text)| SmolStr::new(text))
+        .collect();
+    Ok(MethodCall {
+        instance: asked.instance,
+        interface: asked.interface,
+        method: asked.method,
+        inputs,
+        literals,
+    })
+}
+
+/// The inputs of the call `asked`, typed as `image` declares its method's; none for a method the
+/// image does not declare, which the kernel refuses by its path, its interface or the method.
+fn image_typed_inputs(image: &Image<'_>, asked: &Asked) -> Result<Vec<(SmolStr, Value)>, String> {
+    match method_inputs(image, &asked.interface, &asked.method) {
+        Ok(declared) => typed_inputs(image, &declared, &asked.inputs),
+        Err(_) => Ok(Vec::new()),
+    }
 }
 
 /// Each of `given`, an input's name and literal, as a value of the input `declared` names alike,

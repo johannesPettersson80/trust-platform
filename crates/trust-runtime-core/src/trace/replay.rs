@@ -104,7 +104,16 @@ pub fn located_value(image: &Image<'_>, variable: &Located, bytes: &[u8]) -> Opt
     if variable.bit.is_some() {
         return bytes.first().map(|bit| Value::Bool(*bit == 1));
     }
-    let at = resolve_path(image, &variable.path).ok()?;
+    path_value(image, &variable.path, bytes)
+}
+
+/// The value that `bytes`, a variable's bytes at its declared size as a trace records a write or a
+/// force (Appendix C, C.6), hold as the variable `path` of `image` holds a value: what a replay
+/// writes into the build (RU-60). `None` for a path the image does not name or bytes that are no
+/// value of its type.
+#[must_use]
+pub fn path_value(image: &Image<'_>, path: &str, bytes: &[u8]) -> Option<Value> {
+    let at = resolve_path(image, path).ok()?;
     let types = Types::of(image).ok()?;
     read_value(&types, bytes, 0, at.type_index).ok()
 }

@@ -34,6 +34,10 @@ struct HostClock;
 
 impl WallClock for HostClock {
     fn unix_millis() -> Result<i64, FaultCode> {
+        // A replay gives the build the trace's readings (specification 48 RU-60).
+        if let Some(millis) = trust_runtime_core::trace::readings::played() {
+            return Ok(millis);
+        }
         let millis = if let Some(clock) = SIMULATED_WALL_CLOCK.get() {
             clock.now().as_nanos() / 1_000_000
         } else {
