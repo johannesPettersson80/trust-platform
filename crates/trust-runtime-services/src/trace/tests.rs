@@ -647,7 +647,7 @@ fn the_file_names_each_variable_as_the_debugger_names_it() {
     let ChangeKind::MethodCall { inputs, .. } = &trace.cycles[0].changes[1].kind else {
         panic!("the method call is the cycle's second change");
     };
-    assert_eq!(inputs, &[("Setpoint".to_string(), "21.5".to_string())]);
+    assert_eq!(inputs, &[(String::from("Setpoint"), String::from("21.5"))]);
 }
 
 #[test]

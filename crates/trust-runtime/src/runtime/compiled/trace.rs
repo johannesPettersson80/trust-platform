@@ -11,6 +11,7 @@ use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::native::image::{Image, SectionId, StmtRecord, SymbolRecord, TaskRecord};
 use trust_runtime_core::native::memory::type_name;
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{
     readings, ChangeRef, ChangeSource, CycleFault, ImageTables, Located, TraceEnd,
 };
