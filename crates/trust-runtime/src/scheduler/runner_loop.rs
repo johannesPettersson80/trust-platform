@@ -344,6 +344,9 @@ fn handle_cycle_error<C: Clock + Clone>(
     watchdog: crate::watchdog::WatchdogPolicy,
     err: RuntimeError,
 ) -> Next {
+    // A recording ends when its resource faults, before the fault is published (specification 48
+    // RU-59): a fault in a scan ended it with that cycle already, one outside a scan ends it here.
+    runner.runtime.end_trace(TraceEnd::Faulted);
     match cycle_error_action(watchdog, runner.runtime.fault_policy(), err) {
         CycleErrorAction::Restart(reason) => retry_or_wait(runner, shared, restarts, &reason),
         CycleErrorAction::WatchdogHalt(watchdog_err) => {
@@ -363,7 +366,10 @@ fn handle_watchdog_overrun<C: Clock + Clone>(
     watchdog: crate::watchdog::WatchdogPolicy,
     active_elapsed: std::time::Duration,
 ) -> Option<Next> {
-    match watchdog_overrun_action(watchdog, active_elapsed)? {
+    let action = watchdog_overrun_action(watchdog, active_elapsed)?;
+    // The overrun faults the resource after its cycle was recorded (specification 48 RU-59).
+    runner.runtime.end_trace(TraceEnd::Faulted);
+    match action {
         OverrunAction::Restart => Some(retry_or_wait(
             runner,
             shared,
@@ -399,6 +405,8 @@ fn drain_commands<C: Clock + Clone>(
         match running_command_effect(command_class(&command)) {
             // A pause and a resume restart the simulation schedule (specification 46, §6.1 item 4).
             RunningCommandEffect::Pause => {
+                // A recording ends when its resource pauses (specification 48 RU-59).
+                runner.runtime.end_trace(TraceEnd::Paused);
                 *paused = true;
                 set_resource_state(state, ResourceState::Paused);
                 runner.timing.restart_schedule();
@@ -1092,8 +1100,10 @@ fn apply_resource_command(runtime: &mut CompiledRuntime, command: ResourceComman
             claim,
             respond_to,
         } => {
-            // A withdrawn reload is skipped: its caller has stopped waiting for it.
+            // A withdrawn reload is skipped: its caller has stopped waiting for it. A recording
+            // ends when the program changes (specification 48 RU-59).
             if claim.take() {
+                runtime.end_trace(TraceEnd::ProgramChanged);
                 let result = runtime.apply_online_change_bytes(&bytes);
                 let _ = respond_to.send(result);
             }
@@ -1163,6 +1173,9 @@ fn apply_resource_command(runtime: &mut CompiledRuntime, command: ResourceComman
         ResourceCommand::CallMethod { call, respond_to } => {
             let _ = respond_to.send(call_method(runtime, &call).0);
         }
+        // A recording is armed and stopped between two scans (specification 48 RU-59).
+        ResourceCommand::StartTrace(start) => start.serve(runtime),
+        ResourceCommand::StopTrace(stop) => stop.serve(runtime),
     }
 }
 

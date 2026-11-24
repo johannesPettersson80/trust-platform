@@ -385,6 +385,18 @@ END_PROGRAM
                         ),
                     ));
                 }
+                ResourceCommand::StartTrace(start) => {
+                    let _ = start.respond_to.send(Err(
+                        trust_runtime_services::trace::requests::TraceRefusal::Unavailable(
+                            "unsupported request".to_string(),
+                        ),
+                    ));
+                }
+                ResourceCommand::StopTrace(stop) => {
+                    let _ = stop
+                        .respond_to
+                        .send(trust_runtime_services::trace::requests::TraceState::Unknown);
+                }
                 ResourceCommand::MeshCatalogue { respond_to, .. } => {
                     let _ = respond_to.send(Err(
                         "mesh catalogue unavailable in ADS test fixture".to_owned()
@@ -444,6 +456,7 @@ END_PROGRAM
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         transfers: trust_runtime::control::new_transfer_session(),
+        traces: trust_runtime::control::new_traces(),
         plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
         experiments: trust_runtime::control::ControlExperimentService::default(),
         controllers: trust_runtime::control::ControllerParameterService::default(),

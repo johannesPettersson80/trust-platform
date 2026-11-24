@@ -50,6 +50,7 @@ impl ControlState {
     pub fn local(parts: LocalControl) -> Self {
         let state = Self {
             transfers: new_transfer_session(),
+            traces: crate::runtime::new_traces(),
             debug: parts.debug,
             identify: parts.identify,
             resource: parts.resource,

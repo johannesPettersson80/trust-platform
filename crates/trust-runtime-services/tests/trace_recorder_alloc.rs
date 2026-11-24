@@ -9,8 +9,14 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
+use smol_str::SmolStr;
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::native::image::Image;
+use trust_runtime_core::native::reflect::Located;
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{ChangeRef, ChangeSource, IoArea};
-use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_services::trace::{Budget, Goal, Recorder, Sizes};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,10 +97,62 @@ impl Drop for Armed {
     }
 }
 
+/// A program that gives, by name only, the bytes of the INT `Main.x`: 42.
+struct Program;
+
+impl CompiledVariables for Program {
+    fn read_named(&self, name: &str) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(name.into()))
+    }
+
+    fn read_named_bytes(
+        &self,
+        _name: &str,
+        out: &mut [u8],
+    ) -> Result<(usize, SmolStr), RuntimeError> {
+        out[..2].copy_from_slice(&[0x2A, 0]);
+        Ok((2, SmolStr::new_static("INT")))
+    }
+
+    fn write_named(&mut self, name: &str, _value: &Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(name.into()))
+    }
+
+    fn write_retained(&mut self, label: &str, _value: &Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(label.into()))
+    }
+
+    fn write_member(
+        &mut self,
+        _instance: u32,
+        member: &str,
+        _value: &Value,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(member.into()))
+    }
+
+    fn write_image(&mut self, _address: &IoAddress, _value: Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+
+    fn program_image(&self) -> Image<'_> {
+        unreachable!("the stand-in holds its variables by name, without a program image")
+    }
+
+    fn read_located(&self, _at: &Located) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+
+    fn write_located(&mut self, _at: &Located, _value: &Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+}
+
 #[test]
 fn recording_cycles_allocates_nothing() {
     // Catches any growth of a reserved buffer in a scan: three cycles with the start state, a force,
-    // variable and address writes, a method call, activations, readings and both images.
+    // variable and address writes, a write read back from the program, a method call,
+    // activations, readings and both images.
     let sizes = Sizes {
         areas: [2, 4, 8, 16, 8, 32],
         tasks: 2,
@@ -148,6 +206,7 @@ fn recording_cycles_allocates_nothing() {
                 inputs: &[("Setpoint", "21.5")],
             },
         );
+        recorder.written(ChangeSource::ControlLink, "Main.x", &Program);
         recorder.activation(0, now.as_nanos());
         recorder.activation(1, now.as_nanos());
         recorder.wall_clock(1_795_000_000_000 + cycle);

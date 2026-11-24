@@ -14,6 +14,7 @@ mod tests;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{
     change_len, cycle_record_len, encode_change, encode_cycle_parts, encode_records, Activation,
     ChangeRef, ChangeSource, CycleFault, CycleParts, ImageTables, Located, Meta, StartParts,
@@ -61,16 +62,19 @@ pub struct Budget {
     pub extra: usize,
     /// Bytes of the forces in effect at the start.
     pub forces: usize,
+    /// Bytes of the largest value one write records ([`Recorder::written`]).
+    pub value: usize,
 }
 
 impl Budget {
     /// A computer's: 64 KiB of changes and 256 readings in a cycle, 4 MiB more for the recording,
-    /// 64 KiB of forces.
+    /// 64 KiB of forces and a value of up to 64 KiB.
     pub const COMPUTER: Self = Self {
         cycle_changes: 64 * 1024,
         cycle_readings: 256,
         extra: 4 * 1024 * 1024,
         forces: 64 * 1024,
+        value: 64 * 1024,
     };
 }
 
@@ -145,6 +149,8 @@ pub struct Recorder {
     start_areas: Vec<u8>,
     start_forces: Vec<u8>,
     start_force_count: usize,
+    /// Room for the bytes of one written value, read back ([`Recorder::written`]).
+    value: Vec<u8>,
     first: Option<(Duration, u64)>,
     task_runs: u64,
     end: Option<TraceEnd>,
@@ -193,93 +199,43 @@ impl Recorder {
             .iter()
             .fold(0_usize, |sum, len| sum.saturating_add(*len));
         let activations = sizes.tasks.max(1);
-        let needed = [
-            records,
-            cycles
-                .saturating_add(1)
-                .saturating_mul(core::mem::size_of::<usize>()),
-            areas,
-            budget.forces,
-            activations.saturating_mul(core::mem::size_of::<Activation>()),
-            budget.cycle_readings.saturating_mul(8),
-            budget.cycle_changes,
-            sizes.areas[0],
-            sizes.areas[1],
-        ]
-        .iter()
-        .fold(0_usize, |sum, part| sum.saturating_add(*part));
-        let refused = || ReserveError::InsufficientMemory { needed };
-        let mut recorder = Self {
-            goal,
-            sizes,
-            records: Vec::new(),
-            record_ends: Vec::new(),
-            limits: Limits {
-                records,
-                cycles: cycles.saturating_add(1),
-                forces: budget.forces,
-                changes: budget.cycle_changes,
-                readings: budget.cycle_readings,
-                activations,
-            },
-            start_areas: Vec::new(),
-            start_forces: Vec::new(),
-            start_force_count: 0,
-            first: None,
-            task_runs: 0,
-            end: None,
-            reserved: needed,
-            cycle: Scratch {
-                open: false,
-                overflow: false,
-                time: Duration::ZERO,
-                activations: Vec::new(),
-                readings: Vec::new(),
-                changes: Vec::new(),
-                change_count: 0,
-                inputs: Vec::new(),
-                outputs: Vec::new(),
-            },
+        let needed = needed_bytes(&sizes, &budget, cycles, records, areas, activations);
+        let reserve = || -> Option<Self> {
+            Some(Self {
+                goal,
+                sizes,
+                records: room(records)?,
+                record_ends: room(cycles.saturating_add(1))?,
+                limits: Limits {
+                    records,
+                    cycles: cycles.saturating_add(1),
+                    forces: budget.forces,
+                    changes: budget.cycle_changes,
+                    readings: budget.cycle_readings,
+                    activations,
+                },
+                start_areas: zeroed(areas)?,
+                start_forces: room(budget.forces)?,
+                start_force_count: 0,
+                value: zeroed(budget.value)?,
+                first: None,
+                task_runs: 0,
+                end: None,
+                reserved: needed,
+                cycle: Scratch {
+                    open: false,
+                    overflow: false,
+                    time: Duration::ZERO,
+                    activations: room(activations)?,
+                    readings: room(budget.cycle_readings)?,
+                    changes: room(budget.cycle_changes)?,
+                    change_count: 0,
+                    inputs: room(sizes.areas[0])?,
+                    outputs: room(sizes.areas[1])?,
+                },
+            })
         };
-        recorder
-            .records
-            .try_reserve_exact(records)
-            .map_err(|_| refused())?;
-        recorder
-            .record_ends
-            .try_reserve_exact(cycles.saturating_add(1))
-            .map_err(|_| refused())?;
-        recorder
-            .start_areas
-            .try_reserve_exact(areas)
-            .map_err(|_| refused())?;
-        recorder.start_areas.resize(areas, 0);
-        recorder
-            .start_forces
-            .try_reserve_exact(budget.forces)
-            .map_err(|_| refused())?;
-        let cycle = &mut recorder.cycle;
-        cycle
-            .activations
-            .try_reserve_exact(activations)
-            .map_err(|_| refused())?;
-        cycle
-            .readings
-            .try_reserve_exact(budget.cycle_readings)
-            .map_err(|_| refused())?;
-        cycle
-            .changes
-            .try_reserve_exact(budget.cycle_changes)
-            .map_err(|_| refused())?;
-        cycle
-            .inputs
-            .try_reserve_exact(sizes.areas[0])
-            .map_err(|_| refused())?;
-        cycle
-            .outputs
-            .try_reserve_exact(sizes.areas[1])
-            .map_err(|_| refused())?;
-        Ok(recorder)
+        reserve().ok_or(ReserveError::InsufficientMemory { needed })
     }
 
     /// The bytes the recording reserved, as `trace.record` answers them.
@@ -359,6 +315,63 @@ impl Recorder {
         }
         encode_change(source, change, &mut cycle.changes);
         cycle.change_count += 1;
+    }
+
+    /// A write from outside to the variable `path`, which `variables` has applied: recorded as the
+    /// bytes the variable now holds, at its declared size, with its type's name, read back into
+    /// the reserved room for a value. A value longer than that room, or one that cannot be read
+    /// back, ends the recording `memory_full` at the cycle's end.
+    pub fn written(&mut self, source: ChangeSource, path: &str, variables: &dyn CompiledVariables) {
+        if !self.cycle.open {
+            return;
+        }
+        // The room is taken out while its bytes are recorded and put back: moving a vector
+        // allocates nothing.
+        let mut value = core::mem::take(&mut self.value);
+        match variables.read_named_bytes(path, &mut value) {
+            Ok((len, type_name)) => self.change(
+                source,
+                &ChangeRef::VariableWrite {
+                    path,
+                    type_name: &type_name,
+                    value: &value[..len],
+                },
+            ),
+            Err(_) => self.cycle.overflow = true,
+        }
+        self.value = value;
+    }
+
+    /// A force in effect at the start, on the trace's first cycle ([`Begin::First`]), once the
+    /// boundary applied it: recorded as the bytes the forced variable holds, read back as
+    /// [`Self::written`] reads them.
+    pub fn start_forced(
+        &mut self,
+        source: ChangeSource,
+        path: &str,
+        variables: &dyn CompiledVariables,
+    ) {
+        let mut value = core::mem::take(&mut self.value);
+        match variables.read_named_bytes(path, &mut value) {
+            Ok((len, type_name)) => self.start_force(
+                source,
+                &ChangeRef::VariableForce {
+                    path,
+                    type_name: &type_name,
+                    value: &value[..len],
+                },
+            ),
+            Err(_) => self.cycle.overflow = true,
+        }
+        self.value = value;
+    }
+
+    /// Readings of the wall clock were lost, which the room for them could not keep: the recording
+    /// ends `memory_full` at the cycle's end.
+    pub fn readings_lost(&mut self) {
+        if self.cycle.open {
+            self.cycle.overflow = true;
+        }
     }
 
     /// The task of index `task` starts with the logical time `now_ns`.
@@ -505,6 +518,48 @@ impl Recorder {
         }
         Some(encode_records(&meta, located, &start, image, &records))
     }
+}
+
+/// The bytes a recording reserves: its records and their ends, the start state, the forces, a
+/// value, and one cycle's activations, readings, changes and images.
+fn needed_bytes(
+    sizes: &Sizes,
+    budget: &Budget,
+    cycles: usize,
+    records: usize,
+    areas: usize,
+    activations: usize,
+) -> usize {
+    [
+        records,
+        cycles
+            .saturating_add(1)
+            .saturating_mul(core::mem::size_of::<usize>()),
+        areas,
+        budget.forces,
+        budget.value,
+        activations.saturating_mul(core::mem::size_of::<Activation>()),
+        budget.cycle_readings.saturating_mul(8),
+        budget.cycle_changes,
+        sizes.areas[0],
+        sizes.areas[1],
+    ]
+    .iter()
+    .fold(0_usize, |sum, part| sum.saturating_add(*part))
+}
+
+/// An empty vector with room for `len` items, reserved now, or `None` when it cannot be.
+fn room<T>(len: usize) -> Option<Vec<T>> {
+    let mut vector = Vec::new();
+    vector.try_reserve_exact(len).ok()?;
+    Some(vector)
+}
+
+/// `len` zero bytes, reserved now, or `None` when they cannot be.
+fn zeroed(len: usize) -> Option<Vec<u8>> {
+    let mut bytes = room(len)?;
+    bytes.resize(len, 0);
+    Some(bytes)
 }
 
 /// The cycles a recording of `goal` reserves memory for: a duration's cycles at the resource's

@@ -179,6 +179,12 @@ pub(super) fn serve_command<C: Clock + Clone>(
         ));
         return false;
     }
+    if let ResourceCommand::StartTrace(start) = command {
+        // A faulted resource records no cycle trace until a restart (specification 11 section
+        // 6.8.1, "Cycle traces").
+        start.refuse(ResourceState::Faulted);
+        return false;
+    }
     match faulted_command_effect(command_class(&command)) {
         // The control plane refuses pause and resume while faulted; they are ignored if they
         // arrive. Variable writes are dropped: fault handling is a clearing boundary (spec 11

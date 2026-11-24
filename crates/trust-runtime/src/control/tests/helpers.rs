@@ -215,6 +215,18 @@ fn control_test_state_with_status_reports(
                         ),
                     ));
                 }
+                ResourceCommand::StartTrace(start) => {
+                    let _ = start.respond_to.send(Err(
+                        trust_runtime_services::trace::requests::TraceRefusal::Unavailable(
+                            "unsupported request".to_string(),
+                        ),
+                    ));
+                }
+                ResourceCommand::StopTrace(stop) => {
+                    let _ = stop
+                        .respond_to
+                        .send(trust_runtime_services::trace::requests::TraceState::Unknown);
+                }
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::ProgramInstalled
                 | ResourceCommand::Pause
@@ -231,6 +243,7 @@ fn control_test_state_with_status_reports(
     }]);
     ControlState {
         transfers: crate::control::new_transfer_session(),
+        traces: crate::runtime::new_traces(),
         debug,
         identify: crate::io::IdentifyHandle::default(),
         resource,

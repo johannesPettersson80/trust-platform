@@ -81,6 +81,12 @@ pub trait ProgramMemory {
     /// Writes `data` at `offset` of area `id`; `false` outside the area.
     fn write_area(&mut self, id: u8, offset: usize, data: &[u8]) -> bool;
 
+    /// The input image that the drivers and Live Values fill (`%I`), which the program copies into
+    /// its input area when its tasks run; empty for memory without one.
+    fn input_image(&self) -> &[u8] {
+        &[]
+    }
+
     /// The frames of the held scan's call stack, innermost first; none between scans.
     fn frames(&self) -> Vec<StopFrame> {
         Vec::new()
@@ -127,6 +133,34 @@ fn read_bytes<M: ProgramMemory + ?Sized>(memory: &M, place: Place, out: &mut [u8
         Place::Area { area, offset } => memory.read_area(area, offset as usize, out),
         Place::Frame { frame, offset } => memory.read_frame(frame, offset as usize, out),
     }
+}
+
+/// The bytes of the variable of type `type_index` at `place`, at its declared size, into the start
+/// of `out`, and how many: what a cycle trace records of a write from outside (specification 48
+/// RU-59). It allocates nothing.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidBundle`] for a type the type table does not hold or a place outside its
+/// area or frame, and [`RuntimeError::ControlError`] for a value longer than `out`.
+pub fn read_place_bytes<M: ProgramMemory + ?Sized>(
+    memory: &M,
+    place: Place,
+    type_index: u32,
+    out: &mut [u8],
+) -> Result<usize, RuntimeError> {
+    let image = memory.image();
+    let types = Types::of(&image)?;
+    let size = types.get(type_index)?.size as usize;
+    let Some(out) = out.get_mut(..size) else {
+        return Err(RuntimeError::ControlError(SmolStr::new_static(
+            "the value is longer than the room for it",
+        )));
+    };
+    if !read_bytes(memory, place, out) {
+        return Err(damaged("symbol table"));
+    }
+    Ok(size)
 }
 
 fn write_bytes<M: ProgramMemory + ?Sized>(memory: &mut M, place: Place, data: &[u8]) -> bool {

@@ -25,6 +25,14 @@ use super::queues::{ForcedVarTarget, LiveValueQueues, PendingVarTarget, PendingV
 pub trait WriteSink {
     /// The boundary refused `target` with `error` at logical `time`.
     fn refused(&mut self, target: &str, error: &RuntimeError, time: Duration);
+
+    /// The boundary applied the queued write of `target` to `variables`: a cycle trace records it
+    /// (specification 48 RU-59). Forces, which the boundary applies again every cycle, are not
+    /// reported here. The default records nothing, and nothing is worked out for it: the target
+    /// itself is passed, so that a sink that records nothing allocates nothing.
+    fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
+        let _ = (target, variables);
+    }
 }
 
 /// Whether an error consuming the enclosing cycle's bounded resources must fault the cycle. An
@@ -88,11 +96,14 @@ where
             // A local of a paused frame is not reachable from the scan; the queued write is refused.
             PendingVarTarget::Local(_, _) => Err(RuntimeError::ReferenceLifetime),
         };
-        if let Err(error) = result {
-            let operational = is_cycle_operational_error(&error);
-            sink.refused(&pending_var_label(&target), &error, time);
-            if operational {
-                return Err(error);
+        match result {
+            Ok(()) => sink.written(&target, &*variables),
+            Err(error) => {
+                let operational = is_cycle_operational_error(&error);
+                sink.refused(&pending_var_label(&target), &error, time);
+                if operational {
+                    return Err(error);
+                }
             }
         }
     }

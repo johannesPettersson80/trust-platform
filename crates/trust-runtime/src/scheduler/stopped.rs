@@ -38,6 +38,8 @@ pub(super) fn wait_while_stopped<C: Clock + Clone>(
     // What the stepped scans since the resource stopped keep (specification 11 section 6.8.1);
     // every stop starts this wait again, so the steps after a new stop start afresh.
     let mut steps = stepped::Steps::default();
+    // A recording ends when its resource stops (specification 48 RU-59).
+    runner.runtime.end_trace(super::TraceEnd::ResourceStopped);
     loop {
         // An exit request is checked first, so no program starts after it. The process ends, so
         // identify ends and drives its output off.
@@ -103,6 +105,12 @@ fn serve_command<C: Clock + Clone>(
                     ResourceState::Stopped,
                 ),
             ));
+            return;
+        }
+        // A stopped resource records no cycle trace (specification 11 section 6.8.1, "Cycle
+        // traces"); its recording ended when it stopped.
+        ResourceCommand::StartTrace(start) => {
+            start.refuse(ResourceState::Stopped);
             return;
         }
         _ => {}

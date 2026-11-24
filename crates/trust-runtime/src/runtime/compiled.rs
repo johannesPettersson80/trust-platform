@@ -15,6 +15,7 @@ mod process_io;
 mod services;
 mod state;
 mod tags;
+pub(crate) mod trace;
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration as PhysicalDuration, Instant};
@@ -116,6 +117,8 @@ pub struct CompiledRuntime {
     identify: crate::io::IdentifyHandle,
     /// Whether the safe state of a stop or a fault was handed to the drivers since the last scan.
     safe_state_delivered: bool,
+    /// The cycle trace being recorded (specification 48 RU-59).
+    trace: Option<trace::TraceSession>,
 }
 
 /// This computer's device for a program whose task activations run at most `budget` statements
@@ -264,6 +267,7 @@ impl CompiledRuntime {
             last_task_runs: Vec::new(),
             identify: crate::io::IdentifyHandle::default(),
             safe_state_delivered: false,
+            trace: None,
         };
         runtime.publish_program_memory();
         Ok(runtime)
@@ -360,9 +364,20 @@ impl CompiledRuntime {
             links: &mut self.links,
             drivers: &self.io_drivers,
             input_len,
+            trace: self.trace.as_mut(),
         };
         let mut result = self.cycle.run_scan(now, deadline, &mut observer);
         let task_runs = std::mem::take(&mut observer.task_runs);
+        // A failed scan is a recording's last cycle, with its fault (specification 48 RU-59).
+        if result.is_err()
+            && let Some(session) = self.trace.as_mut()
+        {
+            observer::take_readings(&mut session.recorder);
+            let fault = self.cycle.program().last_fault();
+            let fault = trace::cycle_fault(&self.image.image(), &fault);
+            session.recorder.end_cycle(Some(fault));
+        }
+        self.publish_trace();
         // The state the reads between scans answer from (specification 11 §6.13.1): the state the
         // scan left, a faulted scan's too (decision O2), published before a fault's safe-state
         // action; a failure after the scan ended does not replace it.
@@ -489,6 +504,7 @@ impl CompiledRuntime {
     ///
     /// The fault of the restart; the program is then as it was.
     pub fn restart(&mut self, mode: RestartMode) -> Result<(), RuntimeError> {
+        self.end_trace(trust_runtime_core::trace::TraceEnd::Restarted);
         self.restart_from(mode, RetainSource::Memory)
     }
 

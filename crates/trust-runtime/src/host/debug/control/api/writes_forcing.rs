@@ -2,6 +2,8 @@ use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_services::live_values::apply::{self, WriteSink};
 use trust_runtime_services::live_values::queues::REQUEST_QUEUE_CAPACITY;
+use trust_runtime_core::trace::ChangeSource;
+use trust_runtime_services::trace::Recorder;
 
 impl DebugControl {
     /// Queue a one-shot I/O write. A refused write is reported as `write_rejected` and queues
@@ -376,8 +378,12 @@ impl DebugControl {
         generation: Generation,
         variables: &mut dyn CompiledVariables,
         time: Duration,
+        trace: Option<&mut Recorder>,
     ) -> Result<(), RuntimeError> {
-        let mut sink = RejectedEvents::default();
+        let mut sink = RejectedEvents {
+            events: Vec::new(),
+            trace,
+        };
         let result = {
             let mut state = self.lock();
             let queues = &mut state.live_values;
@@ -426,19 +432,31 @@ impl DebugControl {
 }
 
 /// The refusals one shared Live Values apply reported. They are held until the debug state lock is
-/// released, so the report reuses the normal event path instead of taking the lock again.
-#[derive(Default)]
-struct RejectedEvents {
+/// released, so the report reuses the normal event path instead of taking the lock again. With a
+/// cycle trace being recorded, the writes the apply made are recorded too.
+struct RejectedEvents<'r> {
     events: Vec<RuntimeEvent>,
+    trace: Option<&'r mut Recorder>,
 }
 
-impl WriteSink for RejectedEvents {
+impl WriteSink for RejectedEvents<'_> {
     fn refused(&mut self, target: &str, error: &RuntimeError, time: Duration) {
         self.events.push(RuntimeEvent::WriteRejected {
             target: SmolStr::new(target),
             error: error.to_string(),
             time,
         });
+    }
+
+    /// A cycle trace records a write by its path (specification 48 RU-59). A member of an
+    /// instance, which the debugger names by the instance's identity, is recorded with the other
+    /// sources of a later lane.
+    fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
+        if let (Some(trace), PendingVarTarget::Global(path) | PendingVarTarget::Retain(path)) =
+            (self.trace.as_deref_mut(), target)
+        {
+            trace.written(ChangeSource::ControlLink, path, variables);
+        }
     }
 }
 

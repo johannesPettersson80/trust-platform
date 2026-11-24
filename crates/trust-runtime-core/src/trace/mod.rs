@@ -8,6 +8,8 @@
 //! which a recorder fills between the phases of a scan.
 
 mod read;
+#[cfg(feature = "std")]
+pub mod readings;
 mod write;
 
 #[cfg(test)]

@@ -4,7 +4,13 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use smol_str::SmolStr;
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::native::image::Image;
+use trust_runtime_core::native::reflect::Located as NativeLocated;
 use trust_runtime_core::trace::{decode, Change, ChangeKind, IoArea, Trace};
+use trust_runtime_core::value::Value;
 
 use super::*;
 
@@ -207,11 +213,13 @@ fn a_task_goal_records_every_cycle_until_the_tasks_runs() {
 
 #[test]
 fn a_faulted_cycle_is_the_last_and_holds_its_fault() {
-    // Catches a recording that drops the faulted cycle or records on after it.
+    // Catches a recording that drops the faulted cycle or records on after it, and a faulted cycle
+    // recorded without the inputs its scan sampled, which a replay gives the faulting scan.
     let mut recorder = Recorder::arm(Goal::Cycles(5), sizes(), Budget::COMPUTER).unwrap();
     assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
     recorder.begin_cycle(ms(10), 1);
     recorder.activation(0, ms(10).as_nanos());
+    recorder.inputs(&[0x05, 0x80]);
     let fault = CycleFault {
         code: 3,
         pou: 12,
@@ -225,6 +233,7 @@ fn a_faulted_cycle_is_the_last_and_holds_its_fault() {
         (TraceEnd::Faulted, 2)
     );
     assert_eq!(trace.cycles[1].fault, Some(fault));
+    assert_eq!(trace.cycles[1].inputs, vec![0x05, 0x80]);
 }
 
 #[test]
@@ -357,5 +366,107 @@ fn an_address_change_and_a_method_call_read_back_as_recorded() {
                 inputs: vec![("Setpoint".into(), "21.5".into())],
             },
         ]
+    );
+}
+
+/// A program that holds, by name only, the INT `Main.x` at 42 and a text `Main.text` of 300 bytes.
+struct Variables;
+
+impl CompiledVariables for Variables {
+    fn read_named(&self, name: &str) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(name.into()))
+    }
+
+    fn read_named_bytes(
+        &self,
+        name: &str,
+        out: &mut [u8],
+    ) -> Result<(usize, SmolStr), RuntimeError> {
+        let (bytes, type_name): (&[u8], &'static str) = match name {
+            "Main.x" => (&[0x2A, 0], "INT"),
+            "Main.text" => (&[b'a'; 300], "STRING(298)"),
+            _ => return Err(RuntimeError::UndefinedVariable(name.into())),
+        };
+        let out = out
+            .get_mut(..bytes.len())
+            .ok_or_else(|| RuntimeError::ControlError(SmolStr::new_static("too long")))?;
+        out.copy_from_slice(bytes);
+        Ok((bytes.len(), SmolStr::new_static(type_name)))
+    }
+
+    fn write_named(&mut self, name: &str, _value: &Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(name.into()))
+    }
+
+    fn write_retained(&mut self, label: &str, _value: &Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(label.into()))
+    }
+
+    fn write_member(
+        &mut self,
+        _instance: u32,
+        member: &str,
+        _value: &Value,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::UndefinedVariable(member.into()))
+    }
+
+    fn write_image(&mut self, _address: &IoAddress, _value: Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+
+    fn program_image(&self) -> Image<'_> {
+        unreachable!("the stand-in holds its variables by name, without a program image")
+    }
+
+    fn read_located(&self, _at: &NativeLocated) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+
+    fn write_located(&mut self, _at: &NativeLocated, _value: &Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+}
+
+#[test]
+fn a_write_from_outside_is_recorded_as_the_bytes_the_variable_then_holds() {
+    // Specification 48 RU-59: a variable's write is recorded with its path, its type's name and its
+    // bytes at the declared size, read back after the runtime applied it. Catches a write recorded
+    // without its bytes or type, and one recorded outside a cycle.
+    let mut recorder = Recorder::arm(Goal::Cycles(1), sizes(), Budget::COMPUTER).unwrap();
+    recorder.written(ChangeSource::ControlLink, "Main.x", &Variables);
+    recorder.begin_cycle(ms(0), 0);
+    recorder.written(ChangeSource::ControlLink, "Main.x", &Variables);
+    assert!(recorder.end_cycle(None));
+    assert_eq!(
+        read(&recorder).cycles[0].changes,
+        vec![Change {
+            source: ChangeSource::ControlLink,
+            kind: ChangeKind::VariableWrite {
+                path: "Main.x".into(),
+                type_name: "INT".into(),
+                value: vec![0x2A, 0],
+            },
+        }]
+    );
+}
+
+#[test]
+fn a_written_value_longer_than_its_room_ends_the_recording_memory_full() {
+    // Catches a value cut to its room, which a replay would write wrong: with room for 256 bytes of
+    // value, the 300-byte text is not recorded, and the recording ends with the cycles before.
+    let budget = Budget {
+        value: 256,
+        ..Budget::COMPUTER
+    };
+    let mut recorder = Recorder::arm(Goal::Cycles(3), sizes(), budget).unwrap();
+    assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
+    recorder.begin_cycle(ms(10), 1);
+    recorder.written(ChangeSource::Plant, "Main.text", &Variables);
+    assert!(recorder.end_cycle(None));
+    let trace = read(&recorder);
+    assert_eq!(
+        (trace.meta.end, trace.meta.cycle_count),
+        (TraceEnd::MemoryFull, 1)
     );
 }

@@ -154,6 +154,7 @@ fn control_state(source: &str) -> Arc<ControlState> {
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         transfers: trust_runtime::control::new_transfer_session(),
+        traces: trust_runtime::control::new_traces(),
         plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
         experiments: trust_runtime::control::ControlExperimentService::default(),
         controllers: trust_runtime::control::ControllerParameterService::default(),

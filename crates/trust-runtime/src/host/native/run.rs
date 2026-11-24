@@ -34,13 +34,17 @@ struct HostClock;
 
 impl WallClock for HostClock {
     fn unix_millis() -> Result<i64, FaultCode> {
-        if let Some(clock) = SIMULATED_WALL_CLOCK.get() {
-            return Ok(clock.now().as_nanos() / 1_000_000);
-        }
-        let since = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| FaultCode::Overflow)?;
-        i64::try_from(since.as_millis()).map_err(|_| FaultCode::Overflow)
+        let millis = if let Some(clock) = SIMULATED_WALL_CLOCK.get() {
+            clock.now().as_nanos() / 1_000_000
+        } else {
+            let since = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|_| FaultCode::Overflow)?;
+            i64::try_from(since.as_millis()).map_err(|_| FaultCode::Overflow)?
+        };
+        // A cycle trace being recorded on this thread keeps the reading (specification 48 RU-59).
+        trust_runtime_core::trace::readings::record(millis);
+        Ok(millis)
     }
 }
 

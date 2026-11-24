@@ -41,13 +41,17 @@ use trust_runtime_services::variables::{ReadRefusal, ReadSet};
 use crate::config::ControlMode;
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
-use crate::scheduler::{ResourceCommand, ResourceState};
+use crate::scheduler::{ResourceCommand, ResourceState, TraceStart, TraceStop};
 use crate::value::Value;
 use crate::RestartMode;
 
 use super::{
     audit, auth, comm_handlers, control_event_time_now, handlers, status_handlers, ControlRequest,
     ControlResponse, ControlState,
+};
+use crate::runtime::lock_traces;
+use trust_runtime_services::trace::requests::{
+    RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState,
 };
 
 impl AccessPort for ControlState {
@@ -251,6 +255,56 @@ impl ResourcePort for ControlState {
                 STEP_WAIT.as_secs()
             )))
         })
+    }
+
+    /// The scan thread arms the recording between two scans, with the memory it reserves
+    /// (specification 48 RU-59); a resource that does not run records nothing.
+    fn trace_record(&self, request: &RecordRequest) -> Result<TraceStarted, TraceRefusal> {
+        let state = self.resource.state();
+        if state != ResourceState::Running {
+            return Err(TraceRefusal::NotRunning(state));
+        }
+        let (reply, replies) = std::sync::mpsc::channel();
+        let command = ResourceCommand::StartTrace(Box::new(TraceStart {
+            request: request.clone(),
+            runtime_id: self.runtime_id.clone(),
+            platform: crate::runtime_id::platform(),
+            traces: std::sync::Arc::clone(&self.traces),
+            respond_to: reply,
+        }));
+        self.resource
+            .send_command(command)
+            .map_err(|_| TraceRefusal::NotRunning(self.resource.state()))?;
+        replies.recv_timeout(STEP_WAIT).unwrap_or_else(|_| {
+            Err(TraceRefusal::Unavailable(format!(
+                "the scan thread did not arm the recording within {} s",
+                STEP_WAIT.as_secs()
+            )))
+        })
+    }
+
+    fn trace_state(&self, name: TraceName) -> TraceState {
+        lock_traces(&self.traces).state(name)
+    }
+
+    fn trace_part(&self, name: TraceName, offset: usize, out: &mut [u8]) -> Option<usize> {
+        lock_traces(&self.traces).part(name, offset, out)
+    }
+
+    /// The scan thread ends the recording between two scans; without one, the slot answers.
+    fn trace_stop(&self, trace: u64) -> TraceState {
+        let (reply, replies) = std::sync::mpsc::channel();
+        let command = ResourceCommand::StopTrace(TraceStop {
+            trace,
+            traces: std::sync::Arc::clone(&self.traces),
+            respond_to: reply,
+        });
+        if self.resource.send_command(command).is_ok()
+            && let Ok(state) = replies.recv_timeout(STEP_WAIT)
+        {
+            return state;
+        }
+        lock_traces(&self.traces).state(TraceName::Id(trace))
     }
 }
 

@@ -116,6 +116,7 @@ pub(super) fn control_state_named_with_audit(
 
     Arc::new(ControlState {
         transfers: trust_runtime::control::new_transfer_session(),
+        traces: trust_runtime::control::new_traces(),
         debug,
         identify: trust_runtime::io::IdentifyHandle::default(),
         resource,
