@@ -247,11 +247,15 @@ fn outer_thread_panic_observation() -> Result<BTreeMap<String, serde_json::Value
     ]))
 }
 
+/// Waits until the resource has faulted. The fault comes after the panic hook, which prints a
+/// backtrace where `RUST_BACKTRACE` is set, as in CI; on a loaded macOS runner it had not come within
+/// 2 s (24 November 2026). The wait ends as soon as the resource faults, so its bound only limits a
+/// resource that never does.
 fn wait_for_fault<C>(handle: &trust_runtime::scheduler::ResourceHandle<C>) -> Result<(), String>
 where
     C: Clock + Clone,
 {
-    let deadline = Instant::now() + WallDuration::from_secs(2);
+    let deadline = Instant::now() + WallDuration::from_secs(30);
     while handle.state() != ResourceState::Faulted && Instant::now() < deadline {
         std::thread::sleep(WallDuration::from_millis(1));
     }

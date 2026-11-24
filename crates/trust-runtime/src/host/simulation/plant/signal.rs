@@ -158,6 +158,21 @@ impl HeldMeasurement {
     }
 }
 
+/// The paths of the members of the Control.PID instance at `path` that a plant's measurement writes,
+/// in the order [`HeldMeasurement::hold`] writes them: the held measurement, then its flag.
+pub(super) fn held_paths(path: &str) -> [String; 2] {
+    [
+        format!("{path}.{HELD_MEASUREMENT}"),
+        format!("{path}.{MEASUREMENT_HELD}"),
+    ]
+}
+
+/// The path of the flag of the Control.PID instance at `path` that [`HeldMeasurement::release`]
+/// clears.
+pub(super) fn held_flag_path(path: &str) -> String {
+    format!("{path}.{MEASUREMENT_HELD}")
+}
+
 /// The Control.PID instance a `pid:` target names, refused with a plain reason when the path
 /// names no instance of the Control library's `PID`.
 pub(super) fn controller_instance<P: ProgramRead + ?Sized>(
