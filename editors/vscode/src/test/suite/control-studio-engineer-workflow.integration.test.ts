@@ -5,7 +5,7 @@ import * as vscode from "vscode";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { sendRuntimeControlRequest } from "../../runtimeControlClient";
 import { getSelectedRuntimeId } from "../../selectedRuntime";
-import { attachControlStudio, engineAnswerRecorderScript } from "./control-studio-rendered-harness";
+import { attachControlStudio, engineAnswerRecorderScript, studioMessage } from "./control-studio-rendered-harness";
 import { stageTabs, type EvaluateWebview } from "./control-studio-navigation-assertions";
 import { captureRenderedWorkbench, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
@@ -59,11 +59,6 @@ function lastAnswerOf(method: string, from: number): string {
     + "return JSON.stringify({status:e.status,family:e.family,values:e.values,evidence,"
     + "plotNames:[plot.tuned&&plot.tuned.name,plot.current&&plot.current.name].filter(Boolean),"
     + "series:(plot.tuned?1:0)+(plot.current?1:0),rows:Array.isArray(r.table)?r.table.length:0});";
-}
-
-/** A message as the engine route posts it to the page: its kind, the page's scope and its fields (engineMessage in enginePanelRoute.ts). */
-function engineMessage(kind: string, fields: Record<string, unknown>): string {
-  return `const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:${JSON.stringify(kind)},projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,...${JSON.stringify(fields)}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`;
 }
 
 /** The requirement values of the Requirements editor, read and closed with Cancel (threePageRequirements.ts). */
@@ -318,7 +313,7 @@ suite("Control Studio ordinary engineer workflow", () => {
       await reportedGap(gaps, "After Restore, Validate shows the current gains (the three-page page has no evidence line)",
         async () => assert.match(await inner("return d.querySelector('[data-engineer-evidence]')?.textContent??'';"), /Main.Kp.*1/));
       // A cancelled operation: the page must stop its busy state and let no stale plot or candidate stand (engineOpened.ts, threePageChart.ts).
-      await inner(engineMessage("control-studio.engine.update", { update: { command: "validate", state: "cancelled", message: "Validation was cancelled." } }));
+      await inner(studioMessage("control-studio.engine.update", { update: { command: "validate", state: "cancelled", message: "Validation was cancelled." } }));
       await reportedGap(gaps, "A cancelled operation clears the stale verification plot (threePageChart.ts clears its plots only on edited, model-ready and reset)",
         async () => assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "0", "A cancelled engineer operation must clear stale verification plots instead of presenting them as current"));
       await reportedGap(gaps, "A cancelled operation disables Verify and Apply (threePageOperation.ts clears the candidate only on edited)",

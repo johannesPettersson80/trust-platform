@@ -8,7 +8,7 @@ import { initializeManualTuneSettings } from "../../controlStudio/webview/manual
 import { setOpenedOffers } from "../../controlStudio/webview/openedOffers";
 import { editControllerChannels } from "../../controlStudio/webview/threePageChannels";
 import { projectPidGroupLoop } from "./control-studio-pid-group-fixtures";
-import { attachControlStudio } from "./control-studio-rendered-harness";
+import { attachControlStudio, studioMessage } from "./control-studio-rendered-harness";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
 function fixture() {
@@ -144,7 +144,8 @@ suite("Control Studio three-page PID group rendered review", () => {
       await vscode.commands.executeCommand("workbench.action.closeSidebar");
       await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar");
       await pollValue("group host restoration", () => inner("return d.querySelector('[data-studio-three-page]').dataset.hostReady;"), value => value === "true", 10000);
-      await inner(`const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.engineering.result',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,stage:'engineer',payload:${JSON.stringify(payload)}},'*');await new Promise(resolve=>setTimeout(resolve,100));d.querySelector('[data-engineer-stage-tab=tune]').click();return 'candidate';`);
+      await inner(studioMessage("control-studio.engineering.result", { stage: "engineer", payload }));
+      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'candidate';");
       assert.match(await inner("return d.querySelector('[data-studio-controller]').selectedOptions[0].textContent;"), /P1\.Controller.*P1\.Secondary/);
       assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-tuning-result] dt').length);"), "4");
       await capture("group-tune");

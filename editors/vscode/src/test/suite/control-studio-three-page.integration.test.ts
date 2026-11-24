@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
-import { attachControlStudio, engineAnswerRecorderScript, type EngineAnswerRecord } from "./control-studio-rendered-harness";
+import { attachControlStudio, engineAnswerRecorderScript, studioMessage, type EngineAnswerRecord } from "./control-studio-rendered-harness";
 import { recordingArchive } from "./control-studio-recording-archive";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 import { formatDurationSeconds } from "../../controlStudio/webview/durationField";
@@ -954,14 +954,9 @@ function liveRecordingObserver(from: number): string {
     + "}).observe(chart,{attributes:true,attributeFilter:['aria-label']});}";
 }
 
-/** The script that posts one message as the engine route posts it to the page: its kind, the page's scope and its fields (`scopeFields`). */
-function engineMessage(kind: string, fields: Record<string, unknown>): string {
-  return `const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:${JSON.stringify(kind)},projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,...${JSON.stringify(fields)}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`;
-}
-
 /** The script that posts the engine's answer to `method` (`control-studio.engine.result`, enginePanelRoute.ts). */
 function engineResult(method: string, result: Record<string, unknown>): string {
-  return engineMessage("control-studio.engine.result", { method, result });
+  return studioMessage("control-studio.engine.result", { method, result });
 }
 
 /** The stage tabs' statuses as the engine answers them, each with its words (StageAvailability, crates/trust-control/src/stages.rs). */
