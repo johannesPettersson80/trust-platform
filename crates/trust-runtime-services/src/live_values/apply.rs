@@ -17,6 +17,7 @@ use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::native::variables::CompiledVariables;
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::queues::{
@@ -33,8 +34,13 @@ pub trait WriteSink {
     /// (specification 48 RU-59). Forces, which the boundary applies again every cycle, are not
     /// reported here. The default records nothing, and nothing is worked out for it: the target
     /// itself is passed, so that a sink that records nothing allocates nothing.
-    fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
-        let _ = (target, variables);
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        variables: &dyn CompiledVariables,
+    ) {
+        let _ = (source, target, variables);
     }
 
     /// Whether the sink records what the boundary applies, so that a value it reports is worked
@@ -44,15 +50,17 @@ pub trait WriteSink {
         false
     }
 
-    /// The boundary applied the queued one-shot write of `value` at `address` (`io.write`): a cycle
-    /// trace records it (specification 48 RU-59). Reported only to a sink that [`Self::records`].
+    /// The boundary applied the one-shot write of `value` at `address` that `source` queued
+    /// (`io.write`, or Control Studio's): a cycle trace records it (specification 48 RU-59).
+    /// Reported only to a sink that [`Self::records`].
     fn address_written(
         &mut self,
+        source: ChangeSource,
         address: &IoAddress,
         value: &Value,
         variables: &dyn CompiledVariables,
     ) {
-        let _ = (address, value, variables);
+        let _ = (source, address, value, variables);
     }
 
     /// A force set or released since the last cycle start, reported once, as the cycle start
@@ -131,7 +139,11 @@ where
     S: WriteSink,
 {
     for write in queues.pending_var_writes.drain(..) {
-        let PendingVarWrite { target, value } = write;
+        let PendingVarWrite {
+            target,
+            value,
+            source,
+        } = write;
         let result = match &target {
             PendingVarTarget::Global(name) => variables.write_named(name, &value),
             PendingVarTarget::Retain(label) => compiled_retained(variables, label, &value),
@@ -142,7 +154,7 @@ where
             PendingVarTarget::Local(_, _) => Err(RuntimeError::ReferenceLifetime),
         };
         match result {
-            Ok(()) => sink.written(&target, &*variables),
+            Ok(()) => sink.written(source, &target, &*variables),
             Err(error) => {
                 let operational = is_cycle_operational_error(&error);
                 sink.refused(&pending_var_label(&target), &error, time);
@@ -283,12 +295,19 @@ where
     S: WriteSink,
 {
     if !areas.contains(&IoArea::Output) {
-        for (address, value) in queues.io_writes.drain(..) {
+        // Each write's source is at its index; the list is taken whole, so that an early return
+        // leaves no source behind for the writes queued next.
+        let mut sources = core::mem::take(&mut queues.io_write_sources);
+        for (index, (address, value)) in queues.io_writes.drain(..).enumerate() {
             let reported = sink.records().then(|| value.clone());
             match variables.write_image(&address, value) {
                 Ok(()) => {
                     if let Some(value) = &reported {
-                        sink.address_written(&address, value, &*variables);
+                        let source = sources
+                            .get(index)
+                            .copied()
+                            .unwrap_or(ChangeSource::ControlLink);
+                        sink.address_written(source, &address, value, &*variables);
                     }
                 }
                 Err(error) => {
@@ -300,6 +319,9 @@ where
                 }
             }
         }
+        // Put back empty, so that the next writes' sources reuse its memory.
+        sources.clear();
+        queues.io_write_sources = sources;
     }
     if areas.contains(&IoArea::Input) {
         compiled_forces(queues, generation, variables, time, sink)?;

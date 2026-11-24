@@ -496,6 +496,38 @@ fn a_place_has_the_path_that_finds_it_again() {
 }
 
 #[test]
+fn a_variable_is_named_as_the_debugger_names_it_whatever_form_names_it() {
+    // Specification 48 Appendix C, C.6: a cycle trace names a variable as the debugger does,
+    // whatever form the request named it in: the symbol's display name, then the members' declared
+    // names and the indices without spaces, as [`path_of`] writes them. Worked by hand from the
+    // layout above. A name that reaches no variable is named by none. Catches a path kept as the
+    // request wrote it, and an element or a member named by the request's case or spacing.
+    let bytes = image();
+    let program = program(&bytes);
+    for (given, named) in [
+        ("main.pumps[2].speed", "Main.Pumps[2].Speed"),
+        ("MAIN.PUMPS[3].POS.Y", "Main.Pumps[3].Pos.Y"),
+        ("table[2, 3]", "Table[2,3]"),
+        ("origin.y", "Origin.Y"),
+        ("main.count", "Main.Count"),
+    ] {
+        assert_eq!(
+            CompiledVariables::display_path(&program, given).as_deref(),
+            Some(named),
+            "{given}"
+        );
+    }
+    assert_eq!(
+        CompiledVariables::display_path(&program, "Main.Missing"),
+        None
+    );
+    assert_eq!(
+        CompiledVariables::display_path(&program, "Table[9,9]"),
+        None
+    );
+}
+
+#[test]
 fn a_leaf_and_an_array_are_found_by_their_layout() {
     // Specification 44 §5.6 and §5.8: the value at +4 of a `Pump` is `Pos.Y`, an INT; nothing
     // starts at +1 of a `Point`; `ARRAY[1..2, 1..3] OF INT` has 6 elements 2 bytes apart, and its

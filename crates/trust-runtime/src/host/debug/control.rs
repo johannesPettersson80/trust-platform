@@ -16,7 +16,7 @@ use smol_str::SmolStr;
 use crate::error::RuntimeError;
 use crate::io::{IoAddress, IoSnapshot};
 use crate::memory::{FrameId, Generation, InstanceId};
-use crate::runtime::{CompiledDebugger, CompiledState, Located, ProgramRead, ProgramWrite};
+use crate::runtime::{CompiledDebugger, CompiledState, Located, ProgramRead};
 use crate::value::{Duration, Value};
 
 #[cfg(test)]
