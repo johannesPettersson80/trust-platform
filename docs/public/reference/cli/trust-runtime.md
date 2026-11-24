@@ -501,6 +501,8 @@ Important control subcommands:
 - `restart`
 - `install <container> [--restart cold|warm]` (any `--endpoint`, also `serial:///dev/ttyACM0`)
 - `firmware <image> [--wait <seconds>]` (a chip's truST firmware, while its program is stopped)
+- `record (--cycles <n> | --duration <t>) [--task <task>] [--out <file>]` (the resource's next
+  cycles, saved as a cycle trace)
 - `device-get`, `device-set <device.toml>`, `device-reset` (a chip's own settings: name, network,
   control token, time server, trusted keys; they apply at the chip's next boot)
 - `shutdown [--exit]`
@@ -551,6 +553,20 @@ trust-runtime ctl --endpoint tcp://192.168.1.50:9901 --token <token> status
 each value as JSON (`21.5`, `true`, `"pump"`), sent with the service's token from
 `--token`, which must be an Engineer service token whose service's `writes` names each
 path. The next cycle's start writes the set together; the command prints the reply.
+
+`ctl record` records the resource's next cycles into a cycle trace and saves it as a
+`.trusttrace` file (specification 48 RU-59). It records `--cycles <n>` cycles, with `--task
+<task>` that task's `n` runs, or the cycles of `--duration <t>` of logical time, a duration such as
+`500ms`, `2s` or `T#1m30s`. The runtime reserves the recording's memory first, and refuses a
+recording it cannot hold. The command writes the file to `--out`, by default
+`trace-<UTC date and time>.trusttrace` in the current folder, and prints its cycles, why the
+recording ended and its size. Ctrl+C ends the recording early and saves what it holds. It needs the
+Engineer role.
+
+```text
+trust-runtime ctl record --cycles 500 --out pump.trusttrace
+recorded 500 cycles (complete) to pump.trusttrace, 412032 bytes
+```
 
 `ctl service-token <name> --out <file>` creates the token a service signs in with
 (`pair.service`), or replaces the one it has, and needs the Admin role. It writes

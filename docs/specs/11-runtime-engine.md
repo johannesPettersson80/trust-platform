@@ -3771,12 +3771,25 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
     time>.trusttrace`.
 
 `trust-runtime ctl record (--cycles <n> | --duration <t>) [--task <task>] [--out <file>]` sends
-`trace.record` and asks `trace.read` until the recording has ended. It then reads the trace part by
-part, checks each part's CRC-32 and the whole trace's SHA-256, and writes the file, by default
-`trace-<UTC date and time>.trusttrace` in the current folder. It prints `recorded <n> cycles
-(<reason>) to <file>, <L> bytes`. Ctrl+C sends `trace.stop` and saves what the trace holds.
+`trace.record` and asks `trace.read` until the recording has ended.
+
+- `<t>` is a duration as IEC 61131-3 writes one (Table 8), with or without its `T#` prefix:
+    `500ms`, `2s`, `1m30s`, `T#1h`. It is at least 1 nanosecond.
+- While it records, it prints `recording trace <id>, <b> bytes reserved; Ctrl+C ends it` on
+    standard error.
+- Once the recording has ended, it reads the trace part by part, checks each part's CRC-32 and the
+    whole trace's SHA-256, and writes the file. The file is by default `trace-<UTC date and
+    time>.trusttrace` in the current folder, the date and time in the basic form of ISO 8601:
+    `trace-20261124T013000Z.trusttrace`.
+- It prints `recorded <n> cycles (<reason>) to <file>, <L> bytes` and ends with 0, whatever ended
+    the recording.
+- Ctrl+C sends `trace.stop` and saves what the trace holds. A second Ctrl+C ends the command at
+    once, with 130, and saves nothing.
+- A refused recording, a trace that cannot be read whole and a file that cannot be written end it
+    with 1 and the reason.
+
 `trust-runtime ctl fault-trace [--out <file>]` saves the fault's trace the same way, by default as
-`fault-<UTC date and time>.trusttrace`.
+`fault-<UTC date and time>.trusttrace`, in the same form.
 
 ###### Replaying a trace (`simulator.replay`)
 

@@ -8,3 +8,8 @@
   `.trusttrace` file in parts, each with its CRC-32, and `trace.stop` ends a recording at once. A
   recording ends early when its resource stops, pauses, restarts or faults, and when its program
   changes online (specification 48 RU-59; specification 11, "Cycle traces").
+- `trust-runtime ctl record (--cycles <n> | --duration <t>) [--task <task>] [--out <file>]`
+  records the resource's next cycles and saves the trace as a `.trusttrace` file, by default
+  `trace-<UTC date and time>.trusttrace` in the current folder, after checking each part's CRC-32
+  and the whole trace's SHA-256. It prints the cycles, why the recording ended and the file's size.
+  Ctrl+C ends the recording early and saves what it holds (specification 11, "Cycle traces").
