@@ -38,6 +38,7 @@ fn test_bundle() -> trust_runtime::config::RuntimeBundle {
             control_mode: trust_runtime::config::ControlMode::Debug,
             log_level: smol_str::SmolStr::new("info"),
             event_capacity: None,
+            flight_recorder: 0,
             identify_output: None,
             retain_mode: trust_runtime::watchdog::RetainMode::None,
             retain_path: None,
