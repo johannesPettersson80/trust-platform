@@ -1144,10 +1144,12 @@ traces", gives the requests.
         first cycle is in its start state:
         - a variable's write: the control link's `set`, `var.write` and `variables.write`, a
             screen's write, Control Studio's, a service's (RU-63), the mesh's, a protocol server's
-            such as OPC UA's, or a plant's;
+            such as OPC UA's, or a plant's, the measurement it gives a `Control.PID` instance
+            included (specification 46 §13.2);
         - a force set or released, on a variable or on an address, in the cycle it is set or
             released before, not in each cycle it holds;
-        - an address's one-shot write (`io.write`);
+        - an address's write: a one-shot write, the control link's `io.write` or Control
+            Studio's, or a plant's feedback at an address;
         - a method call, a tool's (`method.call`) or a screen command's (specification 39 §21.2),
             with each input as a Structured Text literal: a tool's as its request gave it, and a
             screen's as IEC 61131-3 writes the value (Tables 5 to 8), an enumeration's value after
