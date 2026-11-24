@@ -31,7 +31,6 @@ use crate::runtime::program_access::Access;
 use crate::value::Duration;
 use trust_runtime_core::trace::readings;
 use trust_runtime_core::trace::ChangeSource;
-use trust_runtime_services::live_values::queues::ForcedVarTarget;
 use trust_runtime_services::trace::{Begin, Recorder};
 
 use super::trace::TraceSession;
@@ -429,8 +428,9 @@ fn take_start(session: Option<&mut TraceSession>, variables: &dyn CompiledVariab
     }
 }
 
-/// The forces in effect at a recording's first cycle, once the cycle's start applied them, each by
-/// its path: the start state is then whole.
+/// The forces in effect at a recording's first cycle, once the cycle's start applied them: each
+/// variable by its path, a member of an instance included, and each address by the bytes it gives
+/// the process image. The start state is then whole.
 fn take_forces(
     session: Option<&mut TraceSession>,
     debug: Option<&DebugControl>,
@@ -440,13 +440,13 @@ fn take_forces(
         return;
     };
     if let Some(debug) = debug {
-        for force in debug.forced_snapshot().vars {
-            if let ForcedVarTarget::Global(path) | ForcedVarTarget::Retain(path) = &force.target {
-                session
-                    .recorder
-                    .start_forced(ChangeSource::ControlLink, path, variables);
-            }
-        }
+        let forces = debug.forced_snapshot();
+        session.recorder.start_forces(
+            ChangeSource::ControlLink,
+            &forces.vars,
+            &forces.io,
+            variables,
+        );
     }
     session.start_pending = false;
 }

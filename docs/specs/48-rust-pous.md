@@ -1143,7 +1143,8 @@ traces", gives the requests.
         - a variable's write: the control link's `set`, `var.write` and `variables.write`, a
             screen's write, Control Studio's, a service's (RU-63), the mesh's, a protocol server's
             such as OPC UA's, or a plant's;
-        - a force set or released, on a variable or on an address;
+        - a force set or released, on a variable or on an address, in the cycle it is set or
+            released before, not in each cycle it holds;
         - an address's one-shot write (`io.write`);
         - a tool's method call (`method.call`), with its inputs;
     - the input image as the cycle's scan sampled it, and the output image the cycle wrote, `%I`
@@ -2038,13 +2039,15 @@ A change's kind and data:
 | 1 | a variable's write | its path (text), its type's name (text), its value's bytes at the declared size (a length of 4, then the bytes) |
 | 2 | a force set on a variable | as 1 |
 | 3 | a force released on a variable | its path (text) |
-| 4 | an address's one-shot write | the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the bit (1, 255 for whole bytes), reserved (2), the byte offset (4), the bytes (a length of 4, then the bytes) |
+| 4 | an address's one-shot write | the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the bit (1, 255 for whole bytes), reserved (2), the byte offset (4), the bytes (a length of 4, then the bytes): the address's bytes as the write left them, or for a bit one byte, 0 or 1 |
 | 5 | a force set on an address | as 4 |
 | 6 | a force released on an address | the area (1), the bit (1), reserved (2), the byte offset (4), the size (4) |
 | 7 | a method call | the instance's path, the interface's qualified name and the method's name (texts), the number of inputs (2), and each input's name and Structured Text literal (texts) |
 
 A change's source: 1 the control link (the debugger, Live Values and `ctl` among its clients), 2 a
-screen, 3 Control Studio, 4 a service, 5 the mesh, 6 a protocol server, 7 a plant.
+screen, 3 Control Studio, 4 a service, 5 the mesh, 6 a protocol server, 7 a plant. A variable's path is
+the path the debugger names it by, a member of an instance included, whatever form the request named
+it in.
 
 A later version may store a cycle's images as their differences from the cycle before, and record
 that in the section's flags, as the image's `INIT` may be run-length coded (specification 44 §7.4).

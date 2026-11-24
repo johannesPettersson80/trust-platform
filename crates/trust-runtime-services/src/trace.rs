@@ -7,7 +7,10 @@
 //! the recording `memory_full`, with the cycles before it. Once ended, [`Recorder::file`] gives the
 //! `.trusttrace` file.
 
+mod changes;
 pub mod requests;
+
+pub use changes::{address_size, trace_area, trace_bit};
 #[cfg(test)]
 mod tests;
 
@@ -332,30 +335,6 @@ impl Recorder {
             Ok((len, type_name)) => self.change(
                 source,
                 &ChangeRef::VariableWrite {
-                    path,
-                    type_name: &type_name,
-                    value: &value[..len],
-                },
-            ),
-            Err(_) => self.cycle.overflow = true,
-        }
-        self.value = value;
-    }
-
-    /// A force in effect at the start, on the trace's first cycle ([`Begin::First`]), once the
-    /// boundary applied it: recorded as the bytes the forced variable holds, read back as
-    /// [`Self::written`] reads them.
-    pub fn start_forced(
-        &mut self,
-        source: ChangeSource,
-        path: &str,
-        variables: &dyn CompiledVariables,
-    ) {
-        let mut value = core::mem::take(&mut self.value);
-        match variables.read_named_bytes(path, &mut value) {
-            Ok((len, type_name)) => self.start_force(
-                source,
-                &ChangeRef::VariableForce {
                     path,
                     type_name: &type_name,
                     value: &value[..len],

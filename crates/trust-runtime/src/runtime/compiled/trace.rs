@@ -8,17 +8,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use smol_str::SmolStr;
 use trust_plc_abi::FaultRecord;
 use trust_runtime_core::deployment::sha256;
-use trust_runtime_core::io_address::IoSize;
 use trust_runtime_core::io_image::PreparedIoBinding;
-use trust_runtime_core::memory::IoArea as ImageArea;
 use trust_runtime_core::native::image::{Image, SectionId, StmtRecord, SymbolRecord, TaskRecord};
 use trust_runtime_core::native::memory::type_name;
-use trust_runtime_core::trace::{readings, CycleFault, ImageTables, IoArea, Located, TraceEnd};
+use trust_runtime_core::trace::{readings, CycleFault, ImageTables, Located, TraceEnd};
 use trust_runtime_core::value::Duration;
 use trust_runtime_services::trace::requests::{
     RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState, Until,
 };
-use trust_runtime_services::trace::{Budget, Goal, Identity, Recorder, ReserveError, Sizes};
+use trust_runtime_services::trace::{
+    address_size, trace_area, trace_bit, Budget, Goal, Identity, Recorder, ReserveError, Sizes,
+};
 
 use super::CompiledRuntime;
 
@@ -326,20 +326,10 @@ fn located(
                 type_name: type_index
                     .map(|index| type_name(image, index).to_string())
                     .unwrap_or_default(),
-                area: match address.area {
-                    ImageArea::Input => IoArea::Input,
-                    ImageArea::Output => IoArea::Output,
-                    ImageArea::Memory => IoArea::Memory,
-                },
-                bit: matches!(address.size, IoSize::Bit).then_some(address.bit),
+                area: trace_area(address.area),
+                bit: trace_bit(address),
                 offset: address.byte,
-                size: match address.size {
-                    IoSize::Bit | IoSize::Byte => 1,
-                    IoSize::Word => 2,
-                    IoSize::DWord => 4,
-                    IoSize::LWord => 8,
-                    IoSize::Bytes(count) => count,
-                },
+                size: address_size(address.size),
             }
         })
         .collect()

@@ -123,6 +123,46 @@ pub fn read_flat_image(buffer: &[u8], address: &IoAddress) -> Result<Value, Runt
     }
 }
 
+/// The bytes that `value` gives a flat process image at an address of `size`, little-endian as
+/// [`write_flat_image`] writes them, into `out`: for a bit one byte, 0 or 1, and for a text its
+/// bytes padded with zeros to the address's length (specification 48 Appendix C, C.6). `None` for
+/// a value of another type than the address takes, and for bytes that `out` cannot hold.
+pub fn flat_image_bytes(size: IoSize, value: &Value, out: &mut [u8]) -> Option<usize> {
+    let mut fixed = [0_u8; 8];
+    let width = match (size, value) {
+        (IoSize::Bit, Value::Bool(flag)) => {
+            fixed[0] = u8::from(*flag);
+            1
+        }
+        (IoSize::Byte, Value::Byte(byte)) => {
+            fixed[0] = *byte;
+            1
+        }
+        (IoSize::Word, Value::Word(word)) => {
+            fixed[..2].copy_from_slice(&word.to_le_bytes());
+            2
+        }
+        (IoSize::DWord, Value::DWord(word)) => {
+            fixed[..4].copy_from_slice(&word.to_le_bytes());
+            4
+        }
+        (IoSize::LWord, Value::LWord(word)) => {
+            fixed = word.to_le_bytes();
+            8
+        }
+        (IoSize::Bytes(len), Value::String(text)) => {
+            let out = out.get_mut(..usize::try_from(len).ok()?)?;
+            let text = text.as_bytes();
+            out.fill(0);
+            out.get_mut(..text.len())?.copy_from_slice(text);
+            return Some(out.len());
+        }
+        _ => return None,
+    };
+    out.get_mut(..width)?.copy_from_slice(&fixed[..width]);
+    Some(width)
+}
+
 /// Encode a flat image value, growing the buffer within the process-image limit.
 pub fn write_flat_image(
     buffer: &mut Vec<u8>,
@@ -144,46 +184,15 @@ pub fn write_flat_image(
             }
             _ => Err(RuntimeError::TypeMismatch),
         },
-        IoSize::Byte => match value {
-            Value::Byte(byte) => {
-                ensure_len(buffer, address.byte as usize)?;
-                buffer[address.byte as usize] = byte;
-                Ok(())
-            }
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        IoSize::Word => match value {
-            Value::Word(word) => {
-                ensure_len(buffer, address.byte as usize + 1)?;
-                let [lo, hi] = word.to_le_bytes();
-                buffer[address.byte as usize] = lo;
-                buffer[address.byte as usize + 1] = hi;
-                Ok(())
-            }
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        IoSize::DWord => match value {
-            Value::DWord(word) => {
-                ensure_len(buffer, address.byte as usize + 3)?;
-                let bytes = word.to_le_bytes();
-                for (idx, byte) in bytes.iter().enumerate() {
-                    buffer[address.byte as usize + idx] = *byte;
-                }
-                Ok(())
-            }
-            _ => Err(RuntimeError::TypeMismatch),
-        },
-        IoSize::LWord => match value {
-            Value::LWord(word) => {
-                ensure_len(buffer, address.byte as usize + 7)?;
-                let bytes = word.to_le_bytes();
-                for (idx, byte) in bytes.iter().enumerate() {
-                    buffer[address.byte as usize + idx] = *byte;
-                }
-                Ok(())
-            }
-            _ => Err(RuntimeError::TypeMismatch),
-        },
+        IoSize::Byte | IoSize::Word | IoSize::DWord | IoSize::LWord => {
+            let mut bytes = [0_u8; 8];
+            let width = flat_image_bytes(address.size, &value, &mut bytes)
+                .ok_or(RuntimeError::TypeMismatch)?;
+            let start = address.byte as usize;
+            ensure_len(buffer, start + width - 1)?;
+            buffer[start..start + width].copy_from_slice(&bytes[..width]);
+            Ok(())
+        }
         IoSize::Bytes(len) => match value {
             Value::String(text) => {
                 let bytes = text.as_bytes();
@@ -346,5 +355,50 @@ mod address_identity_tests {
             assert_eq!(exported, original, "{text}");
             assert_eq!(IoAddressKey::from(&exported), key, "{text}");
         }
+    }
+}
+
+#[cfg(test)]
+mod flat_bytes_tests {
+    use super::*;
+
+    #[test]
+    fn a_values_image_bytes_are_little_endian_and_a_bits_one_byte() {
+        // Specification 48 Appendix C, C.6: an address's change carries the bytes the value gives
+        // the image, little-endian as `write_flat_image` writes them, a bit as one byte 0 or 1 and a
+        // text padded with zeros. Catches big-endian bytes, a bit given as its byte's mask, a value
+        // of another type taken, and bytes written past `out`.
+        let mut out = [0xFF_u8; 8];
+        let bytes = |size, value: Value, out: &mut [u8]| flat_image_bytes(size, &value, out);
+        assert_eq!(bytes(IoSize::Bit, Value::Bool(true), &mut out), Some(1));
+        assert_eq!(out[0], 1);
+        assert_eq!(bytes(IoSize::Bit, Value::Bool(false), &mut out), Some(1));
+        assert_eq!(out[0], 0);
+        assert_eq!(bytes(IoSize::Byte, Value::Byte(0xA5), &mut out), Some(1));
+        assert_eq!(out[0], 0xA5);
+        assert_eq!(bytes(IoSize::Word, Value::Word(0x1234), &mut out), Some(2));
+        assert_eq!(&out[..2], &[0x34, 0x12]);
+        assert_eq!(
+            bytes(IoSize::DWord, Value::DWord(0x0102_0304), &mut out),
+            Some(4)
+        );
+        assert_eq!(&out[..4], &[4, 3, 2, 1]);
+        assert_eq!(
+            bytes(IoSize::LWord, Value::LWord(0x0102_0304_0506_0708), &mut out),
+            Some(8)
+        );
+        assert_eq!(out, [8, 7, 6, 5, 4, 3, 2, 1]);
+        assert_eq!(
+            bytes(IoSize::Bytes(4), Value::String("ab".into()), &mut out),
+            Some(4)
+        );
+        assert_eq!(&out[..4], b"ab\0\0");
+        assert_eq!(bytes(IoSize::Word, Value::Int(5), &mut out), None);
+        assert_eq!(
+            bytes(IoSize::Bytes(2), Value::String("abc".into()), &mut out),
+            None
+        );
+        let mut short = [0_u8; 1];
+        assert_eq!(bytes(IoSize::Word, Value::Word(1), &mut short), None);
     }
 }
