@@ -31,3 +31,9 @@
   (writes and forces of variables and addresses, their releases, and method calls) are applied
   before the cycle as the runtime applied them, and the scan reads the recorded `CURRENT_DT`
   values. A variable, address or method the build lacks is listed once in the notes and skipped.
+- trust-sim replays a cycle trace in `cargo test`: `trust_sim::Replay::open(path)?.run(&project)?`
+  replays the trace in a simulator of the project as it is now and returns `Ok(())` when every
+  cycle's outputs match, and otherwise `Error::Replay` with the report: the first cycle that
+  differs, at its logical time, each output that differs with the trace's value and the build's, how
+  many later cycles differ, and the notes. A trace recorded at commissioning thereby becomes a test
+  of the next change (specification 48 RU-60).

@@ -45,10 +45,30 @@
 //! A cycle that faults ends the run with [`Error::Fault`], and the project's fault policy then acts
 //! as in a run: a test that expects the fault matches the error, reads the values and restarts the
 //! program with [`Simulator::restart`].
+//!
+//! # Replaying a trace
+//!
+//! A runtime records the cycles of the commissioned machine as a cycle trace (`trust-runtime ctl
+//! record`, specification 48 RU-59). [`Replay`] runs that trace in a simulator of the project as it
+//! is now: the simulator takes the recorded state, applies each recorded change from outside, runs
+//! each recorded cycle on the recorded inputs and clock readings, and compares its outputs with the
+//! trace's (RU-60). A change of the program that is not meant to change the machine's behaviour
+//! keeps the test green; one that changes an output fails it with a report of the first cycle that
+//! differs:
+//!
+//! ```no_run
+//! #[test]
+//! fn the_commissioning_trace_still_matches() -> trust_sim::Result<()> {
+//!     let project = trust_sim::Project::open("..")?;
+//!     trust_sim::Replay::open("../traces/commissioning.trusttrace")?.run(&project)
+//! }
+//! # fn main() {}
+//! ```
 
 #![forbid(unsafe_code)]
 
 mod project;
+mod replay;
 mod runtime;
 mod simulator;
 mod value;
@@ -57,9 +77,14 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 pub use project::Project;
+pub use replay::Replay;
 pub use simulator::{Restart, Simulator};
 /// `trust_plc`'s times and dates, which a machine test reads and writes as a Rust POU holds them.
 pub use trust_plc::{Date, Dt, LDate, LTime, LTod, Ldt, Time, Tod};
+/// The answer of a replay ([`Simulator::replay`]), whose `Display` is its report.
+pub use trust_runtime_client::replay::{
+    Difference, FirstDifference, OutputDifference, ReplayAnswer, ReplayKind,
+};
 pub use value::{Inputs, Returned, Value};
 
 /// The result of a machine test's step.
@@ -129,4 +154,22 @@ pub enum Error {
     /// The simulator process could not start, or its link failed.
     #[error("the simulator: {0}")]
     Simulator(String),
+    /// A trace's file could not be read.
+    #[error("the trace {} cannot be read: {message}", .path.display())]
+    Trace {
+        /// The trace's file.
+        path: PathBuf,
+        /// Why it cannot be read.
+        message: String,
+    },
+    /// A replayed trace differs from the build (specification 48 RU-60): the report gives the
+    /// first cycle whose outputs or fault differ, each output that differs with the trace's value
+    /// and the build's, and how many later cycles differ.
+    #[error("the replay of {} differs from the trace:\n{report}", .trace.display())]
+    Replay {
+        /// The trace's file.
+        trace: PathBuf,
+        /// The report, as `trust-dev replay` prints it.
+        report: String,
+    },
 }
