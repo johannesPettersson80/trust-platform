@@ -141,6 +141,27 @@ pub trait ResourceCycle {
         observer: &mut dyn CycleHooks,
     ) -> Result<(), RuntimeError>;
 
+    /// Runs one scan of a replay at logical time `now` (specification 48 RU-60): as
+    /// [`Self::run_scan`], with the trace's input image `inputs`, the bytes both images have, in
+    /// place of the drivers' read, and exactly the recorded cycle's task `activations` (each a task's
+    /// index and logical time) in place of the tasks due. The default refuses: a cycle replays when
+    /// it implements this.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidExecutionState`] by default, and the [`RuntimeError`] of a scan that
+    /// failed.
+    fn replay_scan(
+        &mut self,
+        now: Duration,
+        activations: &[(usize, Duration)],
+        inputs: &[u8],
+        observer: &mut dyn CycleHooks,
+    ) -> Result<(), RuntimeError> {
+        let _ = (now, activations, inputs, observer);
+        Err(RuntimeError::InvalidExecutionState)
+    }
+
     /// The allocator operations the thread that runs the scans has made so far, each allocation,
     /// reallocation and free once, as the platform counts them in 32 bits that wrap; `None` when it
     /// does not (specification 34, "The allocation count"). Reading it allocates nothing.

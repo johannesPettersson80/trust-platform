@@ -2,11 +2,15 @@
 //! (specification 48 RU-60): the recorded tasks' names, whether the build lays its memory out as
 //! the recorded program did, and the located outputs whose bytes differ after a cycle.
 
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use super::{section, ImageTables, IoArea, Located, TraceError};
 use crate::native::image::{Image, Record, SectionId, TaskRecord, TABLE_PREFIX_BYTES};
+use crate::native::reflect::resolve_path;
+use crate::native::{read_value, Types};
+use crate::value::Value;
 
 /// The names of the recorded image's tasks, in the order of its task table, which a cycle's
 /// activations index (Appendix C, C.6): the build's tasks of the same names run them.
@@ -62,13 +66,14 @@ pub fn differing_outputs<'l>(
     located
         .iter()
         .filter(|variable| variable.area == IoArea::Output)
-        .filter(|variable| output_bits(variable, trace) != output_bits(variable, build))
+        .filter(|variable| located_bytes(variable, trace) != located_bytes(variable, build))
         .collect()
 }
 
-/// The bytes of `variable` in the output image `image`, its bit alone for a variable of one bit;
-/// `None` where the image does not hold it.
-fn output_bits(variable: &Located, image: &[u8]) -> Option<Vec<u8>> {
+/// The bytes of `variable` in the process image `image`, its bit alone, 0 or 1, for a variable of
+/// one bit; `None` where the image does not hold it.
+#[must_use]
+pub fn located_bytes(variable: &Located, image: &[u8]) -> Option<Vec<u8>> {
     let start = usize::try_from(variable.offset).ok()?;
     match variable.bit {
         Some(bit) => image
@@ -89,4 +94,39 @@ fn pooled(pool: &[u8], offset: u32) -> Option<String> {
     core::str::from_utf8(rest.get(..end)?)
         .ok()
         .map(ToString::to_string)
+}
+
+/// The value that `bytes`, the bytes of `variable` that [`located_bytes`] gives, hold as the
+/// variable of the same path in `image` holds a value, for a replay's report (RU-60, "The
+/// result"); `None` for a path the image does not name or bytes that are no value of its type.
+#[must_use]
+pub fn located_value(image: &Image<'_>, variable: &Located, bytes: &[u8]) -> Option<Value> {
+    if variable.bit.is_some() {
+        return bytes.first().map(|bit| Value::Bool(*bit == 1));
+    }
+    let at = resolve_path(image, &variable.path).ok()?;
+    let types = Types::of(image).ok()?;
+    read_value(&types, bytes, 0, at.type_index).ok()
+}
+
+/// The address of `variable` as IEC 61131-3 writes one (§6.5.5.2): `%QX0.1`, `%IW4`, `%MB9`.
+#[must_use]
+pub fn located_address(variable: &Located) -> String {
+    let area = match variable.area {
+        IoArea::Input => 'I',
+        IoArea::Output => 'Q',
+        IoArea::Memory => 'M',
+    };
+    match variable.bit {
+        Some(bit) => format!("%{area}X{}.{bit}", variable.offset),
+        None => {
+            let size = match variable.size {
+                2 => 'W',
+                4 => 'D',
+                8 => 'L',
+                _ => 'B',
+            };
+            format!("%{area}{size}{}", variable.offset)
+        }
+    }
 }

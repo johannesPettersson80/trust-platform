@@ -397,6 +397,11 @@ END_PROGRAM
                         .respond_to
                         .send(trust_runtime_services::trace::requests::TraceState::Unknown);
                 }
+                ResourceCommand::ReplayTrace { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::simulator_replay::ReplayRefusal::ClockNotManual,
+                    ));
+                }
                 ResourceCommand::MeshCatalogue { respond_to, .. } => {
                     let _ = respond_to.send(Err(
                         "mesh catalogue unavailable in ADS test fixture".to_owned()

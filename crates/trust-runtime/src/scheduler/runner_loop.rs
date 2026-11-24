@@ -436,6 +436,11 @@ fn drain_commands<C: Clock + Clone>(
                     let _ = respond_to.send(answer);
                     fault = fault.or(faulted);
                 }
+                // A simulator replays a trace between scans, before its first (specification 48
+                // RU-60); a build that faults leaves its fault latched for the loop's next scan.
+                ResourceCommand::ReplayTrace { trace, respond_to } => {
+                    let _ = respond_to.send(runner.runtime.replay_trace(&trace));
+                }
                 other => {
                     apply_runner_command(&mut runner.runtime, runner.refuse_mesh_catalogue, other)
                 }
@@ -1176,6 +1181,15 @@ fn apply_resource_command(runtime: &mut CompiledRuntime, command: ResourceComman
         // A recording is armed and stopped between two scans (specification 48 RU-59).
         ResourceCommand::StartTrace(start) => start.serve(runtime),
         ResourceCommand::StopTrace(stop) => stop.serve(runtime),
+        // Only the scan loop of a running simulator replays a trace (`drain_commands`).
+        ResourceCommand::ReplayTrace { respond_to, .. } => {
+            let _ = respond_to.send(Err(
+                trust_runtime_services::simulator_replay::ReplayRefusal::Unavailable(
+                    "the resource does not run: a simulator replays a trace while it runs"
+                        .to_string(),
+                ),
+            ));
+        }
     }
 }
 
