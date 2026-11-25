@@ -44,7 +44,7 @@ use trust_runtime_services::variables::{ReadRefusal, ReadSet};
 use crate::config::ControlMode;
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
-use crate::scheduler::{ResourceCommand, ResourceState, TraceStart, TraceStop};
+use crate::scheduler::{Clock, ResourceCommand, ResourceState, TraceStart, TraceStop};
 use crate::value::Value;
 use crate::RestartMode;
 
@@ -56,6 +56,16 @@ use crate::runtime::lock_traces;
 use trust_runtime_services::trace::requests::{
     RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState,
 };
+
+impl ControlState {
+    /// Whether a `restart` request is queued whose restart has not yet run (specification 11
+    /// §6.8.1, "Simulator for machine tests").
+    fn restart_queued(&self) -> bool {
+        self.pending_restart
+            .lock()
+            .is_ok_and(|queued| queued.is_some())
+    }
+}
 
 impl AccessPort for ControlState {
     fn request_role(
@@ -220,6 +230,13 @@ impl ResourcePort for ControlState {
             return Err(AdvanceRefusal::ClockNotManual);
         };
         let resource = &self.resource;
+        // A restart that a `restart` request queued takes effect before the advance's cycles: the
+        // loop runs it when it next looks, at once when woken, and empties the slot once the restart
+        // and the state it leaves are done, so the cycles are the restarted program's.
+        if self.restart_queued() {
+            resource.clock().wake();
+            clock.wait_until(&|| !self.restart_queued())?;
+        }
         let runs = || runs_cycles(resource.state()) && !resource.is_hung() && !faulted();
         // A resource that runs no cycles from the start, as one a halting fault left faulted, has
         // no fault of this advance to wait for: its advance answers at once.

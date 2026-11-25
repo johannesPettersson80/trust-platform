@@ -12,7 +12,7 @@ use trust_runtime_core::value::Duration;
 
 use crate::ports::{RecordsPort, ResourcePort};
 use crate::protocol::ControlResponse;
-use crate::status::{invalid_params, newest_fault, validate_object_fields};
+use crate::status::{invalid_params, newest_fault, newest_fault_event, validate_object_fields};
 
 #[cfg(test)]
 mod tests;
@@ -63,8 +63,10 @@ pub fn request<H: ResourcePort + RecordsPort>(
         Ok(advance) => advance,
         Err(reason) => return invalid_params(id, &reason),
     };
-    let before = newest_fault(host);
-    let faulted = || newest_fault(host) != before;
+    // A fault event that the advance adds is a new fault; the events are compared, not their
+    // entries, whose place a restart can change (specification 11, the fault entry).
+    let before = newest_fault_event(host);
+    let faulted = || newest_fault_event(host) != before;
     match host.advance_simulator(advance, &faulted) {
         Ok(advanced) => {
             let mut result = json!({
@@ -72,9 +74,8 @@ pub fn request<H: ResourcePort + RecordsPort>(
                 "cycles": advanced.cycles,
                 "state": format!("{:?}", host.resource_state()).to_ascii_lowercase(),
             });
-            let after = newest_fault(host);
-            if after != before
-                && let Some(fault) = after
+            if newest_fault_event(host) != before
+                && let Some(fault) = newest_fault(host)
             {
                 result["fault"] = fault;
             }

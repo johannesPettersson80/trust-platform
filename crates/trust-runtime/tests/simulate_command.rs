@@ -230,6 +230,40 @@ fn a_simulator_runs_the_cycles_its_test_asks_for_and_ends_with_its_input() {
 }
 
 #[test]
+fn a_queued_restart_takes_effect_before_the_next_advances_cycles() {
+    // `restart` answers once it has queued the restart, and a simulator's next advance runs the
+    // restarted program's cycles, whatever the resource's state (specification 11 §6.8.1,
+    // "Simulator for machine tests"). Worked by hand: the program counts its cycles and divides by
+    // zero in its third, and the project halts on a fault. An advance of 3 cycles faults; after a
+    // cold restart an advance of 1 cycle runs 1 cycle of the restarted program: running, the
+    // counter 1. After a cold restart of the running program, an advance of 1 cycle runs 1 cycle
+    // and the counter is 1 again, not 2. Catches an advance that finds a halted resource still
+    // faulted and runs no cycle, the faulted wait taking the restart later on its own, and one
+    // that runs a cycle of the program the restart replaces.
+    let project = project();
+    let mut simulator = Simulator::start(&project);
+    let faulted =
+        simulator.call(&json!({"id": 1, "type": "simulator.advance", "params": {"cycles": 3}}));
+    assert_eq!(faulted["result"]["state"], json!("faulted"), "{faulted}");
+
+    for (id, before) in [(2, "faulted"), (6, "running")] {
+        let restarted =
+            simulator.call(&json!({"id": id, "type": "restart", "params": {"mode": "cold"}}));
+        assert_eq!(restarted["ok"], json!(true), "{before}: {restarted}");
+        let ran = simulator
+            .call(&json!({"id": id + 1, "type": "simulator.advance", "params": {"cycles": 1}}));
+        assert_eq!(ran["result"]["cycles"], json!(1), "{before}: {ran}");
+        assert_eq!(ran["result"]["state"], json!("running"), "{before}: {ran}");
+        assert_eq!(simulator.counter(id + 2), json!(1), "{before}");
+    }
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn a_fault_entry_names_its_pou_file_and_line_until_a_restart_replaces_the_program() {
     // The program divides by zero in its third cycle, at line 11 of `src/main.st` (the source
     // starts with an empty line), in the POU Main, and the project halts on a fault

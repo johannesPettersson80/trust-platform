@@ -169,15 +169,21 @@ fn run_resource_loop_core<C, F>(
             continue;
         }
 
-        if let Some(mode) = faulted::take_pending_restart(&runner) {
+        if let Some(mode) = faulted::queued_restart(&runner) {
             // The tasks' timing, and the grid with it, begin again when the restart's first cycle
-            // starts (`take_grid_origin`).
+            // starts (`take_grid_origin`). The slot empties once the restart and the state it
+            // leaves are done (`faulted::restart_ran`).
             match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     restarts.reset();
                     faulted::clear_recovered_fault(&supervision, &last_error);
+                    faulted::restart_ran(&runner, mode);
                 }
+                // A restart that failed halts the resource, whose faulted wait answers from here
+                // on: the resource is faulted before the slot empties, as after any restart.
                 Err(err) => {
+                    set_resource_state(&state, ResourceState::Faulted);
+                    faulted::restart_ran(&runner, mode);
                     if halt(&mut runner, &shared, &mut restarts, err) == Next::Exit {
                         return;
                     }

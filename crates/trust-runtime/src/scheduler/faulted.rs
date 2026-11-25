@@ -97,13 +97,23 @@ pub(super) fn wait_while_faulted<C: Clock + Clone>(
             runner.reload_required = false;
             return finish_recovery(state, last_error, supervision, automatic_restarts);
         }
-        if let Some(mode) = take_pending_restart(runner) {
-            match runner.restart_or_reload(mode) {
-                Ok(()) => {
-                    return finish_recovery(state, last_error, supervision, automatic_restarts);
-                }
+        if let Some(mode) = queued_restart(runner) {
+            let recovered = match runner.restart_or_reload(mode) {
+                Ok(()) => Some(finish_recovery(
+                    state,
+                    last_error,
+                    supervision,
+                    automatic_restarts,
+                )),
                 // The resource stays faulted, and the new error replaces the root fault.
-                Err(err) => set_last_error(last_error, err),
+                Err(err) => {
+                    set_last_error(last_error, err);
+                    None
+                }
+            };
+            restart_ran(runner, mode);
+            if let Some(wait) = recovered {
+                return wait;
             }
         }
     }
@@ -139,6 +149,28 @@ pub(super) fn take_pending_restart<C: Clock + Clone>(
     let signal = runner.restart_signal.as_ref()?;
     let mut guard = recover_mutex_lock(signal.lock());
     guard.take()
+}
+
+/// The restart that a control request queued, left in its slot while it runs: the loop empties
+/// the slot with [`restart_ran`] once the restart and the state it leaves are done, so that a
+/// client that waits for the slot to empty, as a simulator's next advance does, sees the restarted
+/// program (specification 11 §6.8.1, "Simulator for machine tests").
+pub(super) fn queued_restart<C: Clock + Clone>(
+    runner: &ResourceRunner<C>,
+) -> Option<crate::RestartMode> {
+    let signal = runner.restart_signal.as_ref()?;
+    *recover_mutex_lock(signal.lock())
+}
+
+/// Empties the restart slot after the restart of `mode` ran, whether it succeeded or failed, unless
+/// a request made while it ran asked for another mode, which the loop runs next.
+pub(super) fn restart_ran<C: Clock + Clone>(runner: &ResourceRunner<C>, mode: crate::RestartMode) {
+    if let Some(signal) = runner.restart_signal.as_ref() {
+        let mut guard = recover_mutex_lock(signal.lock());
+        if *guard == Some(mode) {
+            *guard = None;
+        }
+    }
 }
 
 /// Waits up to one poll period for a command. A missing or closed channel still paces the wait.
