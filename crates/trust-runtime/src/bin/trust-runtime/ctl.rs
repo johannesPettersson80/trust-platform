@@ -127,6 +127,7 @@ pub fn run_control(
         ControlAction::Install { container, restart } => {
             install::run(&target, &container, restart.as_deref())
         }
+        ControlAction::FaultTrace { out } => record::run_fault(&target, out.as_deref()),
         ControlAction::Record {
             cycles,
             duration,
@@ -601,6 +602,7 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         }),
         ControlAction::Install { .. }
         | ControlAction::Record { .. }
+        | ControlAction::FaultTrace { .. }
         | ControlAction::Firmware { .. }
         | ControlAction::DeviceGet
         | ControlAction::DeviceSet { .. }

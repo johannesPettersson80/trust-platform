@@ -3,6 +3,7 @@
 //! fed every cycle beside a recording on demand, and its fault's trace kept in the slot that the
 //! control link reads until the next fault.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use smol_str::SmolStr;
@@ -13,7 +14,8 @@ use trust_runtime_services::events::RuntimeEvent;
 use trust_runtime_services::trace::{Budget, FlightRecorder, ReserveError};
 
 use super::trace::{
-    located, lock, program_sizes, tables, utc_ms, EndedTrace, SessionIdentity, SharedTraces,
+    located, lock, program_sizes, tables, trace_file_name, utc_ms, EndedTrace, SessionIdentity,
+    SharedTraces,
 };
 use super::CompiledRuntime;
 
@@ -28,6 +30,10 @@ pub struct FlightSettings {
     pub traces: SharedTraces,
     /// The device's identity (`runtime_id`).
     pub runtime_id: SmolStr,
+    /// The folder of the runtime's files (specification 11 §6.8.0a), where the fault's trace is
+    /// written too, as `traces/fault-<UTC date and time>.trusttrace`; none for a runtime without
+    /// one, such as a simulator.
+    pub files: Option<PathBuf>,
 }
 
 /// The flight recorder of the program that runs (module docs).
@@ -126,6 +132,21 @@ impl CompiledRuntime {
         self.publish_flight();
     }
 
+    /// Writes the fault's trace `file` into `folder` as `fault-<UTC date and time>.trusttrace`; a
+    /// file it cannot write is reported as the event `runtime_trace_file_unavailable`, and the
+    /// slot keeps the trace all the same (specification 11 §6.8.1).
+    fn write_fault_trace(&self, folder: &std::path::Path, file: &[u8]) {
+        let path = folder.join(trace_file_name("fault", utc_ms().div_euclid(1_000)));
+        let written = std::fs::create_dir_all(folder).and_then(|()| std::fs::write(&path, file));
+        if let (Err(error), Some(debug)) = (written, &self.debug) {
+            debug.push_runtime_event(RuntimeEvent::TraceFileUnavailable {
+                path: path.display().to_string(),
+                error: error.to_string(),
+                time: self.current_time,
+            });
+        }
+    }
+
     /// The resource faulted outside a scan, as a tool's method call can make it: the flight
     /// recorder's recording ends with the cycles before, as the fault's trace.
     pub(crate) fn fault_flight(&mut self) {
@@ -158,14 +179,19 @@ impl CompiledRuntime {
         );
         let cycles = session.recorder.fault_cycles().unwrap_or(0);
         let end = session.recorder.fault_end();
-        let traces = self
+        let (traces, files) = self
             .flight_settings
             .as_ref()
-            .map(|settings| Arc::clone(&settings.traces));
+            .map_or((None, None), |settings| {
+                (Some(Arc::clone(&settings.traces)), settings.files.clone())
+            });
         self.flight = None;
         let (Some(file), Some(end), Some(traces)) = (file, end, traces) else {
             return;
         };
+        if let Some(folder) = files {
+            self.write_fault_trace(&folder.join("traces"), &file);
+        }
         lock(&traces).fault = Some(EndedTrace {
             id: 0,
             end,

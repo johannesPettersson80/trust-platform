@@ -68,11 +68,45 @@ pub(super) fn run(
     let (trace, reserved) = start(&mut client, goal, task)?;
     eprintln!("recording trace {trace}, {reserved} bytes reserved; Ctrl+C ends it");
     let ended = wait_for_end(&mut client, trace, &interrupted)?;
-    let file = read_trace(&mut client, trace, &ended)?;
-    let path = out.map_or_else(|| default_file(now_utc_secs()), Path::to_path_buf);
+    let file = read_trace(&mut client, &json!(trace), &ended)?;
+    let path = out.map_or_else(|| default_file("trace", now_utc_secs()), Path::to_path_buf);
     std::fs::write(&path, &file).with_context(|| format!("cannot write {}", path.display()))?;
     println!(
         "recorded {} cycles ({}) to {}, {} bytes",
+        ended.cycles,
+        ended.reason,
+        path.display(),
+        file.len()
+    );
+    Ok(())
+}
+
+/// Saves the flight recorder's trace of the last fault of the runtime at `target` in `out`, by
+/// default `fault-<UTC date and time>.trusttrace` in the current folder (specification 11 §6.8.1,
+/// "Cycle traces"), read and checked as a recording's trace is.
+///
+/// # Errors
+///
+/// A runtime that keeps no fault's trace, a trace that cannot be read whole, and a file that
+/// cannot be written.
+pub(super) fn run_fault(target: &ResolvedControlTarget, out: Option<&Path>) -> anyhow::Result<()> {
+    let (mut client, _) = connect(&target.endpoint, target.auth_token.as_deref())?;
+    let state = client
+        .request("trace.read", Some(json!({ "trace": "fault" })))
+        .map_err(|error| step_failed("trace.read", &error))?;
+    if state.get("state").and_then(Value::as_str) == Some("none") {
+        bail!(
+            "the runtime keeps no fault's trace: no fault since it started, or no flight recorder \
+             ([runtime.trace] flight_recorder in runtime.toml)"
+        );
+    }
+    let ended = ended(&state)?
+        .ok_or_else(|| anyhow!("the runtime answered a fault's trace that is still recording"))?;
+    let file = read_trace(&mut client, &json!("fault"), &ended)?;
+    let path = out.map_or_else(|| default_file("fault", now_utc_secs()), Path::to_path_buf);
+    std::fs::write(&path, &file).with_context(|| format!("cannot write {}", path.display()))?;
+    println!(
+        "saved the fault's trace of {} cycles ({}) to {}, {} bytes",
         ended.cycles,
         ended.reason,
         path.display(),
@@ -191,7 +225,7 @@ fn ended(state: &Value) -> anyhow::Result<Option<Ended>> {
 
 /// The ended trace's file, read part by part from offset 0, each part checked ([`part`]), and the
 /// whole checked against the length and the SHA-256 that its state gave.
-fn read_trace(client: &mut ControlClient, trace: u64, ended: &Ended) -> anyhow::Result<Vec<u8>> {
+fn read_trace(client: &mut ControlClient, trace: &Value, ended: &Ended) -> anyhow::Result<Vec<u8>> {
     let mut file = Vec::with_capacity(ended.bytes);
     while file.len() < ended.bytes {
         let reply = client
@@ -251,20 +285,10 @@ fn part(reply: &Value, offset: usize) -> anyhow::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-/// `trace-<UTC date and time>.trusttrace` for the UTC time `utc_secs`, the date and time in the
-/// basic form of ISO 8601.
-fn default_file(utc_secs: i64) -> PathBuf {
-    let at = time::OffsetDateTime::from_unix_timestamp(utc_secs)
-        .unwrap_or(time::OffsetDateTime::UNIX_EPOCH);
-    PathBuf::from(format!(
-        "trace-{:04}{:02}{:02}T{:02}{:02}{:02}Z.trusttrace",
-        at.year(),
-        u8::from(at.month()),
-        at.day(),
-        at.hour(),
-        at.minute(),
-        at.second()
-    ))
+/// `<prefix>-<UTC date and time>.trusttrace` for the UTC time `utc_secs`, the date and time in the
+/// basic form of ISO 8601, as the runtime names a trace's file.
+fn default_file(prefix: &str, utc_secs: i64) -> PathBuf {
+    PathBuf::from(trust_runtime::control::trace_file_name(prefix, utc_secs))
 }
 
 /// The UTC time now, in whole seconds from 1970.

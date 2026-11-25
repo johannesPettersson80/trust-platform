@@ -765,3 +765,21 @@ fn a_flight_recorder_without_memory_names_the_bytes_it_needs() {
             "time_ns": 10_000_000})
     );
 }
+
+/// The event of a fault's trace that the runtime could not write into the folder of its files
+/// (specification 11 §6.8.1, "Cycle traces"): the file and the reason. Catches the file or the
+/// reason left out, and another type.
+#[test]
+fn an_unwritten_fault_trace_names_its_file_and_the_reason() {
+    let event = RuntimeEvent::TraceFileUnavailable {
+        path: "/plc/traces/fault-20261124T013000Z.trusttrace".into(),
+        error: "Read-only file system".into(),
+        time: Duration::from_millis(5),
+    };
+    assert_eq!(
+        runtime_event_to_json(event),
+        json!({"type": "runtime_trace_file_unavailable",
+            "path": "/plc/traces/fault-20261124T013000Z.trusttrace",
+            "error": "Read-only file system", "time_ns": 5_000_000})
+    );
+}

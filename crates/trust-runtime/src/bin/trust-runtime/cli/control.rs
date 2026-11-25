@@ -132,6 +132,14 @@ pub enum ControlAction {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Save the flight recorder's trace of the last fault as a `.trusttrace` file (specification
+    /// 11, 6.8.1 "Cycle traces"; specification 48 RU-59).
+    FaultTrace {
+        /// The file to write, by default `fault-<UTC date and time>.trusttrace` in the current
+        /// folder.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Read a chip's device settings, `device.toml`, without its Wi-Fi password (specification 34
     /// TARGET-02).
     DeviceGet,
