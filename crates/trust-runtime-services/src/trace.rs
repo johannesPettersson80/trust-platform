@@ -10,9 +10,11 @@
 mod changes;
 mod flight;
 pub mod requests;
+mod served;
 
 pub use changes::{address_size, trace_area, trace_bit};
 pub use flight::{FlightCycle, FlightRecorder};
+pub use served::ServedTrace;
 #[cfg(test)]
 mod tests;
 
@@ -81,6 +83,27 @@ impl Budget {
         forces: 64 * 1024,
         value: 64 * 1024,
     };
+
+    /// The budget of a runtime with `free` bytes of memory to give, the same rule on every
+    /// runtime (specification 48 RU-59, "Memory"): each room a computer's ([`Self::COMPUTER`]),
+    /// but no more than a sixteenth of `free` for one cycle's changes and for the forces, a
+    /// thirty-second for one value, a quarter for the recording's changes and readings, and as
+    /// many readings in a cycle as a sixty-fourth holds. A runtime that does not know its memory,
+    /// as a computer does not, has a computer's.
+    #[must_use]
+    pub fn for_free(free: Option<usize>) -> Self {
+        let Some(free) = free else {
+            return Self::COMPUTER;
+        };
+        let computer = Self::COMPUTER;
+        Self {
+            cycle_changes: computer.cycle_changes.min(free / 16),
+            cycle_readings: computer.cycle_readings.min(free / 64 / 8),
+            extra: computer.extra.min(free / 4),
+            forces: computer.forces.min(free / 16),
+            value: computer.value.min(free / 32),
+        }
+    }
 }
 
 /// Why a recording could not be armed.
@@ -632,8 +655,20 @@ impl Recorder {
         start: &Start<'_, '_>,
         tally: Tally,
     ) -> Vec<u8> {
+        let meta = self.meta(identity, tally);
+        let parts = StartParts {
+            areas: &start.areas,
+            force_count: start.force_count,
+            forces: start.forces,
+        };
+        encode_records(&meta, located, &parts, image, records)
+    }
+
+    /// The trace's identity as its file's `META` names it (Appendix C, C.3): `identity`, the
+    /// recording's first cycle and cycle interval, and `tally`.
+    fn meta(&self, identity: &Identity<'_>, tally: Tally) -> Meta {
         let (_, first_cycle) = self.first.unwrap_or((Duration::ZERO, 0));
-        let meta = Meta {
+        Meta {
             image_sha256: identity.image_sha256,
             sources_hash: identity.sources_hash,
             target: identity.target,
@@ -648,13 +683,7 @@ impl Recorder {
             resource: String::from(identity.resource),
             task: identity.task.map(String::from),
             origin: tally.origin,
-        };
-        let parts = StartParts {
-            areas: &start.areas,
-            force_count: start.force_count,
-            forces: start.forces,
-        };
-        encode_records(&meta, located, &parts, image, records)
+        }
     }
 }
 

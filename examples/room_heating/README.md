@@ -85,6 +85,13 @@ They need `trust-runtime` of the same version as trust-sim, which `TRUST_RUNTIME
 guide [Machine Tests](https://johannespettersson80.github.io/trust-platform/develop/machine-tests/)
 builds them step by step.
 
+`traces/commissioning.trusttrace` is 30 s of the heating's start, recorded on a computer, and
+`tests/replay.rs` replays it with the program as it is now. It fails when a change alters what the
+program decides, and names the first cycle and output that differ. When you change the heating on
+purpose, record the trace again: run the program, run
+`trust-runtime ctl record --duration 30s --out traces/commissioning.trusttrace` in this folder,
+and press Start on the Heating panel in the first seconds.
+
 ## What it is not
 
 The protections hold equipment in its safe state; they are process protections, not a certified

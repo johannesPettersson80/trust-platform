@@ -167,10 +167,12 @@ source, so editors and scripts do not need to read the files. Every failure is p
 
 The runtime reserves the flight recorder's memory when the resource starts, and again at each
 restart and online change. When the computer cannot give that memory, the resource starts without
-a flight recorder, and the event `runtime_trace_memory` names the bytes needed. `trace.read` with
-`{"trace": "fault"}` reads the fault's trace until the next fault (specification 11 §6.8.1, "Cycle
-traces"), and a simulator replays it like any cycle trace. A chip does not keep a flight recorder
-yet.
+a flight recorder, and the event `runtime_trace_memory` names the bytes needed. After a fault,
+[`trust-runtime ctl fault-trace`](../cli/trust-runtime.md) saves the fault's trace, which
+`trace.read` with `{"trace": "fault"}` reads until the next fault (specification 11 §6.8.1, "Cycle
+traces"), and the runtime has also written it into the folder of its files as
+`traces/fault-<UTC date and time>.trusttrace`. A simulator replays it like any cycle trace. A chip
+does not keep a flight recorder yet.
 
 ### `[runtime.identify]`
 

@@ -27,6 +27,9 @@ time.workspace = true
 ureq = "3.4.2"
 trust-lsp.workspace = true
 trust-runtime.workspace = true
+# `trust-dev replay` replays a trace in the installed runtime's simulator with trust-sim, as a
+# machine test does (specification 48 RU-60).
+trust-sim.workspace = true
 trust-syntax.workspace = true
 trust-wasm-analysis.workspace = true
 

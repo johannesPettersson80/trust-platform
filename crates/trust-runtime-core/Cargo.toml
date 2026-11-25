@@ -17,6 +17,9 @@ test-support = []
 
 [dependencies]
 crc32fast = { workspace = true, optional = true }
+# A chip's store of the wall clock's readings that a cycle trace records, one scan thread without
+# the standard library (specification 48 RU-59); the chip's platform provides the critical section.
+critical-section = "1.2.0"
 indexmap.workspace = true
 libm.workspace = true
 lexical-parse-float.workspace = true

@@ -39,7 +39,7 @@ pub use compiled::flight::FlightSettings;
 pub(crate) use compiled::trace::lock as lock_traces;
 #[cfg(test)]
 pub(crate) use compiled::trace::{ended_trace, record_cycles};
-pub use compiled::trace::{new_traces, SharedTraces, TraceSlot};
+pub use compiled::trace::{new_traces, trace_file_name, SharedTraces, TraceSlot};
 pub use compiled::{
     CompiledDebugger, CompiledRuntime, CompiledState, CompiledVariable, NamedVariable,
 };

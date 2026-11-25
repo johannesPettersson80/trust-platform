@@ -75,6 +75,9 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
         cycles: bundle.runtime.flight_recorder,
         traces: traces.clone(),
         runtime_id: runtime_id.clone(),
+        // A simulator keeps no files of its own: a machine test that faults on purpose leaves
+        // nothing in the project.
+        files: None,
     }));
     // The safe outputs of `io.toml` apply; its drivers do not run: the simulation is the process
     // image's only source.

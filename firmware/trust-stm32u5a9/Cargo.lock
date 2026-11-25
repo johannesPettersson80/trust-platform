@@ -610,6 +610,7 @@ version = "0.44.1"
 name = "trust-runtime-core"
 version = "0.44.1"
 dependencies = [
+ "critical-section",
  "ed25519-dalek",
  "indexmap",
  "lexical-parse-float",

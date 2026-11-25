@@ -71,6 +71,7 @@ fn start_program(
             cycles: bundle.runtime.flight_recorder,
             traces: wiring.traces.clone(),
             runtime_id,
+            files: Some(trust_runtime::runtime_files::runtime_files_folder(&bundle.root)),
         }
     }));
     // A warm start takes the retained values of the retain file (specification 44 §11).

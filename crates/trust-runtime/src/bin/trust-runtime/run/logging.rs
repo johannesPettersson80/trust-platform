@@ -200,6 +200,19 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        // The fault's trace is in the slot but not in the folder of the runtime's files.
+        trust_runtime::debug::RuntimeEvent::TraceFileUnavailable { path, error, time } => {
+            logger.log(
+                LogLevel::Warn,
+                "runtime_trace_file_unavailable",
+                json!({
+                    "event_id": "TRUST-RT-TRACE-FILE-001",
+                    "path": path,
+                    "error": error,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         // The resource runs without its flight recorder (specification 11 §6.8.1).
         trust_runtime::debug::RuntimeEvent::TraceMemory { needed, free, time } => {
             logger.log(

@@ -38,6 +38,11 @@ END_PROGRAM
 
 /// A harness of [`SOURCE`] whose runtime keeps a flight recorder of `cycles`, and its slot.
 fn flown(cycles: u64) -> (TestHarness, SharedTraces) {
+    flown_into(cycles, None)
+}
+
+/// [`flown`], the fault's trace written into the folder `files` too.
+fn flown_into(cycles: u64, files: Option<std::path::PathBuf>) -> (TestHarness, SharedTraces) {
     let mut harness = TestHarness::from_source(SOURCE).expect("the program builds");
     let traces = new_traces();
     harness
@@ -46,6 +51,7 @@ fn flown(cycles: u64) -> (TestHarness, SharedTraces) {
             cycles,
             traces: Arc::clone(&traces),
             runtime_id: SmolStr::new("test"),
+            files,
         }));
     (harness, traces)
 }
@@ -191,4 +197,81 @@ fn a_change_between_two_scans_is_the_next_cycles_in_the_faults_trace() {
             vec![],
         ]
     );
+}
+
+#[test]
+fn a_runtime_with_a_folder_of_its_files_writes_the_faults_trace_there_too() {
+    // Specification 11 §6.8.1: "a runtime with a folder of its files (6.8.0a) also writes it there
+    // as `traces/fault-<UTC date and time>.trusttrace`". Worked by hand: the five cycles of the
+    // program fault; the folder then holds one file in `traces`, named `fault-`, the UTC date and
+    // time in 16 characters (`20261124T013000Z`) and `.trusttrace`, 33 in all, whose bytes are the
+    // trace the slot holds. Catches a copy
+    // not written, written elsewhere or under another name, and one that differs from the trace
+    // the control link reads.
+    let folder = trust_test_support::unique_temp_path("flight-files");
+    let (mut harness, traces) = flown_into(2, Some(folder.clone()));
+    for _ in 0..5 {
+        harness.cycle();
+    }
+    let written: Vec<std::path::PathBuf> = std::fs::read_dir(folder.join("traces"))
+        .expect("the traces folder")
+        .map(|entry| entry.expect("an entry").path())
+        .collect();
+    assert_eq!(written.len(), 1, "{written:?}");
+    let name = written[0]
+        .file_name()
+        .expect("a name")
+        .to_string_lossy()
+        .into_owned();
+    assert!(
+        name.starts_with("fault-") && name.ends_with("Z.trusttrace") && name.len() == 33,
+        "{name}"
+    );
+    let slot = lock(&traces);
+    let TraceState::Ended { bytes, .. } = slot.state(TraceName::Fault) else {
+        panic!("a fault's trace");
+    };
+    let mut file = vec![0; bytes];
+    assert_eq!(slot.part(TraceName::Fault, 0, &mut file), Some(bytes));
+    assert_eq!(std::fs::read(&written[0]).expect("the copy"), file);
+    drop(slot);
+    let _ = std::fs::remove_dir_all(&folder);
+}
+
+#[test]
+fn a_faults_trace_that_cannot_be_written_stays_in_the_slot_and_is_reported() {
+    // Specification 11 §6.8.1: "A runtime that cannot write that file keeps the trace for
+    // `trace.read` all the same, and a `runtime_trace_file_unavailable` event names the file and the
+    // reason". Worked by hand: the folder of the runtime's files is a file, so `traces` cannot be
+    // made in it. After the five cycles the slot holds the fault's trace all the same, `level` 30
+    // and 40 in the two cycles before the fault, and one event names the file
+    // `<files>/traces/fault-<UTC date and time>.trusttrace`. Catches a failed write that loses the
+    // trace, and one that is not reported or names another file.
+    let blocked = trust_test_support::unique_temp_path("flight-blocked");
+    std::fs::write(&blocked, b"a file where the folder would be").expect("the file");
+    let (mut harness, traces) = flown_into(2, Some(blocked.clone()));
+    let debug = crate::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    for _ in 0..5 {
+        harness.cycle();
+    }
+    assert_eq!(levels(&fault_trace(&traces)), [30, 40]);
+    let unwritten: Vec<String> = debug
+        .drain_runtime_events()
+        .into_iter()
+        .filter_map(|event| match event {
+            crate::debug::RuntimeEvent::TraceFileUnavailable { path, error, .. } => {
+                assert!(!error.is_empty());
+                Some(path)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(unwritten.len(), 1, "{unwritten:?}");
+    let prefix = blocked.join("traces").join("fault-").display().to_string();
+    assert!(
+        unwritten[0].starts_with(&prefix) && unwritten[0].ends_with("Z.trusttrace"),
+        "{unwritten:?}"
+    );
+    let _ = std::fs::remove_file(&blocked);
 }
