@@ -90,8 +90,10 @@ pub use value::{Inputs, Returned, Value};
 /// The result of a machine test's step.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Why a step of a machine test failed.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+/// Why a step of a machine test failed. Its `Debug` writes the message as `Display` does, lines
+/// and all: a test that returns [`Result`] prints its error with `Debug`, so a failed build shows
+/// its messages and a replay its report as they read (specification 48 RU-58, RU-60).
+#[derive(Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     /// No trust-runtime was found.
     #[error(
@@ -172,4 +174,39 @@ pub enum Error {
         /// The report, as `trust-dev replay` prints it.
         report: String,
     },
+}
+
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::Error;
+
+    #[test]
+    fn a_failed_test_prints_the_errors_message_with_its_lines() {
+        // Specification 48 RU-58 and RU-60: a failed build is the test's error with the build's
+        // messages, and a replay that differs an error with the report. A test that returns
+        // `Result` prints the error as `Error: {:?}`, so `Debug` is what the user reads: the
+        // message as `Display` writes it, its line breaks as they are. Catches a derived `Debug`,
+        // which prints `Replay { trace: ..., report: "...\n..." }` on one line.
+        let replay = Error::Replay {
+            trace: PathBuf::from("traces/commissioning.trusttrace"),
+            report:
+                "Replayed 2 cycles of a changed program.\nThe first difference is at cycle 1.\n"
+                    .to_owned(),
+        };
+        assert_eq!(
+            format!("{replay:?}"),
+            "the replay of traces/commissioning.trusttrace differs from the trace:\n\
+             Replayed 2 cycles of a changed program.\n\
+             The first difference is at cycle 1.\n"
+        );
+        assert_eq!(format!("{replay:?}"), replay.to_string());
+    }
 }
