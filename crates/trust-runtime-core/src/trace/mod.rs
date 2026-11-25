@@ -23,7 +23,8 @@ pub use names::{named_changes, named_cycle};
 pub use read::{decode, Decoded};
 pub use write::{
     change_len, cycle_record_len, encode, encode_change, encode_cycle, encode_cycle_parts,
-    encode_records, ChangeRef, CycleParts, StartParts,
+    encode_records, front_sections, header, padded, section_entry, ChangeRef, CycleParts,
+    FrontSections, StartParts,
 };
 
 /// The file's magic (Appendix C, C.1).

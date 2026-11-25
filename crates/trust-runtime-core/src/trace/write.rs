@@ -56,16 +56,12 @@ pub fn encode_records(
     image: &ImageTables,
     records: &[&[u8]],
 ) -> Vec<u8> {
-    let mut strings = StringPool::default();
-    let meta = meta_bytes(meta, &mut strings);
-    let syms = syms_bytes(located, &mut strings);
-    let stat = stat_bytes(start);
-    let strs = strings.bytes;
+    let front = front_sections(meta, located, start);
     let mut sections: Vec<(u32, &[u8])> = vec![
-        (section::META, &meta),
-        (section::STRS, &strs),
-        (section::SYMS, &syms),
-        (section::STAT, &stat),
+        (section::META, &front.meta),
+        (section::STRS, &front.strs),
+        (section::SYMS, &front.syms),
+        (section::STAT, &front.stat),
         (section::IMAGE_AREAS, &image.areas),
         (section::IMAGE_TASKS, &image.tasks),
         (section::IMAGE_IOBIND, &image.iobind),
@@ -447,22 +443,15 @@ fn assemble(sections: &[(u32, &[u8])]) -> Vec<u8> {
         end = padded(end + bytes.len());
     }
     let mut out = Vec::with_capacity(end);
-    out.extend_from_slice(&MAGIC);
-    put_u32(&mut out, 0); // the header's CRC-32, filled in below
-    out.extend_from_slice(&FORMAT_VERSION.to_le_bytes());
-    out.extend_from_slice(&[0; 2]);
-    put_u64(&mut out, end as u64);
-    put_u32(&mut out, count(sections.len()));
-    put_u32(&mut out, 0);
-    put_u64(&mut out, HEADER_BYTES as u64);
-    out.extend_from_slice(&[0; 24]);
+    // The header's CRC-32 is filled in below, once the table is written.
+    out.extend_from_slice(&header(end, sections.len(), 0));
     for ((id, bytes), offset) in sections.iter().zip(&offsets) {
-        put_u32(&mut out, *id);
-        put_u32(&mut out, 0);
-        put_u64(&mut out, *offset as u64);
-        put_u64(&mut out, bytes.len() as u64);
-        put_u32(&mut out, crc32::checksum(bytes));
-        put_u32(&mut out, 0);
+        out.extend_from_slice(&section_entry(
+            *id,
+            *offset,
+            bytes.len(),
+            crc32::checksum(bytes),
+        ));
     }
     for (_, bytes) in sections {
         out.extend_from_slice(bytes);
@@ -471,6 +460,62 @@ fn assemble(sections: &[(u32, &[u8])]) -> Vec<u8> {
     let header_crc = crc32::checksum(&out[12..table_end]);
     out[8..12].copy_from_slice(&header_crc.to_le_bytes());
     out
+}
+
+/// The file's header (C.1) for a file of `total_len` bytes with `section_count` sections, its
+/// section table right after it, and the CRC-32 `header_crc` of bytes 12 to the table's end.
+#[must_use]
+pub fn header(total_len: usize, section_count: usize, header_crc: u32) -> [u8; HEADER_BYTES] {
+    let mut out = [0; HEADER_BYTES];
+    out[..8].copy_from_slice(&MAGIC);
+    out[8..12].copy_from_slice(&header_crc.to_le_bytes());
+    out[12..14].copy_from_slice(&FORMAT_VERSION.to_le_bytes());
+    out[16..24].copy_from_slice(&(total_len as u64).to_le_bytes());
+    out[24..28].copy_from_slice(&count(section_count).to_le_bytes());
+    out[32..40].copy_from_slice(&(HEADER_BYTES as u64).to_le_bytes());
+    out
+}
+
+/// A section's entry in the section table (C.2): its id, its offset in the file, its length and
+/// the CRC-32 of its bytes.
+#[must_use]
+pub fn section_entry(id: u32, offset: usize, len: usize, crc: u32) -> [u8; SECTION_ENTRY_BYTES] {
+    let mut out = [0; SECTION_ENTRY_BYTES];
+    out[..4].copy_from_slice(&id.to_le_bytes());
+    out[8..16].copy_from_slice(&(offset as u64).to_le_bytes());
+    out[16..24].copy_from_slice(&(len as u64).to_le_bytes());
+    out[24..28].copy_from_slice(&crc.to_le_bytes());
+    out
+}
+
+/// The sections of a file ahead of the recorded image's tables: `META`, `STRS`, `SYMS` and `STAT`
+/// (C.2), which a trace served part by part keeps whole ([`front_sections`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrontSections {
+    /// `META` (C.3).
+    pub meta: Vec<u8>,
+    /// `STRS`: the string pool of `META` and `SYMS`.
+    pub strs: Vec<u8>,
+    /// `SYMS` (C.4).
+    pub syms: Vec<u8>,
+    /// `STAT` (C.5).
+    pub stat: Vec<u8>,
+}
+
+/// The front sections of the file of a trace of `meta`, `located` and `start`, as
+/// [`encode_records`] writes them.
+#[must_use]
+pub fn front_sections(meta: &Meta, located: &[Located], start: &StartParts<'_>) -> FrontSections {
+    let mut strings = StringPool::default();
+    let meta = meta_bytes(meta, &mut strings);
+    let syms = syms_bytes(located, &mut strings);
+    let stat = stat_bytes(start);
+    FrontSections {
+        meta,
+        strs: strings.bytes,
+        syms,
+        stat,
+    }
 }
 
 /// `META` (C.3): 128 bytes, its texts in the string pool.
@@ -594,7 +639,9 @@ fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
-const fn padded(n: usize) -> usize {
+/// `n` rounded up to a multiple of 8, as each section is padded (C.2).
+#[must_use]
+pub const fn padded(n: usize) -> usize {
     (n + 7) & !7
 }
 
