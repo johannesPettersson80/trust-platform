@@ -1211,9 +1211,12 @@ traces", gives the requests.
     each at most a share of the memory the runtime has, where it knows it: a sixteenth for a
     cycle's changes and for the forces, a sixty-fourth for a cycle's readings, a thirty-second for
     one value and a quarter for the recording. The memory a chip has for a recording is its free
-    heap less what it keeps beside any program (specification 34 MEM-12), so that a recording
-    never takes the working memory the chip needs: a recording whose rooms together would need
-    more, as one of many cycles can, is refused before it reserves any, with the bytes it needs.
+    heap less what it keeps beside any program (specification 34 MEM-12) and less what an online
+    change of the program that runs takes beside it, the program's figure less its stack bound
+    (specification 44 §12.3), so that a recording, and the trace it keeps when it ends, never takes
+    the working memory the chip needs nor an online change's: a recording whose rooms together
+    would need more, as one of many cycles can, is refused before it reserves any, with the bytes
+    it needs.
     The free heap is the heap's data regions, which a recording's rooms come from however large
     they are; a chip's program region holds programs only (specification 44 §10.3). The flight recorder's two recordings each take
     the shares of half that memory, so that together they take what one recording would, and a

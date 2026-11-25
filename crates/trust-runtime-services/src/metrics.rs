@@ -360,6 +360,16 @@ impl ProgramMemory {
         self.figure.total(self.retains)
     }
 
+    /// The bytes an online change of a program of this figure takes beside the running one, as the
+    /// change's admission counts them: the whole figure, the capture of the retained values
+    /// included, less the stack bound, which the two programs share (specification 44 §12.3).
+    #[must_use]
+    pub fn change_bytes(&self) -> usize {
+        self.figure
+            .total(true)
+            .saturating_sub(self.figure.activation_stack)
+    }
+
     /// The bytes of the capture of the retained values: the figure's when the runtime keeps them,
     /// else none.
     #[must_use]

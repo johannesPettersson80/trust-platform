@@ -771,6 +771,8 @@ pub(crate) struct CycleScript {
     /// The wall clock's readings each of the next method calls makes, reported to the store of a
     /// cycle trace's readings as the C6's calendar reports each one (specification 48 RU-59).
     pub(crate) method_readings: VecDeque<Vec<i64>>,
+    /// The memory figure the cycle reports (specification 44 §10.4), none unless a test gives one.
+    pub(crate) program_memory: Option<crate::metrics::ProgramMemory>,
 }
 
 impl Default for CycleScript {
@@ -793,6 +795,7 @@ impl Default for CycleScript {
             safe_outputs: Vec::new(),
             method_answers: VecDeque::new(),
             method_readings: VecDeque::new(),
+            program_memory: None,
         }
     }
 }
@@ -818,6 +821,10 @@ fn since_start(time: value::Duration) -> Duration {
 impl ResourceCycle for ScriptedCycle<'_> {
     fn tasks(&self) -> Vec<TaskDescriptor> {
         self.cycle.tasks()
+    }
+
+    fn program_memory(&self) -> Option<crate::metrics::ProgramMemory> {
+        self.script.borrow().program_memory
     }
 
     fn programs(&self) -> Vec<SmolStr> {

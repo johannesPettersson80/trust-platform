@@ -18,6 +18,7 @@ use trust_runtime_core::value::{self, Value as PlcValue};
 use trust_runtime_core::watchdog::{WatchdogAction, WatchdogPolicy};
 
 use crate::capabilities::HeapFacts;
+use crate::metrics::{MemoryFigure, ProgramMemory};
 use crate::tests::runner_platform::TestPlatform;
 use crate::tests::runner_ports::{ms, Fixture, TestRunner};
 
@@ -95,7 +96,29 @@ fn served_fault(fixture: &Fixture, runner: &mut TestRunner<'_>, at: u64) -> Trac
     decode(&file).expect("the served file decodes").trace
 }
 
-/// A chip that can give a recording 200,000 bytes, of a heap of 300,000 with 100,000 in use.
+/// The bytes an online change of the probe takes beside it with [`give_figure`]'s memory figure
+/// (specification 44 §12.3): its 3,000 bytes of areas and 400 of bookkeeping, without its stack
+/// bound of 1,024 bytes, which the running program and the new one share.
+const CHANGE_BYTES: usize = 3_400;
+
+/// Gives the probe the memory figure of 3,000 bytes of areas, a stack bound of 1,024 bytes and 400
+/// bytes of bookkeeping, and no retained values.
+fn give_figure(fixture: &Fixture) {
+    fixture.script.borrow_mut().program_memory = Some(ProgramMemory {
+        figure: MemoryFigure {
+            program: 0,
+            persistent_block: 3_000,
+            activation_stack: 1_024,
+            operand_stack: 0,
+            engine: 400,
+            retain_capture: 0,
+        },
+        retains: false,
+    });
+}
+
+/// A chip whose platform can give a recording `recording_room` bytes, of a heap of 300,000 with
+/// 100,000 in use.
 fn chip_platform(recording_room: usize) -> TestPlatform {
     TestPlatform {
         heap: Some(HeapFacts {
@@ -445,22 +468,25 @@ fn a_chip_sizes_a_recording_by_the_heap_it_can_give_one() {
     // Specification 48 RU-59, "Memory": a runtime that knows its memory records within it, each
     // room at most a share of the memory it can give the recording; one that does not keeps a
     // computer's rooms. Worked by hand for a recording of 2 cycles of the probe: a chip that can
-    // give a recording 90,000 bytes, whatever its heap reports, has rooms of 5,625 bytes of changes
-    // (1/16), 175 readings of 8 bytes (1/64), 22,500 bytes for the recording (1/4), 5,625 of forces
-    // (1/16) and a value of 2,812 (1/32), against a computer's 65,536, 256, 4,194,304, 65,536 and
-    // 65,536. Everything else it reserves is the same, so it reserves 4,171,804 + 59,911 + 62,724 +
+    // give a recording 90,000 bytes beside an online change of the probe (its platform's room is
+    // 93,400 bytes, and the change takes 3,400: see `give_figure`), whatever its heap reports, has
+    // rooms of 5,625
+    // bytes of changes (1/16), 175 readings of 8 bytes (1/64), 22,500 bytes for the recording
+    // (1/4), 5,625 of forces (1/16) and a value of 2,812 (1/32), against a computer's 65,536, 256,
+    // 4,194,304, 65,536 and 65,536. Everything else it reserves is the same, so it reserves 4,171,804 + 59,911 + 62,724 +
     // 648 + 59,911 = 4,354,998 bytes less than a runtime that does not know its memory. Its heap
     // reports 300,000 bytes with 100,000 in use. Catches a budget of the heap's free bytes, 200,000,
     // instead of what the chip can give a recording, and one of no memory at all.
     let reserved = |room: Option<usize>| {
         let fixture = probe();
+        give_figure(&fixture);
         let mut runner = fixture.runner_with(TestPlatform {
             heap: room.map(|_| HeapFacts {
                 capacity_bytes: 300_000,
                 used_bytes: 100_000,
                 peak_bytes: 120_000,
             }),
-            recording_room: room,
+            recording_room: room.map(|room| room + CHANGE_BYTES),
             ..TestPlatform::default()
         });
         fixture.pass_at(&mut runner, 0);
@@ -472,6 +498,31 @@ fn a_chip_sizes_a_recording_by_the_heap_it_can_give_one() {
     let computer = reserved(None);
     let chip = reserved(Some(90_000));
     assert_eq!(computer - chip, 4_354_998, "{computer} and {chip}");
+}
+
+#[test]
+fn a_chip_keeps_an_online_changes_memory_beside_a_recording() {
+    // Specification 48 RU-59, "Memory", with specification 44 §12.3: the memory a chip has for a
+    // recording is its room less what an online change of the program that runs takes beside it,
+    // the program's figure less its stack bound, so that a kept trace never takes the memory the
+    // change needs. Worked by hand on a chip whose platform's room is 50,000 bytes, running the
+    // probe with the figure of 3,000 bytes of areas, a stack bound of 1,024 and 400 of
+    // bookkeeping: a recording of 100,000 cycles needs far more and is refused, naming 50,000 less
+    // 3,000 + 400 = 46,600 bytes as free. Catches a room that leaves an online change nothing
+    // (50,000 free), which let a kept trace take the memory a change needed until the C6 reset
+    // (checklist G315), and a room less the whole figure (45,576).
+    let fixture = probe();
+    give_figure(&fixture);
+    let mut runner = fixture.runner_with(chip_platform(50_000));
+    fixture.pass_at(&mut runner, 0);
+    let refused = fixture.call_at(&mut runner, 0, &record(2, 100_000));
+    assert_eq!(
+        refused["error_code"],
+        json!("insufficient_memory"),
+        "{refused}"
+    );
+    let error = refused["error"].as_str().unwrap_or_default();
+    assert!(error.ends_with(", and 46600 are free"), "{refused}");
 }
 
 #[test]
@@ -591,13 +642,16 @@ fn a_chip_runs_without_a_flight_recorder_whose_memory_it_cannot_give() {
     // Specification 48 RU-59, "Memory", and specification 11 §6.8.1: a runtime that cannot give
     // the flight recorder's memory starts without it, and a `runtime_trace_memory` event names the
     // bytes needed and the bytes it has. Worked by hand: a flight recorder of 2^50 cycles, whose two
-    // recordings need more than 2^50 bytes, on a chip that can give a recording 200,000 bytes; the
-    // event names free 200,000 and needed above 2^50, at the program's time 0; the program runs on,
+    // recordings need more than 2^50 bytes, on a chip that can give a recording 200,000 bytes beside
+    // an online change of the probe (a room of 203,400 bytes, of which the change takes 3,400); the
+    // event names free 200,000 and needed above 2^50, at the
+    // program's time 0; the program runs on,
     // and after a failed scan `trace.read` of "fault" answers `none`. Catches a refusal without its
     // event, an event without the chip's figures, and a chip that stops or keeps a trace without a
     // flight recorder.
     let fixture = probe();
-    let mut runner = fixture.runner_with(chip_platform(200_000));
+    give_figure(&fixture);
+    let mut runner = fixture.runner_with(chip_platform(200_000 + CHANGE_BYTES));
     runner.set_flight_recorder(1 << 50);
     fixture.pass_at(&mut runner, 0);
     let events = fixture.call_at(
@@ -639,7 +693,9 @@ fn a_chips_flight_recorder_takes_what_one_recording_would() {
     // of half the memory the chip has for a recording, so that together they take what one
     // recording would, and a recording on demand still fits beside them. Worked by hand for a flight
     // recorder of 2 cycles of the probe on chips that can give a recording 200,000 and 400,000
-    // bytes: each recording's rooms are those of 100,000 and of 200,000 bytes: a cycle's changes
+    // bytes beside an online change of the probe (rooms of 203,400 and 403,400 bytes, of which the
+    // change takes 3,400): each recording's rooms are those of 100,000 and
+    // of 200,000 bytes: a cycle's changes
     // 6,250 and 12,500 (1/16), its readings 195 and 256 of 8 bytes (1/64, at most 256), the
     // recording's extra room 25,000 and 50,000 (1/4), the forces 6,250 and 12,500 (1/16), a value
     // 3,125 and 6,250 (1/32), and everything else the same. So the second reserves (6,250 + 61 x 8
@@ -648,7 +704,8 @@ fn a_chips_flight_recorder_takes_what_one_recording_would() {
     // whole memory, which leaves no room for a recording on demand.
     let reserved = |room: usize| {
         let fixture = probe();
-        let runner = fixture.runner_with(chip_platform(room));
+        give_figure(&fixture);
+        let runner = fixture.runner_with(chip_platform(room + CHANGE_BYTES));
         runner.set_flight_recorder(2);
         runner
             .shell
