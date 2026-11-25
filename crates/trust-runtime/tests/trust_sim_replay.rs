@@ -7,10 +7,12 @@
 mod simulator_support;
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use serde_json::json;
+use trust_runtime_core::trace::{TraceEnd, TraceOrigin};
 
-use simulator_support::{project_with, Simulator};
+use simulator_support::{project_with, trust_runtime, Simulator, IO_TOML, RUNTIME_TOML};
 
 /// A program that counts its activations in a 10 ms task and writes the count times `factor` to
 /// the located output `level` at `%QW0`.
@@ -90,5 +92,95 @@ fn a_trace_matches_its_project_and_fails_with_the_report_against_a_changed_one(
         trust_sim::Replay::open(recorded.join("missing.trusttrace")),
         Err(trust_sim::Error::Trace { .. })
     ));
+    Ok(())
+}
+
+/// A program that counts its activations in a 10 ms task, writes the count times 10 to the located
+/// output `level` at `%QW0`, and divides by zero in its 5th activation.
+const FAULTING_ST: &str = "
+VAR_GLOBAL
+    level AT %QW0 : INT;
+END_VAR
+PROGRAM Main
+VAR
+    count : INT := 0;
+    divisor : INT := 1;
+    quotient : INT;
+END_VAR
+count := count + 1;
+level := count * 10;
+IF count = 5 THEN
+    divisor := 0;
+END_IF;
+quotient := level / divisor;
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// A built project of [`FAULTING_ST`] whose runtime keeps a flight recorder of 3 cycles.
+fn flight_recorded_project() -> PathBuf {
+    let project = trust_test_support::unique_temp_path("trust-sim-fault-trace");
+    std::fs::create_dir_all(project.join("src")).expect("create the project");
+    let runtime_toml = format!("{RUNTIME_TOML}[runtime.trace]\nflight_recorder = 3\n");
+    std::fs::write(project.join("runtime.toml"), runtime_toml).expect("write runtime.toml");
+    std::fs::write(project.join("io.toml"), IO_TOML).expect("write io.toml");
+    std::fs::write(project.join("src/main.st"), FAULTING_ST).expect("write main.st");
+    let built = trust_runtime()
+        .arg("build")
+        .arg("--project")
+        .arg(&project)
+        .output()
+        .expect("run trust-runtime build");
+    assert!(
+        built.status.success(),
+        "trust-runtime build failed:\n{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
+    project
+}
+
+#[test]
+fn a_machine_tests_fault_keeps_its_trace_for_a_replay() -> trust_sim::Result<()> {
+    // Specification 48 RU-60, "In `cargo test`", and RU-59, "The flight recorder": a machine test
+    // reads the simulation's fault trace with `sim.fault_trace()?`, none before a fault, and a test
+    // that faults on purpose replays the cycles before the fault. Worked by hand for a flight
+    // recorder of 3 cycles and a program that divides by zero in its 5th cycle: before the fault
+    // there is no trace; running 10 cycles stops at the fault at 40 ms; the first recording holds
+    // 0, 10 and 20 and hands over, the second holds 30 and the faulted 40, so the fault's trace
+    // joins them: 5 cycles at 0 to 40 ms, from the flight recorder, ending `faulted`. A new
+    // simulator of the project replays it with every cycle's outputs and the fault matching.
+    // Catches a fault's trace given before a fault, one that is not the flight recorder's or lacks
+    // the faulted cycle, and one that does not replay.
+    let project = flight_recorded_project();
+    let mut sim = trust_sim::Project::open_with_runtime(&project, runtime())?.simulator()?;
+    assert_eq!(sim.fault_trace()?, None);
+    let faulted = sim.run_cycles(10);
+    assert!(
+        matches!(faulted, Err(trust_sim::Error::Fault { time, .. }) if time == Duration::from_millis(40)),
+        "{faulted:?}"
+    );
+    let file = sim.fault_trace()?.expect("the fault's trace");
+    let trace = trust_runtime_core::trace::decode(&file)
+        .expect("the fault's trace decodes")
+        .trace;
+    assert_eq!(trace.meta.origin, TraceOrigin::FlightRecorder);
+    assert_eq!(trace.meta.end, TraceEnd::Faulted);
+    let times: Vec<i64> = trace
+        .cycles
+        .iter()
+        .map(|cycle| cycle.time_ns / 1_000_000)
+        .collect();
+    assert_eq!(times, [0, 10, 20, 30, 40]);
+    assert!(trace.cycles[4].fault.is_some());
+
+    let replayed = trust_sim::Project::open_with_runtime(&project, runtime())?
+        .simulator()?
+        .replay(&file)?;
+    assert!(replayed.matched, "{replayed}");
     Ok(())
 }

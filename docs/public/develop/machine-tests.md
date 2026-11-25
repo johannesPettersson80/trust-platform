@@ -173,6 +173,17 @@ initial value does not reach the replay, just as it would not reach a running PL
 **Another computer.** A program computes the same results on every platform (specification 44
 NX-04). CI replays the trace, recorded on Linux, on macOS and Windows too.
 
+**A fault in a machine test.** With `[runtime.trace] flight_recorder = <n>` in `runtime.toml`,
+the simulation always keeps the last `n` to `2n` cycles. A test that ends at a fault reads them
+with `sim.fault_trace()?`, which gives the bytes of the fault's `.trusttrace` file, or `None`
+before a fault. Save them to look at the fault later, or replay them at once:
+
+```rust
+let file = sim.fault_trace()?.expect("the fault's trace");
+let replayed = project.simulator()?.replay(&file)?;
+assert!(replayed.matched, "{replayed}");
+```
+
 ## Try it yourself
 
 - Raise the tank's low water through the Simulation program, with
