@@ -374,6 +374,12 @@ impl TraceSession {
         &mut self.recorder
     }
 
+    /// The recording the scans fill and whether its start state is still due, together, for a
+    /// scan that takes the start state into the recording and then marks it taken.
+    pub fn recorder_and_start(&mut self) -> (&mut Recorder, &mut bool) {
+        (&mut self.recorder, &mut self.start_pending)
+    }
+
     /// After a scan: the recording's progress into `slot`, or once it has ended its trace, served
     /// part by part, each variable named by `name` as the debugger names it (specification 48
     /// Appendix C, C.6). It answers whether the recording has ended, so that the runtime drops the
