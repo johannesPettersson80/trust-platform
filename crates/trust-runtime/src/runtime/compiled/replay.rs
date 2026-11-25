@@ -123,7 +123,7 @@ impl CompiledRuntime {
         for (index, cycle) in trace.cycles.iter().enumerate() {
             // The changes come between the scans, as the runtime applied them: at the previous
             // cycle's logical time, and before the cycle's wall-clock readings, which belong to
-            // its scan (a recording keeps only a scan's readings).
+            // its scan; a method call reads its own (RU-60).
             for change in &cycle.changes {
                 self.apply_change(change, &traced, &mut notes);
             }
@@ -266,11 +266,17 @@ impl CompiledRuntime {
                 interface,
                 method,
                 inputs,
+                readings: call_readings,
             } => {
                 let inputs: Vec<(&str, &str)> = inputs
                     .iter()
                     .map(|(name, literal)| (name.as_str(), literal.as_str()))
                     .collect();
+                // The call reads the wall clock as it read it when it was recorded; one that read
+                // none reads the last reading the replay gave (RU-60).
+                if !call_readings.is_empty() {
+                    readings::play(call_readings);
+                }
                 let called = typed_call(&image, instance, interface, method, &inputs)
                     .map_err(|_| ())
                     .and_then(|call| {

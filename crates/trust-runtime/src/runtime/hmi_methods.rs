@@ -63,11 +63,15 @@ impl CompiledRuntime {
                 "HMI method budget is exhausted".into(),
             ));
         }
-        match self.call_method(&path_text(path), interface, method, inputs, *budget) {
+        // A recording keeps the wall clock's readings the call makes (specification 48 RU-59).
+        self.arm_call_readings();
+        let called = self.call_method(&path_text(path), interface, method, inputs, *budget);
+        let readings = self.take_call_readings();
+        match called {
             Ok((value, used)) => {
                 *budget = budget.saturating_sub(used);
                 // A recording keeps the call as a screen's (specification 48 RU-59).
-                self.record_hmi_method_call(path, interface, method, inputs);
+                self.record_hmi_method_call(path, interface, method, inputs, &readings);
                 Ok(value)
             }
             // A method that faulted has faulted the resource, as a faulted scan does.
@@ -212,9 +216,111 @@ END_PROGRAM
                     interface: "ICounter".into(),
                     method: "Add".into(),
                     inputs: vec![("Amount".into(), "3".into())],
+                    // `Add` reads no clock.
+                    readings: vec![],
                 },
             }]
         );
+    }
+
+    /// A function block whose method reads the wall clock into `called`, which the program copies
+    /// to `%QL8`, beside the scan's own reading at `%QL0`, in the 10 ms task `Fast`: a replay runs
+    /// the recorded task activations.
+    const CLOCK_PROGRAM: &str = r#"
+INTERFACE IStamp
+METHOD Take : BOOL
+END_METHOD
+END_INTERFACE
+FUNCTION_BLOCK Stamper IMPLEMENTS IStamp
+VAR_OUTPUT called : LDT; END_VAR
+METHOD PUBLIC Take : BOOL
+    called := DT_TO_LDT(CURRENT_DT());
+    Take := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+VAR_GLOBAL
+    stamp AT %QL0 : LDT;
+    called AT %QL8 : LDT;
+END_VAR
+PROGRAM Main
+VAR clock : Stamper; END_VAR
+clock();
+stamp := DT_TO_LDT(CURRENT_DT());
+called := clock.called;
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+
+    #[test]
+    fn a_screens_method_call_keeps_the_clock_it_read_and_replays_equal() {
+        // Specification 48 RU-59 and RU-60: a method call between two scans keeps the wall
+        // clock's readings it made, and a replay gives them back to it. Worked by hand on this
+        // computer, whose wall clock is the system's, with the harness's logical time moved 10 ms
+        // before each scan of the task: the recording's first scan reads t1 into `stamp`; 3 ms
+        // later a screen's `Take` of `P1.clock` reads t2, at least t1 + 3 ms, into `called`; the
+        // second scan copies t2 to `%QL8`. The trace's second cycle holds the call with its one
+        // reading, t2, and a replay of the trace on the same build matches both cycles. Catches a call recorded without its readings (G296): its replay reads the last
+        // reading the replay gave, t1, and the second cycle's `called` differs.
+        use trust_runtime_core::trace::{decode, ChangeKind};
+        use trust_runtime_services::trace::requests::{
+            RecordRequest, TraceName, TraceState, Until,
+        };
+
+        let mut harness = TestHarness::from_source(CLOCK_PROGRAM).unwrap();
+        harness.cycle();
+        let traces = crate::runtime::new_traces();
+        let request = RecordRequest {
+            until: Until::Cycles(2),
+            task: None,
+        };
+        harness
+            .runtime_mut()
+            .start_trace(&request, (&SmolStr::new("hmi"), "test"), &traces)
+            .unwrap();
+        let interval = crate::value::Duration::from_millis(10);
+        harness.advance_time(interval);
+        harness.cycle();
+        std::thread::sleep(std::time::Duration::from_millis(3));
+        let path = MemberPath::parse("P1.clock").unwrap();
+        harness
+            .runtime_mut()
+            .invoke_hmi_method(&path, "IStamp", "Take", &[], &mut 10_000)
+            .unwrap();
+        harness.advance_time(interval);
+        harness.cycle();
+
+        let file = {
+            let slot = crate::runtime::lock_traces(&traces);
+            let TraceState::Ended { bytes, .. } = slot.state(TraceName::Id(1)) else {
+                panic!("the recording of 2 cycles has ended");
+            };
+            let mut file = vec![0; bytes];
+            assert_eq!(slot.part(TraceName::Id(1), 0, &mut file), Some(bytes));
+            file
+        };
+        let trace = decode(&file).unwrap().trace;
+        let t1 = trace.cycles[0].wall_clock_ms[0];
+        let ChangeKind::MethodCall { readings, .. } = &trace.cycles[1].changes[0].kind else {
+            panic!(
+                "the second cycle holds the call: {:?}",
+                trace.cycles[1].changes
+            );
+        };
+        assert_eq!(readings.len(), 1, "{readings:?}");
+        assert!(
+            readings[0] >= t1 + 3,
+            "the call read {readings:?} after the scan's {t1}"
+        );
+
+        let mut replayer = TestHarness::from_source(CLOCK_PROGRAM).unwrap();
+        let report = replayer.runtime_mut().replay_trace(&file).unwrap();
+        assert_eq!(report.cycles, 2);
+        assert_eq!(report.first_difference, None, "{report:?}");
     }
 
     #[test]

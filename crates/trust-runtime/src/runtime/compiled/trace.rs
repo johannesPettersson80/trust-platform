@@ -128,12 +128,37 @@ impl CompiledRuntime {
         self.publish_trace();
     }
 
-    /// A method call that a tool made between two scans (`method.call`), which a running recording
-    /// keeps as its next cycle's change (specification 48 RU-59); the trace's file names the
-    /// instance as the debugger does.
-    pub(crate) fn record_method_call(&mut self, call: &MethodCall) {
+    /// Starts keeping the wall clock's readings of a method call between two scans, while a
+    /// recording runs, so that the call's change keeps them (specification 48 RU-59). The scans
+    /// keep theirs from their start to their end, so between two scans the readings are free.
+    pub(crate) fn arm_call_readings(&self) {
+        if self.records_changes() {
+            readings::arm();
+        }
+    }
+
+    /// The wall clock's readings that a method call made since [`Self::arm_call_readings`], in
+    /// order, and stops keeping them; none while no recording runs. Readings past the room end the
+    /// recordings `memory_full`, as a cycle's do.
+    pub(crate) fn take_call_readings(&mut self) -> Vec<i64> {
+        let mut taken = Vec::new();
+        if !self.records_changes() {
+            return taken;
+        }
+        let read = readings::take(&mut |reading| taken.push(reading));
+        if read > taken.len() {
+            recordings(&mut self.trace, &mut self.flight).each(Recorder::readings_lost);
+        }
+        readings::disarm();
+        taken
+    }
+
+    /// A method call that a tool made between two scans (`method.call`), with the wall clock's
+    /// `readings` it made, which a running recording keeps as its next cycle's change
+    /// (specification 48 RU-59); the trace's file names the instance as the debugger does.
+    pub(crate) fn record_method_call(&mut self, call: &MethodCall, readings: &[i64]) {
         recordings(&mut self.trace, &mut self.flight).each(|recorder| {
-            recorder.method_called(ChangeSource::ControlLink, &call.instance, call);
+            recorder.method_called(ChangeSource::ControlLink, &call.instance, call, readings);
         });
     }
 
@@ -180,7 +205,8 @@ impl CompiledRuntime {
     }
 
     /// A screen's method call between two scans (specification 39 §21.2; specification 48 RU-59):
-    /// a screen's change of the next cycle, each input as its Structured Text literal. The HMI
+    /// a screen's change of the next cycle, each input as its Structured Text literal, with the
+    /// wall clock's `readings` the call made. The HMI
     /// passes only values that a literal spells; an input without one ends the recording
     /// `memory_full`, since a trace without that input would replay another call.
     pub(crate) fn record_hmi_method_call(
@@ -189,6 +215,7 @@ impl CompiledRuntime {
         interface: &str,
         method: &str,
         inputs: &[(SmolStr, Value)],
+        readings: &[i64],
     ) {
         let mut recordings = recordings(&mut self.trace, &mut self.flight);
         if recordings.is_empty() {
@@ -216,6 +243,7 @@ impl CompiledRuntime {
                     interface,
                     method,
                     inputs: &inputs,
+                    readings,
                 },
             );
         });

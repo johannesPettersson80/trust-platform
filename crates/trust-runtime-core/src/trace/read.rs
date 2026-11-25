@@ -378,11 +378,17 @@ fn read_change(at: &mut Cursor<'_>) -> Result<Change, TraceError> {
             for _ in 0..count {
                 inputs.push((data.text()?, data.text()?));
             }
+            let count = data.u16()?;
+            let mut readings = Vec::with_capacity(usize::from(count));
+            for _ in 0..count {
+                readings.push(data.i64()?);
+            }
             ChangeKind::MethodCall {
                 instance,
                 interface,
                 method,
                 inputs,
+                readings,
             }
         }
         _ => return Err(bad(section, "unknown change kind")),
