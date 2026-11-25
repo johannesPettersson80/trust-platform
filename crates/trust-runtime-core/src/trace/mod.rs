@@ -391,6 +391,9 @@ pub enum ChangeKind {
         method: String,
         /// Each input's name and Structured Text literal.
         inputs: Vec<(String, String)>,
+        /// Each reading of the wall clock the call made, in order: the UTC time in milliseconds,
+        /// as `CURRENT_DT` encodes it.
+        readings: Vec<i64>,
     },
 }
 

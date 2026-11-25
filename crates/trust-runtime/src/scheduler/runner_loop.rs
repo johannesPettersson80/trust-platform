@@ -1209,16 +1209,20 @@ fn call_method(
 ) {
     use trust_runtime_services::method_call::{MethodCallRefusal, ALLOWANCE};
     let faulted_before = runtime.faulted();
-    match runtime.call_method(
+    // A recording keeps the wall clock's readings the call makes (specification 48 RU-59).
+    runtime.arm_call_readings();
+    let called = runtime.call_method(
         &call.instance,
         &call.interface,
         &call.method,
         &call.inputs,
         ALLOWANCE,
-    ) {
+    );
+    let readings = runtime.take_call_readings();
+    match called {
         Ok((value, _)) => {
             // A recording keeps the call as its next cycle's change (specification 48 RU-59).
-            runtime.record_method_call(call);
+            runtime.record_method_call(call, &readings);
             (Ok(value), None)
         }
         Err(error) if !faulted_before && runtime.faulted() => (

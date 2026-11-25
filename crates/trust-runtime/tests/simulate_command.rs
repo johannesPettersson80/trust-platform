@@ -653,6 +653,68 @@ fn a_recording_keeps_forces_where_they_are_set_and_released_and_address_writes()
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// A function block whose method reads the wall clock (`CURRENT_DT`), on the 10 ms resource.
+const CLOCK_ST: &str = "
+INTERFACE IStamp
+METHOD Take : BOOL
+END_METHOD
+END_INTERFACE
+FUNCTION_BLOCK Stamper IMPLEMENTS IStamp
+VAR_OUTPUT called : LDT; END_VAR
+METHOD PUBLIC Take : BOOL
+    called := DT_TO_LDT(CURRENT_DT());
+    Take := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR clock : Stamper; END_VAR
+clock();
+END_PROGRAM
+";
+
+#[test]
+fn a_tools_method_call_keeps_the_clock_it_read() {
+    // Specification 48 RU-59 and Appendix C, C.6 (kind 7): a tool's method call between two scans
+    // keeps the wall clock's readings it made. Worked by hand: the simulator's wall clock is its
+    // logical time from 1970 (specification 11 §6.8.1), which holds between the scans; after the
+    // cycles at 0 and 10 ms, `Take` reads 10 ms, and the trace's second cycle, at 20 ms, holds the
+    // call with the one reading 10. Catches a control link's call recorded without its readings.
+    let project = project_with(CLOCK_ST);
+    let mut simulator = Simulator::start(&project);
+    simulator.advance(1, 1);
+    let started =
+        simulator.call(&json!({"id": 2, "type": "trace.record", "params": {"cycles": 2}}));
+    assert_eq!(started["result"]["trace"], json!(1), "{started}");
+    simulator.advance(3, 1);
+    let called = simulator.call(&json!({"id": 4, "type": "method.call", "params": {
+        "instance": "main.clock", "interface": "IStamp", "method": "Take", "inputs": {}
+    }}));
+    assert_eq!(called["result"], json!({"value": true}), "{called}");
+    simulator.advance(5, 1);
+
+    let (state, file) = simulator.trace(6, 1);
+    assert_eq!(state["reason"], json!("complete"));
+    let trace = decoded(&file);
+    assert_eq!(
+        trace.cycles[1].changes,
+        [Change {
+            source: ChangeSource::ControlLink,
+            kind: ChangeKind::MethodCall {
+                instance: "Main.clock".into(),
+                interface: "IStamp".into(),
+                method: "Take".into(),
+                inputs: vec![],
+                readings: vec![10],
+            },
+        }]
+    );
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn a_recording_keeps_a_method_call_as_its_next_cycles_change() {
     // Specification 48 RU-59 and Appendix C, C.6 (kind 7), on the 10 ms resource with the sequence
@@ -689,6 +751,8 @@ fn a_recording_keeps_a_method_call_as_its_next_cycles_change() {
                 interface: "ISequence".into(),
                 method: "Start".into(),
                 inputs: vec![("Setpoint".into(), "21.5".into())],
+                // `Start` reads no clock.
+                readings: vec![],
             },
         }]
     );

@@ -342,6 +342,7 @@ fn an_address_change_and_a_method_call_read_back_as_recorded() {
             interface: "Plant.ISequence",
             method: "Start",
             inputs: &[("Setpoint", "21.5")],
+            readings: &[],
         },
     );
     assert!(recorder.end_cycle(None));
@@ -364,6 +365,7 @@ fn an_address_change_and_a_method_call_read_back_as_recorded() {
                 interface: "Plant.ISequence".into(),
                 method: "Start".into(),
                 inputs: vec![("Setpoint".into(), "21.5".into())],
+                readings: vec![],
             },
         ]
     );
@@ -603,6 +605,7 @@ fn the_file_names_each_variable_as_the_debugger_names_it() {
             interface: "ISequence",
             method: "Start",
             inputs: &[("Setpoint", "21.5")],
+            readings: &[],
         },
     );
     recorder.change(ChangeSource::Plant, &write("tank.level"));
@@ -655,9 +658,10 @@ fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first()
     // Specification 48 RU-59: a change made between two cycles, such as a method call, is the next
     // cycle's; one made before the trace's first cycle is in its start state, and one after the
     // recording ended is not recorded. Here `Start` of `Main.Heating`'s ISequence, with the literal
-    // 21.5 for `Setpoint`, is called before the first cycle, between the two, and after the end.
-    // Catches a call recorded in the cycle before, recorded where the start state already holds
-    // it, lost between two cycles, and recorded without its inputs' literals.
+    // 21.5 for `Setpoint`, is called before the first cycle, between the two, where it reads the
+    // wall clock at 1,795,000,000,123 and 1,795,000,000,124 ms, and after the end. Catches a call
+    // recorded in the cycle before, recorded where the start state already holds it, lost between
+    // two cycles, and recorded without its inputs' literals or the readings it made.
     use crate::method_call::MethodCall;
 
     let call = MethodCall {
@@ -668,11 +672,16 @@ fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first()
         literals: vec!["21.5".into()],
     };
     let mut recorder = Recorder::arm(Goal::Cycles(2), sizes(), Budget::COMPUTER).unwrap();
-    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call, &[]);
     assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
-    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+    recorder.method_called(
+        ChangeSource::ControlLink,
+        "Main.Heating",
+        &call,
+        &[1_795_000_000_123, 1_795_000_000_124],
+    );
     assert!(cycle(&mut recorder, 10, &[0], &[0, 0], &[0; 4]));
-    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call, &[]);
 
     let trace = read(&recorder);
     assert_eq!(trace.cycles[0].changes, vec![]);
@@ -685,6 +694,7 @@ fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first()
                 interface: "ISequence".into(),
                 method: "Start".into(),
                 inputs: vec![("Setpoint".into(), "21.5".into())],
+                readings: vec![1_795_000_000_123, 1_795_000_000_124],
             },
         }]
     );

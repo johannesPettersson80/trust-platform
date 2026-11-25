@@ -118,8 +118,15 @@ impl Recorder {
 
     /// A method call that a tool made between two scans (`method.call`), recorded as the next
     /// cycle's change: the instance by the path the debugger names it by (`instance`), the
-    /// interface, the method, and each input's name with its literal as the request gave it.
-    pub fn method_called(&mut self, source: ChangeSource, instance: &str, call: &MethodCall) {
+    /// interface, the method, each input's name with its literal as the request gave it, and the
+    /// wall clock's `readings` that the call made, in order (specification 48 RU-59).
+    pub fn method_called(
+        &mut self,
+        source: ChangeSource,
+        instance: &str,
+        call: &MethodCall,
+        readings: &[i64],
+    ) {
         let inputs: Vec<(&str, &str)> = call
             .inputs
             .iter()
@@ -133,6 +140,7 @@ impl Recorder {
                 interface: &call.interface,
                 method: &call.method,
                 inputs: &inputs,
+                readings,
             },
         );
     }

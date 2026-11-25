@@ -26,6 +26,9 @@
   most professional and best for us and the users"). 0.13, 24 November 2026: the flight recorder's
   start state, the memory and forces as the cycle before its first cycle left them, and where a
   fault's trace starts after a record that did not fit (RU-59), decided under the same delegation.
+  0.16, 25 November 2026: a method call made between two cycles keeps the wall clock's readings it
+  made, and a replay gives them back to it (RU-59, RU-60, Appendix C.6), decided under the same
+  delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1155,7 +1158,9 @@ traces", gives the requests.
         - a method call, a tool's (`method.call`) or a screen command's (specification 39 §21.2),
             with each input as a Structured Text literal: a tool's as its request gave it, and a
             screen's as IEC 61131-3 writes the value (Tables 5 to 8), an enumeration's value after
-            its type's own name and `#` (`Mode#Auto`, §6.4.4.2);
+            its type's own name and `#` (`Mode#Auto`, §6.4.4.2); and each reading of the wall
+            clock (`CURRENT_DT`) that the call made, in order, since a call between two cycles
+            reads the clock between them;
     - the input image as the cycle's scan sampled it, and the output image the cycle wrote, `%I`
         and `%Q` whole;
     - each reading of the wall clock (`CURRENT_DT`) in the cycle, in order. The wall clock is the
@@ -1216,7 +1221,10 @@ cycle's output image with the trace's (specification 11 §6.8.1, `simulator.repl
     - It activates the build's tasks of the same names, at the trace's task times, in the trace's
         order. A task the build lacks is reported once and skipped.
     - It applies the cycle's changes from outside before the cycle, as the runtime applied them. A
-        variable, address or method the build lacks is reported once and skipped.
+        method call reads the wall clock as it read it when it was recorded: its readings in
+        order, the last one again when the build's call reads the clock more often; a call that
+        read none reads the last reading the replay gave. A variable, address or method the build
+        lacks is reported once and skipped.
     - It gives the scan the trace's input image, the bytes both images have at the same offsets,
         and the trace's wall-clock readings in order, the last one again when the build reads the
         clock more often.
@@ -2055,7 +2063,7 @@ A change's kind and data:
 | 4 | an address's one-shot write | the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the bit (1, 255 for whole bytes), reserved (2), the byte offset (4), the bytes (a length of 4, then the bytes): the address's bytes as the write left them, or for a bit one byte, 0 or 1 |
 | 5 | a force set on an address | as 4 |
 | 6 | a force released on an address | the area (1), the bit (1), reserved (2), the byte offset (4), the size (4) |
-| 7 | a method call | the instance's path, the interface's qualified name and the method's name (texts), the number of inputs (2), and each input's name and Structured Text literal (texts) |
+| 7 | a method call | the instance's path, the interface's qualified name and the method's name (texts), the number of inputs (2), each input's name and Structured Text literal (texts), the number of the wall clock's readings the call made (2), and each reading: the UTC time in milliseconds, as `CURRENT_DT` encodes it (8) |
 
 A change's source: 1 the control link (the debugger, Live Values and `ctl` among its clients), 2 a
 screen, 3 Control Studio, 4 a service, 5 the mesh, 6 a protocol server, 7 a plant. A variable's path is
