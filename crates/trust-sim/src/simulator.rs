@@ -224,7 +224,7 @@ impl Simulator {
         match advanced.get("fault") {
             Some(fault) => Err(Error::Fault {
                 time: self.now,
-                fault: fault.to_string(),
+                fault: fault_text(fault),
             }),
             None => Ok(()),
         }
@@ -348,5 +348,22 @@ impl ByteStream for Pipes {
     /// ran.
     fn set_timeout(&self, _timeout: Duration) -> io::Result<()> {
         Ok(())
+    }
+}
+
+/// The text of a fault entry (specification 11, the fault entry): its `error`, then ` in <POU> at
+/// <file>:<line>` when the entry names where the program raised it, such as `division by zero in
+/// Main at src/Main.st:17`; the entry itself when it has no `error`.
+fn fault_text(entry: &Json) -> String {
+    let Some(error) = entry["error"].as_str() else {
+        return entry.to_string();
+    };
+    match (
+        entry["pou"].as_str(),
+        entry["file"].as_str(),
+        entry["line"].as_u64(),
+    ) {
+        (Some(pou), Some(file), Some(line)) => format!("{error} in {pou} at {file}:{line}"),
+        _ => error.to_string(),
     }
 }

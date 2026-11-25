@@ -24,7 +24,7 @@ package "Engineering computer: trust-runtime build" as buildPkg #LightYellow {
     component "host/native/cargo_build + crate_graph\nthe project's Rust crate: cargo metadata of\nthe build's package, the crates the audit\nchecks, checksums from its Cargo.lock\n(specification 48 RU-79)" as crateGraph
     artifact "program.<triple>.tpi (TRSTI001, format 5)\nCODE, RODATA, INIT, tables,\nmemory figure with the call level,\nheader flag release, sources hash,\nprogram library hash, CRATES, SIGN last" as image
     component "host/native/signing (§5.11)\nthe project's [signing] key or the user's\nsigning-key.pem (truST configuration folder);\nfills SIGN in place, before the record" as signing
-    artifact "deployment-record.<triple>.bin (version 3)\nversion 44.1, tasks, process image,\nruntime.toml + io.toml, the image's crates" as record
+    artifact "deployment-record.<triple>.bin (version 4)\nversion 44.1, tasks, process image,\nruntime.toml + io.toml, the image's crates,\nthe flight recorder's cycles" as record
     component "trust-dev test\ntest programs as instances without a task;\neach test: cold start, run_instance once" as testRunner
     hir --> model
     model --> generator
@@ -45,18 +45,18 @@ package "Engineering computer: trust-runtime build" as buildPkg #LightYellow {
 }
 
 package "Container and program store (specification 34 §5.1)" as storePkg #LightGreen {
-    artifact "TRSTA002 container\nentry kind 3 = image at a 64-byte boundary,\nkind 2 = record" as container
+    artifact "TRSTA002 container (xtask pack-project,\nencode_image)\nentry kind 3 = image at a 64-byte boundary,\nkind 2 = record" as container
     component "installation::admit_sequenced\nkind and record version agree;\ndescriptor names 44.1" as admission
     component "loading::install::check\nkernel checks of §10.2 (native::admission:\nlibrary, signature against the trusted keys,\ntables, bindings, memory)" as installCheck
-    image --> container : xtask pack-project / encode_image
+    image --> container
     record --> container
     container --> admission
     admission --> installCheck : program.install
 }
 
 package "ESP32-C6 firmware (the STM32U5A9 runs CODE in place from flash)" as chipPkg #LightCyan {
-    component "Runner (trust-runtime-services)\nfixed cycle grid (spec 10 §4.3),\nlink, faults, watchdog, metrics,\ncycle traces (runner/trace.rs, RU-59)" as runner
-    component "CompiledLoader\n(trust-platform-esp32)\nadmit, place module, claim lines" as loader
+    component "Runner (trust-runtime-services)\nfixed cycle grid (spec 10 §4.3),\nlink, faults, watchdog, metrics,\ncycle traces and the flight\nrecorder (runner/trace.rs, RU-59)" as runner
+    component "CompiledLoader\n(trust-platform-esp32)\nadmit, place module (copy CODE +\nRODATA, fence.i), claim lines" as loader
     component "ProgramCode\n192 KiB program region of the heap (.trust_code),\nexecutable: module copies at the top, uploads\nat the bottom; flash window as fallback" as codeRegion
     component "CompiledCycle\nread inputs, scan, deadline,\nsnapshot, drive outputs" as cycle
     component "NativeProgram (trust-runtime-core::native)\nareas, task readiness, bindings to the flat\nimages and the hierarchical image's slots,\nenumeration inputs checked, fault mapping" as kernel
@@ -65,7 +65,7 @@ package "ESP32-C6 firmware (the STM32U5A9 runs CODE in place from flash)" as chi
     component "module entry points\nextern C fn(*mut Cx) -> u32;\na program instance's makes its input\nconnections, runs its body, then\nits output connections" as module
     component "KERNEL_FUNCTIONS\nstop, debug_write, read_real, wall_clock\n(the runtime's reader of reals; the\nplatform's wall clock for CURRENT_DT:\na computer's system clock, the C6's\ncalendar clock that clock.set sets)" as kernelFunctions
     admission --> loader : boot / restart (Booted, format Image)
-    loader --> codeRegion : copy CODE + RODATA, fence.i
+    loader --> codeRegion
     loader --> cycle : CompiledCycle::start (cold),\nwith_retain, warm restart\nfrom the checkpoint
     runner --> cycle : run_scan(now, deadline, observer)
     cycle --> kernel : scan(now, task hooks)
@@ -80,8 +80,8 @@ package "ESP32-C6 firmware (the STM32U5A9 runs CODE in place from flash)" as chi
 package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Lavender {
     artifact "program.tpi + deployment-record.bin\n(trust-runtime build, program.install)" as hostImage
     artifact "device.toml [signing] trusted_keys\n(truST configuration folder;\nnative::runtime_device)" as hostTrust
-    component "ResourceRunner, scan thread\n(CompiledRuntime),\ncycle grid, watchdog, faults, commands" as hostRunner
-    component "CompiledRuntime\nHostIo (io.toml drivers), RetainManager\n(retain file), metrics, events, snapshot" as hostRuntime
+    component "ResourceRunner, scan thread\n(CompiledRuntime),\ncycle grid, watchdog, faults, commands:\nexecute_cycle, restart, online change, step" as hostRunner
+    component "CompiledRuntime (load_deployed: the AdmittedImage\nkept, the module mmapped)\nHostIo (io.toml drivers), RetainManager\n(retain file), metrics, events, snapshot" as hostRuntime
     component "CompiledDebugger\nChipDebug under a lock; the scan thread\nholds, control threads answer" as hostDebugger
     component "control server threads\ndebug::requests::answer, io.read,\nLive Values queues (DebugControl)" as hostControl
     component "HMI, ADS and OPC UA servers, historian\nread the published CompiledState\nthrough the symbol table" as hostServices
@@ -89,17 +89,17 @@ package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Laven
     component "Cycle trace (runtime/compiled/trace.rs, spec 48 RU-59)\nthe shared TraceSession (trust-runtime-services):\nthe observer fills its reserved memory each scan:\nstart state, changes, activations, CURRENT_DT\nreadings, images, fault; the shared TraceSlot: the\nrunning, ended and fault's traces, served in parts" as hostTrace
     component "Flight recorder (runtime/compiled/flight.rs, RU-59)\nFlightSession: two recordings of n cycles, armed at\nstart, restart and online change, fed beside the\nrecording on demand; a hand-over's start state is\ntaken after the scan; the fault's trace goes to TraceSlot" as hostFlight
     component "Replay (runtime/compiled/replay.rs, spec 48 RU-60)\nsimulator.replay before the first cycle: the recorded\nmemory, then each recorded cycle's tasks on its input\nimage (ResourceCycle::replay_scan); outputs compared" as hostReplay
-    hostImage --> hostRuntime : CompiledRuntime::load_deployed\n(AdmittedImage kept, module mmapped)
+    hostImage --> hostRuntime
     hostTrust ..> hostRuntime : admits at load and\nat each online change
-    hostRunner --> hostRuntime : execute_cycle / restart /\nonline change / step
+    hostRunner --> hostRuntime
     hostRuntime --> cycle : the same CompiledCycle,\nhost ports
     hostRuntime --> hostDebugger : hold port, published state
     hostControl --> hostDebugger : debug operations
     hostRuntime --> hostServices : DebugSnapshot.compiled
     hostRuntime --> hostClients : on_compiled_access
-    hostRuntime --> hostTrace : observer: each\nscan's record
+    hostRuntime --> hostTrace
     hostRuntime --> hostFlight : observer: each scan's\nrecord, both recordings
-    hostFlight --> hostTrace : at a fault:\nthe fault's trace
+    hostFlight --> hostTrace : the fault's trace
     hostControl --> hostRunner : between scans: trace.record,\ntrace.stop, simulator.replay
     hostControl --> hostTrace : trace.read: state and\nthe file's parts, the fault's too
     hostRunner --> hostReplay : replay_trace
@@ -114,7 +114,7 @@ note bottom of chipPkg
     checkpointed in the format the deleted bytecode engine wrote, so its checkpoints restore (M2). Online change (the module runs in its image in
     the program region), breakpoints, stepping and Live Values (M3) are served on the chip and
     on the computer by the same cycle and debugger code. Both record cycle traces with the
-    shared session and slot (trust-runtime-services); a chip's scan, which runs from RAM, only
-    asks whether one records, and the recording's work runs from flash.
+    shared session and slot (trust-runtime-services) and keep a flight recorder; a chip's scan,
+    which runs from RAM, only asks whether one records, and the recording's work runs from flash.
 end note
 @enduml

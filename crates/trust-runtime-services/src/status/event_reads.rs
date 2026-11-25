@@ -5,8 +5,12 @@
 
 use alloc::vec::Vec;
 
+use trust_runtime_core::fault::FaultSite;
+
 use super::params::{invalid_params, parse_bounded_limit, unavailable};
-use crate::events::{newest_selected, runtime_event_to_json, EventSelection, RuntimeEvent};
+use crate::events::{
+    newest_selected, runtime_event_to_json_placed, EventSelection, NamedPlace, RuntimeEvent,
+};
 use crate::ports::RecordsPort;
 use crate::protocol::{ControlResponse, ReplyWriter};
 
@@ -68,9 +72,10 @@ pub(super) fn answer_event_read<H: RecordsPort>(
     }) else {
         return unavailable(id, "event store");
     };
+    let place = |site| host.fault_place(site);
     let events = events
         .into_iter()
-        .map(runtime_event_to_json)
+        .map(|event| runtime_event_to_json_placed(event, &place))
         .collect::<Vec<_>>();
     let mut result = serde_json::Map::new();
     result.insert(read.member().into(), serde_json::Value::Array(events));
@@ -87,7 +92,7 @@ pub(crate) fn newest_fault<H: RecordsPort>(host: &H) -> Option<serde_json::Value
             .cloned()
     })
     .flatten()
-    .map(runtime_event_to_json)
+    .map(|event| runtime_event_to_json_placed(event, &|site| host.fault_place(site)))
 }
 
 /// The read written into `reply` as the result of its successful response, event by event: the
@@ -107,10 +112,12 @@ pub(crate) fn write_event_read<H: RecordsPort>(
     reply: &mut ReplyWriter,
 ) -> Result<(), ControlResponse> {
     let limit = parse_limit(params).map_err(|error| invalid_params(id, error))?;
+    let place = |site| host.fault_place(site);
     host.read_events(|store| {
         write_events(
             read.member(),
             newest_selected(store, read.selection(), limit),
+            &place,
             reply,
         );
     })
@@ -121,6 +128,7 @@ pub(crate) fn write_event_read<H: RecordsPort>(
 fn write_events<'a>(
     member: &str,
     events: impl Iterator<Item = &'a RuntimeEvent>,
+    place: &dyn Fn(FaultSite) -> Option<NamedPlace>,
     reply: &mut ReplyWriter,
 ) {
     reply.push("{\"");
@@ -133,7 +141,7 @@ fn write_events<'a>(
         if index > 0 {
             reply.push(",");
         }
-        reply.push_json(&runtime_event_to_json(event.clone()));
+        reply.push_json(&runtime_event_to_json_placed(event.clone(), place));
     }
     reply.push("]}");
 }

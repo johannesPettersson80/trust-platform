@@ -54,7 +54,9 @@ impl CompiledRuntime {
             Ok(called) => Ok(called),
             Err(MethodCallError::Refused(error)) => Err(error),
             Err(MethodCallError::Fault(error)) => {
-                Err(self.apply_fault(error, FaultDecision::from_fault_policy(self.fault_policy)))
+                let site = self.program_fault_site();
+                let decision = FaultDecision::from_fault_policy(self.fault_policy);
+                Err(self.apply_fault_at(error, site, decision))
             }
         }
     }

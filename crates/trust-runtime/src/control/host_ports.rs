@@ -10,12 +10,14 @@ use std::sync::atomic::Ordering;
 
 use smol_str::SmolStr;
 use trust_runtime_core::deployment::DeviceDescriptor;
+use trust_runtime_core::fault::FaultSite;
 use trust_runtime_core::memory::{Generation, InstanceId};
+use trust_runtime_core::native::fault_place::fault_place;
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_services::access::{AccessRole, AuthFailure, PairingService};
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
-use trust_runtime_services::events::{store_event, RuntimeEvent};
+use trust_runtime_services::events::{store_event, NamedPlace, RuntimeEvent};
 use trust_runtime_services::identify::IdentifyState;
 use trust_runtime_services::installation::{self, Admitted};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -456,6 +458,22 @@ impl StatusPort for ControlState {
 impl RecordsPort for ControlState {
     fn debug_hold(&self) -> Option<&'static str> {
         self.debug.hold_label()
+    }
+
+    /// The place of a fault of the program that runs now, from its image's tables (specification
+    /// 11, the fault entry); a fault of a program that a restart or an online change replaced names
+    /// none.
+    fn fault_place(&self, site: FaultSite) -> Option<NamedPlace> {
+        if site.generation != self.debug.generation() {
+            return None;
+        }
+        let admitted = self.debug.program_image()?;
+        let image = admitted.image();
+        fault_place(&image, site).map(|place| NamedPlace {
+            pou: place.pou.to_string(),
+            file: place.file.to_string(),
+            line: place.line,
+        })
     }
 
     fn control_mode_label(&self) -> Option<String> {

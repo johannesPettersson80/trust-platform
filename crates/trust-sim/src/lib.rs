@@ -131,7 +131,9 @@ pub enum Error {
     Fault {
         /// The logical time of the cycle.
         time: Duration,
-        /// The fault, as the runtime's `faults` lists it.
+        /// The fault as the runtime names it, then where the program raised it when the runtime
+        /// names that (specification 11, the fault entry): `division by zero in Main at
+        /// src/Main.st:17`.
         fault: String,
     },
     /// The simulator refused a request: a path that names no variable, a value its type does not

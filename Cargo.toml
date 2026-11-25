@@ -47,6 +47,8 @@ members = [
     "examples/rust_signal/rust",
     # The machine tests of the example room_heating, so that CI runs them (specification 48 RU-58).
     "examples/room_heating/machine-tests",
+    # The machine tests of the example fault_trace, so that CI runs them (specification 48 RU-58, RU-60).
+    "examples/fault_trace/machine-tests",
 ]
 exclude = [
     "third_party/tiny_http",

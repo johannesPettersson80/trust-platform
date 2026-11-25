@@ -7,6 +7,8 @@ use alloc::vec::Vec;
 
 use serde_json::json;
 use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError};
+use trust_runtime_core::fault::FaultSite;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::value::Duration;
 
 use super::*;
@@ -781,5 +783,52 @@ fn an_unwritten_fault_trace_names_its_file_and_the_reason() {
         json!({"type": "runtime_trace_file_unavailable",
             "path": "/plc/traces/fault-20261124T013000Z.trusttrace",
             "error": "Read-only file system", "time_ns": 5_000_000})
+    );
+}
+
+#[test]
+fn a_program_fault_names_its_place_only_while_its_program_runs() {
+    // Specification 11, the fault entry, and specification 34 MEM-05: the record of a fault that
+    // the program of generation 7 raised at the statement 5 of the POU 2 keeps that site, and the
+    // reply names the place the runtime gives for it. Worked by hand: with the place Main,
+    // src/Main.st, line 17, the entry is {"type": "fault", "error": "division by zero", "pou":
+    // "Main", "file": "src/Main.st", "line": 17, "time_ns": 5000000000}; once generation 8 runs, a
+    // restart's or an online change's, the runtime names no place for the site and the entry has
+    // none; a fault from outside the program, without a site, names none whatever the lookup would
+    // give. Catches a record that drops the site or its generation, and a reply that names a place
+    // for a fault without a site.
+    let site = FaultSite {
+        pou: 2,
+        statement: 5,
+        generation: Generation(7),
+    };
+    let time = Duration::from_millis(5_000);
+    let event = RuntimeEvent::program_fault(&RuntimeError::DivisionByZero, site, time);
+    let RuntimeEvent::Fault { fault, .. } = &event else {
+        panic!("a fault event: {event:?}");
+    };
+    assert_eq!(fault.site, site);
+
+    let main = || NamedPlace {
+        pou: "Main".into(),
+        file: "src/Main.st".into(),
+        line: 17,
+    };
+    let running = |generation: Generation| {
+        move |asked: FaultSite| (asked.generation == generation).then(main)
+    };
+    assert_eq!(
+        runtime_event_to_json_placed(event.clone(), &running(Generation(7))),
+        json!({"type": "fault", "error": "division by zero", "pou": "Main",
+            "file": "src/Main.st", "line": 17, "time_ns": 5_000_000_000_i64})
+    );
+    assert_eq!(
+        runtime_event_to_json_placed(event, &running(Generation(8))),
+        json!({"type": "fault", "error": "division by zero", "time_ns": 5_000_000_000_i64})
+    );
+    let outside = RuntimeEvent::fault(&RuntimeError::WatchdogTimeout, time);
+    assert_eq!(
+        runtime_event_to_json_placed(outside, &|_| Some(main()))["pou"],
+        serde_json::Value::Null
     );
 }

@@ -566,7 +566,7 @@ recording ended and its size. Ctrl+C ends the recording early and saves what it 
 Engineer role.
 
 ```text
-trust-runtime ctl record --cycles 500 --out pump.trusttrace
+trust-runtime ctl --project ./my-plc record --cycles 500 --out pump.trusttrace
 recorded 500 cycles (complete) to pump.trusttrace, 412032 bytes
 ```
 
@@ -580,9 +580,15 @@ the Engineer role. A runtime with a folder of its files has also written the tra
 `traces/fault-<UTC date and time>.trusttrace`.
 
 ```text
-trust-runtime ctl fault-trace --out pump-fault.trusttrace
+trust-runtime ctl --project ./my-plc fault-trace --out pump-fault.trusttrace
 saved the fault's trace of 1200 cycles (faulted) to pump-fault.trusttrace, 986432 bytes
 ```
+
+`ctl faults` prints the newest faults, newest first, as `faults` lists them. A fault that the program
+raised in a debug build also names where: its POU, its source file and the statement's line, as in
+`{"type": "fault", "error": "division by zero", "pou": "Main", "file": "src/Main.st", "line": 17,
+"time_ns": 5000000000}`. A fault from outside the program, a release build's fault, and the fault of a
+program that a restart or an online change has replaced name no place.
 
 `ctl service-token <name> --out <file>` creates the token a service signs in with
 (`pair.service`), or replaces the one it has, and needs the Admin role. It writes

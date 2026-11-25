@@ -1414,7 +1414,9 @@ A fault inside a module is a return value: the generated code returns `Err(Fault
 function up to the entry, which calls `api.fault` with the detail (the index and bounds, the
 divisor, the reference) and returns the code. The kernel then does what specification 34 §9
 (STATE-03, STATE-04) and 11 §6.6 say: records the fault with the statement id, file and line from
-the statement table, latches the fault state, applies the output policy. The statement is the one
+the statement table, latches the fault state, applies the output policy. The runtime's fault
+record keeps the statement and its POU as the fault's site (specification 34 MEM-05), and
+specification 11's fault entry names the POU, the file and the line when the runtime replies. The statement is the one
 being executed when the fault is raised: a debug image's call gives its caller's statement back when
 it returns (`cx.stmt = call_stmt`, §13.2), so a fault raised after a call returns, in the statement
 that made it, such as a test's failed assertion on a function's result, is that statement's. Fault codes are

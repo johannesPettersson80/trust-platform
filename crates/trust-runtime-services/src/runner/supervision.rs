@@ -10,8 +10,10 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::deployment::HangAction;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::fault::FaultSite;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::native::change::CarriedValueEvent;
+use trust_runtime_core::native::fault_place::fault_site;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, RunnerWait, TimeSpan,
 };
@@ -359,7 +361,9 @@ where
     ) {
         // A recording ends at a fault, with the cycles before (specification 48 RU-59).
         self.end_trace(TraceEnd::Faulted);
-        let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
+        let site = self.program_fault_site();
+        let reported =
+            self.apply_fault_at(error, site, FaultDecision::from_fault_policy(fault_policy));
         match cycle_error_action(watchdog, fault_policy, reported) {
             CycleErrorAction::Restart(reason) => self.automatic_restart(&reason),
             CycleErrorAction::WatchdogHalt(error) => {
@@ -383,6 +387,28 @@ where
     /// outputs follow when `decision` asks for them, the fault counts in the metrics and the
     /// events, and the fault to report comes back, the safe-output failure included.
     fn apply_fault(&mut self, error: RuntimeError, decision: FaultDecision) -> RuntimeError {
+        self.apply_fault_at(error, FaultSite::NONE, decision)
+    }
+
+    /// Where the program raised the fault that ended its last scan: the statement of the kernel's
+    /// record and its POU (specification 34 MEM-05), none for a fault from outside the program.
+    fn program_fault_site(&self) -> FaultSite {
+        match (self.cycle.last_fault_site(), self.cycle.variables_memory()) {
+            (Some((code, statement)), Some(memory)) => {
+                fault_site(&memory.image(), code, statement, self.cycle.generation())
+            }
+            _ => FaultSite::NONE,
+        }
+    }
+
+    /// [`Self::apply_fault`] for a fault that the program raised at `site`, which the fault's
+    /// event keeps (specification 11, the fault entry).
+    fn apply_fault_at(
+        &mut self,
+        error: RuntimeError,
+        site: FaultSite,
+        decision: FaultDecision,
+    ) -> RuntimeError {
         // A fault clears the queued writes and active forces, as trust-runtime's `apply_fault`
         // does (specification 11 §6.9.2).
         self.live.clear();
@@ -390,7 +416,7 @@ where
         let root = error.to_string();
         // The fixed record and the hosted message the fault log renders, built while the error
         // is still here (specification 34 MEM-05): recording the event allocates nothing.
-        let event = RuntimeEvent::fault(&error, time);
+        let event = RuntimeEvent::program_fault(&error, site, time);
         let mut reported = error.clone();
         self.cycle.latch_fault(error);
         if decision.apply_safe_state {

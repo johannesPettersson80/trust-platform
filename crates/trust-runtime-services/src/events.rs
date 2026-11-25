@@ -235,6 +235,14 @@ impl RuntimeEvent {
             time,
         }
     }
+
+    /// A fault event for `error` that the program raised at `site`, at logical `time`
+    /// (specification 34 MEM-05): a reply names the site's POU, file and line while the site's
+    /// generation runs (specification 11, the fault entry). [`FaultSite::NONE`] names none.
+    #[must_use]
+    pub fn program_fault(error: &RuntimeError, site: FaultSite, time: Duration) -> Self {
+        Self::fault_with_record(FaultRecord::latch(error, site, NO_TASK, time), error, time)
+    }
 }
 
 /// The computer's default event-store capacity: the newest runtime events the product event store
@@ -339,7 +347,27 @@ pub fn newest_faults(store: &VecDeque<RuntimeEvent>, limit: usize) -> Vec<Runtim
         .collect()
 }
 
-/// The JSON form of `event` in `events.tail` and `faults`.
+/// The JSON form of `event` in `events.tail` and `faults`, a fault's without its place.
+#[must_use]
+pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
+    runtime_event_to_json_placed(event, &|_| None)
+}
+
+/// The place in the program's sources that a reply names for a fault's site (specification 11,
+/// the fault entry): the POU's display name, the statement's file and its first line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedPlace {
+    /// The display name of the POU that holds the statement.
+    pub pou: String,
+    /// The statement's source file, as the image's file table names it.
+    pub file: String,
+    /// The statement's first line, counted from 1.
+    pub line: u32,
+}
+
+/// The JSON form of `event`, as [`runtime_event_to_json`] gives it, with a fault's place: `place`
+/// names the site of a fault that the program raised, or none when the site's generation no longer
+/// runs or its image does not name the site (specification 11, the fault entry).
 #[must_use]
 #[allow(
     clippy::missing_panics_doc,
@@ -349,7 +377,10 @@ pub fn newest_faults(store: &VecDeque<RuntimeEvent>, limit: usize) -> Vec<Runtim
     clippy::too_many_lines,
     reason = "one arm for each runtime event, so every event's form is read in one place"
 )]
-pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
+pub fn runtime_event_to_json_placed(
+    event: RuntimeEvent,
+    place: &dyn Fn(FaultSite) -> Option<NamedPlace>,
+) -> serde_json::Value {
     match event {
         RuntimeEvent::CycleStart { cycle, time } => json!({
             "type": "cycle_start",
@@ -413,11 +444,22 @@ pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             fault,
             message,
             time,
-        } => json!({
-            "type": "fault",
-            "error": fault.render(message.as_ref()),
-            "time_ns": time.as_nanos(),
-        }),
+        } => {
+            let mut entry = json!({
+                "type": "fault",
+                "error": fault.render(message.as_ref()),
+                "time_ns": time.as_nanos(),
+            });
+            let found = (fault.site != FaultSite::NONE)
+                .then(|| place(fault.site))
+                .flatten();
+            if let Some(found) = found {
+                entry["pou"] = json!(found.pou);
+                entry["file"] = json!(found.file);
+                entry["line"] = json!(found.line);
+            }
+            entry
+        }
         RuntimeEvent::SafeStateApplied { outputs, time } => json!({
             "type": "safe_state_applied",
             "outputs": outputs

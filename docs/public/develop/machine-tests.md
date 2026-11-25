@@ -90,8 +90,9 @@ program uses `run_for` with the task's interval.
 screen's command does; a method without a result answers `()`.
 
 **Faults.** A cycle that faults ends `run_cycles` or `run_for` there, with
-`trust_sim::Error::Fault`; its `time`, and `now()`, are that cycle's time, and the project's fault
-policy acts as in a run. A halting fault leaves the resource faulted until the test restarts it: a
+`trust_sim::Error::Fault`; its `time`, and `now()`, are that cycle's time, and its text names the
+fault and, in a debug build, where the program raised it: `division by zero in Main at
+src/Main.st:17`. The project's fault policy acts as in a run. A halting fault leaves the resource faulted until the test restarts it: a
 run in the meantime runs no cycle, while `run_for`'s time passes.
 
 ## Replay a trace from the machine
@@ -105,7 +106,7 @@ readings, and compares each cycle's outputs with the trace's (specification 48 R
    project's folder, then press Start on the Heating panel in the first seconds:
 
     ```text
-    trust-runtime ctl record --duration 30s --out traces/commissioning.trusttrace
+    trust-runtime ctl --project . record --duration 30s --out traces/commissioning.trusttrace
     ```
 
     Once 30 s of logical time have run, it prints

@@ -3980,6 +3980,18 @@ the originating resource fault. On a link that bounds its frames, such as a
 chip's USB link, a reply longer than the frame is answered as specification 34
 PORT-05 says; a reply that fits is the same bytes as on any other link.
 
+A fault entry, in `faults`, in `events.tail` and as the `fault` of a `simulator.advance` answer,
+is `{"type": "fault", "error": <text>, "time_ns": <logical time>}`. A fault that the program
+raised at a statement of the image that runs also names where, as specification 44 §8.6 records
+it: `"pou"`, the name of the POU that holds the statement, `"file"`, the statement's source file
+as the image's file table names it, and `"line"`, the statement's first line, for example
+`{"type": "fault", "error": "division by zero", "pou": "Main", "file": "src/Main.st", "line":
+17, "time_ns": 5000000000}`. The record keeps only the statement (specification 34 MEM-05); the
+runtime names it from the image's statement, symbol and file tables when it replies. A fault
+from outside the program, such as a watchdog's, a fault of an image without a statement table
+(a release image, specification 44 §13.2), and a fault of an image that a restart or an online
+change has replaced name no place.
+
 The event store keeps the newest `runtime.events.capacity` events, 1,000 when
 the project sets none on a computer; a device without an operating system takes
 its default and its maximum from the device's chip file (specification 34,
