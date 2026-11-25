@@ -400,10 +400,13 @@ fn a_steady_subscription_stays_live_through_its_heartbeat() {
 }
 
 /// Specification 11's OPC UA client: its subscription publishes at the connection's
-/// `poll_interval_ms`, here 1,000 ms, so its heartbeat arrives about once a second. Over five
-/// seconds at least three heartbeats arrive, and the median gap between them is at least 600 ms
-/// (a busy computer only lengthens the gaps). Catches a subscription that publishes at a fixed rate
-/// whatever the connection asks (it published every 250 ms), and a heartbeat that never arrives.
+/// `poll_interval_ms`, here 1,000 ms, so its heartbeat arrives about once a second. The test takes
+/// six heartbeats, waiting at most 30 s, and the median of their five gaps is between 600 and
+/// 2,000 ms. The median holds while a busy computer stretches a gap or two: on 25 November 2026 a
+/// loaded macOS runner went 5 s without a heartbeat, which a fixed window of five seconds took for
+/// a silent subscription. Catches a subscription that publishes at a fixed rate whatever the
+/// connection asks (it published every 250 ms), one far slower than asked, and a heartbeat that
+/// never arrives.
 #[test]
 fn the_subscription_publishes_at_the_poll_interval() {
     use trust_runtime::opcua::opcua_client_now_ms;
@@ -411,7 +414,12 @@ fn the_subscription_publishes_at_the_poll_interval() {
     let (bridge, mut worker) = steady_client(&server, 1_000, 60_000);
     let mut seen = Vec::new();
     let first = std::time::Instant::now();
-    while first.elapsed() < std::time::Duration::from_secs(5) {
+    while seen.len() < 6 {
+        assert!(
+            first.elapsed() < std::time::Duration::from_secs(30),
+            "{} heartbeats in 30 s, at {seen:?}",
+            seen.len()
+        );
         worker.tick(opcua_client_now_ms()).expect("a tick");
         let last_seen = bridge.snapshot().last_seen_ms.expect("a notification time");
         if seen.last() != Some(&last_seen) {
@@ -421,8 +429,8 @@ fn the_subscription_publishes_at_the_poll_interval() {
     }
     let mut gaps: Vec<u64> = seen.windows(2).map(|pair| pair[1] - pair[0]).collect();
     gaps.sort_unstable();
-    assert!(gaps.len() >= 3, "heartbeats at {seen:?}");
-    assert!(gaps[gaps.len() / 2] >= 600, "gaps {gaps:?}");
+    let median = gaps[gaps.len() / 2];
+    assert!((600..=2_000).contains(&median), "gaps {gaps:?}");
     drop(worker);
     server.stop();
 }
