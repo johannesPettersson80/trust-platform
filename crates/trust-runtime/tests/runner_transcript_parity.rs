@@ -398,13 +398,14 @@ fn nanos(scan: &HostScan) -> i64 {
 
 /// Specification 48 RU-59, "Every runtime": a chip records, keeps and serves a cycle trace as a
 /// computer does. A recording of 3 cycles reaches the device just before the scan that the host
-/// recorded first, so both record the same scans. Both answer `trace.record` with trace 1; the
-/// device's reservation is the host's and its copy of the recorded image's tables, which a chip
-/// takes when its recording starts (RU-59, "Memory"). Both end the recording complete with 3
+/// recorded first, so both record the same scans. Both answer `trace.record` with trace 1 and the
+/// same reservation, the recording's memory as specification 11 §6.8.1 names it: the recorder's
+/// rooms and the copy of the recorded image's tables, which a trace takes when its recording
+/// starts (RU-59, "Memory"), more than the tables alone. Both end the recording complete with 3
 /// cycles, and the two files decode to the same trace but for what tells the runtimes apart: the
 /// runtime ID, the platform and the wall-clock time of the start. Catches a device that records
 /// other scans, other images or changes, a start state or located variables of its own, or the
-/// tables of another program.
+/// tables of another program, and a runtime whose reservation leaves the tables out.
 fn cycle_trace(host: &mut HostComposition, device: &mut Device) {
     let record = live(70, "trace.record", json!({"cycles": 3}));
     let read = live(71, "trace.read", json!({"trace": 1}));
@@ -469,9 +470,10 @@ fn cycle_trace(host: &mut HostComposition, device: &mut Device) {
     .sum::<usize>();
     assert_eq!(
         reserved(&device_started),
-        reserved(&host_started) + tables,
+        reserved(&host_started),
         "{host_started} and {device_started}"
     );
+    assert!(reserved(&host_started) > tables, "{host_started}");
     for field in ["state", "reason", "cycles"] {
         assert_eq!(
             device_ended["result"][field], host_ended["result"][field],

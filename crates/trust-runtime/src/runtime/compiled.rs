@@ -399,7 +399,7 @@ impl CompiledRuntime {
             let fault = self.cycle.program().last_fault();
             let fault = trace::cycle_fault(&self.image.image(), &fault);
             if let Some(session) = self.trace.as_mut() {
-                session.recorder.end_cycle(Some(fault));
+                session.shared.recorder().end_cycle(Some(fault));
             }
             if let Some(session) = self.flight.as_mut() {
                 session.recorder.end_cycle(Some(fault));

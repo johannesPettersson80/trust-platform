@@ -299,7 +299,8 @@ impl CycleHooks for HostedCompiledScan<'_> {
         // (specification 48 RU-59).
         if point == CompiledAccessPoint::CycleStart {
             if let Some(session) = self.trace.as_deref_mut() {
-                take_start(&mut session.recorder, session.start_pending, variables);
+                let (recorder, pending) = session.shared.recorder_and_start();
+                take_start(recorder, *pending, variables);
             }
             if let Some(session) = self.flight.as_deref_mut() {
                 take_start(
@@ -321,12 +322,8 @@ impl CycleHooks for HostedCompiledScan<'_> {
         }
         if point == CompiledAccessPoint::CycleStart {
             if let Some(session) = self.trace.as_deref_mut() {
-                take_forces(
-                    &mut session.recorder,
-                    &mut session.start_pending,
-                    self.debug.as_ref(),
-                    variables,
-                );
+                let (recorder, pending) = session.shared.recorder_and_start();
+                take_forces(recorder, pending, self.debug.as_ref(), variables);
             }
             if let Some(session) = self.flight.as_deref_mut() {
                 let pending = &mut session.start_pending;
@@ -424,9 +421,9 @@ impl HostedCompiledScan<'_> {
         match phase {
             CyclePhase::CycleStart => {
                 if let Some(session) = self.trace.as_deref_mut()
-                    && session.recorder.begin_cycle(now, cycle) == Begin::First
+                    && session.shared.recorder().begin_cycle(now, cycle) == Begin::First
                 {
-                    session.start_pending = true;
+                    session.shared.start_pending = true;
                 }
                 if let Some(session) = self.flight.as_deref_mut()
                     && session.recorder.recorder().begin_cycle(now, cycle) == Begin::First
@@ -449,7 +446,7 @@ impl HostedCompiledScan<'_> {
             CyclePhase::CycleEnd if held => {
                 take_readings(recordings(&mut self.trace, &mut self.flight));
                 if let Some(session) = self.trace.as_deref_mut() {
-                    session.recorder.finish(TraceEnd::Paused);
+                    session.shared.recorder().finish(TraceEnd::Paused);
                 }
                 if let Some(session) = self.flight.as_deref_mut() {
                     session.rearm_pending = true;
@@ -458,7 +455,7 @@ impl HostedCompiledScan<'_> {
             CyclePhase::CycleEnd => {
                 take_readings(recordings(&mut self.trace, &mut self.flight));
                 if let Some(session) = self.trace.as_deref_mut() {
-                    session.recorder.end_cycle(None);
+                    session.shared.recorder().end_cycle(None);
                 }
                 // A recording that took over takes its start state once the scan has returned.
                 if let Some(session) = self.flight.as_deref_mut()
@@ -521,7 +518,9 @@ fn recordings<'r>(
     flight: &'r mut Option<&mut FlightSession>,
 ) -> Recordings<'r> {
     Recordings {
-        on_demand: trace.as_deref_mut().map(|session| &mut session.recorder),
+        on_demand: trace
+            .as_deref_mut()
+            .map(|session| session.shared.recorder()),
         flight: flight
             .as_deref_mut()
             .map(|session| session.recorder.recorder()),

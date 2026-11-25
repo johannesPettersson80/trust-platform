@@ -1,22 +1,20 @@
 //! The flight recorder on a computer (specification 48 RU-59, "The flight recorder"; specification
 //! 11 §6.8.1, "Cycle traces"): armed when the resource starts, restarts or changes its program,
 //! fed every cycle beside a recording on demand, and its fault's trace kept in the slot that the
-//! control link reads until the next fault.
+//! control link reads until the next fault, served part by part as every runtime serves it.
 
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use smol_str::SmolStr;
-use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{ChangeSource, ImageTables, Located};
 use trust_runtime_services::events::RuntimeEvent;
-use trust_runtime_services::trace::{Budget, FlightRecorder, ReserveError};
+use trust_runtime_services::trace::session::{Device, SessionIdentity};
+use trust_runtime_services::trace::{Budget, FlightRecorder, ReserveError, ServedTrace};
 
-use super::trace::{
-    located, lock, program_sizes, tables, trace_file_name, utc_ms, EndedTrace, SessionIdentity,
-    SharedTraces,
-};
+use super::trace::{lock, trace_file_name, utc_ms, SharedTraces};
 use super::CompiledRuntime;
 
 /// The flight recorder a runtime keeps (`[runtime.trace] flight_recorder`): the cycles `n` of
@@ -70,26 +68,46 @@ impl CompiledRuntime {
         let Some(settings) = &self.flight_settings else {
             return;
         };
-        let image = self.image.image();
-        let sizes = program_sizes(&image, self.cycle.program().cycle_interval(), None);
-        match FlightRecorder::arm(settings.cycles, sizes, Budget::COMPUTER) {
-            Ok(mut recorder) => {
-                recorder.began(utc_ms());
-                self.flight = Some(FlightSession {
-                    recorder,
-                    identity: SessionIdentity::of(
-                        &image,
-                        settings.runtime_id.clone(),
-                        self.resource_name.clone(),
-                        None,
-                    ),
-                    located: located(&image, &self.bindings, &self.binding_names),
-                    tables: tables(&image),
-                    start_pending: false,
-                    handover_pending: false,
-                    rearm_pending: false,
-                });
-            }
+        let armed = {
+            let image = self.image.image();
+            let program = self.traced_program(&image);
+            FlightRecorder::arm(settings.cycles, program.sizes(None), Budget::COMPUTER).and_then(
+                |mut recorder| {
+                    // The fault's trace keeps its own copy of the image's tables, as a recording
+                    // on demand does.
+                    let tables =
+                        program
+                            .tables()
+                            .ok_or_else(|| ReserveError::InsufficientMemory {
+                                needed: recorder
+                                    .reserved_bytes()
+                                    .saturating_add(program.tables_len()),
+                            })?;
+                    let now = utc_ms();
+                    recorder.began(now);
+                    Ok(FlightSession {
+                        recorder,
+                        identity: SessionIdentity::of(
+                            &image,
+                            &Device {
+                                runtime_id: &settings.runtime_id,
+                                platform: crate::runtime_id::platform(),
+                            },
+                            self.resource_name.clone(),
+                            None,
+                            now,
+                        ),
+                        located: program.located(),
+                        tables,
+                        start_pending: false,
+                        handover_pending: false,
+                        rearm_pending: false,
+                    })
+                },
+            )
+        };
+        match armed {
+            Ok(session) => self.flight = Some(session),
             Err(ReserveError::InsufficientMemory { needed }) => {
                 if let Some(debug) = &self.debug {
                     debug.push_runtime_event(RuntimeEvent::TraceMemory {
@@ -132,12 +150,18 @@ impl CompiledRuntime {
         self.publish_flight();
     }
 
-    /// Writes the fault's trace `file` into `folder` as `fault-<UTC date and time>.trusttrace`; a
-    /// file it cannot write is reported as the event `runtime_trace_file_unavailable`, and the
+    /// Writes the fault's trace `trace` into `folder` as `fault-<UTC date and time>.trusttrace`;
+    /// a file it cannot write is reported as the event `runtime_trace_file_unavailable`, and the
     /// slot keeps the trace all the same (specification 11 §6.8.1).
-    fn write_fault_trace(&self, folder: &std::path::Path, file: &[u8]) {
+    fn write_fault_trace(&self, folder: &Path, trace: &ServedTrace) {
         let path = folder.join(trace_file_name("fault", utc_ms().div_euclid(1_000)));
-        let written = std::fs::create_dir_all(folder).and_then(|()| std::fs::write(&path, file));
+        let written = std::fs::create_dir_all(folder).and_then(|()| {
+            write_parts(
+                &path,
+                &mut |offset, out| trace.part(offset, out),
+                WRITE_PART_BYTES,
+            )
+        });
         if let (Err(error), Some(debug)) = (written, &self.debug) {
             debug.push_runtime_event(RuntimeEvent::TraceFileUnavailable {
                 path: path.display().to_string(),
@@ -160,7 +184,7 @@ impl CompiledRuntime {
     /// until the next fault, its variables named as the debugger names them, written between two
     /// scans. The flight recorder ends with it; a restart arms it again.
     fn publish_flight(&mut self) {
-        let Some(session) = &self.flight else {
+        let Some(session) = &mut self.flight else {
             return;
         };
         if !session.recorder.faulted() {
@@ -171,14 +195,13 @@ impl CompiledRuntime {
             .recorder
             .fault_began_utc_ms()
             .unwrap_or(session.identity.started_utc_ms());
-        let file = session.recorder.fault_file_named(
-            &session.identity.identity(started),
+        let identity = session.identity.identity(started);
+        let served = session.recorder.fault_served(
+            &identity,
             &session.located,
-            &session.tables,
+            std::mem::take(&mut session.tables),
             &mut |path| program.display_path(path),
         );
-        let cycles = session.recorder.fault_cycles().unwrap_or(0);
-        let end = session.recorder.fault_end();
         let (traces, files) = self
             .flight_settings
             .as_ref()
@@ -186,20 +209,38 @@ impl CompiledRuntime {
                 (Some(Arc::clone(&settings.traces)), settings.files.clone())
             });
         self.flight = None;
-        let (Some(file), Some(end), Some(traces)) = (file, end, traces) else {
+        let (Some(served), Some(traces)) = (served, traces) else {
             return;
         };
         if let Some(folder) = files {
-            self.write_fault_trace(&folder.join("traces"), &file);
+            self.write_fault_trace(&folder.join("traces"), &served);
         }
-        lock(&traces).fault = Some(EndedTrace {
-            id: 0,
-            end,
-            cycles,
-            sha256: sha256(&file),
-            file,
-        });
+        lock(&traces).keep_fault(served);
     }
+}
+
+/// The bytes of the fault's trace that [`write_parts`] writes at a time.
+const WRITE_PART_BYTES: usize = 64 * 1024;
+
+/// Writes to `path` the file whose bytes `part` copies from an offset into a buffer, as
+/// [`ServedTrace::part`] does, `part_bytes` at a time, until it copies none.
+fn write_parts(
+    path: &Path,
+    part: &mut dyn FnMut(usize, &mut [u8]) -> usize,
+    part_bytes: usize,
+) -> std::io::Result<()> {
+    let mut file = std::io::BufWriter::new(std::fs::File::create(path)?);
+    let mut buffer = vec![0; part_bytes];
+    let mut offset = 0;
+    loop {
+        let count = part(offset, &mut buffer);
+        if count == 0 {
+            break;
+        }
+        file.write_all(&buffer[..count])?;
+        offset += count;
+    }
+    file.flush()
 }
 
 #[cfg(test)]

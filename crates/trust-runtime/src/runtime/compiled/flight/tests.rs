@@ -239,6 +239,35 @@ fn a_runtime_with_a_folder_of_its_files_writes_the_faults_trace_there_too() {
 }
 
 #[test]
+fn a_faults_trace_is_written_whole_a_part_at_a_time() {
+    // Specification 11 §6.8.1: the copy in the folder of the runtime's files is the fault's trace,
+    // which a computer writes from the trace the slot serves, a part at a time. Worked by hand: the
+    // fault's trace of the five cycles above, written 7 bytes at a time, is byte for byte the trace
+    // the slot holds, which takes many parts of 7 bytes. Catches a write that stops after its first
+    // part, or skips or repeats one.
+    let (mut harness, traces) = flown(2);
+    for _ in 0..5 {
+        harness.cycle();
+    }
+    let slot = lock(&traces);
+    let TraceState::Ended { bytes, .. } = slot.state(TraceName::Fault) else {
+        panic!("a fault's trace");
+    };
+    let mut file = vec![0; bytes];
+    assert_eq!(slot.part(TraceName::Fault, 0, &mut file), Some(bytes));
+    assert!(bytes > 7 * 2, "{bytes} bytes");
+    let path = trust_test_support::unique_temp_path("flight-parts");
+    super::write_parts(
+        &path,
+        &mut |offset, out| slot.part(TraceName::Fault, offset, out).unwrap_or(0),
+        7,
+    )
+    .expect("the copy is written");
+    assert_eq!(std::fs::read(&path).expect("the copy"), file);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
 fn a_faults_trace_that_cannot_be_written_stays_in_the_slot_and_is_reported() {
     // Specification 11 §6.8.1: "A runtime that cannot write that file keeps the trace for
     // `trace.read` all the same, and a `runtime_trace_file_unavailable` event names the file and the

@@ -41,3 +41,35 @@ fn the_meshs_write_is_recorded_as_the_next_cycles_change() {
         }]
     );
 }
+
+/// Specification 48 Appendix C, C.6: a trace names each variable as the debugger names it, whatever
+/// case its writer spelt it in, since IEC 61131-3 names do not depend on case (§6.1.2). Worked by
+/// hand: the mesh writes `main.level`, as a subscription may spell it, between the two cycles of a
+/// recording; the second cycle's change names it `Main.Level`, as the program declares it, with the
+/// bytes 05 00. Catches a trace that keeps the writer's spelling.
+#[test]
+fn a_write_is_named_as_the_debugger_names_its_variable() {
+    let mut harness =
+        TestHarness::from_source("PROGRAM Main VAR Level : INT; END_VAR END_PROGRAM").unwrap();
+    harness.cycle();
+    let traces = record_cycles(harness.runtime_mut(), 2);
+    harness.cycle();
+    harness.runtime_mut().apply_mesh_updates(&IndexMap::from([(
+        SmolStr::new("main.level"),
+        Value::Int(5),
+    )]));
+    harness.cycle();
+
+    let trace = ended_trace(&traces);
+    assert_eq!(
+        trace.cycles[1].changes,
+        vec![Change {
+            source: ChangeSource::Mesh,
+            kind: ChangeKind::VariableWrite {
+                path: "Main.Level".into(),
+                type_name: "INT".into(),
+                value: vec![5, 0],
+            },
+        }]
+    );
+}
