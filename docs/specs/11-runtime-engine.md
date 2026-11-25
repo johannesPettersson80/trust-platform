@@ -3991,7 +3991,9 @@ as the image's file table names it, and `"line"`, the statement's first line, fo
 runtime names it from the image's statement, symbol and file tables when it replies. A fault
 from outside the program, such as a watchdog's, a fault of an image without a statement table
 (a release image, specification 44 §13.2), and a fault of an image that a restart or an online
-change has replaced name no place.
+change has replaced name no place. The `runtime_fault` line of `trust-runtime run`'s log names
+the same place with the same members, `pou`, `file` and `line`, beside its `error` and
+`time_ms`.
 
 The event store keeps the newest `runtime.events.capacity` events, 1,000 when
 the project sets none on a computer; a device without an operating system takes

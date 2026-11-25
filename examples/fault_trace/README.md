@@ -40,7 +40,8 @@ the fault, replay it on your computer to see the fault again, and check a fix ag
     ```
 
     Five seconds after the start, the runtime logs the fault, a `runtime_fault` line with
-    `"error":"division by zero"` and `"time_ms":5000`.
+    `"error":"division by zero"` and `"time_ms":5000`, and where the program raised it:
+    `"file":"src/Main.st"`, `"line":17` and `"pou":"Main"`.
 
 5. In the second terminal, ask the runtime's state and its faults, then save the fault's trace:
 

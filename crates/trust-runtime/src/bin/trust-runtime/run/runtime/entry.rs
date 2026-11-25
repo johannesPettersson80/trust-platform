@@ -390,6 +390,12 @@ pub fn run_runtime(
         #[cfg(feature = "ads-server")]
         ads_server_runtime: ads_server_runtime.clone(),
     });
+    // The run log's fault lines name where the program faulted, as the fault entries do
+    // (specification 11, the fault entry).
+    let places = Arc::clone(&state);
+    logger.locate(FaultPlaces(Arc::new(move |site| {
+        trust_runtime_services::ports::RecordsPort::fault_place(&*places, site)
+    })));
     state.connect_experiments();
 
     let mut opcua_server: Option<OpcUaWireServer> = None;
