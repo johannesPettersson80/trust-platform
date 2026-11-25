@@ -8,7 +8,7 @@ use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::trace::{decode, ChangeRef, ChangeSource, TraceEnd};
 
 use super::super::requests::TraceState;
-use super::super::tests::{identity, image, ms, sizes};
+use super::super::tests::{identity, image, ms, read_in_parts, sizes};
 use super::super::{Begin, Budget, Goal, Recorder};
 
 /// The debugger's names: three of the paths the recording keeps are named, `tank.level` is not.
@@ -76,20 +76,6 @@ fn recording() -> Recorder {
     }
     assert_eq!(recorder.end(), Some(TraceEnd::Complete));
     recorder
-}
-
-/// The served trace's file, read in parts of `part` bytes from offset 0.
-fn read_in_parts(served: &super::ServedTrace, part: usize) -> Vec<u8> {
-    let mut file = Vec::new();
-    let mut out = alloc::vec![0xEE; part];
-    loop {
-        let count = served.part(file.len(), &mut out);
-        if count == 0 {
-            break;
-        }
-        file.extend_from_slice(&out[..count]);
-    }
-    file
 }
 
 #[test]

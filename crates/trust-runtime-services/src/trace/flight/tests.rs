@@ -4,9 +4,11 @@
 
 use alloc::vec;
 
-use trust_runtime_core::trace::{decode, ChangeSource, Trace, TraceEnd, TraceOrigin};
+use trust_runtime_core::deployment::sha256;
+use trust_runtime_core::trace::{decode, ChangeKind, ChangeSource, Trace, TraceEnd, TraceOrigin};
 
-use super::super::tests::{identity, image, ms, sizes, WRITE};
+use super::super::requests::TraceState;
+use super::super::tests::{identity, image, ms, read_in_parts, sizes, WRITE};
 use super::*;
 use crate::trace::{Begin, Budget, FlightRecorder};
 
@@ -111,6 +113,91 @@ fn a_fault_keeps_the_full_recording_and_the_faulted_one_from_the_full_ones_start
     assert_eq!(changes, [1, 0, 1]);
     assert_eq!(trace.cycles[2].fault, Some(fault()));
     assert_eq!(trace.cycles[0].outputs, [0, 0, 0, 20]);
+}
+
+/// The debugger's name for the screen's write's variable, `Main.x`, which the recordings keep as the
+/// write named it.
+fn debugger(path: &str) -> Option<String> {
+    (path == "Main.x").then(|| String::from("Main.Level"))
+}
+
+#[test]
+fn a_faults_trace_is_served_byte_for_byte_as_its_file() {
+    // RU-59, "Memory" and "The flight recorder": a runtime serves the fault's trace part by part
+    // from the records of the recordings it joins, never the whole file, and the file it serves is
+    // the one the flight recorder writes (Appendix C). Worked by hand from the first test's cycles:
+    // n = 2, cycles at 0 to 40, a screen's write before 20 (in the full recording) and one before
+    // 40 (in the faulted one), and the fault at 40; the joined trace holds 20, 30 and 40, and the
+    // debugger names both writes `Main.Level`. Read in parts of 1, 8 and 64 bytes and in one part,
+    // it gives exactly the bytes of `fault_file_named` with the same names, and its state is
+    // `faulted` with 3 cycles, the file's length and its SHA-256. Before the fault there is no trace
+    // to serve, and asking takes nothing from the recordings: the trace still holds 20 and 30. A
+    // fault in the first recording (n = 3, cycles at 0 and 10, the second faulted) is served alike
+    // from that recording alone: 2 cycles. Catches a joined trace served from one recording's
+    // records, the later recording's cycles unnamed or out of place, a trace that starts from the
+    // wrong recording, and a trace served before a fault or one that empties the recordings.
+    let mut flight = FlightRecorder::arm(2, sizes(), Budget::COMPUTER).expect("armed");
+    cycle(&mut flight, 0, None);
+    cycle(&mut flight, 10, None);
+    flight.recorder().change(ChangeSource::Screen, &WRITE);
+    cycle(&mut flight, 20, None);
+    cycle(&mut flight, 30, None);
+    assert!(flight
+        .fault_served(&identity(), &[], image(), &mut debugger)
+        .is_none());
+    flight.recorder().change(ChangeSource::Screen, &WRITE);
+    assert_eq!(cycle(&mut flight, 40, Some(fault())), FlightCycle::Faulted);
+    let file = flight
+        .fault_file_named(&identity(), &[], &image(), &mut debugger)
+        .expect("a fault's trace");
+    let trace = decode(&file).expect("a trace").trace;
+    assert_eq!(times(&trace), [20, 30, 40]);
+    let written: Vec<&str> = trace
+        .cycles
+        .iter()
+        .flat_map(|cycle| &cycle.changes)
+        .map(|change| match &change.kind {
+            ChangeKind::VariableWrite { path, .. } => path.as_str(),
+            other => panic!("a screen's write, not {other:?}"),
+        })
+        .collect();
+    assert_eq!(written, ["Main.Level", "Main.Level"]);
+
+    let served = flight
+        .fault_served(&identity(), &[], image(), &mut debugger)
+        .expect("a fault's trace");
+    assert_eq!(
+        served.state(),
+        TraceState::Ended {
+            reason: TraceEnd::Faulted,
+            cycles: 3,
+            bytes: file.len(),
+            sha256: sha256(&file),
+        }
+    );
+    for part in [1, 8, 64, file.len()] {
+        assert_eq!(read_in_parts(&served, part), file, "parts of {part} bytes");
+    }
+
+    let mut first = FlightRecorder::arm(3, sizes(), Budget::COMPUTER).expect("armed");
+    cycle(&mut first, 0, None);
+    assert_eq!(cycle(&mut first, 10, Some(fault())), FlightCycle::Faulted);
+    let file = first
+        .fault_file_named(&identity(), &[], &image(), &mut debugger)
+        .expect("a fault's trace");
+    let served = first
+        .fault_served(&identity(), &[], image(), &mut debugger)
+        .expect("a fault's trace");
+    assert_eq!(
+        served.state(),
+        TraceState::Ended {
+            reason: TraceEnd::Faulted,
+            cycles: 2,
+            bytes: file.len(),
+            sha256: sha256(&file),
+        }
+    );
+    assert_eq!(read_in_parts(&served, 64), file);
 }
 
 #[test]

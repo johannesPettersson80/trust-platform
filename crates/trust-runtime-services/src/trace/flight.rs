@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::trace::{CycleFault, ImageTables, Located, TraceEnd, TraceOrigin};
 
-use super::{Budget, Goal, Identity, Recorder, ReserveError, Sizes, Tally};
+use super::{Budget, Goal, Identity, Recorder, ReserveError, ServedTrace, Sizes, Tally};
 
 /// How a cycle ended for the flight recorder ([`FlightRecorder::end_cycle`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,7 +25,8 @@ pub enum FlightCycle {
     /// that one its start state now ([`Recorder::start_area`], [`Recorder::start_force`]), the
     /// memory and the forces as this cycle left them.
     StartDue,
-    /// The recording has ended at a fault: the fault's trace ([`FlightRecorder::fault_file`]).
+    /// The recording has ended at a fault: the fault's trace ([`FlightRecorder::fault_file`],
+    /// [`FlightRecorder::fault_served`]).
     Faulted,
 }
 
@@ -200,6 +201,25 @@ impl FlightRecorder {
         Some(start.encoded(identity, located, image, &records, &begin, self.tally()?))
     }
 
+    /// The fault's trace served part by part, once the recording has ended at a fault: byte for
+    /// byte the file [`Self::fault_file_named`] writes with the same names, served as a trace on
+    /// demand is ([`Recorder::served`]). The trace takes the records of the recordings it joins
+    /// without copying them, so the flight recorder keeps none and is done with; `None`, and the
+    /// flight recorder as it was, before a fault.
+    pub fn fault_served(
+        &mut self,
+        identity: &Identity<'_>,
+        located: &[Located],
+        tables: ImageTables,
+        name: &mut dyn FnMut(&str) -> Option<String>,
+    ) -> Option<ServedTrace> {
+        let tally = self.tally()?;
+        let (start, later) = self.parts_mut()?;
+        Some(ServedTrace::joined(
+            start, later, identity, located, tables, tally, name,
+        ))
+    }
+
     /// The recording the fault's trace starts from, and the faulted one after it when the trace
     /// joins two; none before a fault.
     fn parts(&self) -> Option<(&Recorder, Option<&Recorder>)> {
@@ -209,6 +229,25 @@ impl FlightRecorder {
         let faulted = &self.recordings[self.current];
         Some(if self.joined {
             (&self.recordings[1 - self.current], Some(faulted))
+        } else {
+            (faulted, None)
+        })
+    }
+
+    /// The recordings [`Self::parts`] gives, for the served trace to take their records.
+    fn parts_mut(&mut self) -> Option<(&mut Recorder, Option<&mut Recorder>)> {
+        if !self.fault {
+            return None;
+        }
+        let (current, joined) = (self.current, self.joined);
+        let [first, second] = &mut self.recordings;
+        let (faulted, full) = if current == 0 {
+            (first, second)
+        } else {
+            (second, first)
+        };
+        Some(if joined {
+            (full, Some(faulted))
         } else {
             (faulted, None)
         })

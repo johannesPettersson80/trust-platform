@@ -53,6 +53,20 @@ pub(super) fn ms(millis: i64) -> Duration {
     Duration::from_millis(millis)
 }
 
+/// The served trace's file, read in parts of `part` bytes from offset 0.
+pub(super) fn read_in_parts(served: &ServedTrace, part: usize) -> Vec<u8> {
+    let mut file = Vec::new();
+    let mut out = vec![0xEE; part];
+    loop {
+        let count = served.part(file.len(), &mut out);
+        if count == 0 {
+            break;
+        }
+        file.extend_from_slice(&out[..count]);
+    }
+    file
+}
+
 /// A screen's write of the `INT` `Main.x`: 8 bytes of header and 19 of data, 32 bytes padded.
 pub(super) const WRITE: ChangeRef<'static> = ChangeRef::VariableWrite {
     path: "Main.x",

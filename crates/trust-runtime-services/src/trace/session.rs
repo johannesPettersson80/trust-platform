@@ -25,23 +25,28 @@ use super::{
     ServedTrace, Sizes,
 };
 
-/// The traces the control link reads: the recording that runs, and the last that ended, served
-/// part by part.
+/// The traces the control link reads: the recording that runs, the last that ended, and the flight
+/// recorder's trace of the last fault, each served part by part.
 #[derive(Debug, Default)]
 pub struct TraceSlot {
     last_id: u64,
     running: Option<(u64, u64)>,
     ended: Option<(u64, ServedTrace)>,
+    /// The flight recorder's trace of the last fault, which stays until the next fault.
+    fault: Option<ServedTrace>,
 }
 
 impl TraceSlot {
-    /// The state of the trace `name` (`trace.read`): recording, ended, or unknown for a trace the
-    /// slot no longer holds, such as one a later recording replaced. The flight recorder's trace
-    /// comes with the flight recorder: until then no fault has given one.
+    /// The state of the trace `name` (`trace.read`): a recording's, recording, ended, or unknown
+    /// for a trace the slot no longer holds, such as one a later recording replaced; or the flight
+    /// recorder's trace of the last fault, none before a fault has given one.
     #[must_use]
     pub fn state(&self, name: TraceName) -> TraceState {
         let TraceName::Id(id) = name else {
-            return TraceState::None;
+            return self
+                .fault
+                .as_ref()
+                .map_or(TraceState::None, ServedTrace::state);
         };
         if let Some((running, cycles)) = self.running
             && running == id
@@ -56,14 +61,21 @@ impl TraceSlot {
 
     /// Copies the bytes of the ended trace `name`'s file from `offset` into `out`, as many as `out`
     /// holds, and gives how many it copied; `None` for a trace it does not hold or that has not
-    /// ended.
+    /// ended, and for an offset past the file's end.
     #[must_use]
     pub fn part(&self, name: TraceName, offset: usize, out: &mut [u8]) -> Option<usize> {
-        let TraceName::Id(id) = name else {
-            return None;
+        let served = match name {
+            TraceName::Id(id) => &self.ended.as_ref().filter(|(ended, _)| *ended == id)?.1,
+            TraceName::Fault => self.fault.as_ref()?,
         };
-        let (_, served) = self.ended.as_ref().filter(|(ended, _)| *ended == id)?;
         (offset <= served.len()).then(|| served.part(offset, out))
+    }
+
+    /// Keeps `trace`, the flight recorder's trace of a fault, in place of the last fault's: it stays
+    /// readable until the next fault, whatever recordings start (specification 11 §6.8.1, "Cycle
+    /// traces").
+    pub fn keep_fault(&mut self, trace: ServedTrace) {
+        self.fault = Some(trace);
     }
 
     /// A recording starts: its identity, which replaces the last trace's (specification 11,
@@ -385,6 +397,9 @@ impl TraceSession {
         true
     }
 }
+
+#[cfg(test)]
+mod tests;
 
 /// The fault record a trace keeps of a faulted scan of the program of `image` (Appendix C, C.6):
 /// the code `code` and the statement `statement` of the kernel's record of the fault the program
