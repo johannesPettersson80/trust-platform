@@ -89,8 +89,10 @@ program uses `run_for` with the task's interval.
 `release`. `call` calls a method of an instance through an interface its type implements, as a
 screen's command does; a method without a result answers `()`.
 
-**Faults.** A cycle that faults ends `run_cycles` or `run_for` with `trust_sim::Error::Fault`,
-and the project's fault policy acts as in a run.
+**Faults.** A cycle that faults ends `run_cycles` or `run_for` there, with
+`trust_sim::Error::Fault`; its `time`, and `now()`, are that cycle's time, and the project's fault
+policy acts as in a run. A halting fault leaves the resource faulted until the test restarts it: a
+run in the meantime runs no cycle, while `run_for`'s time passes.
 
 ## Replay a trace from the machine
 
@@ -107,9 +109,9 @@ readings, and compares each cycle's outputs with the trace's (specification 48 R
     ```
 
     Once 30 s of logical time have run, it prints
-    `recorded 3000 cycles (complete) to traces/commissioning.trusttrace, 995976 bytes`. In the
-    example's recording, Start came 1.21 s in. The pump ran from 1.33 s, FS-101 saw flow at
-    5.33 s, the heater ran from 5.53 s, and the fan from 19.33 s, once the tank reached 40 °C.
+    `recorded 3000 cycles (complete) to traces/commissioning.trusttrace, 995984 bytes`. In the
+    example's recording, Start came 0.91 s in. The pump ran from 1.06 s, FS-101 saw flow at
+    5.06 s, the heater ran from 5.26 s, and the fan from 18.66 s, once the tank reached 40 °C.
 
 2. Replay it from the command line:
 

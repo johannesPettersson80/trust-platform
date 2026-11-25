@@ -1,8 +1,8 @@
 //! The room heating's commissioning trace (specification 48 RU-59 and RU-60). The file
 //! `traces/commissioning.trusttrace` is 30 s of this program and its simulated plant on a computer
-//! runtime, recorded with `trust-runtime ctl record --duration 30s`, with Start pressed 1.21 s in as
-//! the Heating panel's button does. In the recording, the pump runs from 1.33 s, FS-101 sees flow at
-//! 5.33 s, the heater runs from 5.53 s and the fan from 19.33 s, once the tank reaches 40 °C.
+//! runtime, recorded with `trust-runtime ctl record --duration 30s`, with Start pressed 0.91 s in as
+//! the Heating panel's button does. In the recording, the pump runs from 1.06 s, FS-101 sees flow at
+//! 5.06 s, the heater runs from 5.26 s and the fan from 18.66 s, once the tank reaches 40 °C.
 //!
 //! The replay gives the program as it is now the recorded tasks, inputs, changes from outside and
 //! clock readings, cycle by cycle, and compares its outputs with the trace's. The test catches a

@@ -318,25 +318,29 @@ fn a_chip_ends_a_recording_where_a_computer_ends_it() {
 #[test]
 fn a_chip_records_a_tools_method_call_as_its_next_cycles_change() {
     // Specification 48 RU-59: a tool's method call between scans is the next cycle's change from
-    // the control link, as a computer records it; a refused call changed nothing and is not
-    // recorded. Worked by hand: a recording of 2 cycles records the probe's scans at 10 and 20 ms;
-    // `Start` of `ISequence` of `Plant`, made at 15 ms, answers TRUE from the stand-in kernel, and
-    // the same call on `Missing`, at 16 ms, is refused. The cycle at 10 ms holds no change; the
-    // cycle at 20 ms holds the one call. The probe's image declares no method, so the call takes no
-    // inputs (`method_call::typed`); the recorder's own tests write a call's inputs. Catches a call
-    // not recorded, recorded in the cycle before, recorded when refused, and a chip that records
-    // another instance or method.
+    // the control link, with each reading of the wall clock it made, as a computer records it; a
+    // refused call changed nothing and is not recorded. Worked by hand: a recording of 2 cycles
+    // records the probe's scans at 10 and 20 ms; `Start` of `ISequence` of `Plant`, made at 15 ms,
+    // reads the clock twice, 1,795,000,000,015 and 1,795,000,000,016 ms, and answers TRUE from the
+    // stand-in kernel; the same call on `Missing`, at 16 ms, is refused. The cycle at 10 ms holds no
+    // change; the cycle at 20 ms holds the one call, with its two readings in order. The probe's
+    // image declares no method, so the call takes no inputs (`method_call::typed`); the recorder's
+    // own tests write a call's inputs. Catches a call not recorded, recorded in the cycle before,
+    // recorded when refused, a chip that records another instance or method, and one that keeps
+    // no readings, or another call's, with it.
     let fixture = probe();
     let mut runner = fixture.runner();
     fixture.pass_at(&mut runner, 0);
     let started = fixture.call_at(&mut runner, 0, &record(2, 2));
     assert_eq!(started["result"]["trace"], json!(1), "{started}");
     fixture.pass_at(&mut runner, 10);
-    fixture
-        .script
-        .borrow_mut()
-        .method_answers
-        .push_back(Ok(PlcValue::Bool(true)));
+    {
+        let mut script = fixture.script.borrow_mut();
+        script.method_answers.push_back(Ok(PlcValue::Bool(true)));
+        script
+            .method_readings
+            .push_back(alloc::vec![1_795_000_000_015, 1_795_000_000_016]);
+    }
     let call = |id: u64, instance: &str| {
         json!({"id": id, "type": "method.call", "params": {
             "instance": instance, "interface": "ISequence", "method": "Start", "inputs": {}
@@ -360,6 +364,7 @@ fn a_chip_records_a_tools_method_call_as_its_next_cycles_change() {
                 interface: "ISequence".into(),
                 method: "Start".into(),
                 inputs: Vec::new(),
+                readings: alloc::vec![1_795_000_000_015, 1_795_000_000_016],
             },
         }]
     );

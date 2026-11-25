@@ -164,6 +164,52 @@ fn an_advance_ends_when_the_resource_no_longer_runs() {
     assert_eq!(scan.cycles(), [ms(0), ms(10)]);
 }
 
+#[test]
+fn a_duration_whose_resource_stops_running_ends_at_its_last_cycle() {
+    // An advance of 1 s whose resource leaves running after its second cycle, as at a halting
+    // fault, ends there: 2 cycles, at 0 and 10 ms, and the time stays at 10 ms, since the fault
+    // ends the advance early (specification 11 §6.8.1). Catches a duration whose time passes on to
+    // its end, 1 s, past the fault that ended it.
+    let clock = SteppedClock::new();
+    let scan = Loop::start(&clock);
+    let cycles = scan.cycles.clone();
+    let runs = move || cycles.lock().unwrap().len() < 2;
+    let advanced = clock
+        .advance(Advance::Duration(Duration::from_millis(1_000)), &runs)
+        .unwrap();
+    assert_eq!(
+        advanced,
+        Advanced {
+            time: Duration::from_millis(10),
+            cycles: 2
+        }
+    );
+    assert_eq!(clock.now(), Duration::from_millis(10));
+    assert_eq!(scan.cycles(), [ms(0), ms(10)]);
+}
+
+#[test]
+fn a_duration_passes_for_a_resource_that_runs_no_cycles() {
+    // A resource that runs no cycles from the start, as one a halting fault left faulted, runs
+    // none in an advance of 25 ms, whose time passes all the same: 25 ms, as the duration's end
+    // (specification 11 §6.8.1). Catches an advance that holds the time of such a resource, or
+    // runs one of its cycles.
+    let clock = SteppedClock::new();
+    let scan = Loop::start(&clock);
+    let advanced = clock
+        .advance(Advance::Duration(Duration::from_millis(25)), &|| false)
+        .unwrap();
+    assert_eq!(
+        advanced,
+        Advanced {
+            time: Duration::from_millis(25),
+            cycles: 0
+        }
+    );
+    held_for_a_while();
+    assert_eq!(scan.cycles(), Vec::<i64>::new());
+}
+
 /// Lets the loop of `clock` run its cycle at 0 ms once it sleeps before it, from `started`.
 fn allow_the_first_cycle(clock: &SteppedClock) -> std::time::Instant {
     while clock.state().sleeping_until.is_none() {

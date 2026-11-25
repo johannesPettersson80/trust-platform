@@ -230,6 +230,44 @@ fn a_simulator_runs_the_cycles_its_test_asks_for_and_ends_with_its_input() {
 }
 
 #[test]
+fn a_fault_ends_a_durations_advance_at_its_cycle_and_time_passes_for_the_halted_resource() {
+    // The same program divides by zero in its third cycle, and the project halts on a fault
+    // (specification 11 §6.8.1, "Simulator for machine tests"). Worked by hand: an advance of 1 s
+    // runs the cycles at 0 and 10 ms and the third at 20 ms, which faults and ends the advance
+    // early: 3 cycles, the time 20 ms, the resource faulted and the fault in the answer. A second
+    // advance of 1 s runs no cycle of the halted resource, and its time passes: 20 ms + 1 s =
+    // 1.02 s, with no fault of its own. Catches a duration whose time passes on to its end (1 s)
+    // past the fault that ended it, and an advance of a halted resource that waits for a fault of
+    // its own, which refused it after a minute.
+    let project = project();
+    let mut simulator = Simulator::start(&project);
+
+    let faulted = simulator.call(&json!({
+        "id": 1, "type": "simulator.advance", "params": {"duration_ns": 1_000_000_000}
+    }));
+    assert_eq!(faulted["ok"], json!(true), "{faulted}");
+    assert_eq!(faulted["result"]["time_ns"], json!(20_000_000), "{faulted}");
+    assert_eq!(faulted["result"]["cycles"], json!(3), "{faulted}");
+    assert_eq!(faulted["result"]["state"], json!("faulted"), "{faulted}");
+    assert!(faulted["result"]["fault"].is_object(), "{faulted}");
+
+    let halted = simulator.call(&json!({
+        "id": 2, "type": "simulator.advance", "params": {"duration_ns": 1_000_000_000}
+    }));
+    assert_eq!(halted["ok"], json!(true), "{halted}");
+    assert_eq!(
+        halted["result"],
+        json!({"time_ns": 1_020_000_000, "cycles": 0, "state": "faulted"})
+    );
+    assert_eq!(simulator.counter(3), json!(3));
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn a_tool_calls_a_method_between_scans_and_a_faulting_method_faults_the_resource() {
     // Specification 11 §6.8.1, "Calling a method", on the 10 ms resource above, which halts on a
     // fault. Worked by hand: the cycle at 0 ms runs the sequence that nothing started, so
@@ -691,6 +729,68 @@ fn a_recording_keeps_forces_where_they_are_set_and_released_and_address_writes()
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// A function block whose method reads the wall clock (`CURRENT_DT`), on the 10 ms resource.
+const CLOCK_ST: &str = "
+INTERFACE IStamp
+METHOD Take : BOOL
+END_METHOD
+END_INTERFACE
+FUNCTION_BLOCK Stamper IMPLEMENTS IStamp
+VAR_OUTPUT called : LDT; END_VAR
+METHOD PUBLIC Take : BOOL
+    called := DT_TO_LDT(CURRENT_DT());
+    Take := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR clock : Stamper; END_VAR
+clock();
+END_PROGRAM
+";
+
+#[test]
+fn a_tools_method_call_keeps_the_clock_it_read() {
+    // Specification 48 RU-59 and Appendix C, C.6 (kind 7): a tool's method call between two scans
+    // keeps the wall clock's readings it made. Worked by hand: the simulator's wall clock is its
+    // logical time from 1970 (specification 11 §6.8.1), which holds between the scans; after the
+    // cycles at 0 and 10 ms, `Take` reads 10 ms, and the trace's second cycle, at 20 ms, holds the
+    // call with the one reading 10. Catches a control link's call recorded without its readings.
+    let project = project_with(CLOCK_ST);
+    let mut simulator = Simulator::start(&project);
+    simulator.advance(1, 1);
+    let started =
+        simulator.call(&json!({"id": 2, "type": "trace.record", "params": {"cycles": 2}}));
+    assert_eq!(started["result"]["trace"], json!(1), "{started}");
+    simulator.advance(3, 1);
+    let called = simulator.call(&json!({"id": 4, "type": "method.call", "params": {
+        "instance": "main.clock", "interface": "IStamp", "method": "Take", "inputs": {}
+    }}));
+    assert_eq!(called["result"], json!({"value": true}), "{called}");
+    simulator.advance(5, 1);
+
+    let (state, file) = simulator.trace(6, 1);
+    assert_eq!(state["reason"], json!("complete"));
+    let trace = decoded(&file);
+    assert_eq!(
+        trace.cycles[1].changes,
+        [Change {
+            source: ChangeSource::ControlLink,
+            kind: ChangeKind::MethodCall {
+                instance: "Main.clock".into(),
+                interface: "IStamp".into(),
+                method: "Take".into(),
+                inputs: vec![],
+                readings: vec![10],
+            },
+        }]
+    );
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn a_recording_keeps_a_method_call_as_its_next_cycles_change() {
     // Specification 48 RU-59 and Appendix C, C.6 (kind 7), on the 10 ms resource with the sequence
@@ -727,6 +827,8 @@ fn a_recording_keeps_a_method_call_as_its_next_cycles_change() {
                 interface: "ISequence".into(),
                 method: "Start".into(),
                 inputs: vec![("Setpoint".into(), "21.5".into())],
+                // `Start` reads no clock.
+                readings: vec![],
             },
         }]
     );

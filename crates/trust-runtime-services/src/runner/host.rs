@@ -15,7 +15,6 @@ use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, MonotonicInsta
 use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
-use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::config::ConfigState;
@@ -429,13 +428,14 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
     /// A tool's method call between scans, which a running recording keeps as its next cycle's
     /// change once the call is made (specification 48 RU-59).
     fn call_method(&self, call: &MethodCall) -> Result<Value, MethodCallRefusal> {
-        let value = self.program.call_method(call)?;
-        self.traces.with(|traces| {
-            if let Some(recorder) = traces.recorder() {
-                recorder.method_called(ChangeSource::ControlLink, &call.instance, call);
-            }
-        });
-        Ok(value)
+        // A recording keeps the call with the wall clock's readings it made (specification 48
+        // RU-59).
+        let recording = self.traces.arm_call_readings();
+        let called = self.program.call_method(call);
+        if recording {
+            self.traces.method_called(call, called.is_ok());
+        }
+        called
     }
 
     /// Starts a recording at the next cycle (`trace.record`), while the resource runs, as a

@@ -768,6 +768,9 @@ pub(crate) struct CycleScript {
     /// The answers of the next method calls, in place of the program's own; a call without one is
     /// the kernel's.
     pub(crate) method_answers: VecDeque<Result<Value, MethodCallError>>,
+    /// The wall clock's readings each of the next method calls makes, reported to the store of a
+    /// cycle trace's readings as the C6's calendar reports each one (specification 48 RU-59).
+    pub(crate) method_readings: VecDeque<Vec<i64>>,
 }
 
 impl Default for CycleScript {
@@ -789,6 +792,7 @@ impl Default for CycleScript {
             fault_policy: FaultPolicy::Halt,
             safe_outputs: Vec::new(),
             method_answers: VecDeque::new(),
+            method_readings: VecDeque::new(),
         }
     }
 }
@@ -983,7 +987,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
         call: &MethodCall,
         now: value::Duration,
     ) -> Result<Value, MethodCallError> {
-        let answer = {
+        let (answer, readings) = {
             let mut script = self.script.borrow_mut();
             script.calls.push(CycleCall::Method {
                 instance: call.instance.to_string(),
@@ -991,8 +995,14 @@ impl ResourceCycle for ScriptedCycle<'_> {
                 method: call.method.to_string(),
                 now: since_start(now),
             });
-            script.method_answers.pop_front()
+            (
+                script.method_answers.pop_front(),
+                script.method_readings.pop_front(),
+            )
         };
+        for reading in readings.into_iter().flatten() {
+            trust_runtime_core::trace::readings::record(reading);
+        }
         answer.unwrap_or_else(|| self.cycle.call_method(call, now))
     }
 

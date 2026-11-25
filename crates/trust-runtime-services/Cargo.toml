@@ -26,10 +26,10 @@ trust-platform-memory = { workspace = true }
 trust-modbus = { workspace = true }
 
 [dev-dependencies]
-# A host's critical section for the tests: the services take the core without the standard library,
-# whose store of a cycle trace's wall-clock readings a chip's platform guards (specification 48
-# RU-59).
-critical-section = { version = "1.2.0", features = ["std"] }
+# The core with the standard library for the tests, as CI's workspace build links it: each test
+# thread keeps its own store of a cycle trace's wall-clock readings, as a computer's resource threads
+# do (specification 48 RU-59), so that tests which record readings never share one store.
+trust-runtime-core = { workspace = true, features = ["std"] }
 # The stand-in modules of the compiled cycle's tests are written against the kernel interface
 # (specification 44 §8.2).
 trust-plc-abi = { workspace = true }

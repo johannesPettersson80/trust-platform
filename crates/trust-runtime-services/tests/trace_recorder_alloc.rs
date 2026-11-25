@@ -204,6 +204,7 @@ fn recording_cycles_allocates_nothing() {
                 interface: "Plant.ISequence",
                 method: "Start",
                 inputs: &[("Setpoint", "21.5")],
+                readings: &[1_795_000_000_000],
             },
         );
         recorder.written(ChangeSource::ControlLink, "Main.x", &Program);
