@@ -272,13 +272,14 @@ fn a_program_too_large_for_the_slot_is_refused_with_its_numbers() {
     // check that is off by one or that drops the numbers.
     let record = record_of(PROGRAM);
     let record_bytes = record.encode().expect("the record encodes");
-    // The record is 364 bytes: header 12, nine section headers 72, the nine sections
+    // The record is 380 bytes: header 12, ten section headers 80, the ten sections
     // 108 + 8 + 88 + 16 + 4 + 4 + 42 + 2 (section 8, the parameters of no driver) + 4 (section 9,
-    // no crate: its count and reserved field), and the CRC 4 (specification 34 §5.1.1, version 3).
-    assert_eq!(record_bytes.len(), 364);
-    // The program is 12 bytes, so the pair needs 376 bytes of the slot; one byte less refuses.
+    // no crate: its count and reserved field) + 8 (section 10, the flight recorder's cycles), and
+    // the CRC 4 (specification 34 §5.1.1, version 4).
+    assert_eq!(record_bytes.len(), 380);
+    // The program is 12 bytes, so the pair needs 392 bytes of the slot; one byte less refuses.
     let needed = u64::try_from(PROGRAM.len() + record_bytes.len()).expect("a small pair");
-    assert_eq!(needed, 376);
+    assert_eq!(needed, 392);
     let container = encode_image(1, PROGRAM, &record_bytes).expect("the container encodes");
     assert_eq!(
         admit_sequenced(&container, &chip(needed - 1)),

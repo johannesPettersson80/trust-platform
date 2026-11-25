@@ -25,7 +25,7 @@ static COUNTER: AtomicU64 = AtomicU64::new(1);
 const PROGRAM: &str =
     "PROGRAM Main\nVAR\n    Counter : DINT;\nEND_VAR\nCounter := Counter + 1;\nEND_PROGRAM\n";
 
-/// A `runtime.toml` with every setting section 7 carries, each value chosen by hand.
+/// A `runtime.toml` with every setting sections 7 and 10 carry, each value chosen by hand.
 const RUNTIME_SETTINGS: &str = r#"
 [bundle]
 version = 1
@@ -50,6 +50,9 @@ level = "debug"
 
 [runtime.events]
 capacity = 200
+
+[runtime.trace]
+flight_recorder = 600
 
 [runtime.retain]
 mode = "file"
@@ -237,6 +240,9 @@ fn the_configuration_section_carries_runtime_and_io_settings() {
             address: output_bit(),
             value: Value::Bool(false),
         }],
+        // runtime.trace.flight_recorder = 600, which section 10 carries (specification 34
+        // §5.1.1).
+        flight_recorder: 600,
     };
     assert_eq!(built_configuration(&root), expected);
     let _ = std::fs::remove_dir_all(root);
@@ -279,6 +285,8 @@ fn defaults_fill_the_section_when_settings_are_absent() {
         task_overrides: None,
         io_drivers: Vec::new(),
         safe_state: Vec::new(),
+        // runtime.trace is absent: no flight recorder.
+        flight_recorder: 0,
     };
     assert_eq!(built_configuration(&root), expected);
     let _ = std::fs::remove_dir_all(root);
