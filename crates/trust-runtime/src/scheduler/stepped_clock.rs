@@ -120,7 +120,11 @@ impl SteppedClock {
 
     /// Runs the cycles of `advance` (`simulator.advance`): lets the scan loop run at each next
     /// boundary in turn while `runs` holds, and moves the time to each, then, for a duration, to its
-    /// end. A cycle is over when the loop sleeps again past it or leaves running.
+    /// end. A cycle is over when the loop sleeps again past it or leaves running. When `runs` stops
+    /// holding during the advance, as at a fault, the advance ends at its last cycle and the rest of
+    /// a duration does not pass; a resource that runs no cycles from the start, as one a halting
+    /// fault left faulted, runs none while a duration's time passes (specification 11 §6.8.1,
+    /// "Simulator for machine tests").
     ///
     /// # Errors
     ///
@@ -137,6 +141,7 @@ impl SteppedClock {
             )),
             Advance::Cycles(_) => None,
         };
+        let running = runs();
         let mut cycles = 0_u64;
         loop {
             if let Advance::Cycles(count) = advance
@@ -161,7 +166,10 @@ impl SteppedClock {
             })?;
             cycles += 1;
         }
-        if let Some(end) = end {
+        let ended_early = running && !runs();
+        if let Some(end) = end
+            && !ended_early
+        {
             let mut state = self.state();
             if state.now.as_nanos() < end.as_nanos() {
                 state.now = end;

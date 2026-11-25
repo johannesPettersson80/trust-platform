@@ -230,6 +230,44 @@ fn a_simulator_runs_the_cycles_its_test_asks_for_and_ends_with_its_input() {
 }
 
 #[test]
+fn a_fault_ends_a_durations_advance_at_its_cycle_and_time_passes_for_the_halted_resource() {
+    // The same program divides by zero in its third cycle, and the project halts on a fault
+    // (specification 11 §6.8.1, "Simulator for machine tests"). Worked by hand: an advance of 1 s
+    // runs the cycles at 0 and 10 ms and the third at 20 ms, which faults and ends the advance
+    // early: 3 cycles, the time 20 ms, the resource faulted and the fault in the answer. A second
+    // advance of 1 s runs no cycle of the halted resource, and its time passes: 20 ms + 1 s =
+    // 1.02 s, with no fault of its own. Catches a duration whose time passes on to its end (1 s)
+    // past the fault that ended it, and an advance of a halted resource that waits for a fault of
+    // its own, which refused it after a minute.
+    let project = project();
+    let mut simulator = Simulator::start(&project);
+
+    let faulted = simulator.call(&json!({
+        "id": 1, "type": "simulator.advance", "params": {"duration_ns": 1_000_000_000}
+    }));
+    assert_eq!(faulted["ok"], json!(true), "{faulted}");
+    assert_eq!(faulted["result"]["time_ns"], json!(20_000_000), "{faulted}");
+    assert_eq!(faulted["result"]["cycles"], json!(3), "{faulted}");
+    assert_eq!(faulted["result"]["state"], json!("faulted"), "{faulted}");
+    assert!(faulted["result"]["fault"].is_object(), "{faulted}");
+
+    let halted = simulator.call(&json!({
+        "id": 2, "type": "simulator.advance", "params": {"duration_ns": 1_000_000_000}
+    }));
+    assert_eq!(halted["ok"], json!(true), "{halted}");
+    assert_eq!(
+        halted["result"],
+        json!({"time_ns": 1_020_000_000, "cycles": 0, "state": "faulted"})
+    );
+    assert_eq!(simulator.counter(3), json!(3));
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn a_tool_calls_a_method_between_scans_and_a_faulting_method_faults_the_resource() {
     // Specification 11 §6.8.1, "Calling a method", on the 10 ms resource above, which halts on a
     // fault. Worked by hand: the cycle at 0 ms runs the sequence that nothing started, so

@@ -89,8 +89,10 @@ program uses `run_for` with the task's interval.
 `release`. `call` calls a method of an instance through an interface its type implements, as a
 screen's command does; a method without a result answers `()`.
 
-**Faults.** A cycle that faults ends `run_cycles` or `run_for` with `trust_sim::Error::Fault`,
-and the project's fault policy acts as in a run.
+**Faults.** A cycle that faults ends `run_cycles` or `run_for` there, with
+`trust_sim::Error::Fault`; its `time`, and `now()`, are that cycle's time, and the project's fault
+policy acts as in a run. A halting fault leaves the resource faulted until the test restarts it: a
+run in the meantime runs no cycle, while `run_for`'s time passes.
 
 ## Replay a trace from the machine
 
