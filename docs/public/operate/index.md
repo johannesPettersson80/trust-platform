@@ -13,6 +13,7 @@
 | hand over shift state | [Operator Shift Handover](operator-shift-handover.md) |
 | diagnose I/O from the runtime | [Technician I/O Diagnosis](technician-io-diagnosis.md) |
 | handle field faults | [Field Fault Procedures](field-fault-procedures.md) |
+| keep, save and replay the trace of a fault | [Cycle Traces After A Fault](cycle-traces.md) |
 | prepare safety/commissioning boundaries | [Safety And Commissioning](safety-and-commissioning.md) |
 | back up, restore, or upgrade | [Backup And Restore](backup-and-restore.md) / [Upgrade](upgrade.md) |
 | manage secrets or audit evidence | [Secrets](secrets.md) / [Audit Log](audit-log.md) |

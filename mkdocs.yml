@@ -208,6 +208,7 @@ nav:
       - Shift Handover: operate/operator-shift-handover.md
       - Technician I/O Diagnosis: operate/technician-io-diagnosis.md
       - Field Fault Procedures: operate/field-fault-procedures.md
+      - Cycle Traces After A Fault: operate/cycle-traces.md
       - Safety And Commissioning: operate/safety-and-commissioning.md
       - Backup And Restore: operate/backup-and-restore.md
       - Upgrade: operate/upgrade.md
