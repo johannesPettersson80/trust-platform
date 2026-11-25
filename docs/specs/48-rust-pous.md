@@ -1117,11 +1117,12 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   given by name, each a Rust value as `write` takes one (`Inputs::new().with("Setpoint", 21.5)`),
   and an input not given takes its declared initial value; a method without a result returns `()`,
   and a result of another kind than the test asks for is an error that names the method.
-- **Faults.** A cycle that faults ends `run_cycles` or `run_for` with an error that names the fault
-  and, when the image has them, its POU and statement, and the project's fault policy then acts as
-  in a run (`[runtime.fault]`): a halting fault leaves the resource faulted, with its safe state
-  applied for `safe_halt`, until the test restarts it warm or cold, and a test that expects the
-  fault matches the error and reads the values.
+- **Faults.** A cycle that faults ends `run_cycles` or `run_for` there, at that cycle's logical
+  time, which `now()` then gives, with an error that names the fault and, when the image has them,
+  its POU and statement, and the project's fault policy then acts as in a run (`[runtime.fault]`):
+  a halting fault leaves the resource faulted, with its safe state applied for `safe_halt`, until
+  the test restarts it warm or cold (a run in the meantime runs no cycle, while `run_for`'s time
+  passes), and a test that expects the fault matches the error and reads the values.
 - **Documentation and examples.** The crate's API reference shows each of these in a whole example
   that runs as a doc test, and the user guide teaches, step by step, a machine test of a realistic
   example project, whose machine tests CI runs: `examples/room_heating/machine-tests`, a crate of

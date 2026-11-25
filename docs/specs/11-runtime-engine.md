@@ -3702,8 +3702,11 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   logical time as a run's cycles come, each with the tasks due then (specification 10 §4.3); with
   `duration_ns` it runs the cycles due within that duration and moves the logical time to its end. It answers when they have run, with
   `{"time_ns": t, "cycles": n, "state": "..."}`: the logical time, the cycles run and the resource's
-  state. A cycle that faults ends it early, the answer adds the fault as `faults` lists it, and the
-  project's fault policy acts as in a run (`[runtime.fault]`). A
+  state. A cycle that faults ends it early, at that cycle's logical time, so that the rest of a
+  duration does not pass; the answer adds the fault as `faults` lists it, and the project's fault
+  policy acts as in a run (`[runtime.fault]`). An advance of a resource that runs no cycles, as one
+  a halting fault left faulted, runs none and answers at once; with `duration_ns` its logical time
+  still moves to the duration's end. A
   runtime on the wall clock, every runtime but a simulator, refuses it as `clock_not_manual`, so
   that every runtime answers it alike (specification 34 STATE-08).
 

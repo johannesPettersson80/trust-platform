@@ -219,9 +219,12 @@ impl ResourcePort for ControlState {
         };
         let resource = &self.resource;
         let runs = || runs_cycles(resource.state()) && !resource.is_hung() && !faulted();
+        // A resource that runs no cycles from the start, as one a halting fault left faulted, has
+        // no fault of this advance to wait for: its advance answers at once.
+        let running = runs();
         let advanced = clock.advance(advance, &runs)?;
         let halted = || resource.state() == ResourceState::Faulted;
-        if faulted() || halted() {
+        if running && (faulted() || halted()) {
             // The loop applies the fault policy after it records the fault, and the fault reaches
             // the events through their own thread: the answer waits for both, so that it gives the
             // state the policy left, a halt's faulted resource or a restart's running one, and the
