@@ -109,6 +109,14 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
         runner = runner.with_simulation(simulation);
     }
     let mut handle = runner.spawn("trust-runtime-simulator")?;
+    // The link answers once the resource has started: a request that reached the scheduler while
+    // its thread was still in Boot was refused, at random on a loaded machine (checklist G302).
+    let control = handle.control();
+    if let Err(error) = wait_until_started(|| control.state(), START_WAIT) {
+        handle.stop();
+        let _ = handle.join();
+        return Err(error);
+    }
     let state = ControlState::local(trust_runtime::control::LocalControl {
         traces,
         debug,
@@ -136,4 +144,25 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
     handle.stop();
     let _ = handle.join();
     served.map_err(|error| anyhow::anyhow!("the simulator's standard input or output: {error}"))
+}
+
+/// How long the simulator waits for its resource to start before it gives up.
+const START_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Waits until the resource whose state `state` reads has left Boot, which its scan thread does as it
+/// starts, before the simulator reads its first request: every request then finds the resource
+/// started, as a test that drives the simulator from its start expects (specification 11 §6.8.1,
+/// "Simulator for machine tests"). A resource still booting after `limit` ends the simulator.
+fn wait_until_started(
+    state: impl Fn() -> trust_runtime::scheduler::ResourceState,
+    limit: std::time::Duration,
+) -> anyhow::Result<()> {
+    let started = std::time::Instant::now();
+    while state() == trust_runtime::scheduler::ResourceState::Boot {
+        if started.elapsed() >= limit {
+            anyhow::bail!("the simulator's resource did not start within {limit:?}");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    Ok(())
 }

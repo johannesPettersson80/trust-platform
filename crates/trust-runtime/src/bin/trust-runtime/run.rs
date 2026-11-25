@@ -55,4 +55,8 @@ mod tests;
 #[path = "run/conversion_profile_tests.rs"]
 mod conversion_profile_tests;
 
+#[cfg(test)]
+#[path = "run/simulate_start_tests.rs"]
+mod simulate_start_tests;
+
 include!("run/logging.rs");
