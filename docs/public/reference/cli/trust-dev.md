@@ -11,6 +11,7 @@ binary.
 | `agent serve` | serve the external agent JSON-RPC contract over stdio |
 | `commit` | summarize and commit project changes |
 | `docs` | generate API documentation from tagged ST comments |
+| `replay` | replay a cycle trace in a simulator of the project as it is now |
 | `service install`, `service uninstall` | put a service of the project under the computer's service manager, or remove it |
 | `test` | discover and execute ST tests |
 
@@ -65,6 +66,38 @@ Primary options:
 `trust-runtime docs` is a deprecated forwarding alias during the
 product/workbench split. It will not be removed before 2026-10-05, and removal
 requires a separate behavior-change release note.
+
+## Replay
+
+```text
+Usage: trust-dev replay [OPTIONS] <TRACE>
+```
+
+Replays a cycle trace, a `.trusttrace` file that `trust-runtime ctl record`
+saved, in a simulator of the project as it is now. It builds the project with
+the installed trust-runtime, runs the trace's cycles with the recorded tasks,
+inputs, changes from outside and clock readings, and compares each cycle's
+outputs with the trace's (specification 48 RU-60).
+
+```bash
+trust-dev replay traces/commissioning.trusttrace --project examples/room_heating
+```
+
+- When every cycle matches, it prints the cycles it replayed and ends with `0`.
+- At the first cycle whose outputs differ, it prints the cycle and its logical
+  time, each output that differs with the trace's value and the build's, and
+  how many later cycles differ, and ends with `1`.
+- A trace or a build it cannot replay ends it with `2` and the reason.
+
+A changed program takes the trace's values as an online change carries them,
+and the report's notes list what it could not carry over.
+
+Primary options:
+
+- `--project`
+
+The runtime is found as trust-sim finds it: `TRUST_RUNTIME`, else the `PATH`,
+else the newest truST VS Code extension.
 
 ## Service
 

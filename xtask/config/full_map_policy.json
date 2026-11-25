@@ -52,6 +52,14 @@
     },
     {
       "from": "trust-dev",
+      "to": "trust-sim",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "trust-dev replay builds the project and replays a cycle trace in the installed runtime's simulator through trust-sim, which a machine test's trust_sim::Replay uses too, so that both find, build and report alike (specification 48 RU-60)."
+    },
+    {
+      "from": "trust-dev",
       "to": "trust-syntax",
       "kind": "normal",
       "status": "allowed",
