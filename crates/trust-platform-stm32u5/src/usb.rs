@@ -12,10 +12,13 @@ use usbd_serial::CdcAcmClass;
 
 use crate::usb_service::{CdcPort, PACKET_BYTES};
 
-/// The USB vendor ID of the development build (design §2.5, decision O2).
+/// The USB vendor ID: pid.codes, whose IDs open-source projects share (specification 11, the device
+/// search).
 pub const VENDOR_ID: u16 = 0x1209;
-/// The USB product ID of the development build (design §2.5, decision O2: 1209:0001 in development).
-pub const PRODUCT_ID: u16 = 0x0001;
+/// The USB product ID: truST's own, registered at pid.codes as 1209:7472 "PLC runtime"
+/// (pidcodes/pidcodes.github.com#1320, 25 November 2026). The firmware presented the pid.codes test
+/// ID 1209:0001 until then (design §2.5, decision O2).
+pub const PRODUCT_ID: u16 = 0x7472;
 /// The manufacturer string (design §2.5).
 pub const MANUFACTURER: &str = "truST";
 /// The product string (design §2.5).

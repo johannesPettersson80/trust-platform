@@ -1728,8 +1728,9 @@ one is not reported:
 - a debug probe: the ST-LINK/V2, ST-LINK/V2-1 and STLINK-V3;
 - a USB-serial adapter: FTDI, Silicon Labs CP210x, WCH CH34x and Prolific
   PL2303;
-- a truST runtime: truST's own ID `1209:7472` (requested from pid.codes), and
-  during development the pid.codes test ID `1209:0001` when its maker is
+- a truST runtime: truST's own ID `1209:7472`, registered at pid.codes as
+  `PLC runtime` (25 November 2026), which truST's firmware presents, and the
+  pid.codes test ID `1209:0001`, which anyone may test with, when its maker is
   `truST` or its product `truST runtime`. Its version is the major and minor
   version that its `bcdDevice` carries, and its control endpoint is `usb://`
   followed by its serial number;

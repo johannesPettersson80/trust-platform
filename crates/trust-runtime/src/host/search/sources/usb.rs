@@ -350,8 +350,8 @@ const KNOWN: &[Known] = &[
              chips; connecting confirms the chip and truST.",
         ),
     },
-    // truST's own IDs (S1b decision O2). 1209:7472 is requested from pid.codes in
-    // pidcodes/pidcodes.github.com#1320, "Add 1209:7472 for the truST PLC runtime".
+    // truST's own IDs (S1b decision O2). 1209:7472 is registered at pid.codes as "PLC runtime"
+    // (pidcodes/pidcodes.github.com#1320, merged 25 November 2026).
     trust(0x7472, false),
     // pid.codes 1209:0001, "reserved for use in private testing": truST's ID during development.
     // Anyone may test with it, so its strings must say truST too.
