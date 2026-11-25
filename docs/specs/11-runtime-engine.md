@@ -3706,7 +3706,10 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   duration does not pass; the answer adds the fault as `faults` lists it, and the project's fault
   policy acts as in a run (`[runtime.fault]`). An advance of a resource that runs no cycles, as one
   a halting fault left faulted, runs none and answers at once; with `duration_ns` its logical time
-  still moves to the duration's end. A
+  still moves to the duration's end. A restart that a `restart` request queued, which answers
+  before the restart runs, takes effect before the advance's cycles: the advance waits until the
+  resource has run it, so that its cycles are the restarted program's, after a halting fault too.
+  A
   runtime on the wall clock, every runtime but a simulator, refuses it as `clock_not_manual`, so
   that every runtime answers it alike (specification 34 STATE-08).
 

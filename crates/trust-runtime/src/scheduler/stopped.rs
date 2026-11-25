@@ -10,7 +10,7 @@ use std::sync::atomic::Ordering;
 
 use trust_runtime_services::resource::commands::CommandClass;
 
-use super::faulted::{next_command, take_pending_restart};
+use super::faulted::{next_command, queued_restart, restart_ran};
 use super::{
     apply_runner_command, command_class, set_last_error, set_resource_state, stepped,
     AutomaticRestartLimiter, Clock, LoopShared, ResourceCommand, ResourceRunner, ResourceState,
@@ -54,8 +54,8 @@ pub(super) fn wait_while_stopped<C: Clock + Clone>(
         if let Some(command) = next_command(runner) {
             serve_command(runner, command, &mut steps);
         }
-        if let Some(mode) = take_pending_restart(runner) {
-            return match runner.restart_or_reload(mode) {
+        if let Some(mode) = queued_restart(runner) {
+            let started = match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     automatic_restarts.reset();
                     super::faulted::clear_recovered_fault(shared.supervision, shared.last_error);
@@ -69,6 +69,8 @@ pub(super) fn wait_while_stopped<C: Clock + Clone>(
                     StoppedWait::Failed
                 }
             };
+            restart_ran(runner, mode);
+            return started;
         }
     }
 }
