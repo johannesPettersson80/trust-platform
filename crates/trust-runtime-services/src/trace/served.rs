@@ -8,6 +8,10 @@
 //! hold (a table of the paths alone, so that a part read later names them alike whatever program
 //! then runs), each section's length and CRC-32, the header's CRC-32 and the file's SHA-256. A part
 //! then encodes the header, the section table's entries and the sections that it overlaps.
+//!
+//! A fault's trace is served alike from the flight recorder's two recordings that it joins
+//! ([`FlightRecorder::fault_served`](super::FlightRecorder::fault_served)): the start state of the
+//! first, then the cycles of both, the records of each taken as they are.
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -31,8 +35,9 @@ const FIXED_SECTIONS: usize = 10;
 pub struct ServedTrace {
     front: FrontSections,
     tables: ImageTables,
-    records: Vec<u8>,
-    record_ends: Vec<usize>,
+    /// The records of the recordings the trace joins, in order: a recording's on demand, or the
+    /// flight recorder's full recording and then the faulted one, or the faulted one alone.
+    records: [Records; 2],
     /// Each path the records hold, and the debugger's name for it, if it gives one.
     renames: Vec<(String, Option<String>)>,
     /// Each cycle's record, renamed: its length and its CRC-32.
@@ -44,6 +49,29 @@ pub struct ServedTrace {
     sha256: [u8; 32],
     end: TraceEnd,
     cycle_count: u64,
+}
+
+/// The records a served trace takes from one recording: the cycles' records and where each ends.
+#[derive(Debug, Default)]
+struct Records {
+    bytes: Vec<u8>,
+    ends: Vec<usize>,
+}
+
+impl Records {
+    /// The records of `recorder`, which keeps none after it.
+    fn taken(recorder: &mut Recorder) -> Self {
+        Self {
+            bytes: core::mem::take(&mut recorder.records),
+            ends: core::mem::take(&mut recorder.record_ends),
+        }
+    }
+
+    /// The record of the cycle `cycle`, counted from these records' first.
+    fn record(&self, cycle: usize) -> &[u8] {
+        let from = cycle.checked_sub(1).map_or(0, |before| self.ends[before]);
+        &self.bytes[from..self.ends[cycle]]
+    }
 }
 
 impl Recorder {
@@ -59,7 +87,31 @@ impl Recorder {
         tables: ImageTables,
         name: &mut dyn FnMut(&str) -> Option<String>,
     ) -> Option<ServedTrace> {
-        let end = self.end?;
+        let tally = Tally {
+            cycles: self.cycles(),
+            end: self.end?,
+            origin: TraceOrigin::OnDemand,
+        };
+        Some(ServedTrace::joined(
+            self, None, identity, located, tables, tally, name,
+        ))
+    }
+}
+
+impl ServedTrace {
+    /// The trace that starts with the start state of `start` and holds its cycles and then those
+    /// of `later`, which a fault's trace joins to it, with `identity` and the count, end and
+    /// origin of `tally`, each variable's path and each method call's instance named by `name`, its
+    /// image's tables `tables`. It takes both recordings' records without copying them.
+    pub(super) fn joined(
+        start: &mut Recorder,
+        later: Option<&mut Recorder>,
+        identity: &Identity<'_>,
+        located: &[Located],
+        tables: ImageTables,
+        tally: Tally,
+        name: &mut dyn FnMut(&str) -> Option<String>,
+    ) -> Self {
         let mut renames: Vec<(String, Option<String>)> = Vec::new();
         let mut lookup = |path: &str| -> Option<String> {
             if let Some((_, named)) = renames.iter().find(|(known, _)| known == path) {
@@ -69,53 +121,54 @@ impl Recorder {
             renames.push((String::from(path), named.clone()));
             named
         };
-        let cycles: Vec<(usize, u32)> = self
+        let cycles: Vec<(usize, u32)> = start
             .cycle_records()
+            .chain(
+                later
+                    .as_deref()
+                    .into_iter()
+                    .flat_map(Recorder::cycle_records),
+            )
             .map(|record| {
                 let named = named_cycle(record, &mut lookup);
                 let bytes = named.as_deref().unwrap_or(record);
                 (bytes.len(), crc32::checksum(bytes))
             })
             .collect();
-        let forces = named_changes(&self.start_forces, self.start_force_count, &mut lookup)
-            .unwrap_or_else(|_| self.start_forces.clone());
-        let start = self.start_with(&forces);
-        let tally = Tally {
-            cycles: self.cycles(),
-            end,
-            origin: TraceOrigin::OnDemand,
-        };
+        let forces = named_changes(&start.start_forces, start.start_force_count, &mut lookup)
+            .unwrap_or_else(|_| start.start_forces.clone());
+        let begin = start.start_with(&forces);
         let front = front_sections(
-            &self.meta(identity, tally),
+            &start.meta(identity, tally),
             located,
             &StartParts {
-                areas: &start.areas,
-                force_count: start.force_count,
-                forces: start.forces,
+                areas: &begin.areas,
+                force_count: begin.force_count,
+                forces: begin.forces,
             },
         );
-        drop(start);
-        let cycle_count = self.cycles();
-        let mut served = ServedTrace {
+        drop(begin);
+        let records = [
+            Records::taken(start),
+            later.map(Records::taken).unwrap_or_default(),
+        ];
+        let mut served = Self {
             front,
             tables,
-            records: core::mem::take(&mut self.records),
-            record_ends: core::mem::take(&mut self.record_ends),
+            records,
             renames,
             cycles,
             fixed_crcs: [0; FIXED_SECTIONS],
             len: 0,
             header_crc: 0,
             sha256: [0; 32],
-            end,
-            cycle_count,
+            end: tally.end,
+            cycle_count: tally.cycles,
         };
         served.close();
-        Some(served)
+        served
     }
-}
 
-impl ServedTrace {
     /// The trace's state, as `trace.read` answers it.
     #[must_use]
     pub fn state(&self) -> TraceState {
@@ -264,10 +317,11 @@ impl ServedTrace {
             with(self.fixed(index));
             return;
         };
-        let from = cycle
-            .checked_sub(1)
-            .map_or(0, |before| self.record_ends[before]);
-        let record = &self.records[from..self.record_ends[cycle]];
+        let [first, second] = &self.records;
+        let record = match cycle.checked_sub(first.ends.len()) {
+            None => first.record(cycle),
+            Some(later) => second.record(later),
+        };
         let named = named_cycle(record, &mut |path| {
             self.renames
                 .iter()
