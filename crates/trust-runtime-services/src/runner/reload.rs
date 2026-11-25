@@ -51,6 +51,9 @@ pub struct Loaded<Y> {
     /// The newest events the program's event store keeps: the capacity of its record, or the
     /// device's default when the record sets none (specification 34 §5.1.1).
     pub event_capacity: usize,
+    /// The flight recorder's cycles of the program's record (specification 34 §5.1.1, section 10);
+    /// 0 keeps none.
+    pub flight_recorder: u64,
 }
 
 /// What a device supplies so that its loop can load the installed program in place (specification 34
@@ -206,7 +209,10 @@ where
                 sequence,
             }) => {
                 let Loaded {
-                    mut cycle, events, ..
+                    mut cycle,
+                    events,
+                    flight_recorder,
+                    ..
                 } = loaded;
                 cycle.attach_hold(self.hold.clone());
                 self.tasks = cycle.tasks();
@@ -214,6 +220,11 @@ where
                 self.live = live;
                 self.cycle = Program::Installed(cycle);
                 self.shell.install.set_loaded(Some(sequence));
+                // The loaded program's record says whether it keeps a flight recorder.
+                self.shell
+                    .traces()
+                    .with(|traces| traces.set_flight_cycles(flight_recorder));
+                self.arm_flight();
                 Ok(events)
             }
             Err(reason) => {

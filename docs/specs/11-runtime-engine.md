@@ -3773,7 +3773,9 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
 - `trace.stop` (Engineer) `{"trace": <id>}` ends a recording at once. Its trace holds the cycles
     recorded so far, and ends `stopped`.
 - `runtime.toml` `[runtime.trace] flight_recorder = <n>` keeps the last `n` to `2n` cycles always.
-    Absent or 0, there is no flight recorder. A resource whose flight recorder's memory the runtime
+    Absent or 0, there is no flight recorder. A chip, which never reads `runtime.toml`, takes `n`
+    from its deployment record (specification 34 §5.1.1, section 10) and arms the flight recorder
+    within the memory it has for a recording (specification 48 RU-59, "Memory"). A resource whose flight recorder's memory the runtime
     cannot give starts without it, and a `runtime_trace_memory` event names the bytes needed and the
     bytes free: `{"type": "runtime_trace_memory", "needed": <bytes>, "free": <bytes> | null,
     "time_ns": <logical time>}`, `free` null where the runtime does not know it, as on a computer.

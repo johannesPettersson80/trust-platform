@@ -85,14 +85,19 @@ impl FlightRecorder {
 
     /// The cycle ends, faulted with `fault` or not ([`Recorder::end_cycle`]). A faulted cycle ends
     /// the recording, whose trace is then the fault's, ending `faulted`, or `memory_full` when the
-    /// faulted cycle did not fit. A recording that has ended without a fault, complete or out of
-    /// memory, hands over to the other one, emptied in place; the fault's trace starts from a
-    /// complete one only, since an out of memory recording lacks the cycle it could not keep.
+    /// faulted cycle did not fit; a fault before the cycle began, as a scan's that fails before
+    /// its program runs, ends it with the cycles before, as a fault outside a scan does
+    /// ([`Self::fault`]). A recording that has ended without a fault, complete or out of memory,
+    /// hands over to the other one, emptied in place; the fault's trace starts from a complete one
+    /// only, since an out of memory recording lacks the cycle it could not keep.
     pub fn end_cycle(&mut self, fault: Option<CycleFault>) -> FlightCycle {
         let recording = &mut self.recordings[self.current];
         let ended = recording.end_cycle(fault);
         if fault.is_some() {
             self.fault = true;
+            if recording.end().is_none() {
+                recording.finish(TraceEnd::Faulted);
+            }
             return FlightCycle::Faulted;
         }
         if !ended {

@@ -298,3 +298,23 @@ fn a_faulted_cycle_that_does_not_fit_still_ends_the_recording_as_the_faults() {
     assert_eq!(trace.meta.end, TraceEnd::MemoryFull);
     assert_eq!(times(&trace), [0]);
 }
+
+#[test]
+fn a_fault_before_its_cycle_began_keeps_the_cycles_before() {
+    // RU-59, "The flight recorder": when the resource faults, the runtime keeps the cycles up to
+    // the faulted one; a scan that fails before its program runs has begun no cycle, so the fault's
+    // trace holds the cycles before, as a fault outside a scan's does. Worked by hand for n = 2:
+    // cycles at 0 and 10 fill the first recording, which hands over; the next scan fails before it
+    // begins a cycle. The fault's trace joins the full recording and the empty one: 2 cycles, 0 and
+    // 10, ending `faulted`. Catches a fault that ends no recording, so that no fault's trace is
+    // given and the cycles are lost.
+    let mut flight = FlightRecorder::arm(2, sizes(), Budget::COMPUTER).expect("armed");
+    cycle(&mut flight, 0, None);
+    assert_eq!(cycle(&mut flight, 10, None), FlightCycle::StartDue);
+    assert_eq!(flight.end_cycle(Some(fault())), FlightCycle::Faulted);
+    assert_eq!(flight.fault_end(), Some(TraceEnd::Faulted));
+    assert_eq!(flight.fault_cycles(), Some(2));
+    let trace = read(&flight);
+    assert_eq!(trace.meta.end, TraceEnd::Faulted);
+    assert_eq!(times(&trace), [0, 10]);
+}

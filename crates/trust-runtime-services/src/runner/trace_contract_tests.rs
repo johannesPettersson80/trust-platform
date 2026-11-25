@@ -67,6 +67,47 @@ fn served(fixture: &Fixture, runner: &mut TestRunner<'_>, at: u64, trace: u64) -
     decode(&file).expect("the served file decodes").trace
 }
 
+/// `trace.read` of the flight recorder's trace of the last fault.
+fn read_fault(id: u64) -> Value {
+    json!({"id": id, "type": "trace.read", "params": {"trace": "fault"}})
+}
+
+/// The fault's trace, its file read part by part at `at` milliseconds and decoded.
+fn served_fault(fixture: &Fixture, runner: &mut TestRunner<'_>, at: u64) -> Trace {
+    let state = fixture.call_at(runner, at, &read_fault(92));
+    let bytes = state["result"]["bytes"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("a fault's trace: {state}"));
+    let bytes = usize::try_from(bytes).expect("a trace of a few kilobytes");
+    let mut file = Vec::new();
+    while file.len() < bytes {
+        let part = fixture.call_at(
+            runner,
+            at,
+            &json!({"id": 93, "type": "trace.read", "params": {"trace": "fault", "offset": file.len()}}),
+        );
+        let data = STANDARD
+            .decode(part["result"]["data"].as_str().expect("a part's data"))
+            .expect("a part's data is base64");
+        assert!(!data.is_empty(), "a part short of the file's end: {part}");
+        file.extend_from_slice(&data);
+    }
+    decode(&file).expect("the served file decodes").trace
+}
+
+/// A chip that can give a recording 200,000 bytes, of a heap of 300,000 with 100,000 in use.
+fn chip_platform(recording_room: usize) -> TestPlatform {
+    TestPlatform {
+        heap: Some(HeapFacts {
+            capacity_bytes: 300_000,
+            used_bytes: 100_000,
+            peak_bytes: 120_000,
+        }),
+        recording_room: Some(recording_room),
+        ..TestPlatform::default()
+    }
+}
+
 /// An event that ends a recording on the probe's loop; it gives the time of its last pass.
 type Event<'e> = &'e dyn Fn(&Fixture, &mut TestRunner<'_>) -> u64;
 
@@ -371,13 +412,12 @@ fn a_chip_records_a_tools_method_call_as_its_next_cycles_change() {
 }
 
 #[test]
-fn a_chip_refuses_a_recording_while_paused_and_keeps_no_fault_trace_yet() {
+fn a_chip_refuses_a_recording_while_paused_and_has_no_fault_trace_without_a_flight_recorder() {
     // Specification 11 §6.8.1: `trace.record` records only while the resource runs, and refuses
     // with `resource_not_running` otherwise, as a computer does; the refused request leaves no
-    // trace, so `trace.read` of trace 1 answers `unknown_trace`. A chip keeps no fault's trace until
-    // it has a flight recorder (checklist G197, R2d-3), as a computer without one: `trace.read` of
-    // "fault" answers `none`. Catches a chip that records while paused, or answers a trace it
-    // never had.
+    // trace, so `trace.read` of trace 1 answers `unknown_trace`. A chip whose record keeps no
+    // flight recorder has no fault's trace, as a computer without one: `trace.read` of "fault"
+    // answers `none`. Catches a chip that records while paused, or answers a trace it never had.
     let fixture = probe();
     let mut runner = fixture.runner();
     fixture.pass_at(&mut runner, 0);
@@ -474,4 +514,148 @@ fn a_chip_serves_a_trace_in_the_parts_its_memory_can_carry() {
     }
     let decoded = decode(&file).expect("the parts make the file");
     assert_eq!(decoded.trace.cycles.len(), 2);
+}
+
+#[test]
+fn a_chip_keeps_its_flight_recorders_trace_of_a_fault() {
+    // Specification 48 RU-59, "The flight recorder", and specification 11 §6.8.1: with
+    // `flight_recorder = 2` from its record, a chip always keeps the last 2 to 4 cycles and, when
+    // the resource faults, those cycles as the fault's trace, which `trace.read` of "fault" serves
+    // until the next fault, as a computer does. Worked by hand for the probe's scans at 0, 10, 20
+    // and 30 ms and a scan at 40 that fails before the program runs: the first recording holds 0
+    // and 10 and hands over; the second holds 20 and 30, complete, and hands over to the first,
+    // emptied; the fault ends it with no cycle. The fault's trace joins the complete recording and
+    // the empty one: 2 cycles at 20 and 30 ms, from the flight recorder, ending `faulted`, each as
+    // the scan ran it: the probe's one task at the cycle's time, its button reading FALSE and its
+    // led off. Before the fault there is none; a warm restart afterwards keeps it. Catches a chip
+    // that keeps no flight recorder, serves the trace before a fault, joins the wrong recordings,
+    // feeds the flight recorder nothing but the cycles' bounds, loses the trace at the restart, or
+    // serves it as a recording on demand.
+    let fixture = probe();
+    let mut runner = fixture.runner_with(chip_platform(200_000));
+    runner.set_flight_recorder(2);
+    for at in [0, 10, 20, 30] {
+        fixture.pass_at(&mut runner, at);
+    }
+    let before = fixture.call_at(&mut runner, 30, &read_fault(2));
+    assert_eq!(before["result"], json!({"state": "none"}), "{before}");
+    fixture
+        .script
+        .borrow_mut()
+        .failing_scans
+        .push_back(RuntimeError::DivisionByZero);
+    fixture.pass_at(&mut runner, 40);
+
+    let state = fixture.call_at(&mut runner, 40, &read_fault(3));
+    assert_eq!(
+        state["result"],
+        json!({
+            "state": "ended",
+            "reason": "faulted",
+            "cycles": 2,
+            "bytes": state["result"]["bytes"],
+            "sha256": state["result"]["sha256"],
+        }),
+        "{state}"
+    );
+    let trace = served_fault(&fixture, &mut runner, 40);
+    assert_eq!(trace.meta.origin, TraceOrigin::FlightRecorder);
+    assert_eq!(trace.meta.end, TraceEnd::Faulted);
+    let times: Vec<i64> = trace
+        .cycles
+        .iter()
+        .map(|cycle| cycle.time_ns / 1_000_000)
+        .collect();
+    assert_eq!(times, [20, 30]);
+    for (cycle, now_ns) in trace.cycles.iter().zip([20_000_000, 30_000_000]) {
+        assert_eq!(cycle.activations, [Activation { task: 0, now_ns }]);
+        assert_eq!(
+            (cycle.inputs.as_slice(), cycle.outputs.as_slice()),
+            (&[0_u8][..], &[0_u8][..])
+        );
+    }
+
+    let restarted = fixture.call_at(
+        &mut runner,
+        40,
+        &json!({"id": 4, "type": "restart", "params": {"mode": "warm"}}),
+    );
+    assert_eq!(restarted["ok"], json!(true), "{restarted}");
+    fixture.pass_at(&mut runner, 50);
+    let kept = fixture.call_at(&mut runner, 50, &read_fault(5));
+    assert_eq!(kept["result"], state["result"], "{kept}");
+}
+
+#[test]
+fn a_chip_runs_without_a_flight_recorder_whose_memory_it_cannot_give() {
+    // Specification 48 RU-59, "Memory", and specification 11 §6.8.1: a runtime that cannot give
+    // the flight recorder's memory starts without it, and a `runtime_trace_memory` event names the
+    // bytes needed and the bytes it has. Worked by hand: a flight recorder of 2^50 cycles, whose two
+    // recordings need more than 2^50 bytes, on a chip that can give a recording 200,000 bytes; the
+    // event names free 200,000 and needed above 2^50, at the program's time 0; the program runs on,
+    // and after a failed scan `trace.read` of "fault" answers `none`. Catches a refusal without its
+    // event, an event without the chip's figures, and a chip that stops or keeps a trace without a
+    // flight recorder.
+    let fixture = probe();
+    let mut runner = fixture.runner_with(chip_platform(200_000));
+    runner.set_flight_recorder(1 << 50);
+    fixture.pass_at(&mut runner, 0);
+    let events = fixture.call_at(
+        &mut runner,
+        0,
+        &json!({"id": 2, "type": "events.tail", "params": {"limit": 10}}),
+    );
+    let refused = events["result"]["events"]
+        .as_array()
+        .and_then(|events| {
+            events
+                .iter()
+                .find(|event| event["type"] == json!("runtime_trace_memory"))
+        })
+        .unwrap_or_else(|| panic!("a runtime_trace_memory event: {events}"))
+        .clone();
+    assert_eq!(refused["free"], json!(200_000), "{refused}");
+    assert_eq!(refused["time_ns"], json!(0), "{refused}");
+    assert!(
+        refused["needed"]
+            .as_u64()
+            .is_some_and(|needed| needed > 1 << 50),
+        "{refused}"
+    );
+    fixture.pass_at(&mut runner, 10);
+    fixture
+        .script
+        .borrow_mut()
+        .failing_scans
+        .push_back(RuntimeError::DivisionByZero);
+    fixture.pass_at(&mut runner, 20);
+    let fault = fixture.call_at(&mut runner, 20, &read_fault(3));
+    assert_eq!(fault["result"], json!({"state": "none"}), "{fault}");
+}
+
+#[test]
+fn a_chips_flight_recorder_takes_what_one_recording_would() {
+    // Specification 48 RU-59, "Memory": the flight recorder's two recordings each take the shares
+    // of half the memory the chip has for a recording, so that together they take what one
+    // recording would, and a recording on demand still fits beside them. Worked by hand for a flight
+    // recorder of 2 cycles of the probe on chips that can give a recording 200,000 and 400,000
+    // bytes: each recording's rooms are those of 100,000 and of 200,000 bytes: a cycle's changes
+    // 6,250 and 12,500 (1/16), its readings 195 and 256 of 8 bytes (1/64, at most 256), the
+    // recording's extra room 25,000 and 50,000 (1/4), the forces 6,250 and 12,500 (1/16), a value
+    // 3,125 and 6,250 (1/32), and everything else the same. So the second reserves (6,250 + 61 x 8
+    // + 25,000 + 6,250 + 3,125) x 2 = 82,226 bytes more. Rooms of the whole memory would differ by
+    // (12,500 + 0 + 50,000 + 12,500 + 6,250) x 2 = 162,500. Catches a flight recorder sized to the
+    // whole memory, which leaves no room for a recording on demand.
+    let reserved = |room: usize| {
+        let fixture = probe();
+        let runner = fixture.runner_with(chip_platform(room));
+        runner.set_flight_recorder(2);
+        runner
+            .shell
+            .traces()
+            .with(|traces| traces.flight_reserved_bytes())
+            .flatten()
+            .expect("an armed flight recorder")
+    };
+    assert_eq!(reserved(400_000) - reserved(200_000), 82_226);
 }

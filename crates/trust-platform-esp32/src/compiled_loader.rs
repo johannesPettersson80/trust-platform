@@ -312,6 +312,7 @@ where
         };
         platform.feed();
         let event_capacity = event_capacity(&config);
+        let flight_recorder = config.flight_recorder;
         self.running = Some(config.clone());
         platform.set_program(ProgramValues {
             settings: RuntimeSettings::from_record(&config),
@@ -322,6 +323,7 @@ where
             cycle,
             events,
             event_capacity,
+            flight_recorder,
         })
     }
 
