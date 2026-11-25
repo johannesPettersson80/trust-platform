@@ -32,6 +32,8 @@
   less what it keeps beside any program (RU-59, "Memory"), decided under the same delegation. 0.16,
   25 November 2026: a method call made between two cycles keeps the wall clock's readings it made,
   and a replay gives them back to it (RU-59, RU-60, Appendix C.6), decided under the same delegation.
+  0.17, 25 November 2026: a chip's flight recorder, its two recordings each sized to half the
+  memory a recording would have (RU-59, "Memory"), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1209,7 +1211,9 @@ traces", gives the requests.
     cycle's changes and for the forces, a sixty-fourth for a cycle's readings, a thirty-second for
     one value and a quarter for the recording. The memory a chip has for a recording is its free
     heap less what it keeps beside any program (specification 34 MEM-12), so that a recording
-    never takes the working memory the chip needs. A chip thereby records within its memory, and a
+    never takes the working memory the chip needs. The flight recorder's two recordings each take
+    the shares of half that memory, so that together they take what one recording would, and a
+    recording on demand still fits beside them. A chip thereby records within its memory, and a
     cycle that outgrows its room ends the recording `memory_full` there as on a computer. A chip
     keeps an ended trace's records and serves its file part by part from them, the same file a
     computer writes.

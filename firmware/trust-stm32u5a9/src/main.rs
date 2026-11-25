@@ -278,6 +278,9 @@ fn main() -> ! {
         )
         .with_transfers(transfer_session(parts.boot_count)),
     );
+    // The record's flight recorder (specification 34 §5.1.1, section 10), armed for the program
+    // that runs within the memory the chip has for a recording (specification 48 RU-59).
+    runner.set_flight_recorder(config.flight_recorder);
     // A boot after the hardware watchdog or a panic ended the last program starts it faulted, as
     // trust-runtime's resource stays faulted (specification 34 TARGET-08).
     runner.fault_after_reset();

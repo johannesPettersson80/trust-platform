@@ -40,7 +40,7 @@ use crate::live_values::io_snapshot::{
     value_type_name, IoSnapshot, IoSnapshotEntry, IoSnapshotValue,
 };
 use crate::live_values::queues::{
-    ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingVarTarget,
+    ForcedSnapshot, ForcedVar, ForcedVarTarget, LiveValueQueues, PendingVarTarget,
 };
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
@@ -78,7 +78,19 @@ struct LiveInner {
     images: RefCell<snapshot::PublishedImages>,
 }
 
+/// What the forces in effect are lent to: the variables' and the addresses'.
+pub(super) type ForcesLent<'w> = dyn FnMut(&[ForcedVar], &[(IoAddress, Value)]) + 'w;
+
 impl DeviceLiveValues {
+    /// Lends the forces in effect, the variables' and the addresses', to `with`: a flight
+    /// recording's start state after a scan takes them (specification 48 RU-59). Queues in use
+    /// lend none.
+    pub(super) fn with_forces(&self, with: &mut ForcesLent<'_>) {
+        if let Ok(queues) = self.inner.queues.try_borrow() {
+            with(&queues.forced_vars, &queues.forced_io);
+        }
+    }
+
     /// Empty Live Values of a platform that has no installed program yet: no bindings and nothing
     /// queued.
     #[must_use]

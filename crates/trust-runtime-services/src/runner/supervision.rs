@@ -186,6 +186,8 @@ where
         self.program_time = now;
         self.cycle_count = 0;
         self.shell.resource.set_last_error(None);
+        // The flight recorder starts again with the program (specification 48 RU-59).
+        self.arm_flight();
         Ok(())
     }
 

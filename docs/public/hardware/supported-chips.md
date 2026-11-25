@@ -114,8 +114,12 @@ The firmware also carries out:
   computer records them. A recording takes the heap's free bytes less what the chip keeps beside
   any program, each of its rooms at most a share of that, and a recording the chip cannot hold is
   refused with the bytes it needs and the bytes it has. The ended trace stays on the chip until the
-  next recording starts, and is served in parts. The chip keeps no fault's trace yet: it has no
-  flight recorder;
+  next recording starts, and is served in parts;
+- the flight recorder of `[runtime.trace] flight_recorder`, which the chip takes from the
+  deployment record: its two recordings each take half the memory a recording would. When the
+  resource faults, the chip keeps the fault's trace in its memory until the next fault or a reset,
+  and `trust-runtime ctl fault-trace` saves it. A flight recorder the chip cannot hold is left out,
+  and the event `runtime_trace_memory` names the bytes it needs and the bytes the chip has;
 - online changes (`bytecode.reload`), which no `trust-runtime ctl` command sends yet.
 
 Not available on the ESP32-C6 yet:

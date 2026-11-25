@@ -297,6 +297,8 @@ where
         self.program_time = now;
         self.cycle_count = 0;
         self.record_carried_events(events);
+        // The new program gets its own flight recorder (specification 48 RU-59).
+        self.arm_flight();
         // The faults of CODESYS's calls at the change, which did not stop it (specification 44
         // §12.3).
         for fault in faults {
