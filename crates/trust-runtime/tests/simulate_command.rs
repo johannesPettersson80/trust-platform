@@ -16,7 +16,7 @@ use trust_runtime_core::trace::{
     TraceOrigin,
 };
 
-use simulator_support::{decoded, project_with, Simulator};
+use simulator_support::{decoded, project_with, project_with_io, Simulator};
 
 /// Counts its cycles, stamps each with `CURRENT_DT()`, and divides by zero in its third.
 const MAIN_ST: &str = "
@@ -130,6 +130,44 @@ value = "TRUE"
 
 fn project() -> PathBuf {
     project_with(MAIN_ST)
+}
+
+/// The I/O of a chip's project, the C6 bench's: the physical `gpio` driver with one lamp line and
+/// its safe state.
+const GPIO_IO_TOML: &str = r#"[io]
+driver = "gpio"
+
+[io.params]
+inputs = []
+outputs = [
+  { address = "%QX0.0", line = "GPIO18", initial = false }
+]
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"
+"#;
+
+#[test]
+fn a_project_whose_io_enables_a_physical_driver_simulates_as_any_other() {
+    // Specification 11 §6.8.1, "Simulator for machine tests": the simulator starts no I/O driver,
+    // the simulation being the process image's only source, so a project whose `io.toml` enables a
+    // physical one, as a chip's project does, runs in it as any other. Worked by hand with the C6
+    // bench's `io.toml`, the `gpio` driver and one lamp line: the simulator answers `status` with
+    // the resource running, and 2 cycles run at 0 and 10 ms. Catches a simulator that refuses the
+    // project as `run --simulation` does, which kept a chip's fault trace from replaying on a
+    // computer without a second copy of its project (checklist G308).
+    let project = project_with_io(MAIN_ST, GPIO_IO_TOML);
+    let mut simulator = Simulator::start(&project);
+    let status = simulator.call(&json!({"id": 1, "type": "status"}));
+    assert_eq!(status["result"]["state"], json!("running"), "{status}");
+    let advanced =
+        simulator.call(&json!({"id": 2, "type": "simulator.advance", "params": {"cycles": 2}}));
+    assert_eq!(
+        advanced["result"],
+        json!({"time_ns": 10_000_000, "cycles": 2, "state": "running"}),
+        "{advanced}"
+    );
 }
 
 #[test]

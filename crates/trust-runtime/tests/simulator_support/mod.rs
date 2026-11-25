@@ -58,10 +58,15 @@ pub fn trust_runtime() -> Command {
 
 /// A built project of the resource above whose program is `main_st`.
 pub fn project_with(main_st: &str) -> PathBuf {
+    project_with_io(main_st, IO_TOML)
+}
+
+/// A built project of the resource above whose program is `main_st` and whose I/O is `io_toml`.
+pub fn project_with_io(main_st: &str, io_toml: &str) -> PathBuf {
     let project = trust_test_support::unique_temp_path("simulate-command");
     std::fs::create_dir_all(project.join("src")).expect("create the project");
     std::fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("write runtime.toml");
-    std::fs::write(project.join("io.toml"), IO_TOML).expect("write io.toml");
+    std::fs::write(project.join("io.toml"), io_toml).expect("write io.toml");
     std::fs::write(project.join("src/main.st"), main_st).expect("write main.st");
     let built = trust_runtime()
         .arg("build")
