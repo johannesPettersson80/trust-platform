@@ -9,6 +9,7 @@ use trust_platform_esp32::program_flash::SLOT_BYTES;
 use trust_platform_memory::reset::{note_boot, ResetStore, RECORD_WORDS};
 use trust_runtime_core::deployment::sha256;
 use trust_runtime_services::link::DEVICE_FRAME_LEN;
+use trust_runtime_services::transfer::reserve_zeroed;
 use trust_runtime_services::transfer::{ReplyParts, TransferError};
 
 /// The reset memory of a chip in ordinary RAM: the record words and the boot counter, which a
@@ -39,7 +40,7 @@ impl ResetStore for SurvivingMemory {
 /// The first transfer id of the session of the boot that `memory` counts now: the firmware counts the
 /// boot with `note_boot` and builds the session with the count.
 fn first_transfer_id(memory: &mut SurvivingMemory) -> String {
-    let mut session = transfer_session(note_boot(memory));
+    let mut session = transfer_session(note_boot(memory), reserve_zeroed);
     session
         .begin(5, sha256(b"hello"))
         .expect("an upload of five bytes begins")
@@ -74,7 +75,7 @@ fn transfer_ids_differ_after_a_reset() {
 #[test]
 fn the_c6_session_takes_an_upload_of_one_slot_at_most() {
     assert_eq!(SLOT_BYTES, 2_109_440);
-    let mut session = transfer_session(1);
+    let mut session = transfer_session(1, reserve_zeroed);
     let refused = session
         .begin(2_109_441, sha256(b"hello"))
         .expect_err("an upload longer than a slot is refused");
@@ -148,7 +149,7 @@ fn the_c6_session_holds_replies_up_to_its_heap() {
     assert_eq!(HEAP_CAPACITY_BYTES, 180_160);
     assert_ne!(HEAP_CAPACITY_BYTES, DEVICE_FRAME_LEN, "not the frame");
 
-    let mut session = transfer_session(1);
+    let mut session = transfer_session(1, reserve_zeroed);
     assert_eq!(session.reply_capacity(), 180_160);
     let events = session
         .hold_reply(reply_of(16_261))

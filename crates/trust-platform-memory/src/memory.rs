@@ -4,7 +4,7 @@
 use crate::board::{Measurement, Memory};
 use core::{
     alloc::{GlobalAlloc, Layout},
-    sync::atomic::{AtomicU32, AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
 };
 use embedded_alloc::LlffHeap;
 
@@ -13,9 +13,10 @@ use crate::program_region::{ProgramRegion, BLOCK_ALIGN};
 /// The most regions a [`MeasuredHeap`] serves.
 const REGIONS: usize = 3;
 
-/// The bytes from which a block is a program's, an upload or an image, which goes to the program
-/// region first when the heap has one (specification 44 §12.3). No other block of a runtime is as
-/// large.
+/// The bytes from which a block asked inside [`MeasuredHeap::with_program_allocations`], an upload
+/// of a program, goes to the program region first when the heap has one (specification 44 §12.3).
+/// A block as large asked outside it, such as a recording's, goes to the data regions: the program
+/// region is for what the CPU executes and what is installed there (specification 34 MEM-12).
 pub const PROGRAM_BLOCK_BYTES: usize = 32 * 1024;
 
 /// Allocator wrapper that serves one to three regions, tried in the order a composition hands them
@@ -30,11 +31,13 @@ pub struct MeasuredHeap {
     /// The region of programs' blocks, which the CPU executes, when the composition gives one
     /// ([`MeasuredHeap::init_program_region`]).
     program: ProgramRegion,
+    /// Whether the caller asks for a program's blocks now ([`MeasuredHeap::with_program_allocations`]).
+    program_scope: AtomicBool,
     /// Sum of the region sizes, in bytes.
     capacity: AtomicUsize,
-    /// Allocator bytes in use over every region.
+    /// Allocator bytes in use over the data regions, those that [`MeasuredHeap::capacity`] counts.
     used: AtomicUsize,
-    /// Allocator bytes in use at the peak, over every region.
+    /// Allocator bytes in use at the peak, over the data regions.
     peak: AtomicUsize,
     /// Allocation calls over every region.
     allocations: AtomicUsize,
@@ -57,6 +60,7 @@ impl MeasuredHeap {
             inner: [const { LlffHeap::empty() }; REGIONS],
             bounds: [const { AtomicUsize::new(0) }; REGIONS * 2],
             program: ProgramRegion::empty(),
+            program_scope: AtomicBool::new(false),
             capacity: AtomicUsize::new(0),
             used: AtomicUsize::new(0),
             peak: AtomicUsize::new(0),
@@ -95,11 +99,12 @@ impl MeasuredHeap {
     }
 
     /// Give the allocator a program region (specification 44 §10.3, §12.3): memory the CPU
-    /// executes, which takes a block asked with [`BLOCK_ALIGN`], a module copied in, as
-    /// high as it fits, and a block of [`PROGRAM_BLOCK_BYTES`] or more, an upload, as low as it
-    /// fits, before the other regions; no smaller block goes there. Its bytes are not among
-    /// [`MeasuredHeap::capacity`] and [`MeasuredHeap::remaining`], which are the bytes for a
-    /// program's data.
+    /// executes, which takes a block asked with [`BLOCK_ALIGN`], a module copied in, as high as it
+    /// fits, and a block of [`PROGRAM_BLOCK_BYTES`] or more asked inside
+    /// [`MeasuredHeap::with_program_allocations`], an upload, as low as it fits, before the other
+    /// regions; no other block goes there. Its bytes are not among [`MeasuredHeap::capacity`],
+    /// [`MeasuredHeap::used`] and [`MeasuredHeap::remaining`], which are the bytes for a program's
+    /// data; [`ProgramRegion::used`] counts its own.
     ///
     /// # Safety
     /// Call at most once, before any allocation. The region must be non-empty, valid for reads,
@@ -119,7 +124,8 @@ impl MeasuredHeap {
         self.capacity.load(Ordering::Relaxed)
     }
 
-    /// Allocator bytes in use over every region.
+    /// Allocator bytes in use over the data regions, those that [`MeasuredHeap::capacity`] counts;
+    /// the program region's blocks are not among them.
     pub fn used(&self) -> usize {
         self.used.load(Ordering::Relaxed)
     }
@@ -136,6 +142,17 @@ impl MeasuredHeap {
     /// difference. Reading it is one load: it allocates nothing and takes no critical section.
     pub fn operations(&self) -> u32 {
         self.operations.load(Ordering::Relaxed)
+    }
+
+    /// Runs `allocate`, in which a block of [`PROGRAM_BLOCK_BYTES`] or more is a program's and goes
+    /// to the program region first, as an upload's does (specification 44 §12.3). Outside it such a
+    /// block takes the data regions, so that a large block of data, such as a recording's, never
+    /// takes the memory the next program's code is installed in (specification 34 MEM-12).
+    pub fn with_program_allocations<R>(&self, allocate: impl FnOnce() -> R) -> R {
+        self.program_scope.store(true, Ordering::Relaxed);
+        let result = allocate();
+        self.program_scope.store(false, Ordering::Relaxed);
+        result
     }
 
     /// Count one allocator operation with one atomic add, which no interrupt splits.
@@ -171,11 +188,13 @@ impl MeasuredHeap {
 
     /// A block of the program region for `layout`, or null when `layout` is no program's block or
     /// the region has no gap for it: a block asked with [`BLOCK_ALIGN`] as high as it fits, a block
-    /// of [`PROGRAM_BLOCK_BYTES`] or more as low as it fits. A larger alignment than the region's
-    /// blocks have goes elsewhere.
+    /// of [`PROGRAM_BLOCK_BYTES`] or more asked inside [`MeasuredHeap::with_program_allocations`] as
+    /// low as it fits. A larger alignment than the region's blocks have goes elsewhere.
     fn allocate_for_program(&self, layout: Layout) -> *mut u8 {
         let high = layout.align() == BLOCK_ALIGN;
-        if layout.align() > BLOCK_ALIGN || (!high && layout.size() < PROGRAM_BLOCK_BYTES) {
+        let upload =
+            layout.size() >= PROGRAM_BLOCK_BYTES && self.program_scope.load(Ordering::Relaxed);
+        if layout.align() > BLOCK_ALIGN || !(high || upload) {
             return core::ptr::null_mut();
         }
         self.program
@@ -216,10 +235,10 @@ impl MeasuredHeap {
         )
     }
 
-    /// Allocator bytes in use, summed fresh over every region, the program region's blocks among
-    /// them.
+    /// Allocator bytes in use, summed fresh over the data regions; the program region counts its
+    /// own blocks ([`ProgramRegion::used`]).
     fn used_of_regions(&self) -> usize {
-        self.inner.iter().map(LlffHeap::used).sum::<usize>() + self.program.used()
+        self.inner.iter().map(LlffHeap::used).sum::<usize>()
     }
 
     /// The region holding `pointer`, or region 0 when no bound matches.

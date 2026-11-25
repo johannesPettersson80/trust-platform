@@ -23,6 +23,6 @@ pub(crate) use reply_parts::room_for;
 pub use reply_parts::ReplyParts;
 pub(crate) use reply_parts::{reserve_part, PartReserve};
 pub use session::{
-    Complete, Received, ReplyHead, ReplyPart, State, Status, StoredUpload, TransferError,
-    TransferSession, HEADER_BYTES, PART_BYTES,
+    reserve_zeroed, Complete, Received, ReplyHead, ReplyPart, Reserve, State, Status, StoredUpload,
+    TransferError, TransferSession, HEADER_BYTES, PART_BYTES,
 };

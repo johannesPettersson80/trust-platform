@@ -72,6 +72,10 @@ pub struct Budget {
     pub forces: usize,
     /// Bytes of the largest value one write records ([`Recorder::written`]).
     pub value: usize,
+    /// The most bytes the whole recording may reserve: the memory the runtime has for it, none on
+    /// a runtime that does not know its memory, as a computer does not (specification 48 RU-59,
+    /// "Memory").
+    pub limit: Option<usize>,
 }
 
 impl Budget {
@@ -83,14 +87,15 @@ impl Budget {
         extra: 4 * 1024 * 1024,
         forces: 64 * 1024,
         value: 64 * 1024,
+        limit: None,
     };
 
     /// The budget of a runtime with `free` bytes of memory to give, the same rule on every
     /// runtime (specification 48 RU-59, "Memory"): each room a computer's ([`Self::COMPUTER`]),
     /// but no more than a sixteenth of `free` for one cycle's changes and for the forces, a
     /// thirty-second for one value, a quarter for the recording's changes and readings, and as
-    /// many readings in a cycle as a sixty-fourth holds. A runtime that does not know its memory,
-    /// as a computer does not, has a computer's.
+    /// many readings in a cycle as a sixty-fourth holds; and the whole recording within `free`. A
+    /// runtime that does not know its memory, as a computer does not, has a computer's.
     #[must_use]
     pub fn for_free(free: Option<usize>) -> Self {
         let Some(free) = free else {
@@ -103,6 +108,7 @@ impl Budget {
             extra: computer.extra.min(free / 4),
             forces: computer.forces.min(free / 16),
             value: computer.value.min(free / 32),
+            limit: Some(free),
         }
     }
 }
@@ -250,7 +256,10 @@ impl Recorder {
     ///
     /// # Errors
     ///
-    /// [`ReserveError::InsufficientMemory`], with the bytes needed, when they cannot be reserved.
+    /// [`ReserveError::InsufficientMemory`], with the bytes needed, when they are more than the
+    /// budget's limit, the memory the runtime has for a recording, or cannot be reserved: a
+    /// recording never takes the working memory the runtime keeps (specification 48 RU-59,
+    /// "Memory").
     pub fn arm(goal: Goal, sizes: Sizes, budget: Budget) -> Result<Self, ReserveError> {
         let cycles = estimated_cycles(goal, &sizes);
         let records = cycles
@@ -262,6 +271,9 @@ impl Recorder {
             .fold(0_usize, |sum, len| sum.saturating_add(*len));
         let activations = sizes.tasks.max(1);
         let needed = needed_bytes(&sizes, &budget, cycles, records, areas, activations);
+        if budget.limit.is_some_and(|limit| needed > limit) {
+            return Err(ReserveError::InsufficientMemory { needed });
+        }
         let reserve = || -> Option<Self> {
             Some(Self {
                 goal,

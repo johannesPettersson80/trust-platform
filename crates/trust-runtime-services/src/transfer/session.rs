@@ -309,12 +309,17 @@ impl<'a> ReplyPart<'a> {
 }
 
 /// Reserves a zeroed buffer of the given length, or refuses when the heap cannot hold it. The
-/// session takes this function, so that a test can make a reservation fail.
-type Reserve = fn(usize) -> Result<Vec<u8>, TryReserveError>;
+/// session takes this function, so that a platform can say where an upload's buffer goes, as a
+/// chip's program region (specification 44 §12.3), and a test can make a reservation fail.
+pub type Reserve = fn(usize) -> Result<Vec<u8>, TryReserveError>;
 
 /// Reserves `len` zeroed bytes with `try_reserve_exact`: a heap that cannot hold them is an error
 /// that the caller refuses, never an abort (specification 34, PORT-05).
-fn reserve_zeroed(len: usize) -> Result<Vec<u8>, TryReserveError> {
+///
+/// # Errors
+///
+/// The [`TryReserveError`] of a heap that cannot hold `len` bytes.
+pub fn reserve_zeroed(len: usize) -> Result<Vec<u8>, TryReserveError> {
     let mut bytes = Vec::new();
     bytes.try_reserve_exact(len)?;
     bytes.resize(len, 0);
@@ -451,10 +456,11 @@ impl TransferSession {
         Self::with_reserve(boot, max_bytes, reply_capacity, reserve_zeroed)
     }
 
-    /// As [`Self::new`], with the buffers of an upload reserved by `reserve`. A test passes a
-    /// function that refuses, to see that begin refuses rather than aborts.
+    /// As [`Self::new`], with the buffers of an upload reserved by `reserve`: a chip's that gives
+    /// an upload its program region ([`reserve_zeroed`] asked as a program's blocks), or a test's
+    /// that refuses, to see that begin refuses rather than aborts.
     #[must_use]
-    pub(crate) const fn with_reserve(
+    pub const fn with_reserve(
         boot: u32,
         max_bytes: usize,
         reply_capacity: usize,

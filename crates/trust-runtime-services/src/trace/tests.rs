@@ -720,10 +720,11 @@ fn a_budget_follows_the_memory_a_runtime_has_by_one_rule() {
     // device's limit is reported, never cut. One rule sizes its rooms on every runtime: a
     // computer's, each at most a share of the memory the runtime has. Worked by hand for a C6
     // with 90,000 bytes free: changes 90,000 / 16 = 5,625, readings 90,000 / 64 / 8 = 175, extra
-    // 90,000 / 4 = 22,500, forces 5,625, one value 90,000 / 32 = 2,812. With 64 MiB free every
-    // share exceeds a computer's figure, so the budget is a computer's; so it is when the runtime
-    // does not know its memory. Catches a share mixed up, a computer that loses room, and a chip
-    // given a computer's budget, which it could never reserve.
+    // 90,000 / 4 = 22,500, forces 5,625, one value 90,000 / 32 = 2,812, the whole recording within
+    // the 90,000. With 64 MiB free every share exceeds a computer's figure, so the rooms are a
+    // computer's within the 64 MiB; a runtime that does not know its memory has a computer's
+    // budget, without a limit. Catches a share mixed up, a computer that loses room, a chip given
+    // a computer's budget, which it could never reserve, and a chip's recording without a limit.
     assert_eq!(
         Budget::for_free(Some(90_000)),
         Budget {
@@ -732,8 +733,43 @@ fn a_budget_follows_the_memory_a_runtime_has_by_one_rule() {
             extra: 22_500,
             forces: 5_625,
             value: 2_812,
+            limit: Some(90_000),
         }
     );
-    assert_eq!(Budget::for_free(Some(64 * 1024 * 1024)), Budget::COMPUTER);
+    assert_eq!(
+        Budget::for_free(Some(64 * 1024 * 1024)),
+        Budget {
+            limit: Some(64 * 1024 * 1024),
+            ..Budget::COMPUTER
+        }
+    );
     assert_eq!(Budget::for_free(None), Budget::COMPUTER);
+}
+
+#[test]
+fn a_recording_is_refused_before_it_reserves_more_than_the_runtime_has() {
+    // Specification 48 RU-59, "Memory": a recording never takes the working memory the runtime
+    // keeps. Worked from the recorder itself: a recording of 1,000 cycles of the test's program
+    // with a computer's rooms needs N bytes, which it reserves without a limit. Within a limit of
+    // exactly N it arms and reserves N; within N - 1 it is refused with the same N, before it
+    // reserves anything. Catches a recording sized by its shares alone, whose many cycles take
+    // more than the memory the runtime has (checklist G307), and a limit applied one byte off.
+    let goal = Goal::Cycles(1_000);
+    let needed = Recorder::arm(goal, sizes(), Budget::COMPUTER)
+        .expect("a computer's recording arms")
+        .reserved_bytes();
+    let within = Budget {
+        limit: Some(needed),
+        ..Budget::COMPUTER
+    };
+    let armed = Recorder::arm(goal, sizes(), within).expect("a recording within its limit arms");
+    assert_eq!(armed.reserved_bytes(), needed);
+    let short = Budget {
+        limit: Some(needed - 1),
+        ..Budget::COMPUTER
+    };
+    assert_eq!(
+        Recorder::arm(goal, sizes(), short).err(),
+        Some(ReserveError::InsufficientMemory { needed })
+    );
 }
