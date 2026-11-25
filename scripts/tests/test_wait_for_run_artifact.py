@@ -126,5 +126,15 @@ class WorkflowTests(unittest.TestCase):
             self.assertIn("build", needs, name)
 
 
+    def test_the_bundle_is_taken_from_the_listing_the_wait_read(self) -> None:
+        # Specification 24: the build takes its bundle from the REST API's listing of the run's artifacts, which the
+        # wait read. Catches the download asking the run's artifact service instead, which on 24 November 2026 did not
+        # list `toolchain-linux-x64` 0.4 s after the wait had seen it ("Artifact not found", checklist G293).
+        workflow = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["build"]["steps"]
+        carry = next(step for step in steps if step.get("name") == "Carry the toolchain bundle (specification 44 §4.6)")
+        self.assertEqual(carry["with"].get("github-token"), "${{ github.token }}")
+        self.assertEqual(carry["with"].get("run-id"), "${{ github.run_id }}")
+
 if __name__ == "__main__":
     unittest.main()

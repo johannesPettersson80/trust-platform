@@ -140,6 +140,16 @@ export function installEngineAnswerRecorder(d: Document): void {
   });
 }
 
+/** The webview script that posts one message to the Control Studio page as the engine route posts it (engine/enginePanelRoute.ts): its
+ * kind, the page's scope and its fields, which may override the scope. It returns once the page has handled the message: a listener added
+ * after the page's own runs after them for the same message (a target's listeners run in the order they were added), then 100 ms more for
+ * what the page draws after it. A fixed wait alone raced a busy renderer, which may run the timer's task before the posted message's, so
+ * a test read a table that the message had not filled yet (G295). It answers `NOT_DELIVERED` when the message did not reach the page
+ * within 10 s. */
+export function studioMessage(kind: string, fields: Record<string, unknown>): string {
+  return `const root=d.querySelector('[data-studio-three-page]');const w=d.defaultView;const message={schemaVersion:1,kind:${JSON.stringify(kind)},projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,...${JSON.stringify(fields)}};const text=JSON.stringify(message);const handled=new Promise(resolve=>{const seen=event=>{if(JSON.stringify(event.data)===text){w.removeEventListener('message',seen);resolve(true);}};w.addEventListener('message',seen);setTimeout(()=>{w.removeEventListener('message',seen);resolve(false);},10000);});w.postMessage(message,'*');const delivered=await handled;await new Promise(resolve=>setTimeout(resolve,100));return delivered?'received':'NOT_DELIVERED';`;
+}
+
 /** The webview script that installs the recorder. Send it once the page has loaded, and again after each reopen (a new document). */
 export function engineAnswerRecorderScript(): string {
   return `(${installEngineAnswerRecorder.toString()})(d);return 'engine answers recorded';`;

@@ -195,7 +195,9 @@ the platform support matrix for a rehearsal or a release, linux-x64 for a
 package. Each build starts beside the toolchain-bundle jobs and takes its own
 platform's bundle when it packages the extension, once that platform's bundle
 job has uploaded it (`scripts/wait_for_run_artifact.py`); a bundle job that ends
-without it fails that build at once. The slowest bundle therefore delays only
+without it fails that build at once. The build takes the bundle from the listing
+of the run's artifacts that the wait read, GitHub's REST API: the run's own
+artifact service may list an artifact later. The slowest bundle therefore delays only
 its own platform's package: on 6 November 2026 every build waited 49 minutes for
 the Intel-Mac bundle. A rehearsal and a release that builds its packages run the
 acceptance journeys on their linux-x64 package too, and the rehearsal's files
