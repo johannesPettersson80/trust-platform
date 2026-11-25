@@ -8,8 +8,10 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::fault::FaultSite;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
+use trust_runtime_core::native::fault_place::fault_place;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, MonotonicInstant, WallClock};
 use trust_runtime_core::retain::checkpoint::Slot;
@@ -30,7 +32,7 @@ use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
 use crate::device_settings::{DeviceInterfaces, DeviceSettings};
-use crate::events::RuntimeEvent;
+use crate::events::{NamedPlace, RuntimeEvent};
 use crate::firmware::{FirmwareFacts, FirmwareImage};
 use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -596,6 +598,24 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
     /// 11 §6.9).
     fn debug_hold(&self) -> Option<&'static str> {
         self.debug.hold_label()
+    }
+
+    /// The place of a fault of the installed program, from its image's tables, as a computer names
+    /// it (specification 11, the fault entry); a fault of a program that a restart or an online
+    /// change replaced names none.
+    fn fault_place(&self, site: FaultSite) -> Option<NamedPlace> {
+        if site.generation != self.platform.generation() {
+            return None;
+        }
+        let mut found = None;
+        self.program.with_trace_program(&mut |image, _| {
+            found = fault_place(image, site).map(|place| NamedPlace {
+                pou: place.pou.into(),
+                file: place.file.into(),
+                line: place.line,
+            });
+        });
+        found
     }
 
     fn control_mode_label(&self) -> Option<String> {

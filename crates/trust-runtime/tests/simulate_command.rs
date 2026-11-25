@@ -230,6 +230,58 @@ fn a_simulator_runs_the_cycles_its_test_asks_for_and_ends_with_its_input() {
 }
 
 #[test]
+fn a_fault_entry_names_its_pou_file_and_line_until_a_restart_replaces_the_program() {
+    // The program divides by zero in its third cycle, at line 11 of `src/main.st` (the source
+    // starts with an empty line), in the POU Main, and the project halts on a fault
+    // (specification 11, the fault entry; specification 34 MEM-05; specification 44 §8.6). Worked
+    // by hand: an advance of 3 cycles faults at 20 ms, and its fault and the first of `faults` are
+    // {"type": "fault", "error": "division by zero", "pou": "Main", "file": "src/main.st",
+    // "line": 11, "time_ns": 20000000}. A cold restart installs the next generation of the
+    // program: `faults` still lists that fault, and names no place, since the program that raised
+    // it no longer runs; the faulted resource takes the restart within its poll period, so the
+    // test waits until `status` reports it running. Catches a native fault without its place, a
+    // place of another statement, file or POU, and a place named from a program that replaced the
+    // one that faulted.
+    let project = project();
+    let mut simulator = Simulator::start(&project);
+    let placed = json!({"type": "fault", "error": "division by zero", "pou": "Main",
+        "file": "src/main.st", "line": 11, "time_ns": 20_000_000});
+
+    let faulted =
+        simulator.call(&json!({"id": 1, "type": "simulator.advance", "params": {"cycles": 3}}));
+    assert_eq!(faulted["result"]["fault"], placed, "{faulted}");
+    let faults = simulator.call(&json!({"id": 2, "type": "faults"}));
+    assert_eq!(faults["result"]["faults"][0], placed, "{faults}");
+
+    let restarted =
+        simulator.call(&json!({"id": 3, "type": "restart", "params": {"mode": "cold"}}));
+    assert_eq!(restarted["ok"], json!(true), "{restarted}");
+    let started = std::time::Instant::now();
+    loop {
+        let status = simulator.call(&json!({"id": 4, "type": "status"}));
+        if status["result"]["state"] == json!("running") {
+            break;
+        }
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(10),
+            "the restart was not taken: {status}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let faults = simulator.call(&json!({"id": 5, "type": "faults"}));
+    assert_eq!(
+        faults["result"]["faults"][0],
+        json!({"type": "fault", "error": "division by zero", "time_ns": 20_000_000}),
+        "{faults}"
+    );
+
+    drop(simulator.input.take());
+    let status = simulator.child.wait().expect("the simulator ends");
+    assert!(status.success(), "{status}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn a_fault_ends_a_durations_advance_at_its_cycle_and_time_passes_for_the_halted_resource() {
     // The same program divides by zero in its third cycle, and the project halts on a fault
     // (specification 11 §6.8.1, "Simulator for machine tests"). Worked by hand: an advance of 1 s

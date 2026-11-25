@@ -130,9 +130,11 @@ fn a_machine_test_writes_forces_reads_and_sees_a_fault() -> trust_sim::Result<()
     // alarm in the cycles at 0, 10 and 20 ms, so the time is 20 ms and 3 cycles counted. A level
     // forced to 40 holds through the 50 ms that follow, the cycles at 30, 40, 50, 60 and 70 ms, so
     // the alarm falls and the time ends at 70 ms. A zero divisor faults the next cycle, at 80 ms,
-    // which ends a run of 5 there. A path that names no variable is refused. Catches a write that
-    // misses the next cycle, a force the program overwrites, a duration that runs past its end, a
-    // fault that goes unseen, and an unknown path read as a value.
+    // which ends a run of 5 there with the error `division by zero in Main at src/main.st:12`, the
+    // division's line in the source, which starts with an empty line (specification 48 RU-58). A
+    // path that names no variable is refused. Catches a write that misses the next cycle, a force
+    // the program overwrites, a duration that runs past its end, a fault that goes unseen or names
+    // no place, and an unknown path read as a value.
     let project = project();
     let mut plant = simulator(&project)?;
 
@@ -153,7 +155,9 @@ fn a_machine_test_writes_forces_reads_and_sees_a_fault() -> trust_sim::Result<()
     plant.write("Main.divisor", 0)?;
     let faulted = plant.run_cycles(5);
     assert!(
-        matches!(faulted, Err(trust_sim::Error::Fault { time, .. }) if time == Duration::from_millis(80)),
+        matches!(&faulted, Err(trust_sim::Error::Fault { time, fault })
+            if *time == Duration::from_millis(80)
+                && fault == "division by zero in Main at src/main.st:12"),
         "{faulted:?}"
     );
     assert!(matches!(

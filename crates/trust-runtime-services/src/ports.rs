@@ -13,6 +13,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::fault::FaultSite;
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
@@ -25,7 +26,7 @@ use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
 use crate::device_settings::{DeviceInterfaces, DeviceSettings};
-use crate::events::RuntimeEvent;
+use crate::events::{NamedPlace, RuntimeEvent};
 use crate::firmware::{FirmwareFacts, FirmwareImage};
 use crate::identify::IdentifyState;
 use crate::installation::Admitted;
@@ -458,6 +459,13 @@ pub trait RecordsPort {
 
     /// Reads the event store, oldest event first.
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R>;
+
+    /// The place of the fault site `site`: its POU, file and line from the running image's tables
+    /// while the site's generation runs (specification 11, the fault entry). The default names
+    /// none, as a runtime without a program image does.
+    fn fault_place(&self, _site: FaultSite) -> Option<NamedPlace> {
+        None
+    }
 
     /// Runs `use_session` on the platform's transfer session, which holds the transfers of its boot
     /// (specification 34, PORT-05). The default is no session, so the transfer operations answer

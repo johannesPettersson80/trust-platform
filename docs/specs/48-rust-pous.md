@@ -1121,7 +1121,8 @@ fn guard_raises_alarm_above_90() -> trust_sim::Result<()> {
   and a result of another kind than the test asks for is an error that names the method.
 - **Faults.** A cycle that faults ends `run_cycles` or `run_for` there, at that cycle's logical
   time, which `now()` then gives, with an error that names the fault and, when the image has them,
-  its POU and statement, and the project's fault policy then acts as in a run (`[runtime.fault]`):
+  its POU, the statement's file and its line (specification 11, the fault entry), such as `the
+  cycle at 5s faulted: division by zero in Main at src/Main.st:17`, and the project's fault policy then acts as in a run (`[runtime.fault]`):
   a halting fault leaves the resource faulted, with its safe state applied for `safe_halt`, until
   the test restarts it warm or cold (a run in the meantime runs no cycle, while `run_for`'s time
   passes), and a test that expects the fault matches the error and reads the values.

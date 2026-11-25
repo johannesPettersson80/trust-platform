@@ -88,3 +88,23 @@ fn the_loop_refuses_the_debug_operations_of_a_release_image_with_its_reason() {
     assert_eq!(set["ok"], json!(false), "{set}");
     assert_eq!(set["error"], json!(NO_DEBUG_HOOKS), "{set}");
 }
+
+#[test]
+fn a_fault_entry_names_the_statement_where_the_program_raised_it() {
+    // Specification 11, the fault entry; specification 34 MEM-05; specification 44 §8.6: the debug
+    // image's body divides by zero in its second statement, id 1, on line 2 of `main.st`, in the
+    // POU whose symbol the stand-in image displays as `@MAIN`. Worked by hand: the scan due at
+    // power-on, at logical time 0, faults, and `faults` lists {"type": "fault", "error": "division
+    // by zero", "pou": "@MAIN", "file": "main.st", "line": 2, "time_ns": 0}, as a computer names a
+    // fault. Catches a chip that keeps no site for its program's fault, names another statement,
+    // or names its fault otherwise than a computer.
+    let bytes = image_with(56, true, false);
+    let (mut runner, link) = running(&bytes);
+    let faults = call(&mut runner, &link, &json!({"id": 1, "type": "faults"}));
+    assert_eq!(
+        faults["result"]["faults"][0],
+        json!({"type": "fault", "error": "division by zero", "pou": "@MAIN", "file": "main.st",
+            "line": 2, "time_ns": 0}),
+        "{faults}"
+    );
+}

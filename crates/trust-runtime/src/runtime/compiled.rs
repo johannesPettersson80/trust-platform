@@ -23,7 +23,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration as PhysicalDuration, Instant};
 
 use smol_str::SmolStr;
+use trust_runtime_core::fault::FaultSite;
 use trust_runtime_core::io_image::PreparedIoBinding;
+use trust_runtime_core::native::fault_place::fault_site;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::AdmittedImage;
 use trust_runtime_core::native::variables::{CompiledVariables, NameError};
@@ -493,7 +495,9 @@ impl CompiledRuntime {
                 Ok(())
             }
             Err(error) => {
-                Err(self.apply_fault(error, FaultDecision::from_fault_policy(self.fault_policy)))
+                let site = self.program_fault_site();
+                let decision = FaultDecision::from_fault_policy(self.fault_policy);
+                Err(self.apply_fault_at(error, site, decision))
             }
         }
     }
@@ -688,6 +692,29 @@ impl CompiledRuntime {
 
     /// Latches `error`, applies `decision`'s output action and records the fault.
     fn apply_fault(&mut self, error: RuntimeError, decision: FaultDecision) -> RuntimeError {
+        self.apply_fault_at(error, FaultSite::NONE, decision)
+    }
+
+    /// Where the program raised the fault that ended its last call: the statement of the kernel's
+    /// record and its POU (specification 34 MEM-05), none for a fault from outside the program.
+    fn program_fault_site(&self) -> FaultSite {
+        let fault = self.cycle.program().last_fault();
+        fault_site(
+            &self.image.image(),
+            fault.code,
+            fault.stmt,
+            self.cycle.generation(),
+        )
+    }
+
+    /// [`Self::apply_fault`] for a fault that the program raised at `site`, which the fault's
+    /// event keeps (specification 11, the fault entry).
+    fn apply_fault_at(
+        &mut self,
+        error: RuntimeError,
+        site: FaultSite,
+        decision: FaultDecision,
+    ) -> RuntimeError {
         if let Some(debug) = &self.debug {
             debug.clear_runtime_mutations();
         }
@@ -710,7 +737,7 @@ impl CompiledRuntime {
         }
         self.metrics.record_fault();
         if let Some(debug) = &self.debug {
-            debug.push_runtime_event(RuntimeEvent::fault(&error, self.current_time));
+            debug.push_runtime_event(RuntimeEvent::program_fault(&error, site, self.current_time));
         }
         reported
     }
