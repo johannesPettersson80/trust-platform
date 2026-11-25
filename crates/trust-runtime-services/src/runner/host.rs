@@ -187,6 +187,13 @@ pub(super) trait ProgramView {
     /// The health of the program's I/O drivers, in `io.toml` order.
     fn driver_health(&self) -> Vec<IoDriverStatus>;
 
+    /// The memory figure of the installed program (specification 44 §10.4), beside which a
+    /// recording leaves an online change its memory (specification 48 RU-59). The default, the
+    /// view of a scan a debugger holds, where no recording starts, has none.
+    fn program_memory(&self) -> Option<crate::metrics::ProgramMemory> {
+        None
+    }
+
     /// Runs one stepped scan of the stopped program (`cycle.step`, specification 11 §6.8.1).
     ///
     /// # Errors
@@ -442,14 +449,14 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
 
     /// Starts a recording at the next cycle (`trace.record`), while the resource runs, as a
     /// computer does: the program's image and cycle interval, the device as `status` names it,
-    /// the heap the chip can give a recording for the budget, and its UTC time (specification 48
-    /// RU-59).
+    /// the heap the chip can give a recording beside an online change of the program for the
+    /// budget, and its UTC time (specification 48 RU-59).
     fn trace_record(&self, request: &RecordRequest) -> Result<TraceStarted, TraceRefusal> {
         let state = self.resource.state();
         if state != ResourceState::Running {
             return Err(TraceRefusal::NotRunning(state));
         }
-        let free = self.platform.recording_room();
+        let free = StatusPort::recording_room(self);
         let now_utc_ms = self
             .platform
             .utc_ms()
@@ -584,8 +591,13 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
         self.platform.heap()
     }
 
+    /// The platform's room less what an online change of the program that runs takes beside it
+    /// (specification 48 RU-59, "Memory").
     fn recording_room(&self) -> Option<usize> {
-        self.platform.recording_room()
+        super::trace::room_beside_change(
+            self.platform.recording_room(),
+            self.program.program_memory(),
+        )
     }
 
     fn trace_part_bytes(&self) -> usize {

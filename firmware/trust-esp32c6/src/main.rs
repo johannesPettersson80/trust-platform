@@ -86,11 +86,13 @@ type ChipLink = LinkPair<UsbLink, NetLink>;
 /// clock.
 type ChipRunner = Runner<ChipLink, Wait, ChipCycle, ChipPlatform, ChipClock>;
 
-/// Reserves an upload's buffer as a program's blocks, so that a container takes the program region,
-/// where its module then runs in place (specification 44 §12.3); every other large block, such as
-/// a recording's, takes the data heap (specification 34 MEM-12).
+/// Reserves a block of an upload, its image, a part or a container's header, as a program's, so
+/// that it takes the program region whatever its size, where an image's module then runs in place
+/// (specification 44 §10.3, §12.3), and leaves the data heap to the programs' data and the
+/// working memory; every block of data, a recording's among them, takes the data heap
+/// (specification 34 MEM-12).
 fn reserve_upload(len: usize) -> Result<Vec<u8>, TryReserveError> {
-    memory::HEAP.with_program_allocations(|| reserve_zeroed(len))
+    memory::HEAP.with_program_block(len, || reserve_zeroed(len))
 }
 
 /// The bytes of the heap that a container can take now (specification 34 §5.1).

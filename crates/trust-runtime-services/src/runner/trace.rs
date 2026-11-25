@@ -52,6 +52,17 @@ use crate::trace::{
 
 use super::{ResourceCycle, Runner, RunnerPlatform};
 
+/// The memory a runtime has for a recording beside the program that runs: the platform's `room`
+/// less what an online change of a program of the same figure takes beside it, so that a kept
+/// trace never takes the memory the change needs (specification 48 RU-59, "Memory"; specification
+/// 44 §12.3). A runtime that does not know its memory, as a computer does not, has none to count.
+pub(super) fn room_beside_change(
+    room: Option<usize>,
+    running: Option<crate::metrics::ProgramMemory>,
+) -> Option<usize> {
+    room.map(|room| room.saturating_sub(running.map_or(0, |memory| memory.change_bytes())))
+}
+
 /// The chip's traces as the loop's shell keeps them, borrowed by one call at a time: a call that
 /// finds them in use raises the shell's fault and does nothing (see `shell.rs`).
 #[derive(Clone, Copy)]
@@ -674,9 +685,10 @@ where
     }
 
     /// Arms the flight recorder for the program that runs, within the memory the chip has for a
-    /// recording, between two scans. Memory the chip cannot give leaves the program without a
-    /// flight recorder, and a `runtime_trace_memory` event names the bytes needed and the bytes free
-    /// (specification 11 §6.8.1).
+    /// recording beside an online change of it ([`room_beside_change`]), between two scans. Memory
+    /// the chip cannot give leaves the program without a flight recorder, and a
+    /// `runtime_trace_memory` event names the bytes needed and the bytes free (specification 11
+    /// §6.8.1).
     #[inline(never)]
     pub(super) fn arm_flight(&self) {
         // The program before keeps its flight recorder no longer, and a record that keeps none arms
@@ -699,8 +711,9 @@ where
             .shell
             .with_platform(|platform| SmolStr::new(platform.resource_name()))
             .unwrap_or_default();
+        let running = self.cycle.program_memory();
         let armed = self.shell.with_platform(|platform| {
-            let free = platform.recording_room();
+            let free = room_beside_change(platform.recording_room(), running);
             let now_utc_ms = platform
                 .utc_ms()
                 .and_then(|millis| i64::try_from(millis).ok())

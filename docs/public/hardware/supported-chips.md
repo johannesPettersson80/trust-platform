@@ -111,13 +111,14 @@ The firmware also carries out:
 - the time from an SNTP server, and the time kept across every reset but a loss of power;
 - the fault and watchdog policies and the safe outputs of `runtime.toml` and `io.toml`;
 - cycle traces (`trust-runtime ctl record`; `trace.record`, `trace.read` and `trace.stop`), as a
-  computer records them. A recording takes the heap's free bytes less what the chip keeps beside
-  any program, each of its rooms at most a share of that and the whole recording within it, and a
-  recording the chip cannot hold is refused before it reserves any memory, with the bytes it needs
-  and the bytes it has. The free bytes are the heap's data regions; the program region holds the
-  programs' code only. With Wi-Fi on and a small program, that is room for a few dozen cycles: on
-  the bench, 40 cycles of a program with a few variables took 7,002 bytes, and 1,000 cycles were
-  refused, needing 90,993 bytes where 14,888 were free. The ended trace stays on the chip until the
+  computer records them. A recording takes the heap's free bytes less what the chip keeps beside any
+  program and less what an online change of the running program takes beside it, so that a kept
+  trace leaves an online change its memory; each of its rooms is at most a share of that and the
+  whole recording within it, and a recording the chip cannot hold is refused before it reserves any
+  memory, with the bytes it needs and the bytes it has. The free bytes are the heap's data regions;
+  the program region holds programs only. With Wi-Fi on and a small program, that is room for a few
+  dozen cycles: on the bench, a program with a few variables recorded at most 55 cycles, reserving
+  8,763 bytes, where 1,000 cycles would need 88,157. The ended trace stays on the chip until the
   next recording starts, and is served in parts;
 - the flight recorder of `[runtime.trace] flight_recorder`, which the chip takes from the
   deployment record: its two recordings each take half the memory a recording would. When the

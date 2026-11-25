@@ -743,3 +743,27 @@ fn scan_allocations_add_up_from_none_and_a_restart_clears_them() {
     metrics.restart(StoppedClock);
     assert_eq!(metrics.snapshot().scan_allocations, None);
 }
+
+#[test]
+fn an_online_change_takes_the_figure_less_its_stack_bound_beside_the_running_program() {
+    // Specification 44 §12.3: an online change takes, beside the running program, the new
+    // program's figure less its stack bound, which the two programs share, the capture of the
+    // retained values counted as the change's admission counts it. Worked by hand for areas of
+    // 1,000 bytes, a stack bound of 512, bookkeeping of 200 and a capture of 64, on a runtime that
+    // keeps no retained values: the figure is 1,712 bytes, and the change takes 1,000 + 200 + 64 =
+    // 1,264. Catches the whole figure (1,776 with the capture), the stack counted twice, and a
+    // capture left out because this runtime keeps none (1,200).
+    let memory = ProgramMemory {
+        figure: MemoryFigure {
+            program: 0,
+            persistent_block: 1_000,
+            activation_stack: 512,
+            operand_stack: 0,
+            engine: 200,
+            retain_capture: 64,
+        },
+        retains: false,
+    };
+    assert_eq!(memory.bytes(), 1_712);
+    assert_eq!(memory.change_bytes(), 1_264);
+}

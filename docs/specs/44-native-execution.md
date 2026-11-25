@@ -1645,8 +1645,9 @@ from its program region: 112 KiB of RAM (`PROGRAM_CODE_BYTES`), the linker secti
 between the firmware's static data and its main stack, where neither of esp-hal's no-execute ranges
 reaches. The firmware gives the region to its heap as the heap's program region, which holds the
 blocks of programs and nothing else: a block asked with the module alignment (64 bytes), a module
-copied in, at the top of the region, and a block of 32 KiB or more that the transfer asks as a
-program's, an upload, at the bottom, each on a 64-byte boundary; every other block, however large,
+copied in, at the top of the region, and every block that the transfer asks as a program's, an
+upload's image, part or container header, whatever its size, at the bottom, each on a 64-byte
+boundary; every other block, however large,
 such as a recording's (specification 48 RU-59), comes from the heap's data regions, which the
 heap's used and free bytes count (specification 34 MEM-12). The installed program's
 module is copied into a block there, followed by `fence.i`; a module the region has no room for runs

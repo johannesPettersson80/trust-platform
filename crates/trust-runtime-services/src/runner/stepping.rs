@@ -163,6 +163,10 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
         self.read(ResourceCycle::io_drivers).unwrap_or_default()
     }
 
+    fn program_memory(&self) -> Option<crate::metrics::ProgramMemory> {
+        self.read(ResourceCycle::program_memory).flatten()
+    }
+
     /// The step's restart happens at the time of the last step since the resource stopped, zero for
     /// the first step of the program.
     fn step(&self, request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
