@@ -10,8 +10,8 @@
 use std::time::Duration;
 
 #[test]
-fn a_broken_stroke_sensor_faults_the_program_and_its_trace_shows_the_fault_again()
--> trust_sim::Result<()> {
+fn a_broken_stroke_sensor_faults_the_program_and_its_trace_shows_the_fault_again(
+) -> trust_sim::Result<()> {
     let project = trust_sim::Project::open("..")?;
     let mut sim = project.simulator()?;
     sim.run_for(Duration::from_secs(4))?;
@@ -23,7 +23,9 @@ fn a_broken_stroke_sensor_faults_the_program_and_its_trace_shows_the_fault_again
         matches!(faulted, Err(trust_sim::Error::Fault { time, .. }) if time == Duration::from_millis(5_000)),
         "{faulted:?}"
     );
-    let trace = sim.fault_trace()?.expect("the flight recorder's trace of the fault");
+    let trace = sim
+        .fault_trace()?
+        .expect("the flight recorder's trace of the fault");
     let replayed = project.simulator()?.replay(&trace)?;
     assert!(replayed.matched, "{replayed}");
     assert_eq!(
