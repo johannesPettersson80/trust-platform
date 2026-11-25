@@ -3,8 +3,19 @@
 //! bench record the design cites, written here as literals.
 
 use trust_platform_stm32u5::usb::{
-    bcd_device, serial_text, OTG_ENDPOINTS, OTG_FIFO_WORDS, OTG_HS_BASE,
+    bcd_device, serial_text, MANUFACTURER, OTG_ENDPOINTS, OTG_FIFO_WORDS, OTG_HS_BASE, PRODUCT,
+    PRODUCT_ID, VENDOR_ID,
 };
+
+/// The firmware presents truST's own USB ID, 1209:7472, registered at pid.codes, with `truST` as its
+/// maker and `truST runtime` as its product, as specification 11's device search recognizes a truST
+/// runtime. The wrong behaviour: the pid.codes test ID 1209:0001 of development left in the
+/// released firmware, which anyone may test with, or another maker or product.
+#[test]
+fn the_firmware_presents_trusts_registered_usb_id() {
+    assert_eq!((VENDOR_ID, PRODUCT_ID), (0x1209, 0x7472));
+    assert_eq!((MANUFACTURER, PRODUCT), ("truST", "truST runtime"));
+}
 
 /// The serial number is the chip's 96-bit unique ID: its three words in address order, each as eight
 /// uppercase hexadecimal digits, most significant first (design §2.5, S1b §2.4). The bench F407 of
