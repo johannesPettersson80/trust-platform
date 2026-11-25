@@ -26,9 +26,12 @@
   most professional and best for us and the users"). 0.13, 24 November 2026: the flight recorder's
   start state, the memory and forces as the cycle before its first cycle left them, and where a
   fault's trace starts after a record that did not fit (RU-59), decided under the same delegation.
-  0.16, 25 November 2026: a method call made between two cycles keeps the wall clock's readings it
-  made, and a replay gives them back to it (RU-59, RU-60, Appendix C.6), decided under the same
-  delegation.
+  0.14, 24 November 2026: one rule that sizes a recording's rooms to the memory a runtime has, and a
+  chip serving an ended trace's file part by part from its records (RU-59, "Memory"), decided under
+  the same delegation. 0.15, 24 November 2026: the memory a chip can give a recording, its free heap
+  less what it keeps beside any program (RU-59, "Memory"), decided under the same delegation. 0.16,
+  25 November 2026: a method call made between two cycles keeps the wall clock's readings it made,
+  and a replay gives them back to it (RU-59, RU-60, Appendix C.6), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1198,7 +1201,17 @@ traces", gives the requests.
     flight recorder, and names the bytes needed and the bytes it has. A device's limit is reported,
     never cut (specification 34). A trace's records go into that memory between the phases of a
     cycle, which allocate nothing (specification 34 MEM-09). A recording whose records outgrow it,
-    as many writes of long texts can, ends `memory_full`.
+    as many writes of long texts can, ends `memory_full`. One rule sizes its rooms on every
+    runtime: a computer's (64 KiB of changes and 256 wall-clock readings in a cycle, 64 KiB of
+    forces at the start, 64 KiB for one written value, and 4 MiB more for the whole recording),
+    each at most a share of the memory the runtime has, where it knows it: a sixteenth for a
+    cycle's changes and for the forces, a sixty-fourth for a cycle's readings, a thirty-second for
+    one value and a quarter for the recording. The memory a chip has for a recording is its free
+    heap less what it keeps beside any program (specification 34 MEM-12), so that a recording
+    never takes the working memory the chip needs. A chip thereby records within its memory, and a
+    cycle that outgrows its room ends the recording `memory_full` there as on a computer. A chip
+    keeps an ended trace's records and serves its file part by part from them, the same file a
+    computer writes.
 - **Every runtime.** A chip records, keeps and serves traces as a computer does (specification 34
     STATE-08).
 

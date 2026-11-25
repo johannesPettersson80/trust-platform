@@ -12,7 +12,6 @@ use super::{
     parse_read, parse_record, parse_stop, part_json, refused, state_json, RecordRequest, TraceName,
     TraceRefusal, TraceState, Until, INSUFFICIENT_MEMORY, TRACE_BUSY,
 };
-use crate::tests::runner_ports::Fixture;
 
 fn answer(response: &crate::protocol::ControlResponse) -> Value {
     serde_json::to_value(response).expect("a response serializes")
@@ -154,36 +153,6 @@ fn each_refusal_carries_its_code_and_its_figures() {
     assert_eq!(stopped["error_code"], json!("resource_not_running"));
     let task = answer(&refused(4, TraceRefusal::UnknownTask("Fast".to_string())));
     assert!(task["error"].as_str().unwrap().contains("no task Fast"));
-}
-
-#[test]
-fn a_runtime_that_records_no_trace_refuses_and_holds_none() {
-    // Every runtime answers the trace requests (specification 34 STATE-08): one that records no
-    // trace yet, this runner's default, refuses `trace.record` with its reason and holds no trace,
-    // so `trace.read` and `trace.stop` answer `unknown_trace`. Catches a request a runtime does not
-    // know, which it would refuse as unknown instead.
-    let fixture = Fixture::board_probe();
-    let mut runner = fixture.runner();
-    fixture.pass_at(&mut runner, 0);
-    let record = fixture.call(
-        &mut runner,
-        &json!({"id": 2, "type": "trace.record", "params": {"cycles": 3}}),
-    );
-    assert_eq!(record["ok"], json!(false));
-    assert_eq!(
-        record["error"],
-        json!("this runtime records no cycle trace")
-    );
-    let read = fixture.call(
-        &mut runner,
-        &json!({"id": 3, "type": "trace.read", "params": {"trace": 1}}),
-    );
-    assert_eq!(read["error_code"], json!("unknown_trace"));
-    let stop = fixture.call(
-        &mut runner,
-        &json!({"id": 4, "type": "trace.stop", "params": {"trace": 1}}),
-    );
-    assert_eq!(stop["error_code"], json!("unknown_trace"));
 }
 
 /// The SHA-256 of nothing, from its hexadecimal digits.

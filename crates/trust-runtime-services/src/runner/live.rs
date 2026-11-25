@@ -28,11 +28,13 @@ use trust_runtime_core::memory::{Generation, InstanceId, IoArea};
 use trust_runtime_core::native::program::RustPouReport;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::ports::MonotonicClock;
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::state::Records;
+use super::trace::SharedTraces;
 use crate::events::RuntimeEvent;
-use crate::live_values::apply::{self, WriteSink};
+use crate::live_values::apply::{self, ForceEffect, WriteSink};
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::io_snapshot::{
     value_type_name, IoSnapshot, IoSnapshotEntry, IoSnapshotValue,
@@ -340,21 +342,26 @@ impl VariableQueuePort for DeviceLiveValues {
 pub(super) struct LiveValuesHooks<'a, 'o, C> {
     live: &'a DeviceLiveValues,
     records: &'a Records<C>,
+    /// The cycle traces, which the scan feeds (specification 48 RU-59).
+    traces: SharedTraces<'a>,
     scan: u64,
     observer: &'a mut (dyn CycleHooks + 'o),
 }
 
 impl<'a, 'o, C: MonotonicClock> LiveValuesHooks<'a, 'o, C> {
-    /// The Live Values of `live` and the scan number `scan`, over `observer`.
+    /// The Live Values of `live`, the cycle traces of `traces` and the scan number `scan`, over
+    /// `observer`.
     pub(super) fn new(
         live: &'a DeviceLiveValues,
         records: &'a Records<C>,
+        traces: SharedTraces<'a>,
         scan: u64,
         observer: &'a mut (dyn CycleHooks + 'o),
     ) -> Self {
         Self {
             live,
             records,
+            traces,
             scan,
             observer,
         }
@@ -372,6 +379,12 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
         if phase == CyclePhase::AfterOutputSample {
             self.live.publish_images(images, self.scan)?;
         }
+        // A cycle trace's part of the phase, while a recording runs: the cycle's start, each
+        // activation, the output image the scan wrote, and the cycle's end (specification 48
+        // RU-59). The work runs out of the scan path (`runner/trace.rs`).
+        if self.traces.records() {
+            self.traces.phase(phase, now, self.scan, &images.outputs);
+        }
         self.observer.on_compiled_phase(phase, now, images)
     }
 
@@ -387,6 +400,12 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
         variables: &mut dyn CompiledVariables,
     ) -> Result<(), RuntimeError> {
         let live = self.live;
+        // A recording's start state is the program's memory before the cycle's writes
+        // (specification 48 RU-59); a recording's work runs out of the scan path.
+        let records = self.traces.records();
+        if records && point == CompiledAccessPoint::CycleStart {
+            self.traces.start_memory(variables);
+        }
         {
             let mut queues = live.inner.queues.borrow_mut();
             if !queues.is_idle() {
@@ -421,6 +440,22 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
                 }
             }
         }
+        match point {
+            _ if !records => {}
+            // The forces in effect at a recording's first cycle, once the cycle start applied
+            // them, lent without a copy: the start state is then whole.
+            CompiledAccessPoint::CycleStart => {
+                let queues = live.inner.queues.borrow();
+                self.traces
+                    .start_forces(&queues.forced_vars, &queues.forced_io, &*variables);
+            }
+            // The input image as the scan samples it, once everything that writes it before the
+            // program has.
+            CompiledAccessPoint::AfterInputs => {
+                self.traces.inputs(variables.input_image());
+            }
+            _ => {}
+        }
         self.observer.on_compiled_access(point, now, variables)
     }
 
@@ -442,5 +477,47 @@ impl<C: MonotonicClock> WriteSink for LiveValuesHooks<'_, '_, C> {
             error: error.to_string(),
             time,
         });
+    }
+
+    /// A cycle trace records each change the control link made, as Live Values applied it
+    /// (specification 48 RU-59): a variable by the path the debugger names it by, an address by
+    /// the bytes it gives the process image, and a force once, where it is set or released.
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        variables: &dyn CompiledVariables,
+    ) {
+        if self.traces.records() {
+            self.traces.written(source, target, variables);
+        }
+    }
+
+    fn records(&self) -> bool {
+        self.traces.records()
+    }
+
+    fn address_written(
+        &mut self,
+        source: ChangeSource,
+        address: &IoAddress,
+        value: &Value,
+        variables: &dyn CompiledVariables,
+    ) {
+        // The apply asks `records` before it keeps the value for this call.
+        self.traces
+            .address_written(source, address, value, variables);
+    }
+
+    fn forced(&mut self, effect: ForceEffect<'_>, variables: &dyn CompiledVariables) {
+        if self.traces.records() {
+            self.traces.forced(effect, variables);
+        }
+    }
+
+    fn force_changes_lost(&mut self) {
+        if self.traces.records() {
+            self.traces.force_changes_lost();
+        }
     }
 }

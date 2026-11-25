@@ -699,3 +699,27 @@ fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first()
         }]
     );
 }
+
+#[test]
+fn a_budget_follows_the_memory_a_runtime_has_by_one_rule() {
+    // Specification 48 RU-59, "Memory": a recording reserves its memory before it begins, and a
+    // device's limit is reported, never cut. One rule sizes its rooms on every runtime: a
+    // computer's, each at most a share of the memory the runtime has. Worked by hand for a C6
+    // with 90,000 bytes free: changes 90,000 / 16 = 5,625, readings 90,000 / 64 / 8 = 175, extra
+    // 90,000 / 4 = 22,500, forces 5,625, one value 90,000 / 32 = 2,812. With 64 MiB free every
+    // share exceeds a computer's figure, so the budget is a computer's; so it is when the runtime
+    // does not know its memory. Catches a share mixed up, a computer that loses room, and a chip
+    // given a computer's budget, which it could never reserve.
+    assert_eq!(
+        Budget::for_free(Some(90_000)),
+        Budget {
+            cycle_changes: 5_625,
+            cycle_readings: 175,
+            extra: 22_500,
+            forces: 5_625,
+            value: 2_812,
+        }
+    );
+    assert_eq!(Budget::for_free(Some(64 * 1024 * 1024)), Budget::COMPUTER);
+    assert_eq!(Budget::for_free(None), Budget::COMPUTER);
+}

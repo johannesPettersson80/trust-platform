@@ -29,10 +29,13 @@ mod runner_transcript_support;
 
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::Duration as StdDuration;
+use std::time::{Duration as StdDuration, Instant};
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
 use serde_json::{json, Value};
 use trust_runtime::scheduler::ResourceState;
+use trust_runtime_core::trace::{decode, Trace};
 use trust_runtime_services::events::EVENT_STORE_CAPACITY;
 use trust_runtime_services::runner::Runner;
 
@@ -365,6 +368,124 @@ fn live_values(host: &mut HostComposition, device: &mut Device) {
     );
 }
 
+/// The ended trace 1, its file read part by part through `ask` and decoded.
+fn served_trace(mut ask: impl FnMut(&str) -> Value) -> Trace {
+    let state = ask(&live(72, "trace.read", json!({"trace": 1})));
+    let bytes = state["result"]["bytes"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("an ended trace: {state}"));
+    let bytes = usize::try_from(bytes).expect("a trace of a few kilobytes");
+    let mut file = Vec::new();
+    while file.len() < bytes {
+        let part = ask(&live(
+            73,
+            "trace.read",
+            json!({"trace": 1, "offset": file.len()}),
+        ));
+        let data = STANDARD
+            .decode(part["result"]["data"].as_str().expect("a part's data"))
+            .expect("a part's data is base64");
+        assert!(!data.is_empty(), "a part short of the file's end: {part}");
+        file.extend_from_slice(&data);
+    }
+    decode(&file).expect("the served file decodes").trace
+}
+
+/// A scan's logical start time in nanoseconds, as a trace records a cycle's.
+fn nanos(scan: &HostScan) -> i64 {
+    i64::try_from(scan.at.as_nanos()).expect("a transcript of a few seconds")
+}
+
+/// Specification 48 RU-59, "Every runtime": a chip records, keeps and serves a cycle trace as a
+/// computer does. A recording of 3 cycles reaches the device just before the scan that the host
+/// recorded first, so both record the same scans. Both answer `trace.record` with trace 1; the
+/// device's reservation is the host's and its copy of the recorded image's tables, which a chip
+/// takes when its recording starts (RU-59, "Memory"). Both end the recording complete with 3
+/// cycles, and the two files decode to the same trace but for what tells the runtimes apart: the
+/// runtime ID, the platform and the wall-clock time of the start. Catches a device that records
+/// other scans, other images or changes, a start state or located variables of its own, or the
+/// tables of another program.
+fn cycle_trace(host: &mut HostComposition, device: &mut Device) {
+    let record = live(70, "trace.record", json!({"cycles": 3}));
+    let read = live(71, "trace.read", json!({"trace": 1}));
+    let host_started = host.request(&record);
+    assert_eq!(host_started["result"]["trace"], json!(1), "{host_started}");
+    let limit = Instant::now() + StdDuration::from_secs(20);
+    let mut scans = Vec::new();
+    let host_ended = loop {
+        scans.extend(host.settle());
+        let state = host.request(&read);
+        if state["result"]["state"] == json!("ended") {
+            break state;
+        }
+        assert!(
+            Instant::now() < limit,
+            "the host's recording did not end: {state}"
+        );
+        std::thread::sleep(StdDuration::from_millis(1));
+    };
+    let host_trace = served_trace(|line| host.request(line));
+    let (first, last) = match (host_trace.cycles.first(), host_trace.cycles.last()) {
+        (Some(first), Some(last)) => (first.time_ns, last.time_ns),
+        _ => panic!("the host recorded no cycle: {host_ended}"),
+    };
+    // The trace may end before the test has taken its last scan.
+    while !scans.iter().any(|scan| nanos(scan) >= last) {
+        scans.extend(host.settle());
+        assert!(
+            Instant::now() < limit,
+            "the host's last recorded scan did not settle"
+        );
+        std::thread::sleep(StdDuration::from_millis(1));
+    }
+    let (before, after): (Vec<HostScan>, Vec<HostScan>) =
+        scans.into_iter().partition(|scan| nanos(scan) < first);
+    device.replay(&before);
+    let device_started = device.request(&record);
+    device.replay(&after);
+    let device_ended = device.request(&read);
+
+    assert_eq!(
+        device_started["result"]["trace"],
+        json!(1),
+        "{device_started}"
+    );
+    let reserved = |reply: &Value| {
+        let bytes = reply["result"]["reserved_bytes"].as_u64();
+        usize::try_from(bytes.unwrap_or_else(|| panic!("a recording: {reply}")))
+            .expect("bytes that fit")
+    };
+    let image = &host_trace.image;
+    let tables = [
+        &image.areas,
+        &image.tasks,
+        &image.iobind,
+        &image.symbols,
+        &image.types,
+        &image.strings,
+    ]
+    .iter()
+    .map(|table| table.len())
+    .sum::<usize>();
+    assert_eq!(
+        reserved(&device_started),
+        reserved(&host_started) + tables,
+        "{host_started} and {device_started}"
+    );
+    for field in ["state", "reason", "cycles"] {
+        assert_eq!(
+            device_ended["result"][field], host_ended["result"][field],
+            "{field}: {host_ended} and {device_ended}"
+        );
+    }
+    let mut device_trace = served_trace(|line| device.request(line));
+    let meta = &mut device_trace.meta;
+    meta.runtime_id.clone_from(&host_trace.meta.runtime_id);
+    meta.platform.clone_from(&host_trace.meta.platform);
+    meta.started_utc_ms = host_trace.meta.started_utc_ms;
+    assert_eq!(device_trace, host_trace);
+}
+
 /// `pause`: the host's scan thread takes it at its next pass, which runs no scan; the device takes
 /// it at its next boundary on its grid. Returns that boundary.
 fn pause(host: &mut HostComposition, device: &mut Device) -> StdDuration {
@@ -564,6 +685,7 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
     compare_variables(&mut host, &mut device, 60);
 
     live_values(&mut host, &mut device);
+    cycle_trace(&mut host, &mut device);
 
     let paused_at = pause(&mut host, &mut device);
     resume(&mut host, &mut device, paused_at);

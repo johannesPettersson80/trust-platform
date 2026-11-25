@@ -55,7 +55,7 @@ package "Container and program store (specification 34 §5.1)" as storePkg #Ligh
 }
 
 package "ESP32-C6 firmware (the STM32U5A9 runs CODE in place from flash)" as chipPkg #LightCyan {
-    component "Runner (trust-runtime-services)\nfixed cycle grid (spec 10 §4.3),\nlink, faults, watchdog, metrics" as runner
+    component "Runner (trust-runtime-services)\nfixed cycle grid (spec 10 §4.3),\nlink, faults, watchdog, metrics,\ncycle traces (runner/trace.rs, RU-59)" as runner
     component "CompiledLoader\n(trust-platform-esp32)\nadmit, place module, claim lines" as loader
     component "ProgramCode\n192 KiB program region of the heap (.trust_code),\nexecutable: module copies at the top, uploads\nat the bottom; flash window as fallback" as codeRegion
     component "CompiledCycle\nread inputs, scan, deadline,\nsnapshot, drive outputs" as cycle
@@ -113,6 +113,8 @@ note bottom of chipPkg
     io.read and the allocation count report the compiled scans. The retained values are
     checkpointed in the format the deleted bytecode engine wrote, so its checkpoints restore (M2). Online change (the module runs in its image in
     the program region), breakpoints, stepping and Live Values (M3) are served on the chip and
-    on the computer by the same cycle and debugger code.
+    on the computer by the same cycle and debugger code. A chip records cycle traces on demand
+    with the shared session; the scan, which runs from RAM, only asks whether one records, and
+    the recording's work runs from flash.
 end note
 @enduml

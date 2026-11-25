@@ -184,6 +184,26 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
         self.lend_shared()?.compiled_view()
     }
 
+    /// The image is read through a borrow that ends with `with`, as [`Self::with_image`] reads it,
+    /// whatever the debug surface: a recording does not need the debugger.
+    fn with_trace_program(
+        &self,
+        with: &mut dyn FnMut(&trust_runtime_core::native::image::Image<'_>, Duration),
+    ) -> bool {
+        self.read(|program| {
+            let Some(memory) = program.variables_memory() else {
+                return false;
+            };
+            with(&memory.image(), program.cycle_interval());
+            true
+        })
+        .unwrap_or(false)
+    }
+
+    fn display_path(&self, path: &str) -> Option<alloc::string::String> {
+        self.read(|program| program.display_path(path)).flatten()
+    }
+
     /// The image is read through a borrow that ends with `read`, so that the request can still lend
     /// the program to a step or a method call, which a `method.call` does after it types its inputs.
     fn with_image(

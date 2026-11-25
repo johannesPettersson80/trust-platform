@@ -76,6 +76,7 @@ mod state;
 mod stepping;
 mod supervision;
 mod threads;
+mod trace;
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -701,3 +702,6 @@ mod stopped_contract_tests;
 
 #[cfg(test)]
 mod timing_contract_tests;
+
+#[cfg(test)]
+mod trace_contract_tests;

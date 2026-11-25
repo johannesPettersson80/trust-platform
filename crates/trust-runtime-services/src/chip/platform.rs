@@ -57,6 +57,7 @@ use crate::settings::{RuntimeSettings, TokenChange};
 use crate::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
+use crate::trace::requests::PART_BYTES;
 
 /// What a chip supplies to the shared platform as its profile (specification 34, ARCH-11): the values
 /// that name it and describe it, and the reason of its watchdog reset.
@@ -175,6 +176,9 @@ pub struct ChipPlatform<C, W> {
     /// Reads the chip's heap as it stands, which `capabilities` reports; none until the boot sets
     /// it.
     heap: Option<fn() -> HeapFacts>,
+    /// The heap bytes the chip keeps free beside any program (specification 34 MEM-12), which a
+    /// recording leaves free too.
+    kept_beside_programs: usize,
 }
 
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
@@ -211,6 +215,7 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             network_failure: None,
             pairings: None,
             heap: None,
+            kept_beside_programs: 0,
         }
     }
 
@@ -274,6 +279,14 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
     /// (specification 34 MEM-12).
     pub fn set_heap_meter(&mut self, meter: fn() -> HeapFacts) {
         self.heap = Some(meter);
+    }
+
+    /// Gives the platform the heap bytes the chip keeps free beside any program, as its memory for
+    /// programs keeps them (specification 34 MEM-12): a cycle trace's recording leaves them free
+    /// too, so that it never takes the working memory the chip needs (specification 48 RU-59,
+    /// "Memory").
+    pub fn set_kept_beside_programs(&mut self, bytes: usize) {
+        self.kept_beside_programs = bytes;
     }
 
     /// Gives the platform what the boot read of the chip's firmware slots, which `capabilities`
@@ -502,6 +515,26 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
 
     fn heap(&self) -> Option<HeapFacts> {
         self.heap.map(|meter| meter())
+    }
+
+    /// An eighth of what the chip keeps beside any program, at most `PART_BYTES`: the answer to a
+    /// part holds the part, its base64 text and the line that carries it, about 3.7 times the part,
+    /// and so fits the working memory (specification 34 MEM-12). A chip that keeps nothing beside
+    /// its programs serves `PART_BYTES`.
+    fn trace_part_bytes(&self) -> usize {
+        match self.kept_beside_programs {
+            0 => PART_BYTES,
+            kept => (kept / 8).clamp(1, PART_BYTES),
+        }
+    }
+
+    /// The heap's free bytes less what the chip keeps beside any program.
+    fn recording_room(&self) -> Option<usize> {
+        self.heap().map(|heap| {
+            heap.capacity_bytes
+                .saturating_sub(heap.used_bytes)
+                .saturating_sub(self.kept_beside_programs)
+        })
     }
 }
 
@@ -1054,5 +1087,40 @@ mod tests {
                 "peak_bytes": 151_000,
             })
         );
+    }
+
+    /// Specification 48 RU-59, "Memory", with specification 34 MEM-12: a chip gives a cycle
+    /// trace's recording its free heap less what it keeps beside any program. Worked by hand: a
+    /// heap of 180,160 bytes with 133,000 in use has 47,160 free; with 8,192 kept beside any
+    /// program, a recording may take 38,968. A chip without a heap meter, as a computer, gives
+    /// none. Catches a recording that takes the chip's working memory (47,160) and one sized by
+    /// the heap's capacity or its peak.
+    #[test]
+    fn a_recording_takes_the_free_heap_less_what_the_chip_keeps_beside_programs() {
+        let mut platform = platform_with(reset_of(ResetCauseName::PowerOn, "", 1));
+        assert_eq!(platform.recording_room(), None);
+        platform.set_heap_meter(|| HeapFacts {
+            capacity_bytes: 180_160,
+            used_bytes: 133_000,
+            peak_bytes: 151_000,
+        });
+        platform.set_kept_beside_programs(8_192);
+        assert_eq!(platform.recording_room(), Some(38_968));
+    }
+
+    /// Specification 11 §6.8.1, "Cycle traces", with specification 34 MEM-12: a chip serves a
+    /// trace's file in parts its working memory can answer, an eighth of what it keeps beside any
+    /// program and at most 4,096 bytes. Worked by hand: 8,192 bytes kept give parts of 1,024; a
+    /// chip that keeps nothing serves 4,096; 100,000 kept would give 12,500, so 4,096. Catches a
+    /// chip that serves 4,096-byte parts whose answer, about 15 KB, outgrows its 8 KiB working
+    /// memory, as the C6 bench found (checklist G197).
+    #[test]
+    fn a_chip_serves_trace_parts_of_an_eighth_of_what_it_keeps_beside_programs() {
+        let mut platform = platform_with(reset_of(ResetCauseName::PowerOn, "", 1));
+        assert_eq!(platform.trace_part_bytes(), 4_096);
+        platform.set_kept_beside_programs(8_192);
+        assert_eq!(platform.trace_part_bytes(), 1_024);
+        platform.set_kept_beside_programs(100_000);
+        assert_eq!(platform.trace_part_bytes(), 4_096);
     }
 }

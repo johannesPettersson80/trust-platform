@@ -552,6 +552,11 @@ jobs:
         with:
           name: toolchain-${{ matrix.platform }}
           path: editors/vscode/bin
+          # From the listing of the run's artifacts that the wait read, the REST API (specification
+          # 24). Without a token the action asks the run's artifact service, which did not yet list
+          # a bundle 0.4 s after the REST API had (24 November 2026, checklist G293).
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

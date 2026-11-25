@@ -29,6 +29,13 @@
   of a screen (specification 48 RU-59).
 - A cycle trace also keeps Control Studio's experiment writes, of variables and of addresses, as
   Control Studio's changes (specification 48 RU-59).
+- An ESP32-C6 records, keeps and serves cycle traces as a computer does: `trace.record`,
+  `trace.read` and `trace.stop`, and with them `trust-runtime ctl record`, work on the chip. A
+  recording takes the chip's free heap less what it keeps beside any program, each of its rooms at
+  most a share of that, and a recording the chip cannot hold is refused with the bytes it needs and
+  the bytes it has. The ended trace stays on the chip until the next recording starts and is served
+  in parts, never held as one file. The chip keeps no fault's trace yet: it has no flight recorder
+  (specification 48 RU-59).
 - A cycle trace names each variable and each method call's instance as the debugger names it,
   whatever form the request named it in: `set main.pumps[2].speed` is recorded as
   `Main.Pumps[2].Speed` (specification 48 Appendix C, C.6).

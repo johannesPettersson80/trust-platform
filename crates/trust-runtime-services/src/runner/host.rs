@@ -10,11 +10,13 @@ use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
+use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, MonotonicInstant, WallClock};
 use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
-use trust_runtime_core::value::Value;
+use trust_runtime_core::trace::ChangeSource;
+use trust_runtime_core::value::{Duration, Value};
 
 use super::config::ConfigState;
 use super::debugger::ChipDebug;
@@ -50,6 +52,8 @@ use crate::resource::commands::{CommandClass, CommandSendError};
 use crate::resource::replies::no_installed_program;
 use crate::settings::{RuntimeSettings, TokenChange};
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::trace::requests::{RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState};
+use crate::trace::session::{Device, Program as TraceProgram};
 use crate::transfer::{StoredUpload, TransferId, TransferSession};
 use crate::variables::{ReadRefusal, ReadSet};
 
@@ -196,6 +200,23 @@ pub(super) trait ProgramView {
         None
     }
 
+    /// Runs `with` on the installed program's image and the interval its scans run at, which a
+    /// cycle trace records (specification 48 RU-59), whatever the debug surface, and returns
+    /// whether there is one. The default is the view of a scan a debugger holds, where no recording
+    /// starts.
+    fn with_trace_program(
+        &self,
+        _with: &mut dyn FnMut(&trust_runtime_core::native::image::Image<'_>, Duration),
+    ) -> bool {
+        false
+    }
+
+    /// The name the debugger gives the variable that `path` names, which a cycle trace's file
+    /// uses (specification 48 Appendix C, C.6); none without a program. The default has none.
+    fn display_path(&self, _path: &str) -> Option<alloc::string::String> {
+        None
+    }
+
     /// Runs `read` on the installed program's image and returns whether there is one: the tables
     /// that resolve a target and type a literal (specification 11, "Live Values"). The default
     /// reads it through [`ProgramView::compiled_state`].
@@ -263,6 +284,8 @@ pub(super) struct RunnerHost<'a, P, C> {
     pub(super) step: &'a StepState,
     /// The change of a `config.set` and the scheduler's copies it left for the loop.
     pub(super) config: &'a ConfigState,
+    /// The cycle traces: the recording on demand and the slot `trace.read` reads.
+    pub(super) traces: super::trace::SharedTraces<'a>,
 }
 
 impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
@@ -403,8 +426,87 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
         self.program.step(request)
     }
 
+    /// A tool's method call between scans, which a running recording keeps as its next cycle's
+    /// change once the call is made (specification 48 RU-59).
     fn call_method(&self, call: &MethodCall) -> Result<Value, MethodCallRefusal> {
-        self.program.call_method(call)
+        let value = self.program.call_method(call)?;
+        self.traces.with(|traces| {
+            if let Some(recorder) = traces.recorder() {
+                recorder.method_called(ChangeSource::ControlLink, &call.instance, call);
+            }
+        });
+        Ok(value)
+    }
+
+    /// Starts a recording at the next cycle (`trace.record`), while the resource runs, as a
+    /// computer does: the program's image and cycle interval, the device as `status` names it,
+    /// the heap the chip can give a recording for the budget, and its UTC time (specification 48
+    /// RU-59).
+    fn trace_record(&self, request: &RecordRequest) -> Result<TraceStarted, TraceRefusal> {
+        let state = self.resource.state();
+        if state != ResourceState::Running {
+            return Err(TraceRefusal::NotRunning(state));
+        }
+        let free = self.platform.recording_room();
+        let now_utc_ms = self
+            .platform
+            .utc_ms()
+            .and_then(|millis| i64::try_from(millis).ok())
+            .unwrap_or(0);
+        let device = Device {
+            runtime_id: self.platform.runtime_id(),
+            platform: self.platform.platform(),
+        };
+        let resource = SmolStr::new(self.platform.resource_name());
+        let mut outcome = Err(TraceRefusal::Unavailable(String::from(
+            "no program is installed",
+        )));
+        self.program
+            .with_trace_program(&mut |image, cycle_interval| {
+                outcome = match io_bindings(image) {
+                    Err(error) => Err(TraceRefusal::Unavailable(error.to_string())),
+                    Ok((bindings, binding_names)) => {
+                        let program = TraceProgram {
+                            image,
+                            bindings: &bindings,
+                            binding_names: &binding_names,
+                            resource: &resource,
+                            cycle_interval,
+                        };
+                        self.traces
+                            .with(|traces| {
+                                traces.record(request, &program, &device, free, now_utc_ms)
+                            })
+                            .unwrap_or_else(|| {
+                                Err(TraceRefusal::Unavailable(String::from(
+                                    "the loop's traces are in use",
+                                )))
+                            })
+                    }
+                };
+            });
+        outcome
+    }
+
+    fn trace_state(&self, name: TraceName) -> TraceState {
+        self.traces
+            .with(|traces| traces.state(name))
+            .unwrap_or(TraceState::Unknown)
+    }
+
+    fn trace_part(&self, name: TraceName, offset: usize, out: &mut [u8]) -> Option<usize> {
+        self.traces
+            .with(|traces| traces.part(name, offset, out))
+            .flatten()
+    }
+
+    /// Ends the recording `trace` at once (`trace.stop`), its trace named as the program names its
+    /// variables.
+    fn trace_stop(&self, trace: u64) -> TraceState {
+        let program = self.program;
+        self.traces
+            .with(|traces| traces.stop(trace, &mut |path| program.display_path(path)))
+            .unwrap_or(TraceState::Unknown)
     }
 }
 
@@ -478,6 +580,14 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
 
     fn heap(&self) -> Option<HeapFacts> {
         self.platform.heap()
+    }
+
+    fn recording_room(&self) -> Option<usize> {
+        self.platform.recording_room()
+    }
+
+    fn trace_part_bytes(&self) -> usize {
+        self.platform.trace_part_bytes()
     }
 }
 

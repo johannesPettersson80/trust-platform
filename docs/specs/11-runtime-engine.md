@@ -3757,7 +3757,10 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
         then the recording reads as recording.
     - With `offset`, it answers the trace's bytes from there, at most 4,096 of them: `{"offset": o,
         "data": "<base64>", "crc32": "<8 hexadecimal digits>", "next_offset": o2}`. This is a part as
-        `transfer.part` carries one the other way (specification 34 PORT-05).
+        `transfer.part` carries one the other way (specification 34 PORT-05). A runtime gives as
+        many as it can answer at once: a chip at most an eighth of what it keeps beside any program
+        (specification 34 MEM-12), 1,024 bytes on an ESP32-C6, since the answer holds the part, its
+        base64 text and the line, about 3.7 times the part. The client follows `next_offset`.
     - `{"trace": "fault"}` reads the flight recorder's trace of the last fault, and answers `{"state":
         "none"}` before there is one.
 

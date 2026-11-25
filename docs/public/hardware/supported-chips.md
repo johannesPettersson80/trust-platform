@@ -110,6 +110,12 @@ The firmware also carries out:
 - the control connection over Wi-Fi with a control token, answers to ping, and discovery over mDNS;
 - the time from an SNTP server, and the time kept across every reset but a loss of power;
 - the fault and watchdog policies and the safe outputs of `runtime.toml` and `io.toml`;
+- cycle traces (`trust-runtime ctl record`; `trace.record`, `trace.read` and `trace.stop`), as a
+  computer records them. A recording takes the heap's free bytes less what the chip keeps beside
+  any program, each of its rooms at most a share of that, and a recording the chip cannot hold is
+  refused with the bytes it needs and the bytes it has. The ended trace stays on the chip until the
+  next recording starts, and is served in parts. The chip keeps no fault's trace yet: it has no
+  flight recorder;
 - online changes (`bytecode.reload`), which no `trust-runtime ctl` command sends yet.
 
 Not available on the ESP32-C6 yet:

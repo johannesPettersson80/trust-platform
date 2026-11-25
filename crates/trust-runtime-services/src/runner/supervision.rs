@@ -18,6 +18,7 @@ use trust_runtime_core::ports::{
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::scheduler::ResourceState;
+use trust_runtime_core::trace::TraceEnd;
 use trust_runtime_core::value::{self, Duration, Value};
 use trust_runtime_core::watchdog::{FaultAction, FaultDecision, FaultPolicy, WatchdogPolicy};
 
@@ -86,6 +87,7 @@ where
         match self.shell.resource.take_commands() {
             Some(RunningCommandEffect::Pause) => {
                 self.shell.resource.set_state(ResourceState::Paused);
+                self.end_trace(TraceEnd::Paused);
             }
             Some(RunningCommandEffect::Resume) => {
                 self.shell.resource.set_state(ResourceState::Running);
@@ -168,6 +170,8 @@ where
         mode: RestartMode,
         source: RetainSource,
     ) -> Result<(), RuntimeError> {
+        // A recording ends at a restart (specification 48 RU-59).
+        self.end_trace(TraceEnd::Restarted);
         let events = self.cycle.restart(mode, source)?;
         // A committed restart clears the previous lifecycle's queued writes and forces, as
         // trust-runtime's `begin_lifecycle` does (specification 11 §6.9.2), and its published debug
@@ -280,6 +284,7 @@ where
             let mut hooks = LiveValuesHooks::new(
                 &self.live,
                 &self.shell.records,
+                self.shell.traces(),
                 self.cycle_count,
                 &mut observer,
             );
@@ -304,6 +309,10 @@ where
         // A scan that ended, completed or faulted, is the state that a debug read between scans
         // answers from (specification 11 §6.13.1).
         self.shell.debug.scan_ended();
+        // A recording's part of the scan's end, while one runs (specification 48 RU-59).
+        if self.shell.traces().records() {
+            self.trace_scan_end(result.is_err());
+        }
         if let Err(error) = result {
             self.fail_scan(error, watchdog, fault_policy);
             return;
@@ -324,9 +333,11 @@ where
                 self.next_boundary = Some(boundary.saturating_add(self.interval()));
             }
             Some(OverrunAction::Restart) => {
+                self.end_trace(TraceEnd::Faulted);
                 self.automatic_restart(&RuntimeError::WatchdogTimeout);
             }
             Some(OverrunAction::Halt) => {
+                self.end_trace(TraceEnd::Faulted);
                 let error = self.apply_fault(
                     RuntimeError::WatchdogTimeout,
                     FaultDecision::from_watchdog(watchdog.action),
@@ -344,6 +355,8 @@ where
         watchdog: WatchdogPolicy,
         fault_policy: FaultPolicy,
     ) {
+        // A recording ends at a fault, with the cycles before (specification 48 RU-59).
+        self.end_trace(TraceEnd::Faulted);
         let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
         match cycle_error_action(watchdog, fault_policy, reported) {
             CycleErrorAction::Restart(reason) => self.automatic_restart(&reason),
@@ -538,6 +551,8 @@ where
     /// failure; the program has then ended. A stop that succeeds keeps the root fault of a faulted
     /// program in `last_error` until the next start (specification 34 STATE-08).
     fn stop(&mut self) {
+        // A recording ends when the resource stops (specification 48 RU-59).
+        self.end_trace(TraceEnd::ResourceStopped);
         // A stop's safe state clears the queued writes and active forces, as trust-runtime's
         // `apply_io_safe_state` does (specification 11 §6.9.2).
         self.live.clear();

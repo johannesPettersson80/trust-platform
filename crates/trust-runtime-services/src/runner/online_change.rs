@@ -35,6 +35,7 @@ use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, RunnerWait, TimeSpan,
 };
+use trust_runtime_core::trace::TraceEnd;
 
 pub use rules::{unwired_binding, ChangeMemory};
 
@@ -232,6 +233,8 @@ where
         let Some(program) = self.shell.change.take_program() else {
             return false;
         };
+        // A recording ends when the program changes (specification 48 RU-59).
+        self.end_trace(TraceEnd::ProgramChanged);
         self.shell.feed();
         let candidate = self.prepare_change(program);
         self.shell.feed();

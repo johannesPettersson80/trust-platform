@@ -404,7 +404,9 @@ impl CompiledHold for HostHold {
     /// The debugger decides; for a hold, the copy of the held scan's memory and call stack of
     /// `held` becomes the state the reads answer from under the same lock as the hold's stop is
     /// recorded, so a control thread that finds the stop never reads the last scan's state
-    /// instead (specification 11 §6.13.1).
+    /// instead (specification 11 §6.13.1). The hold begins there too, so that a control thread
+    /// that finds the stop writes into the held scan, which takes the write once it waits
+    /// (specification 44 §13.2).
     fn at_statement(
         &self,
         at: &StatementStart<'_>,
@@ -424,6 +426,7 @@ impl CompiledHold for HostHold {
                 held.memory,
                 Duration::ZERO,
             )));
+            state.held.since = Some(Instant::now());
         }
         drop(state);
         #[cfg(test)]
@@ -433,8 +436,8 @@ impl CompiledHold for HostHold {
         Ok(boundary)
     }
 
-    /// Waits until the debugger releases the scan, whose copy [`Self::at_statement`] published
-    /// with the stop; the reads then answer from the state of the last scan again. Each time it
+    /// Waits until the debugger releases the scan, whose copy and hold [`Self::at_statement`]
+    /// began with the stop; the reads then answer from the state of the last scan again. Each time it
     /// wakes, the writes the control threads handed over go into the held scan first, through the
     /// stop the cycle lent, and the copy is taken again before their requests are woken to answer
     /// (specification 44 §13.2), so a write made before a release reaches the held statement.
@@ -448,7 +451,7 @@ impl CompiledHold for HostHold {
             .image
             .clone()
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        state.held.since = Some(Instant::now());
+        state.held.since.get_or_insert_with(Instant::now);
         let held = loop {
             if !state.held_writes.is_empty() {
                 for write in std::mem::take(&mut state.held_writes) {

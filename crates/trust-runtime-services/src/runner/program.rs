@@ -249,4 +249,18 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
             Self::Missing(_) => None,
         }
     }
+
+    fn display_path(&self, path: &str) -> Option<alloc::string::String> {
+        match self {
+            Self::Installed(cycle) => cycle.display_path(path),
+            Self::Missing(_) => None,
+        }
+    }
+
+    fn last_fault_site(&self) -> Option<(u32, u32)> {
+        match self {
+            Self::Installed(cycle) => cycle.last_fault_site(),
+            Self::Missing(_) => None,
+        }
+    }
 }

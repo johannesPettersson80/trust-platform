@@ -44,7 +44,9 @@ use smol_str::SmolStr;
 use trust_platform_esp32::compiled_loader::{
     compiled_install_check, CompiledLoader, CompiledProgramCycle,
 };
-use trust_platform_esp32::loader::{default_event_capacity, program_memory_bytes};
+use trust_platform_esp32::loader::{
+    default_event_capacity, program_memory_bytes, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
+};
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES};
 use trust_platform_esp32::{
@@ -239,6 +241,10 @@ fn main() -> ! {
     // memory figure is more is refused at its install and at its load.
     let program_memory = program_memory_bytes(heap_room(), kept_aside);
     let _ = runner.with_platform(|platform| platform.set_program_memory(program_memory));
+    // A cycle trace's recording leaves free what the chip keeps beside any program, as the memory
+    // for programs does (specification 48 RU-59, "Memory").
+    let kept = ONLINE_CHANGE_WORKING_MEMORY_BYTES.saturating_add(kept_aside);
+    let _ = runner.with_platform(|platform| platform.set_kept_beside_programs(kept));
     // The installed application: the committed container with the highest install sequence, admitted,
     // loaded and started warm. One that cannot start leaves the loop Stopped with the reason.
     // A load the reset of the last boot ended is not made again; this one is marked where a reset
