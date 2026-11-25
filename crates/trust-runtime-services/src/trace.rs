@@ -11,6 +11,7 @@ mod changes;
 mod flight;
 pub mod requests;
 mod served;
+pub mod session;
 
 pub use changes::{address_size, trace_area, trace_bit};
 pub use flight::{FlightCycle, FlightRecorder};

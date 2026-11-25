@@ -2,8 +2,9 @@
 //! RU-59), which every runtime answers alike (specification 34 STATE-08):
 //!
 //! - `trace.record` starts a recording at the resource's next cycle ([`ResourcePort::trace_record`]);
-//! - `trace.read` gives a trace's state, and once it has ended its file in parts of
-//!   [`PART_BYTES`] bytes ([`ResourcePort::trace_state`], [`ResourcePort::trace_part`]);
+//! - `trace.read` gives a trace's state, and once it has ended its file in parts of at most
+//!   [`PART_BYTES`] bytes, as many as the runtime's memory can carry in one answer
+//!   ([`ResourcePort::trace_state`], [`ResourcePort::trace_part`], [`StatusPort::trace_part_bytes`]);
 //! - `trace.stop` ends a recording at once ([`ResourcePort::trace_stop`]).
 
 #[cfg(test)]
@@ -21,7 +22,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::trace::TraceEnd;
 use trust_runtime_core::value::Duration;
 
-use crate::ports::ResourcePort;
+use crate::ports::{ResourcePort, StatusPort};
 use crate::protocol::ControlResponse;
 use crate::resource::replies::resource_not_running;
 use crate::status::{invalid_params, validate_object_fields};
@@ -137,9 +138,14 @@ pub fn record<H: ResourcePort>(id: u64, params: Option<&JsonValue>, host: &H) ->
     }
 }
 
-/// Answers `trace.read`: the trace's state, or with `offset` the part of its file from there.
+/// Answers `trace.read`: the trace's state, or with `offset` the part of its file from there, as many
+/// bytes as the host's parts carry.
 #[must_use]
-pub fn read<H: ResourcePort>(id: u64, params: Option<&JsonValue>, host: &H) -> ControlResponse {
+pub fn read<H: ResourcePort + StatusPort>(
+    id: u64,
+    params: Option<&JsonValue>,
+    host: &H,
+) -> ControlResponse {
     let (name, offset) = match parse_read(params) {
         Ok(read) => read,
         Err(reason) => return invalid_params(id, &reason),
@@ -160,7 +166,8 @@ pub fn read<H: ResourcePort>(id: u64, params: Option<&JsonValue>, host: &H) -> C
             &format!("offset {offset} is past the trace's {bytes} bytes"),
         );
     }
-    let mut part = vec![0; PART_BYTES.min(bytes - offset)];
+    let part_bytes = host.trace_part_bytes().clamp(1, PART_BYTES);
+    let mut part = vec![0; part_bytes.min(bytes - offset)];
     match host.trace_part(name, offset, &mut part) {
         Some(read) if read == part.len() => ControlResponse::ok(id, part_json(offset, &part)),
         _ => unknown_trace(id, name),

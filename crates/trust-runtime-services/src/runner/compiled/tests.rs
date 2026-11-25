@@ -99,6 +99,21 @@ entry!(faulting_in_its_second_statement, |cx, _| {
     Err(fault(cx, FaultCode::DivisionByZero, 0, 0, 0))
 });
 
+// A body of a debug image that counts in its first statement and, once the count is above 100,
+// divides by zero in its second, id 1 on line 2 of `main.st`: a write of the count above 100 makes
+// the scan that takes it fault.
+entry!(faulting_above_a_hundred, |cx, areas| {
+    let view: &[Cell<u8>; 8] = areas.view(cx, AREA_INSTANCES)?;
+    stmt(cx, 0)?;
+    view[0].set(view[0].get().wrapping_add(1));
+    stmt(cx, 1)?;
+    if view[0].get() > 100 {
+        return Err(fault(cx, FaultCode::DivisionByZero, 0, 0, 0));
+    }
+    view[1].set(view[0].get() & 1);
+    Ok(())
+});
+
 // The counting body of a debug image: it links its frame, as a POU of a debug image does
 // (specification 44 §8.2, §13.2), and calls the statement hook before each of its two statements,
 // ids 0 and 1.
@@ -124,8 +139,10 @@ entry!(stopping, |cx, areas| {
     result
 });
 
-/// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 counts as
-/// a debug image does, 56 divides by zero in its second statement, and 60 fails an assertion.
+/// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing, 40 counts as a
+/// debug image does and divides by zero in its second statement once the count is above 100, 48
+/// counts as a debug image does, 56 divides by zero in its second statement, and 60 fails an
+/// assertion.
 pub(super) struct StandIn;
 
 impl ModuleCode for StandIn {
@@ -134,6 +151,7 @@ impl ModuleCode for StandIn {
             0 => Some(Entry::from_fn(counting)),
             16 => Some(Entry::from_fn(dividing_by_zero)),
             32 => Some(Entry::from_fn(nothing)),
+            40 => Some(Entry::from_fn(faulting_above_a_hundred)),
             48 => Some(Entry::from_fn(stopping)),
             56 => Some(Entry::from_fn(faulting_in_its_second_statement)),
             60 => Some(Entry::from_fn(failing_an_assertion)),

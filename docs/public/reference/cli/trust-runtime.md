@@ -558,7 +558,9 @@ path. The next cycle's start writes the set together; the command prints the rep
 `.trusttrace` file (specification 48 RU-59). It records `--cycles <n>` cycles, with `--task
 <task>` that task's `n` runs, or the cycles of `--duration <t>` of logical time, a duration such as
 `500ms`, `2s` or `T#1m30s`. The runtime reserves the recording's memory first, and refuses a
-recording it cannot hold. The command writes the file to `--out`, by default
+recording it cannot hold, with the bytes it needs and the bytes it has. A chip records as a
+computer does, within the free heap it keeps beside its program ([Supported
+Chips](../../hardware/supported-chips.md)). The command writes the file to `--out`, by default
 `trace-<UTC date and time>.trusttrace` in the current folder, and prints its cycles, why the
 recording ended and its size. Ctrl+C ends the recording early and saves what it holds. It needs the
 Engineer role.

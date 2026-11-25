@@ -322,4 +322,18 @@ pub trait ResourceCycle {
     fn variables_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
         None
     }
+
+    /// The name the debugger gives the variable that `path` names, which a cycle trace's file
+    /// uses (specification 48 Appendix C, C.6); none for a cycle without a compiled program, or a
+    /// path it does not name. The default has none.
+    fn display_path(&self, _path: &str) -> Option<alloc::string::String> {
+        None
+    }
+
+    /// The code and the statement of the record of the last fault the program raised
+    /// (specification 44 §8.6), which a cycle trace keeps with a faulted scan; none for a cycle
+    /// without a compiled program. The default has none.
+    fn last_fault_site(&self) -> Option<(u32, u32)> {
+        None
+    }
 }

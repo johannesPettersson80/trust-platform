@@ -8004,6 +8004,7 @@ name = "trust-runtime-services"
 version = "0.44.1"
 dependencies = [
  "base64 0.23.1",
+ "critical-section",
  "serde",
  "serde_json",
  "smol_str",

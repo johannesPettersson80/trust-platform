@@ -23,7 +23,7 @@ use trust_runtime_core::value::Value;
 
 use super::runner_ports::{ms, TestClock, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
-use crate::capabilities::LastReset;
+use crate::capabilities::{HeapFacts, LastReset};
 use crate::chip::network::NetworkFacts;
 use crate::chip::watchdog::watchdog_timeout_ms;
 use crate::device_settings::{DeviceInterfaces, DeviceSettings};
@@ -87,6 +87,13 @@ pub(crate) struct TestPlatform {
     pub(crate) firmware: Option<FirmwareFacts>,
     /// A chip's network as it stands; `None` for a computer.
     pub(crate) network: Option<NetworkFacts>,
+    /// A chip's heap as it stands; `None` for a computer, which reports none.
+    pub(crate) heap: Option<HeapFacts>,
+    /// The heap a cycle trace's recording may take, as a chip's platform gives it; `None` for a
+    /// computer, which does not know its memory.
+    pub(crate) recording_room: Option<usize>,
+    /// The most bytes of a trace's file one `trace.read` part carries.
+    pub(crate) trace_part_bytes: usize,
     /// A chip's device settings: its interfaces and the stored record; `None` for a computer.
     pub(crate) device: Option<(DeviceInterfaces, StoredSettings)>,
     /// How many times the loop reset the device; a test keeps a clone to read them.
@@ -125,6 +132,9 @@ impl Default for TestPlatform {
             last_reset: None,
             firmware: None,
             network: None,
+            heap: None,
+            recording_room: None,
+            trace_part_bytes: crate::trace::requests::PART_BYTES,
             device: None,
             resets: Rc::new(Cell::new(0)),
             unloads: Rc::new(Cell::new(0)),
@@ -184,6 +194,18 @@ impl StatusPort for TestPlatform {
     /// value (specification 11, `status`).
     fn runtime_id(&self) -> &'static str {
         "esp32c6"
+    }
+
+    fn heap(&self) -> Option<HeapFacts> {
+        self.heap
+    }
+
+    fn recording_room(&self) -> Option<usize> {
+        self.recording_room
+    }
+
+    fn trace_part_bytes(&self) -> usize {
+        self.trace_part_bytes
     }
 
     /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).

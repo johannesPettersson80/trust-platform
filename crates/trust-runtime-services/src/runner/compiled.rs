@@ -749,6 +749,15 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         Some(&self.program)
     }
 
+    fn display_path(&self, path: &str) -> Option<alloc::string::String> {
+        self.program.display_path(path)
+    }
+
+    fn last_fault_site(&self) -> Option<(u32, u32)> {
+        let fault = self.program.last_fault();
+        Some((fault.code, fault.stmt))
+    }
+
     /// The program's memory between scans, with the sources of its statement table, once the loop
     /// attached its debugger.
     fn compiled_view(&self) -> Option<CompiledView<'_>> {
@@ -900,3 +909,5 @@ mod loop_tests;
 mod retain_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod trace_tests;

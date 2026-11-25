@@ -346,6 +346,9 @@ where
             self.cells_free(),
             "a cell of the loop is borrowed when a hold begins"
         );
+        // A recording tells a held scan, which no replay could run, by this count (specification
+        // 48 RU-59).
+        self.holds.set(self.holds.get().saturating_add(1));
         loop {
             let token = self.wake_token();
             // A scan that the debugger holds reaches no boundary, so the change that waits for one is
