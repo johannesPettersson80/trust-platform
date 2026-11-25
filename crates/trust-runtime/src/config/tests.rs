@@ -111,6 +111,36 @@ fn start_paused_is_read_from_the_control_section_and_defaults_to_false() {
 }
 
 #[test]
+fn the_flight_recorder_is_read_from_runtime_toml_and_is_off_by_default() {
+    // Specification 11 §6.8.1, "Cycle traces": `[runtime.trace] flight_recorder = <n>` keeps the
+    // last `n` to `2n` cycles; absent or 0, there is no flight recorder. A key the section does not
+    // have is refused, as every section of runtime.toml refuses one. Wrong behaviour caught: the
+    // setting ignored, a flight recorder kept by default, and a misspelled key taken silently.
+    let configured = parse_runtime_toml_from_text(
+        &format!(
+            "{}\n[runtime.trace]\nflight_recorder = 600\n",
+            runtime_toml()
+        ),
+        "runtime.toml",
+    )
+    .expect("a flight recorder is accepted");
+    assert_eq!(configured.flight_recorder, 600);
+
+    let absent = parse_runtime_toml_from_text(&runtime_toml(), "runtime.toml")
+        .expect("a project without a trace section is accepted");
+    assert_eq!(absent.flight_recorder, 0);
+
+    let misspelled = parse_runtime_toml_from_text(
+        &format!(
+            "{}\n[runtime.trace]\nflight_recoder = 600\n",
+            runtime_toml()
+        ),
+        "runtime.toml",
+    );
+    assert!(misspelled.is_err(), "{misspelled:?}");
+}
+
+#[test]
 fn event_capacity_is_read_from_runtime_toml_and_defaults_to_1000() {
     // Specification 11, the event store: `runtime.events.capacity` sets the newest events the
     // store keeps, and a computer keeps 1,000 when the project sets none. Wrong behaviour caught:

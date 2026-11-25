@@ -35,6 +35,7 @@ pub(crate) use bound_global::test_support::NamedGlobals;
 pub use bound_global::BoundGlobal;
 pub(crate) use bound_global::GlobalPort;
 pub use builder::RuntimeBuilder;
+pub use compiled::flight::FlightSettings;
 pub(crate) use compiled::trace::lock as lock_traces;
 #[cfg(test)]
 pub(crate) use compiled::trace::{ended_trace, record_cycles};

@@ -41,6 +41,7 @@ pub use target_status::{probe, ProbeTimeouts, TargetProbe};
 pub use transport::ByteStream;
 
 pub mod project_files;
+pub mod replay;
 pub mod version;
 pub use version::VersionAdvice;
 
@@ -54,6 +55,8 @@ mod fake_runtime;
 mod framed_link_tests;
 #[cfg(test)]
 mod project_files_tests;
+#[cfg(test)]
+mod replay_tests;
 #[cfg(test)]
 mod serial_port_tests;
 

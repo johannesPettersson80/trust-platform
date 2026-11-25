@@ -37,6 +37,7 @@ use crate::metrics::RuntimeMetricsSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::simulator_advance::{Advance, AdvanceRefusal, Advanced};
+use crate::simulator_replay::{ReplayRefusal, ReplayReport};
 use crate::status::{IoDriverStatus, StatusSettings};
 use crate::trace::requests::{RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState};
 use crate::transfer::{Received, StoredUpload, TransferError, TransferId, TransferSession};
@@ -215,6 +216,17 @@ pub trait ResourcePort {
         _faulted: &dyn Fn() -> bool,
     ) -> Result<Advanced, AdvanceRefusal> {
         Err(AdvanceRefusal::ClockNotManual)
+    }
+    /// Replays the cycle trace `trace` in a simulator before its first cycle (`simulator.replay`,
+    /// specification 11 §6.8.1, "Replaying a trace"; specification 48 RU-60) and reports what it
+    /// found. A runtime on the wall clock refuses it, the default, as every runtime but a simulator
+    /// does.
+    ///
+    /// # Errors
+    ///
+    /// The [`ReplayRefusal`] that names why no replay runs.
+    fn replay_trace(&self, _trace: Vec<u8>) -> Result<ReplayReport, ReplayRefusal> {
+        Err(ReplayRefusal::ClockNotManual)
     }
     /// Makes a tool's method call between scans (`method.call`, specification 11 §6.8.1; the call
     /// of specification 44 §13.3): the method of the instance through the interface, with the

@@ -293,6 +293,7 @@ fn build_config_mode_control_state(
 
     Ok(Arc::new(ControlState::local(
         trust_runtime::control::LocalControl {
+            traces: trust_runtime::control::new_traces(),
             debug,
             identify: trust_runtime::io::IdentifyHandle::default(),
             resource,
