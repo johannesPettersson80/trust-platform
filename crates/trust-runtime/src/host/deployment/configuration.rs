@@ -64,7 +64,7 @@ fn load_io(project: &Path) -> Result<Option<IoConfig>, RuntimeError> {
     }
 }
 
-/// Section 7's runtime fields, from `runtime.toml`.
+/// Section 7's runtime fields and section 10's flight recorder, from `runtime.toml`.
 fn from_runtime(
     runtime: &RuntimeConfig,
     io_drivers: Vec<IoDriver>,
@@ -95,6 +95,7 @@ fn from_runtime(
         },
         io_drivers,
         safe_state,
+        flight_recorder: runtime.flight_recorder,
     })
 }
 

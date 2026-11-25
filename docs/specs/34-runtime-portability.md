@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.77 — a periodic task is due at its start, registration time being its first nominal deadline (SCHED-05); after 0.76 — the deployment record's version 3 lists the Rust crates of the program image (§5.1.1, section 9); after 0.75 — a `pair.service` writes the pairing record between scans as a claim does (Appendix D.2); after 0.74 — the C6's RAM code holds the scan path and no more (Appendix D.2); after 0.73 — a compiled program image imports nothing, so the bytecode engine's built-in import contracts are gone (§5.2.1, LOAD-06); after 0.72 — identify as a shared component, in every state of the resource (SERVICE-07) (0.71: a chip takes its checkpoint buffer at boot and lends it to each program, and a dropped network driver gives its socket back once its connection has ended).
+- **Version:** 0.78 — the deployment record's version 4 carries the flight recorder's cycles to a chip (§5.1.1, section 10); after 0.77 — a periodic task is due at its start, registration time being its first nominal deadline (SCHED-05); after 0.76 — the deployment record's version 3 lists the Rust crates of the program image (§5.1.1, section 9); after 0.75 — a `pair.service` writes the pairing record between scans as a claim does (Appendix D.2); after 0.74 — the C6's RAM code holds the scan path and no more (Appendix D.2); after 0.73 — a compiled program image imports nothing, so the bytecode engine's built-in import contracts are gone (§5.2.1, LOAD-06); after 0.72 — identify as a shared component, in every state of the resource (SERVICE-07) (0.71: a chip takes its checkpoint buffer at boot and lends it to each program, and a dropped network driver gives its socket back once its connection has ended).
 - **Date:** 25 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -706,7 +706,7 @@ new program, and `trust-runtime deploy` copies it with the program.
 | Offset | Bytes | Field |
 |---|---|---|
 | 0 | 4 | Magic `TRDR` |
-| 4 | 2 | Record version, 1, 2 or 3 |
+| 4 | 2 | Record version, 1 to 4 |
 | 6 | 2 | Section count |
 | 8 | 4 | Record length L in bytes, header and CRC included, at most 65,536 |
 | 12 | L − 16 | The sections, in ascending order of their identifiers |
@@ -714,7 +714,7 @@ new program, and `trust-runtime deploy` copies it with the program.
 
 A section is a 2-byte identifier, 2 reserved bytes (0), a 4-byte payload length and the payload.
 Version 1 has these seven sections, each once; version 2 has them and section 8; version 3 has them,
-section 8 and section 9:
+section 8 and section 9; version 4 has them, sections 8 and 9, and section 10:
 
 | Section | Payload |
 |---|---|
@@ -727,6 +727,7 @@ section 8 and section 9:
 | 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the event-store capacity, the task overrides, the I/O drivers and the safe state |
 | 8 Driver parameters (version 2) | The driver count (2), which is section 7's, then for each I/O driver in section 7's order: the length (4) and the UTF-8 text of the driver's `params` table as JSON (below) |
 | 9 Crates (version 3) | The crate count (2) and 2 reserved bytes, then each crate of the program image's crate table (specification 44 §5.12) in its order: the source (1: 1 a registry, 2 a path, 3 a git repository), the lengths of the name and of the version (1 + 1), a reserved byte (0), the checksum (32) as the crate table holds it, then the name and the version in UTF-8 (below) |
+| 10 Cycle traces (version 4) | The flight recorder's cycles (8, unsigned): `[runtime.trace] flight_recorder`, 0 for none (below) |
 
 Section 7 carries what a device without an operating system needs from the project's `runtime.toml`
 and `io.toml`: a computer reads those two files themselves at each start, and a chip never parses
@@ -782,11 +783,23 @@ image's crate table, each with its name, its version, where it comes from and it
 SHA-256 that `Cargo.lock` pins for a registry crate and the commit of a git crate (specification 44
 §5.12). The record takes them from the image, as it takes the image's other tables, so every tool
 that writes a record from an image writes the same list, and a program without a Rust crate has
-none (count 0). A name and a version are each 1 to 255 bytes. `trust-runtime build` and every tool
-that writes a record write version 3 (decision of 18 November 2026: a section added after those of
-version 2, as the rule below has a later version do); a runtime that reads only versions 1 and 2
-refuses it as an unknown version, as it refuses an image of this release by its format version
-(specification 44 §10.2).
+none (count 0). A name and a version are each 1 to 255 bytes. Version 3 added this section
+(decision of 18 November 2026: a section added after those of version 2, as the rule below has a
+later version do); a runtime that reads only versions 1 and 2 refuses a record of version 3 as an
+unknown version, as it refuses an image of that release by its format version (specification 44
+§10.2).
+
+Section 10 carries the cycle trace setting of `runtime.toml` that a chip needs, since a chip never
+parses that file: the cycles `n` of which the flight recorder keeps the last `n` to `2n`
+(specification 11 §6.8.1, "Cycle traces"; specification 48 RU-59, "The flight recorder").
+`trust-runtime build` fills it with the runtime's own parser, so it has the meaning and the default
+it has on a computer: 0, as when the project sets none, keeps no flight recorder. The decoder accepts
+every eight-byte value; whether the device can give the flight recorder's memory is decided when the
+runtime arms it, as on a computer (specification 11 §6.8.1). A computer reads `runtime.toml` itself,
+as for section 7. A record of version 1 to 3 carries no flight recorder. `trust-runtime build` and
+every tool that writes a record write version 4 (decision of 25 November 2026, checklist G197: a
+section added after those of version 3, as the rule below has a later version do); a runtime that
+reads only versions 1 to 3 refuses it as an unknown version.
 
 The identities:
 
@@ -807,8 +820,8 @@ admitted program with exactly the requested limits, so the program meets the sam
 target (ARCH-01).
 
 **Reading a record.** A runtime reads every record version it knows. A version-1 record has
-exactly sections 1 to 7, a version-2 record exactly sections 1 to 8, and a version-3 record exactly
-sections 1 to 9, in that order, each payload exactly as long as its content. Section 8 refuses a driver count other than section 7's and
+exactly sections 1 to 7, a version-2 record exactly sections 1 to 8, a version-3 record exactly
+sections 1 to 9, and a version-4 record exactly sections 1 to 10, in that order, each payload exactly as long as its content. Section 8 refuses a driver count other than section 7's and
 a text that is not UTF-8; the driver that reads a text refuses one that is not a JSON object of its
 keys, as a computer refuses its `params`. Section 9 refuses a source other than 1, 2 or 3, an empty
 or non-UTF-8 name or version, a checksum with a byte that its source leaves zero (all 32 of a path
@@ -3739,6 +3752,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | 0.74 | 18 November 2026 | Appendix D.2: the C6's RAM code holds the scan path and no more (checklist G217): a pattern of `rwtext_hook.x` matched the C6's GPIO type in the generic arguments of the runner's control path and drew 8.9 KB of it into RAM, which left the main stack 144 bytes above its floor; the two GPIO methods of a scan are in RAM by `#[ram]`, the process image by its module and type, and `build-firmware esp32c6` refuses a control path in RAM. |
 | 0.75 | 19 November 2026 | Appendix D.2: a `pair.service`, which creates or replaces a service token (specification 11 §6.9.6; specification 48 RU-81), writes the pairing record between scans as a `pair.claim` does. |
 | 0.76 | 18 November 2026 | The deployment record's version 3 (§5.1.1; specification 48 RU-79; checklist G211, under the owner's delegation of 17 November 2026): section 9 lists the Rust crates of the program image's crate table (specification 44 §5.12), each with its name, version, source and checksum, so that a deployed program says which Rust code it holds. The record takes the list from the image, as every tool that writes a record writes it from the image; the reading rules refuse a malformed list. Every tool writes version 3. |
+| 0.78 | 25 November 2026 | The deployment record's version 4 (§5.1.1; specification 11 §6.8.1; specification 48 RU-59; checklist G197, under the owner's delegation of 22 November 2026): section 10 carries `[runtime.trace] flight_recorder`, the flight recorder's cycles, which a chip cannot read from `runtime.toml`, so that a chip keeps a flight recorder as a computer does (specification 11: every runtime keeps its flight recorder's trace alike). `trust-runtime build` and every tool that writes a record write version 4; a record of version 1 to 3 carries no flight recorder. |
 | 0.77 | 19 November 2026 | SCHED-05 and the saved periodic oracle (owner decision of 19 November 2026, checklist G223): registration makes registration time a periodic task's first nominal deadline, so that the task is due at its start and at every interval after it, as the schedules of IEC 61131-3 Ed.3 §6.8.2 (Table 63) run it from t = 0; the 25 ms task sampled every 10 ms from 0 ms activates at 0, 30, 50, 80 and 100 ms, 41 times through 1000 ms. Computers and boards alike: the rule is the shared core's (specifications 10 §4.3 and 11, "Task readiness and overrun accounting"). |
 
 Version 0.8 divides aggregate Scope A into A1–A4, with one final batch per explicitly

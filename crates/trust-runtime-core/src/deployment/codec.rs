@@ -2,8 +2,9 @@
 //! order of their identifiers, and a CRC-32.
 //!
 //! Version 1 has exactly the sections 1 to 7, version 2 adds section 8, the drivers' parameters,
-//! and version 3 section 9, the Rust crates of the program image. A later version adds sections
-//! with new identifiers after them and decodes the sections before them with the functions below.
+//! version 3 section 9, the Rust crates of the program image, and version 4 section 10, the
+//! flight recorder's cycles. A later version adds sections with new identifiers after them and
+//! decodes the sections before them with the functions below.
 
 mod configuration;
 mod crates;
@@ -32,8 +33,10 @@ const SECTION_HEADER_BYTES: usize = 8;
 const VERSION_1_SECTIONS: u16 = 7;
 /// The sections of version 2: version 1's and section 8.
 const VERSION_2_SECTIONS: u16 = 8;
-/// The sections of version 3, the version this runtime writes: version 2's and section 9.
-const SECTION_COUNT: u16 = 9;
+/// The sections of version 3: version 2's and section 9.
+const VERSION_3_SECTIONS: u16 = 9;
+/// The sections of version 4, the version this runtime writes: version 3's and section 10.
+const SECTION_COUNT: u16 = 10;
 
 const APPLICATION: u16 = 1;
 const CONTRACTS: u16 = 2;
@@ -44,12 +47,15 @@ const IMPORTS: u16 = 6;
 const CONFIGURATION: u16 = 7;
 const DRIVER_PARAMETERS: u16 = 8;
 const CRATES: u16 = 9;
+const CYCLE_TRACES: u16 = 10;
 
 const APPLICATION_BYTES: usize = 32 + 4 + 2 + 2 + 4 + 32 + 32;
 const CONTRACTS_BYTES: usize = 2 + 2 + 1 + 1 + 2;
 const LIMITS_BYTES: usize = 8 * LimitKind::ALL.len();
 const PROCESS_IMAGE_BYTES: usize = 4 * 4;
 const TASK_BYTES: usize = 8 + 4 + 4;
+/// The flight recorder's cycles.
+const CYCLE_TRACES_BYTES: usize = 8;
 /// Kind, name length and contract version; the name follows.
 const IMPORT_HEADER_BYTES: usize = 1 + 1 + 2;
 /// The only task flag version 1 defines: an event task.
@@ -170,6 +176,9 @@ impl DeploymentRecord {
         section(&mut out, CRATES, crate_bytes.len(), |out| {
             out.extend_from_slice(&crate_bytes);
         });
+        section(&mut out, CYCLE_TRACES, CYCLE_TRACES_BYTES, |out| {
+            out.extend_from_slice(&self.configuration.flight_recorder.to_le_bytes());
+        });
         let crc = crc32::checksum(&out);
         out.extend_from_slice(&crc.to_le_bytes());
         debug_assert_eq!(out.len(), length);
@@ -190,6 +199,7 @@ impl DeploymentRecord {
             + self.configuration.encoded_len()
             + configuration::parameters_len(&self.configuration)
             + crates::encoded_len(&self.crates)
+            + CYCLE_TRACES_BYTES
             + CRC_BYTES
     }
 
@@ -220,6 +230,7 @@ impl DeploymentRecord {
         let section_count = match version {
             1 => VERSION_1_SECTIONS,
             2 => VERSION_2_SECTIONS,
+            3 => VERSION_3_SECTIONS,
             RECORD_VERSION => SECTION_COUNT,
             other => return Err(Error::Version(other)),
         };
@@ -277,6 +288,10 @@ impl DeploymentRecord {
         } else {
             Vec::new()
         };
+        if section_count >= CYCLE_TRACES {
+            configuration.flight_recorder =
+                read_section(CYCLE_TRACES, payload(CYCLE_TRACES)?, Reader::u64)?;
+        }
         Ok(Self {
             application: read_section(APPLICATION, payload(APPLICATION)?, read_application)?,
             contracts: read_section(CONTRACTS, payload(CONTRACTS)?, read_contracts)?,

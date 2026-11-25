@@ -169,6 +169,8 @@ pub(super) fn read(reader: &mut Reader<'_>) -> Result<Configuration, Error> {
         task_overrides: read_task_overrides(reader)?,
         io_drivers: read_drivers(reader)?,
         safe_state: read_safe_state(reader)?,
+        // Section 10's, which the record reads after this section (specification 34 §5.1.1).
+        flight_recorder: 0,
     })
 }
 

@@ -118,6 +118,7 @@ fn small_configuration() -> Configuration {
             params: Some(String::from("{}")),
         }],
         safe_state: Vec::new(),
+        flight_recorder: 0,
     }
 }
 
@@ -192,6 +193,8 @@ fn full_configuration() -> Configuration {
                 value: Value::Int(-2),
             },
         ],
+        // Section 10's, beside section 7's fields (specification 34 §5.1.1).
+        flight_recorder: 600,
     }
 }
 
@@ -316,8 +319,8 @@ fn the_configuration_section_has_the_specified_bytes() {
     let parts = sections(&bytes);
     assert_eq!(
         parts.len(),
-        9,
-        "one section each, in order, sections 8 and 9 too"
+        10,
+        "one section each, in order, sections 8, 9 and 10 too"
     );
     let (id, reserved, payload) = parts
         .into_iter()
@@ -495,7 +498,7 @@ fn section_8_carries_each_drivers_parameters() {
     configuration.io_drivers[1].params = None;
     let record = record_with(configuration);
     let bytes = record.encode().expect("the record encodes");
-    assert_eq!(u16_at(&bytes, 4), 3, "the record is version 3");
+    assert_eq!(u16_at(&bytes, 4), 4, "the record is version 4");
     let parts = sections(&bytes);
     let (id, reserved, payload) = parts
         .iter()
@@ -524,14 +527,24 @@ fn section_8_carries_each_drivers_parameters() {
 /// (a chip refuses such a record's drivers other than `gpio`, specification 34 §5.1.1); a version-1
 /// record with section 8, and a version-2 record without it, are refused. Catches a reader that
 /// drops version 1, and one that takes section 8 under the wrong version. (Section 9, the crates of
-/// version 3, is left out of these records; `deployment_record.rs` reads version 2 without it.)
+/// version 3, and section 10, the flight recorder of version 4, are left out of these records;
+/// `deployment_record.rs` reads versions 2 and 3 without them.)
 #[test]
 fn a_version_1_record_is_read_without_driver_parameters() {
     let bytes = record_with(full_configuration())
         .encode()
         .expect("the record encodes");
     let mut parts = sections(&bytes);
-    assert_eq!(parts.pop().map(|part| part.0), Some(9), "section 9 is last");
+    assert_eq!(
+        parts.pop().map(|part| part.0),
+        Some(10),
+        "section 10 is last"
+    );
+    assert_eq!(
+        parts.pop().map(|part| part.0),
+        Some(9),
+        "section 9 is before it"
+    );
     let section_8 = parts.pop().expect("section 8");
     let version_1 = DeploymentRecord::decode(&raw(1, 7, &parts)).expect("version 1 reads");
     assert!(version_1
@@ -566,14 +579,14 @@ fn section_8_refuses_another_count_or_a_text_that_is_not_utf8() {
     fewer.extend_from_slice(b"{}");
     parts[last].2 = fewer;
     assert_eq!(
-        DeploymentRecord::decode(&raw(RECORD_VERSION, 9, &parts)).expect_err("one text for two"),
+        DeploymentRecord::decode(&raw(RECORD_VERSION, 10, &parts)).expect_err("one text for two"),
         Error::Field("the driver parameters' count")
     );
     let mut broken = vec![2, 0, 2, 0, 0, 0, 0xFF, 0xFE, 2, 0, 0, 0];
     broken.extend_from_slice(b"{}");
     parts[last].2 = broken;
     assert_eq!(
-        DeploymentRecord::decode(&raw(RECORD_VERSION, 9, &parts)).expect_err("not UTF-8"),
+        DeploymentRecord::decode(&raw(RECORD_VERSION, 10, &parts)).expect_err("not UTF-8"),
         Error::Field("a driver's parameters")
     );
 }
