@@ -16,7 +16,7 @@ use crate::transfer::{reserve_part, room_for, ReplyParts};
 use alloc::collections::TryReserveError;
 use alloc::vec::Vec;
 
-use super::response::{reserve_text, result_text, TextRefusal};
+use super::response::{reserve_text, result_text, text_block, TextRefusal};
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 fn wire(response: &ControlResponse) -> alloc::string::String {
@@ -643,4 +643,59 @@ fn a_result_text_the_heap_has_no_room_for_is_refused_and_never_an_abort() {
         )),
         r#"{"id":7,"ok":true,"result":{"a":[1,2.5,"x\"y"],"b":null}}"#
     );
+}
+
+/// The blocks of 4,096 bytes or more that [`one_large_block`] has given; only one test asks it.
+static LARGE_GIVEN: AtomicUsize = AtomicUsize::new(0);
+
+/// A heap with room for blocks of up to 3,000 bytes and none larger.
+fn small_blocks_only(len: usize) -> Result<Vec<u8>, TryReserveError> {
+    if len <= 3_000 {
+        reserve_text(len)
+    } else {
+        no_room(len)
+    }
+}
+
+/// A heap with room for one block of 4,096 bytes or more, and for blocks of up to 3,000 bytes.
+fn one_large_block(len: usize) -> Result<Vec<u8>, TryReserveError> {
+    if len >= 4_096 {
+        if LARGE_GIVEN.fetch_add(1, Ordering::Relaxed) == 0 {
+            reserve_text(len)
+        } else {
+            no_room(len)
+        }
+    } else {
+        small_blocks_only(len)
+    }
+}
+
+#[test]
+fn a_texts_room_is_its_last_block_and_its_own_length() {
+    // Specification 34 §7.4, "Reply refusals": without `std`, `serde_json` writes a text into a
+    // block that starts at 128 bytes and doubles, then copies it into a block of its length, so a
+    // text of up to N bytes ends in the block of the power of two at or above N and at its peak
+    // holds that block beside one of at most N. Worked by hand: the blocks of N = 2,560, 512 and
+    // 29 are 4,096, 512 and 128. For `status`, N = 2,560: a heap with room for one block of 4,096
+    // and for others up to 3,000 bytes writes it; a heap with no block over 3,000 refuses it, as
+    // the text's block of 4,096 would not fit; and N = 4,096, which needs two blocks of 4,096, is
+    // refused by the first heap. Catches a first block smaller than the text's last one, which
+    // would let the text grow into a block the heap does not have and abort, and a check of two
+    // full blocks, which refused `status` on the C6 where its text fit (checklist G320).
+    assert_eq!(
+        (text_block(2_560), text_block(512), text_block(29)),
+        (4_096, 512, 128)
+    );
+    let result = json!({"a": [1, 2.5, "x\"y"], "b": null});
+    LARGE_GIVEN.store(0, Ordering::Relaxed);
+    assert!(result_text(&result, 2_560, one_large_block).is_ok());
+    assert!(matches!(
+        result_text(&result, 2_560, small_blocks_only),
+        Err(TextRefusal::NoRoom { written: 0 })
+    ));
+    LARGE_GIVEN.store(0, Ordering::Relaxed);
+    assert!(matches!(
+        result_text(&result, 4_096, one_large_block),
+        Err(TextRefusal::NoRoom { written: 0 })
+    ));
 }

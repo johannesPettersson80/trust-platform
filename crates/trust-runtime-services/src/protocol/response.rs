@@ -101,18 +101,25 @@ pub(super) enum TextRefusal {
 }
 
 /// Asks the heap for the blocks a result's text of up to `bytes` bytes holds at its peak, and gives
-/// them back. Without `std`, `serde_json` writes a text only into a block of its own, which it
-/// doubles as the text grows and then copies into a block of the text's length: such a text holds
-/// at most two blocks of `bytes` at once. The loop that serves the request makes no other
-/// allocation before the text is written, so a heap that gave both has room for it, and one that
-/// has none refuses the reply before any of it is written (specification 34 §7.4, "Reply
-/// refusals").
+/// them back. Without `std`, `serde_json` writes a text only into a block of its own, which starts
+/// at 128 bytes and doubles as the text grows, and then copies the text into a block of its length.
+/// Such a text ends in a block of [`text_block`]`(bytes)`, the power of two at or above `bytes`, and
+/// at its peak holds that block beside the half it grew from or the copy, each at most `bytes`. The
+/// loop that serves the request makes no other allocation before the text is written, so a heap
+/// that gave both has room for it, and one that has none refuses the reply before any of it is
+/// written (specification 34 §7.4, "Reply refusals").
 pub(super) fn room_for_text(bytes: usize, reserve: TextReserve) -> Result<(), TextRefusal> {
-    let first = reserve(bytes).map_err(|_| TextRefusal::NoRoom { written: 0 })?;
+    let first = reserve(text_block(bytes)).map_err(|_| TextRefusal::NoRoom { written: 0 })?;
     let second = reserve(bytes).map_err(|_| TextRefusal::NoRoom { written: 0 })?;
     drop(second);
     drop(first);
     Ok(())
+}
+
+/// The block a text of up to `bytes` bytes ends in as `serde_json` writes it: its block starts at
+/// 128 bytes and doubles, so the power of two at or above `bytes`, and 128 at least.
+pub(super) fn text_block(bytes: usize) -> usize {
+    bytes.max(128).next_power_of_two()
 }
 
 /// The JSON text of `result`, once the heap has shown room for it ([`room_for_text`]).

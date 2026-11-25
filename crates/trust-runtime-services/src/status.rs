@@ -93,10 +93,11 @@ where
     status_for(id, host, None)
 }
 
-/// The bytes of `status`'s text, for which the heap is asked before it is written: a chip's reply
-/// is about 2,300 bytes, so that a heap without room for it refuses the reply rather than aborting
-/// (specification 34 §7.4, "Reply refusals"); a longer text grows as it is written.
-const STATUS_TEXT_BYTES: usize = 4 * 1024;
+/// The bytes of `status`'s text, for which the heap is asked before it is written: a chip's text is
+/// about 2,130 bytes (the C6 bench, 25 November 2026), so the heap is asked for a block of 4,096 and
+/// one of 2,560, and a heap without them refuses the reply rather than aborting (specification 34
+/// §7.4, "Reply refusals"); a longer text grows as it is written.
+const STATUS_TEXT_BYTES: usize = 2_560;
 
 /// `status` as [`status`] answers it, with what `role` may change when the dispatcher admitted the
 /// request with a role.
