@@ -36,7 +36,9 @@ mod radio_memory;
 
 use alloc::boxed::Box;
 use alloc::format;
+use alloc::collections::TryReserveError;
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::fmt::Write;
 
@@ -61,6 +63,7 @@ use trust_runtime_services::chip::network::{ChipNetwork, NetworkFacts};
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::firmware::{FirmwareFacts, FirmwareStore};
 use trust_runtime_services::link::LinkPair;
+use trust_runtime_services::transfer::reserve_zeroed;
 use trust_runtime_services::runner::{unfinished_load_reason, DeviceLiveValues, Runner};
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -82,6 +85,13 @@ type ChipLink = LinkPair<UsbLink, NetLink>;
 /// The C6's resource loop: its links, the wait, the program the loader builds, the platform and the
 /// clock.
 type ChipRunner = Runner<ChipLink, Wait, ChipCycle, ChipPlatform, ChipClock>;
+
+/// Reserves an upload's buffer as a program's blocks, so that a container takes the program region,
+/// where its module then runs in place (specification 44 §12.3); every other large block, such as
+/// a recording's, takes the data heap (specification 34 MEM-12).
+fn reserve_upload(len: usize) -> Result<Vec<u8>, TryReserveError> {
+    memory::HEAP.with_program_allocations(|| reserve_zeroed(len))
+}
 
 /// The bytes of the heap that a container can take now (specification 34 §5.1).
 fn heap_room() -> usize {
@@ -230,7 +240,7 @@ fn main() -> ! {
             SmolStr::new_static("the installed program is being loaded"),
             default_event_capacity(),
         )
-        .with_transfers(transfer_session(boot_count))
+        .with_transfers(transfer_session(boot_count, reserve_upload))
         .with_program_store(store, retained_check)
         .with_firmware(firmware_store)
         .with_program_loader(loader, None),

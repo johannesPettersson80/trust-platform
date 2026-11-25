@@ -7,7 +7,7 @@ use trust_runtime_core::deployment::{
 };
 use trust_runtime_core::native::image::Target;
 use trust_runtime_services::runner::DeviceStack;
-use trust_runtime_services::transfer::TransferSession;
+use trust_runtime_services::transfer::{Reserve, TransferSession};
 
 /// CPU clock from `CpuClock::max()` on ESP32-C6 (160 MHz); the PCCR rate matches it.
 pub const CPU_HZ: u32 = 160_000_000;
@@ -165,9 +165,13 @@ pub const HEAP_CAPACITY_BYTES: usize = 98_368 + 65_536 + 16_256;
 /// `transfer.get` (PORT-05). The reply is written in parts of 4,096 bytes that the heap gives as the
 /// writing reaches them, and they are freed when the reply is read, aborted or replaced
 /// (Appendix D.2, long replies).
+///
+/// `reserve` reserves an upload's buffer: the firmware's asks it as a program's blocks, so that it
+/// takes the program region, where the module then runs in place (specification 44 §12.3), and a
+/// large block of data never does.
 #[must_use]
-pub fn transfer_session(boot: u32) -> TransferSession {
-    TransferSession::new(boot, SLOT_BYTES as usize, HEAP_CAPACITY_BYTES)
+pub fn transfer_session(boot: u32, reserve: Reserve) -> TransferSession {
+    TransferSession::with_reserve(boot, SLOT_BYTES as usize, HEAP_CAPACITY_BYTES, reserve)
 }
 
 /// BOOT button GPIO: a strapping pin that is read only after boot, active low.

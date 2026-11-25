@@ -1212,7 +1212,10 @@ traces", gives the requests.
     cycle's changes and for the forces, a sixty-fourth for a cycle's readings, a thirty-second for
     one value and a quarter for the recording. The memory a chip has for a recording is its free
     heap less what it keeps beside any program (specification 34 MEM-12), so that a recording
-    never takes the working memory the chip needs. The flight recorder's two recordings each take
+    never takes the working memory the chip needs: a recording whose rooms together would need
+    more, as one of many cycles can, is refused before it reserves any, with the bytes it needs.
+    The free heap is the heap's data regions, which a recording's rooms come from however large
+    they are; a chip's program region holds programs only (specification 44 §10.3). The flight recorder's two recordings each take
     the shares of half that memory, so that together they take what one recording would, and a
     recording on demand still fits beside them. A chip thereby records within its memory, and a
     cycle that outgrows its room ends the recording `memory_full` there as on a computer. A chip

@@ -16,6 +16,7 @@ use trust_platform_esp32::checkpoint::RawFlash;
 use trust_platform_esp32::profile::transfer_session;
 use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::retain::checkpoint::FlashError;
+use trust_runtime_services::transfer::reserve_zeroed;
 
 /// The flash from address 0 to the end of the counter's sectors (0xB000), erased.
 const FLASH_BYTES: usize = 0xB000;
@@ -133,7 +134,7 @@ fn the_boot_counter_survives_a_power_loss() {
             "boot {expected} after {} power losses",
             expected - 1
         );
-        let mut session = transfer_session(count);
+        let mut session = transfer_session(count, reserve_zeroed);
         ids.push(
             session
                 .begin(5, sha256(b"hello"))

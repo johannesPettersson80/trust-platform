@@ -57,7 +57,7 @@ package "Container and program store (specification 34 §5.1)" as storePkg #Ligh
 package "ESP32-C6 firmware (the STM32U5A9 runs CODE in place from flash)" as chipPkg #LightCyan {
     component "Runner (trust-runtime-services)\nfixed cycle grid (spec 10 §4.3),\nlink, faults, watchdog, metrics,\ncycle traces and the flight\nrecorder (runner/trace.rs, RU-59)" as runner
     component "CompiledLoader\n(trust-platform-esp32)\nadmit, place module (copy CODE +\nRODATA, fence.i), claim lines" as loader
-    component "ProgramCode\n192 KiB program region of the heap (.trust_code),\nexecutable: module copies at the top, uploads\nat the bottom; flash window as fallback" as codeRegion
+    component "ProgramCode\n112 KiB program region of the heap (.trust_code),\nexecutable, programs only: module copies at the top,\nuploads at the bottom; flash window as fallback;\na trace's rooms take the data heap (RU-59)" as codeRegion
     component "CompiledCycle\nread inputs, scan, deadline,\nsnapshot, drive outputs" as cycle
     component "NativeProgram (trust-runtime-core::native)\nareas, task readiness, bindings to the flat\nimages and the hierarchical image's slots,\nenumeration inputs checked, fault mapping" as kernel
     component "native::retain\ncapture and restore through the\nretain map and the type table" as retainMap
