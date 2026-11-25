@@ -2896,9 +2896,22 @@ fn direct_control_state_field_bypass(line: &str) -> Option<&'static str> {
     None
 }
 
-fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary {
+/// Whether a production line, its comment stripped, can panic: it calls `unwrap` or `expect`, or
+/// it is `panic!`, `todo!` or `unimplemented!`. An attribute never panics, so `#[expect(..)]` and
+/// `#![expect(..)]`, lint expectations, are not panic-like sites.
+fn is_panic_like_line(line: &str) -> bool {
     const PANIC_LIKE_NEEDLES: [&str; 5] =
         ["unwrap(", "expect(", "panic!", "todo!", "unimplemented!"];
+    let code = line.trim_start();
+    if code.starts_with("#[") || code.starts_with("#![") {
+        return false;
+    }
+    PANIC_LIKE_NEEDLES
+        .iter()
+        .any(|needle| code.contains(needle))
+}
+
+fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary {
     const CONCURRENCY_NEEDLES: [&str; 18] = [
         "thread::spawn",
         "std::thread",
@@ -2944,11 +2957,7 @@ fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary 
                         pattern: line.trim().to_string(),
                     });
                 }
-                if is_panic_like_scan_path(&rel)
-                    && PANIC_LIKE_NEEDLES
-                        .iter()
-                        .any(|needle| line_without_comment.contains(needle))
-                {
+                if is_panic_like_scan_path(&rel) && is_panic_like_line(line_without_comment) {
                     production_panic_like_sites.push(SourcePatternSummary {
                         path: rel.clone(),
                         line: idx,
@@ -4912,6 +4921,24 @@ mod tests {
             });
 
         assert!(check_unsafe_concurrency_summary(&map).is_fail());
+    }
+
+    #[test]
+    fn a_lint_expectation_is_not_a_panic_like_site() {
+        // The panic-like scan looks for code that can panic. `#[expect(lint, reason = ..)]` and
+        // `#![expect(..)]` are lint expectations, which never panic, while `.expect(..)`,
+        // `.unwrap()` and `panic!` on lines of their own are panic-like. Catches a scan that flags
+        // every lint expectation, as it flagged the C6 Wi-Fi driver's two (G301), and one that
+        // stops flagging `.expect(`.
+        assert!(!is_panic_like_line("                #[expect("));
+        assert!(!is_panic_like_line(
+            "#![expect(clippy::too_many_lines, reason = \"one table\")]"
+        ));
+        assert!(is_panic_like_line(
+            "    let value = slot.expect(\"a value\");"
+        ));
+        assert!(is_panic_like_line("            .unwrap()"));
+        assert!(is_panic_like_line("    panic!(\"unreachable\")"));
     }
 
     #[test]
