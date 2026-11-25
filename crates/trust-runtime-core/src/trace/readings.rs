@@ -142,6 +142,13 @@ pub fn take(each: &mut dyn FnMut(i64)) -> usize {
     with_state(|state| state.take(each))
 }
 
+/// How many readings [`take`] would hand now: those kept since the last take, at most [`ROOM`];
+/// a runtime that holds them in memory of its own reserves that much first.
+#[must_use]
+pub fn kept() -> usize {
+    with_state(|state| state.count.min(ROOM))
+}
+
 /// Gives this thread's wall clock the readings of a recorded cycle, which a replay gives the build
 /// (specification 48 RU-60): [`played`] hands them out in order, then the last of them again when
 /// the build reads the clock more often. Readings past the room are not played.

@@ -148,6 +148,7 @@ fn full_trace() -> Trace {
                     (text("Setpoint"), text("21.5")),
                     (text("Mode"), text("'auto'")),
                 ],
+                readings: vec![1_795_000_000_123, 1_795_000_000_124],
             },
         },
         Change {
@@ -289,6 +290,46 @@ fn a_variables_write_lies_as_its_kind_gives_it() {
     assert_eq!(&bytes[51..56], &[0; 5]);
     // The input block follows at 56.
     assert_eq!(u32_at(&bytes, 56), 0);
+}
+
+#[test]
+fn a_method_call_lies_as_its_kind_gives_it() {
+    // Catches a method call's readings in the wrong place, their count left out, or a reader that
+    // takes the call's end for its readings (specification 48 RU-59, Appendix C.6 kind 7). Worked
+    // by hand: kind 7, source 1 (the control link), then the data: "Main.H" (2 + 6), "I" (2 + 1),
+    // "Go" (2 + 2), one input (2), "A" (2 + 1) and "1" (2 + 1), two readings (2), and the readings
+    // 1,795,000,000,123 and 1,795,000,000,124 (8 each): 41 bytes, padded with 7 to 56 bytes from the
+    // change's start at 24.
+    let cycle = Cycle {
+        changes: vec![Change {
+            source: ChangeSource::ControlLink,
+            kind: ChangeKind::MethodCall {
+                instance: text("Main.H"),
+                interface: text("I"),
+                method: text("Go"),
+                inputs: vec![(text("A"), text("1"))],
+                readings: vec![1_795_000_000_123, 1_795_000_000_124],
+            },
+        }],
+        ..Cycle::default()
+    };
+    let mut bytes = Vec::new();
+    encode_cycle(&cycle, &mut bytes);
+    assert_eq!(&bytes[24..28], &[7, 1, 0, 0]);
+    assert_eq!(u32_at(&bytes, 28), 41);
+    assert_eq!(&bytes[32..34], &6u16.to_le_bytes());
+    assert_eq!(&bytes[34..40], b"Main.H");
+    assert_eq!(&bytes[40..43], &[1, 0, b'I']);
+    assert_eq!(&bytes[43..47], &[2, 0, b'G', b'o']);
+    assert_eq!(&bytes[47..49], &1u16.to_le_bytes());
+    assert_eq!(&bytes[49..55], &[1, 0, b'A', 1, 0, b'1']);
+    assert_eq!(&bytes[55..57], &2u16.to_le_bytes());
+    assert_eq!(u64_at(&bytes, 57), 1_795_000_000_123);
+    assert_eq!(u64_at(&bytes, 65), 1_795_000_000_124);
+    assert_eq!(&bytes[73..80], &[0; 7]);
+    // The input block follows at 80.
+    assert_eq!(u32_at(&bytes, 80), 0);
+    assert_eq!(super::read::read_cycle(&bytes).unwrap(), cycle);
 }
 
 #[test]

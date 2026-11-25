@@ -15,6 +15,7 @@
 //! recording runs as before.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 
 use trust_runtime_core::cycle::CyclePhase;
@@ -26,6 +27,7 @@ use trust_runtime_core::value::{Duration, Value};
 
 use crate::live_values::apply::ForceEffect;
 use crate::live_values::queues::{ForcedVar, PendingVarTarget};
+use crate::method_call::MethodCall;
 use crate::trace::requests::{RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState};
 use crate::trace::session::{cycle_fault, Device, Program, TraceSession, TraceSlot};
 use crate::trace::{Begin, Budget, Recorder};
@@ -130,6 +132,24 @@ impl SharedTraces<'_> {
     pub(super) fn force_changes_lost(&self) {
         self.with(ChipTraces::force_changes_lost);
     }
+
+    /// Before a tool's method call between two scans: while a recording runs, the wall clock's
+    /// readings the call makes are kept for it, as a computer keeps them (specification 48 RU-59).
+    /// It answers whether a recording runs, for [`Self::method_called`] after the call.
+    #[inline(never)]
+    pub(super) fn arm_call_readings(&self) -> bool {
+        let records = self.records();
+        if records {
+            readings::arm();
+        }
+        records
+    }
+
+    /// After the call, answered or refused ([`ChipTraces::method_called`]).
+    #[inline(never)]
+    pub(super) fn method_called(&self, call: &MethodCall, answered: bool) {
+        self.with(|traces| traces.method_called(call, answered));
+    }
 }
 
 /// A chip's traces: the slot `trace.read` reads, and the recording on demand that runs.
@@ -224,6 +244,31 @@ impl ChipTraces {
             && session.publish(&mut self.slot, name)
         {
             self.session = None;
+        }
+    }
+
+    /// A tool's method call between two scans, answered or refused (specification 48 RU-59): the
+    /// wall clock's readings it made are taken, and an answered call is the next cycle's change,
+    /// with them. The readings are held only until then, in memory reserved for exactly them, as a
+    /// chip reserves what a recording holds: memory it cannot give, like readings past the room,
+    /// ends the recording `memory_full`.
+    fn method_called(&mut self, call: &MethodCall, answered: bool) {
+        let mut taken = Vec::new();
+        let reserved = taken.try_reserve_exact(readings::kept()).is_ok();
+        let read = readings::take(&mut |reading| {
+            if reserved {
+                taken.push(reading);
+            }
+        });
+        readings::disarm();
+        let Some(recorder) = self.recorder() else {
+            return;
+        };
+        if read > taken.len() {
+            recorder.readings_lost();
+        }
+        if answered {
+            recorder.method_called(ChangeSource::ControlLink, &call.instance, call, &taken);
         }
     }
 

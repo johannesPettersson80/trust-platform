@@ -216,6 +216,8 @@ pub enum ChangeRef<'a> {
         method: &'a str,
         /// Each input's name and Structured Text literal.
         inputs: &'a [(&'a str, &'a str)],
+        /// Each reading of the wall clock the call made, in order.
+        readings: &'a [i64],
     },
 }
 
@@ -281,6 +283,7 @@ impl ChangeKind {
                 interface,
                 method,
                 inputs,
+                readings,
             } => {
                 pairs.extend(
                     inputs
@@ -292,6 +295,7 @@ impl ChangeKind {
                     interface,
                     method,
                     inputs: pairs,
+                    readings,
                 }
             }
         }
@@ -359,6 +363,7 @@ pub fn encode_change(source: ChangeSource, change: &ChangeRef<'_>, out: &mut Vec
             interface,
             method,
             inputs,
+            readings,
         } => {
             put_text(out, instance);
             put_text(out, interface);
@@ -372,6 +377,15 @@ pub fn encode_change(source: ChangeSource, change: &ChangeRef<'_>, out: &mut Vec
             for (name, literal) in inputs {
                 put_text(out, name);
                 put_text(out, literal);
+            }
+            let readings = &readings[..readings.len().min(usize::from(u16::MAX))];
+            out.extend_from_slice(
+                &u16::try_from(readings.len())
+                    .unwrap_or(u16::MAX)
+                    .to_le_bytes(),
+            );
+            for reading in readings {
+                out.extend_from_slice(&reading.to_le_bytes());
             }
         }
     }
@@ -407,6 +421,7 @@ fn data_len(change: &ChangeRef<'_>) -> usize {
             interface,
             method,
             inputs,
+            readings,
         } => {
             let inputs = &inputs[..inputs.len().min(usize::from(u16::MAX))];
             text_len(instance)
@@ -417,6 +432,8 @@ fn data_len(change: &ChangeRef<'_>) -> usize {
                     .iter()
                     .map(|(name, literal)| text_len(name) + text_len(literal))
                     .sum::<usize>()
+                + 2
+                + 8 * readings.len().min(usize::from(u16::MAX))
         }
     }
 }
