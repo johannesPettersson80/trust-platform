@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "structured-text",
+      "request": "launch",
+      "name": "truST Simulator",
+      "program": "${workspaceFolder}/src/Configuration.st",
+      "stopOnEntry": false
+    }
+  ]
+}

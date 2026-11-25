@@ -859,6 +859,14 @@
       "rationale": "the machine tests of the example room_heating run its program and plant with trust-sim, as a user's machine tests do (specification 48 RU-58)"
     },
     {
+      "from": "fault-trace-machine-tests",
+      "to": "trust-sim",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "the machine tests of the example fault_trace fault its program on purpose and replay the flight recorder's trace with trust-sim, as a user's machine tests do (specification 48 RU-58, RU-60)"
+    },
+    {
       "from": "trust-sim",
       "to": "trust-plc",
       "kind": "normal",
