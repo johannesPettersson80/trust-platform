@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { attachControlStudio } from "./control-studio-rendered-harness";
+import { attachControlStudio, studioMessage } from "./control-studio-rendered-harness";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
 /*
@@ -137,5 +137,5 @@ async function withStudio(exercise: (inner: (body: string) => Promise<string>) =
 
 /** Posts the engine's answer of a method as the host does (engine/enginePanelRoute.ts): its result, in the loop's scope. */
 function engineResult(method: string, result: Record<string, unknown>): string {
-  return `const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.engine.result',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,method:${JSON.stringify(method)},result:${JSON.stringify(result)}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`;
+  return studioMessage("control-studio.engine.result", { method, result });
 }
