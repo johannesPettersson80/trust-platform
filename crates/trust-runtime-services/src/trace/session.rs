@@ -8,6 +8,7 @@
 //! holds is reserved when it starts, so that a chip never allocates what it may not have (RU-59,
 //! "Memory").
 
+use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -26,14 +27,16 @@ use super::{
 };
 
 /// The traces the control link reads: the recording that runs, the last that ended, and the flight
-/// recorder's trace of the last fault, each served part by part.
+/// recorder's trace of the last fault, each served part by part. A trace the slot keeps is boxed,
+/// so that the slot itself stays a few words: a chip's runner holds it from its boot, whether or not
+/// anything records (specification 34 MEM-12).
 #[derive(Debug, Default)]
 pub struct TraceSlot {
     last_id: u64,
     running: Option<(u64, u64)>,
-    ended: Option<(u64, ServedTrace)>,
+    ended: Option<(u64, Box<ServedTrace>)>,
     /// The flight recorder's trace of the last fault, which stays until the next fault.
-    fault: Option<ServedTrace>,
+    fault: Option<Box<ServedTrace>>,
 }
 
 impl TraceSlot {
@@ -45,7 +48,7 @@ impl TraceSlot {
         let TraceName::Id(id) = name else {
             return self
                 .fault
-                .as_ref()
+                .as_deref()
                 .map_or(TraceState::None, ServedTrace::state);
         };
         if let Some((running, cycles)) = self.running
@@ -65,8 +68,8 @@ impl TraceSlot {
     #[must_use]
     pub fn part(&self, name: TraceName, offset: usize, out: &mut [u8]) -> Option<usize> {
         let served = match name {
-            TraceName::Id(id) => &self.ended.as_ref().filter(|(ended, _)| *ended == id)?.1,
-            TraceName::Fault => self.fault.as_ref()?,
+            TraceName::Id(id) => &*self.ended.as_ref().filter(|(ended, _)| *ended == id)?.1,
+            TraceName::Fault => self.fault.as_deref()?,
         };
         (offset <= served.len()).then(|| served.part(offset, out))
     }
@@ -75,7 +78,7 @@ impl TraceSlot {
     /// readable until the next fault, whatever recordings start (specification 11 §6.8.1, "Cycle
     /// traces").
     pub fn keep_fault(&mut self, trace: ServedTrace) {
-        self.fault = Some(trace);
+        self.fault = Some(Box::new(trace));
     }
 
     /// A recording starts: its identity, which replaces the last trace's (specification 11,
@@ -399,7 +402,7 @@ impl TraceSession {
             return false;
         };
         slot.running = None;
-        slot.ended = Some((self.id, served));
+        slot.ended = Some((self.id, Box::new(served)));
         true
     }
 }
