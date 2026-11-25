@@ -3,6 +3,7 @@
 //! century.
 use trust_runtime_core::error::{RuntimeError, StableErrorCode};
 use trust_runtime_core::fault::{FaultDetail, FaultRecord, FaultSite};
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::value::Duration;
 
 /// The fault record is `Copy` and stays within its 56-byte bound on this target.
@@ -15,7 +16,11 @@ fn the_fault_record_is_copy_and_at_most_56_bytes() {
             lower: 0,
             upper: 10,
         },
-        site: FaultSite { pou: 7, pc: 9 },
+        site: FaultSite {
+            pou: 7,
+            statement: 9,
+            generation: Generation(3),
+        },
         task: 2,
         logical_seconds: 30,
         logical_millis: 1,
@@ -36,7 +41,11 @@ fn the_fault_record_is_copy_and_at_most_56_bytes() {
 #[test]
 fn the_time_field_keeps_the_millisecond_and_does_not_wrap() {
     let error = RuntimeError::DivisionByZero;
-    let site = FaultSite { pou: 1, pc: 2 };
+    let site = FaultSite {
+        pou: 1,
+        statement: 2,
+        generation: Generation(3),
+    };
     let at_1_234_567_ms = FaultRecord::latch(&error, site, 0, Duration::from_millis(1_234_567));
     assert_eq!(
         (
@@ -87,7 +96,11 @@ fn the_time_field_does_not_wrap_within_a_century() {
     );
 
     let error = RuntimeError::DivisionByZero;
-    let site = FaultSite { pou: 1, pc: 2 };
+    let site = FaultSite {
+        pou: 1,
+        statement: 2,
+        generation: Generation(3),
+    };
     let at_a_century = FaultRecord::latch(
         &error,
         site,

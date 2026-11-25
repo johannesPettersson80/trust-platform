@@ -9,6 +9,7 @@
 
 pub mod admission;
 pub mod change;
+pub mod fault_place;
 mod functions;
 pub mod image;
 pub mod library;

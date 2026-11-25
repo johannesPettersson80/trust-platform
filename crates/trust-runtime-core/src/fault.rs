@@ -24,6 +24,7 @@ use smol_str::SmolStr;
 use crate::error::ExecutionLimitKind;
 use crate::error::RuntimeError;
 use crate::error::StableErrorCode;
+use crate::memory::Generation;
 use crate::value::Duration;
 
 /// Milliseconds in one whole second of the record's logical time.
@@ -121,25 +122,29 @@ impl fmt::Display for FaultDetail {
     }
 }
 
-/// The first failing instruction of a fault, recorded while unwinding.
+/// Where the program raised a fault (specification 34 MEM-05): the statement that the kernel's
+/// fault record names and the POU that holds it, from the image's statement table (specification
+/// 44 §8.6, §5.9), and the generation of the program whose image numbers them. A runtime names its
+/// POU, file and line when it reports the fault, while that generation runs
+/// ([`crate::native::fault_place`]; specification 11, the fault entry).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FaultSite {
-    /// POU identity of the failing instruction.
+    /// The POU that holds the statement, as the statement table numbers it.
     pub pou: u32,
-    /// Offset of the failing instruction in the prepared code section, the offset the
-    /// disassembler prints. The offset inside the POU body is this value less the POU's
-    /// `code_offset`.
-    pub pc: u32,
+    /// The statement, its index in the image's statement table.
+    pub statement: u32,
+    /// The generation of the program that raised the fault (specification 34 §11.3).
+    pub generation: Generation,
 }
 
 impl FaultSite {
-    /// The site of a fault that no dispatched instruction raised, such as an adapter,
-    /// deadline, retain or output failure (specification 34 MEM-05). No instruction sits at
-    /// this offset: a code section that reached it would carry `u32::MAX` bytes of
-    /// instructions.
+    /// The site of a fault that the program did not raise, such as an adapter, deadline,
+    /// retain or output failure, or of a fault in an image without a statement table
+    /// (specification 34 MEM-05). No statement has this index.
     pub const NONE: Self = Self {
         pou: u32::MAX,
-        pc: u32::MAX,
+        statement: u32::MAX,
+        generation: Generation::FIRST,
     };
 }
 
@@ -153,7 +158,7 @@ pub struct FaultRecord {
     pub code: StableErrorCode,
     /// Bounded fault context.
     pub detail: FaultDetail,
-    /// The first failing instruction.
+    /// Where the program raised the fault, [`FaultSite::NONE`] for a fault from outside it.
     pub site: FaultSite,
     /// Task that was running when the fault was raised, [`NO_TASK`] when none was.
     pub task: u16,
@@ -169,8 +174,8 @@ pub struct FaultRecord {
 pub const NO_TASK: u16 = u16::MAX;
 
 impl FaultRecord {
-    /// Latch a failed scan: the error's stable code and bounded detail, the site of the
-    /// failing instruction, the task that ran and the scan's logical time (specification 34
+    /// Latch a failed scan: the error's stable code and bounded detail, the site where the
+    /// program raised it, the task that ran and the scan's logical time (specification 34
     /// MEM-05).
     ///
     /// The error is read by reference and never cloned, so latching a fault allocates nothing.
