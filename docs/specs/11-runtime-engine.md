@@ -3684,7 +3684,8 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   reads (`CURRENT_DT`) is the logical time from 1 January 1970 UTC.
 - Its control link is its standard input and output: one request per line in and one response per
   line out (the runtime protocol annex, E0.1), and nothing else on its standard output; its log goes
-  to its standard error. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
+  to its standard error. It reads its first request once its resource has started, so that every
+  request finds the resource started, never booting. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
   the process that started it holds its standard input and has the Admin role, which includes every
   other. Its debug surface is on, whatever `runtime.control.debug_enabled` says, since a test reads
   and forces values as the debugger does. It ends when its standard input closes; after `shutdown`
