@@ -33,6 +33,17 @@
     ]
   },
   {
+    "id": "fault-trace",
+    "title": "Fault trace",
+    "description": "A dosing pump faults when its stroke sensor breaks: save the flight recorder's trace of the fault and replay it to see the fault again. Simulates with no hardware.",
+    "path": "fault_trace",
+    "hardware": "none",
+    "tags": [
+      "debugging",
+      "simulator"
+    ]
+  },
+  {
     "id": "rust-function-block",
     "title": "Rust function block",
     "description": "A Structured Text program that calls a function block written in Rust. Simulates with no hardware.",

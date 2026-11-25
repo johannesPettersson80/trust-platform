@@ -89,8 +89,8 @@ builds them step by step.
 `tests/replay.rs` replays it with the program as it is now. It fails when a change alters what the
 program decides, and names the first cycle and output that differ. When you change the heating on
 purpose, record the trace again: run the program, run
-`trust-runtime ctl record --duration 30s --out traces/commissioning.trusttrace` in this folder,
-and press Start on the Heating panel in the first seconds.
+`trust-runtime ctl --project . record --duration 30s --out traces/commissioning.trusttrace` in this
+folder, and press Start on the Heating panel in the first seconds.
 
 ## What it is not
 

@@ -1,0 +1,16 @@
+# The dosing pump's stroke sensor: 60 strokes a minute from the start, and a broken wire at 5 s,
+# after which it reads 0 (specification 46, disturbances).
+[simulation]
+enabled = true
+
+[[disturbances]]
+at_ms = 0
+kind = "set"
+target = "%IW0"
+value = "60"
+
+[[disturbances]]
+at_ms = 5000
+kind = "set"
+target = "%IW0"
+value = "0"
