@@ -42,15 +42,18 @@ the fault, replay it on your computer to see the fault again, and check a fix ag
     Five seconds after the start, the runtime logs the fault, a `runtime_fault` line with
     `"error":"division by zero"` and `"time_ms":5000`.
 
-5. In the second terminal, ask the runtime's state, then save the fault's trace:
+5. In the second terminal, ask the runtime's state and its faults, then save the fault's trace:
 
     ```text
     trust-runtime ctl --project . status
+    trust-runtime ctl --project . faults
     trust-runtime ctl --project . fault-trace --out dosing-fault.trusttrace
     ```
 
-    The first prints `state=faulted fault=division by zero rt_profile=disabled rt_active=false`, the
-    second `saved the fault's trace of 501 cycles (faulted) to dosing-fault.trusttrace, 53584 bytes`. The
+    The first prints `state=faulted fault=division by zero rt_profile=disabled rt_active=false`. The
+    second lists the fault with where the program raised it: `"pou":"Main"`, `"file":"src/Main.st"`,
+    `"line":17`, the division in `src/Main.st`. The third prints
+    `saved the fault's trace of 501 cycles (faulted) to dosing-fault.trusttrace, 53584 bytes`. The
     runtime had already written the same trace into `traces/`, named after the fault's UTC date and time:
     in the run, `traces/fault-20261125T160340Z.trusttrace`, also 53584 bytes.
 
@@ -107,7 +110,7 @@ without a broken sensor.
     ```text
     Replayed 501 cycles of a changed program.
     The first difference is at cycle 500, at the logical time 5000 ms:
-      the trace's cycle ended with DivisionByZero in POU 0 at statement 0, the build's with no fault
+      the trace's cycle ended with division by zero in Main, the build's with no fault
     No later cycle differs.
     ```
 
