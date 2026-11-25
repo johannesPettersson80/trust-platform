@@ -3,10 +3,15 @@
 //! that the image's tables give it when the runtime reports the fault (specification 11, the
 //! fault entry).
 
+use alloc::string::{String, ToString};
+
+use trust_plc_abi::{FaultCode, FaultRecord as KernelFault};
+
 use crate::fault::FaultSite;
 use crate::memory::Generation;
 use crate::native::image::{FileRecord, Image, StmtRecord};
 use crate::native::memory::pou_symbol;
+use crate::native::program::fault_error;
 
 /// The site of the fault that the kernel recorded with the code `code` at the statement
 /// `statement` (specification 44 §8.6), in the program of `image` and generation `generation`:
@@ -66,4 +71,20 @@ pub fn fault_place<'a>(image: &Image<'a>, site: FaultSite) -> Option<FaultPlace<
         file: image.string(file.label)?,
         line: statement.start_line,
     })
+}
+
+/// The runtime's text of a fault of which only the code `code` is known, as a cycle trace keeps it
+/// (specification 48 Appendix C, C.6): [`fault_error`]'s text where it holds no number of the
+/// fault's detail, and that text without the numbers where it does. Code 0, a fault from outside
+/// the program, is named so.
+#[must_use]
+pub fn fault_code_text(code: u32) -> String {
+    match FaultCode::from_raw(code) {
+        _ if code == 0 => "a fault from outside the program".into(),
+        Some(FaultCode::IndexOutOfBounds) => "array index out of bounds".into(),
+        Some(FaultCode::SubrangeViolation) => "value outside declared subrange".into(),
+        Some(FaultCode::InfiniteLoop) => "execution timed out".into(),
+        Some(FaultCode::RustFault) => "Rust fault".into(),
+        _ => fault_error(&KernelFault::default(), code, 0).to_string(),
+    }
 }

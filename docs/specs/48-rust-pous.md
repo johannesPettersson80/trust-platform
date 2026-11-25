@@ -1256,7 +1256,13 @@ cycle's output image with the trace's (specification 11 §6.8.1, `simulator.repl
         many later cycles differ too. It ends with 1.
     - **A trace or build it cannot replay** ends it with 2 and the reason.
     - **A trace that ended with a fault** expects the build's fault at the same cycle. A fault in
-        another cycle, or none, is a difference.
+        another cycle, or none, is a difference. The report names each fault as specification 11's
+        fault entry does: the runtime's text, then where the program raised it, ` in <POU> at
+        <file>:<line>`. The build's place comes from its own tables; the trace's from the build's
+        tables when the build has the trace's sources, whose statements are the recorded ones, and
+        otherwise only ` in <POU>`, from the recorded program's symbols, which the trace keeps.
+        A trace's fault keeps no detail, so its text leaves out the numbers that a fault's text
+        such as `array index 9 out of bounds [1..4]` would hold.
     - **What was replayed.** The report names it, from the sources' hash and target of the trace and
         of the build (an image's build time makes every build's SHA-256 its own):
         - the same program: the same sources, built for the same target;

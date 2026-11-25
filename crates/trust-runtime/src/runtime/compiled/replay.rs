@@ -5,10 +5,13 @@
 //! task activations, its input image and its wall-clock readings; each cycle's outputs, or its
 //! fault, are compared with the trace's.
 
-use trust_plc_abi::FaultCode;
+use trust_runtime_core::fault::FaultSite;
 use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::change::carry;
+use trust_runtime_core::native::fault_place::{fault_code_text, fault_place};
 use trust_runtime_core::native::image::{Image, TaskRecord};
+use trust_runtime_core::native::memory::pou_symbol;
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::replay::{
     as_requested, differing_outputs, located_address, located_bytes, located_value, names_variable,
@@ -73,6 +76,9 @@ impl CompiledRuntime {
             &header.source_hash,
             header.target,
         );
+        // A build of the trace's sources numbers its statements as the recorded program did, so its
+        // tables name where the trace's fault was raised (specification 48 RU-60).
+        let same_sources = kind != ReplayKind::ChangedProgram;
         let build: Vec<String> = image
             .table::<TaskRecord>()
             .map(|tasks| {
@@ -142,7 +148,9 @@ impl CompiledRuntime {
                 inputs: &cycle.inputs,
             }));
             cycles += 1;
-            if let Some(difference) = self.difference(&trace.located, &traced, cycle, &result) {
+            if let Some(difference) =
+                self.difference(&trace.located, &traced, same_sources, cycle, &result)
+            {
                 if first_difference.is_none() {
                     first_difference = Some(FirstDifference {
                         cycle: u64::try_from(index).unwrap_or(u64::MAX),
@@ -333,6 +341,7 @@ impl CompiledRuntime {
         &self,
         located: &[Located],
         traced: &Image<'_>,
+        same_sources: bool,
         cycle: &Cycle,
         result: &Result<(), RuntimeError>,
     ) -> Option<Difference> {
@@ -356,21 +365,24 @@ impl CompiledRuntime {
                         .collect();
                 (!outputs.is_empty()).then_some(Difference::Outputs(outputs))
             }
-            (Some(recorded), Err(_)) => {
+            (Some(recorded), Err(error)) => {
                 let fault = cycle_fault(&image, &self.cycle.program().last_fault());
                 (fault.code != recorded.code).then(|| Difference::Faults {
-                    trace: Some(fault_text(recorded)),
-                    build: Some(fault_text(&fault)),
+                    trace: Some(recorded_fault_text(recorded, &image, traced, same_sources)),
+                    build: Some(build_fault_text(error, &fault, &image)),
                 })
             }
             (Some(recorded), Ok(())) => Some(Difference::Faults {
-                trace: Some(fault_text(recorded)),
+                trace: Some(recorded_fault_text(recorded, &image, traced, same_sources)),
                 build: None,
             }),
-            (None, Err(error)) => Some(Difference::Faults {
-                trace: None,
-                build: Some(error.to_string()),
-            }),
+            (None, Err(error)) => {
+                let fault = cycle_fault(&image, &self.cycle.program().last_fault());
+                Some(Difference::Faults {
+                    trace: None,
+                    build: Some(build_fault_text(error, &fault, &image)),
+                })
+            }
         }
     }
 }
@@ -433,14 +445,46 @@ impl Drop for Playback {
     }
 }
 
-/// A recorded fault as the report names it: its code, the POU and the statement that raised it.
-fn fault_text(fault: &CycleFault) -> String {
-    let code = FaultCode::from_raw(fault.code).map_or_else(
-        || format!("fault code {}", fault.code),
-        |code| format!("{code:?}"),
-    );
-    format!(
-        "{code} in POU {} at statement {}",
-        fault.pou, fault.statement
-    )
+/// A recorded fault as the report names it (specification 48 RU-60): the runtime's text of its
+/// code, then where the program raised it ([`fault_place_text`]).
+fn recorded_fault_text(
+    fault: &CycleFault,
+    build: &Image<'_>,
+    traced: &Image<'_>,
+    same_sources: bool,
+) -> String {
+    let text = fault_code_text(fault.code);
+    format!("{text}{}", fault_place_text(fault, build, traced, same_sources))
+}
+
+/// Where the program raised `fault`, as the report names it after the fault's text (specification
+/// 48 RU-60, specification 11's fault entry): ` in <POU> at <file>:<line>` from the build's tables
+/// when they number the fault's statements, as a build of the same sources does; else ` in <POU>`
+/// from the recorded program's own symbols, `traced`; nothing for a fault from outside the program.
+fn fault_place_text(
+    fault: &CycleFault,
+    build: &Image<'_>,
+    traced: &Image<'_>,
+    same_sources: bool,
+) -> String {
+    if fault.code == 0 {
+        return String::new();
+    }
+    let site = FaultSite {
+        pou: fault.pou,
+        statement: fault.statement,
+        generation: Generation::FIRST,
+    };
+    if same_sources && let Some(place) = fault_place(build, site) {
+        return format!(" in {} at {}:{}", place.pou, place.file, place.line);
+    }
+    pou_symbol(traced, fault.pou)
+        .and_then(|(_, symbol)| traced.string(symbol.display))
+        .map_or_else(String::new, |pou| format!(" in {pou}"))
+}
+
+/// The build's fault as the report names it: the runtime's text of `error`, then where the build
+/// raised it, from its own tables (specification 48 RU-60).
+fn build_fault_text(error: &RuntimeError, fault: &CycleFault, build: &Image<'_>) -> String {
+    format!("{error}{}", fault_place_text(fault, build, build, true))
 }

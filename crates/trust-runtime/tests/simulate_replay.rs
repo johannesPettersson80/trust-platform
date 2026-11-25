@@ -37,6 +37,35 @@ END_CONFIGURATION
     )
 }
 
+/// A program that counts its cycles and divides 100 by `divisor` less the count, on line 8 of
+/// `src/main.st` (the source starts with an empty line), which faults in the cycle whose count
+/// reaches `divisor`; `guarded` divides only by a count that is not zero.
+fn dividing_st(divisor: u32, guarded: bool) -> String {
+    let division = if guarded {
+        format!("IF {divisor} - count <> 0 THEN quotient := 100 / ({divisor} - count); END_IF;")
+    } else {
+        format!("quotient := 100 / ({divisor} - count);")
+    };
+    format!(
+        "
+PROGRAM Main
+VAR
+    count : DINT := 0;
+    quotient : DINT := 0;
+END_VAR
+count := count + 1;
+{division}
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"
+    )
+}
+
 /// Uploads `trace` for a replay (`transfer.begin {"for": "trace"}` and its parts, specification 11
 /// §6.8.1, "Replaying a trace") from request `id` on, and gives the transfer's id.
 fn upload_trace(simulator: &mut Simulator, id: u64, trace: &[u8]) -> Value {
@@ -435,5 +464,53 @@ fn a_changed_build_takes_the_traces_values_as_an_online_change_does_and_shows_wh
             "step: declaration changed: the trace's value converted to it",
             "the build has no variable gain: its changes are skipped"
         ]})
+    );
+}
+
+#[test]
+fn a_replays_report_names_each_fault_by_its_text_and_where_the_program_raised_it() {
+    // Specification 48 RU-60, the result, with specification 11's fault entry: the report names a
+    // fault by the runtime's text, then where the program raised it, the build's by its own
+    // tables, the trace's by the build's tables for the same sources and else by the recorded
+    // program's own symbols. Worked by hand: the recorded program divides by 3 less its count and
+    // faults in its third cycle, at 20 ms, on line 8 of `src/main.st` in the POU Main; the
+    // recording ends there, with 3 cycles. A changed build that guards the division first differs
+    // at that cycle, the trace's `division by zero in Main` against no fault: other sources, so no
+    // file and line. A changed build that divides by 2 less its count faults a cycle earlier, at
+    // 10 ms, where the trace has none: `division by zero in Main at src/main.st:8`. Catches a
+    // report that names a fault by its code's identifier and numbers, one that names the build's
+    // place from the trace's statements, and one that drops where a fault was raised.
+    let project = project_with(&dividing_st(3, false));
+    let mut recorder = Simulator::start(&project);
+    let started = recorder.request(1, "trace.record", json!({"cycles": 5}));
+    let trace_id = started["trace"].as_u64().expect("a recording's id");
+    let advanced = recorder.call(&json!({"id": 2, "type": "simulator.advance",
+        "params": {"cycles": 5}}));
+    assert_eq!(advanced["result"]["state"], json!("faulted"), "{advanced}");
+    let (_, file) = recorder.trace(3, trace_id);
+    let recorded = decoded(&file);
+    assert_eq!(recorded.cycles.len(), 3);
+
+    let guarded = project_with(&dividing_st(3, true));
+    let mut fixed = Simulator::start(&guarded);
+    let transfer = upload_trace(&mut fixed, 10, &file);
+    let replayed = fixed.request(20, "simulator.replay", json!({"transfer": transfer}));
+    assert_eq!(replayed["kind"], json!("changed_program"), "{replayed}");
+    assert_eq!(
+        replayed["first_difference"],
+        json!({"cycle": 2, "time_ns": recorded.cycles[2].time_ns,
+            "faults": {"trace": "division by zero in Main", "build": null}}),
+        "{replayed}"
+    );
+
+    let earlier = project_with(&dividing_st(2, false));
+    let mut sooner = Simulator::start(&earlier);
+    let transfer = upload_trace(&mut sooner, 30, &file);
+    let replayed = sooner.request(40, "simulator.replay", json!({"transfer": transfer}));
+    assert_eq!(
+        replayed["first_difference"],
+        json!({"cycle": 1, "time_ns": recorded.cycles[1].time_ns,
+            "faults": {"trace": null, "build": "division by zero in Main at src/main.st:8"}}),
+        "{replayed}"
     );
 }
