@@ -99,7 +99,6 @@ pub fn start_scheduler(alarm: Alarm<'static>, interrupt: FROM_CPU_INTR0<'static>
 /// C6's hardware random number generator, which is random while the radio runs (ESP32-C6 Technical
 /// Reference Manual, Random Number Generator). Give it to the pairings only once [`bring_up`] has
 /// started the radio.
-#[must_use]
 pub fn pairing_random() -> RandomSource {
     let rng = Rng::new();
     Box::new(move |bytes: &mut [u8]| {
@@ -301,6 +300,12 @@ impl C6Net {
                 failures,
             } if now >= retry_at_us => {
                 let controller = Rc::clone(&self.controller);
+                #[expect(
+                    clippy::await_holding_refcell_ref,
+                    reason = "only a join attempt or the leave future holds the controller's \
+                              borrow, and leaving sets the phase to Idle first, which drops a \
+                              pending attempt and its borrow before it borrows"
+                )]
                 let attempt: Attempt = Box::pin(async move {
                     let mut controller = controller.borrow_mut();
                     controller.connect_async().await
@@ -453,6 +458,11 @@ impl ChipNetwork for C6Net {
             failures: 0,
         };
         let controller = Rc::clone(&self.controller);
+        #[expect(
+            clippy::await_holding_refcell_ref,
+            reason = "the phase is Idle above, which dropped any join attempt and its borrow, so \
+                      the leave future holds the controller's only borrow while it waits"
+        )]
         let mut leaving = Box::pin(async move { controller.borrow_mut().disconnect_async().await });
         let start = now_us();
         while now_us().saturating_sub(start) < DISCONNECT_US
