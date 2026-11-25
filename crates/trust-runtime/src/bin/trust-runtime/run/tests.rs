@@ -38,6 +38,7 @@ fn test_bundle() -> trust_runtime::config::RuntimeBundle {
             control_mode: trust_runtime::config::ControlMode::Debug,
             log_level: smol_str::SmolStr::new("info"),
             event_capacity: None,
+            flight_recorder: 0,
             identify_output: None,
             retain_mode: trust_runtime::watchdog::RetainMode::None,
             retain_path: None,
@@ -522,6 +523,8 @@ END_PROGRAM
         metrics: Arc::new(Mutex::new(trust_runtime::metrics::RuntimeMetrics::new())),
         io_health: Arc::new(Mutex::new(Vec::new())),
         identify: trust_runtime::io::IdentifyHandle::new(),
+        traces: trust_runtime::control::new_traces(),
+        runtime_id: None,
     };
     let mut cold = compiled_program(source);
     cold.set_retain_store(retain_file(), Some(Duration::from_millis(1)))

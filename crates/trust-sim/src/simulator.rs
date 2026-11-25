@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use serde_json::{json, Value as Json};
+use trust_runtime_client::replay::ReplayAnswer;
 use trust_runtime_client::{ByteStream, ControlClient, ControlError};
 
 use crate::{Error, Inputs, Result, Returned, Value};
@@ -227,6 +228,30 @@ impl Simulator {
             }),
             None => Ok(()),
         }
+    }
+
+    /// Replays the cycle trace `trace`, the bytes of a `.trusttrace` file, before the first cycle
+    /// (specification 48 RU-60) and gives the simulator's answer: whether every cycle matched, the
+    /// first cycle that differs, how many later ones differ, and the notes; its `Display` is the
+    /// report `trust-dev replay` prints. [`crate::Replay`] runs a trace's file and fails when it
+    /// differs.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Refused`] for a trace the simulator refuses: a damaged one (`trace_invalid`), or
+    /// a replay after a cycle (`simulator_started`); [`Error::Simulator`] when the link fails.
+    pub fn replay(&mut self, trace: &[u8]) -> Result<ReplayAnswer> {
+        let client = self
+            .client
+            .as_mut()
+            .ok_or_else(|| Error::Simulator("the simulator has ended".into()))?;
+        trust_runtime_client::replay::replay(client, trace).map_err(|error| match error {
+            ControlError::Refused { error, .. } => Error::Refused {
+                request: "simulator.replay".to_string(),
+                message: error,
+            },
+            other => Error::Simulator(format!("simulator.replay: {other}{}", self.stderr_tail())),
+        })
     }
 
     fn request(&mut self, kind: &str, params: Json) -> Result<Json> {

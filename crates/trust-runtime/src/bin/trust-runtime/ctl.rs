@@ -26,6 +26,8 @@ mod expressions;
 mod firmware;
 #[path = "ctl/install.rs"]
 mod install;
+#[path = "ctl/record.rs"]
+mod record;
 #[path = "ctl/service_token.rs"]
 mod service_token;
 #[path = "ctl/stats.rs"]
@@ -125,6 +127,18 @@ pub fn run_control(
         ControlAction::Install { container, restart } => {
             install::run(&target, &container, restart.as_deref())
         }
+        ControlAction::Record {
+            cycles,
+            duration,
+            task,
+            out,
+        } => record::run(
+            &target,
+            cycles,
+            duration.as_deref(),
+            task.as_deref(),
+            out.as_deref(),
+        ),
         ControlAction::Firmware { image, wait } => {
             firmware::run(&target, &image, std::time::Duration::from_secs(wait))
         }
@@ -586,6 +600,7 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "params": { "mode": mode }
         }),
         ControlAction::Install { .. }
+        | ControlAction::Record { .. }
         | ControlAction::Firmware { .. }
         | ControlAction::DeviceGet
         | ControlAction::DeviceSet { .. }

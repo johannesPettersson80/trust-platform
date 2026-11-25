@@ -7,9 +7,11 @@
 //! CRC-32. A cycle's record has a layout of its own ([`encode_cycle`](crate::trace::encode_cycle)),
 //! which a recorder fills between the phases of a scan.
 
+mod names;
 mod read;
 #[cfg(feature = "std")]
 pub mod readings;
+pub mod replay;
 mod write;
 
 #[cfg(test)]
@@ -18,6 +20,7 @@ mod tests;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+pub use names::{named_changes, named_cycle};
 pub use read::{decode, Decoded};
 pub use write::{
     change_len, cycle_record_len, encode, encode_change, encode_cycle, encode_cycle_parts,

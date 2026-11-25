@@ -3,6 +3,7 @@
 
 use crate::value::Duration;
 use crate::{error::RuntimeError, CompiledRuntime};
+use trust_runtime_core::trace::ChangeSource;
 
 use super::super::SimulationTraceRow;
 
@@ -298,6 +299,27 @@ impl super::PlantInstance {
             self.last_fault = Some(fault.to_string());
             return Err(fault);
         }
+        // A recording keeps the plant's writes as the next cycle's changes from a plant, in the
+        // order they were written (specification 48 RU-59).
+        if runtime.records_changes() {
+            let paths: Vec<String> = targets
+                .iter()
+                .flat_map(|target| match target {
+                    super::signal::PlantSignal::Symbol(symbol) => vec![symbol.clone()],
+                    super::signal::PlantSignal::Controller(_)
+                    | super::signal::PlantSignal::Address(_) => Vec::new(),
+                })
+                .chain(targets.iter().flat_map(|target| match target {
+                    super::signal::PlantSignal::Controller(path) => {
+                        super::signal::held_paths(path).to_vec()
+                    }
+                    super::signal::PlantSignal::Symbol(_)
+                    | super::signal::PlantSignal::Address(_) => Vec::new(),
+                }))
+                .collect();
+            let paths: Vec<&str> = paths.iter().map(String::as_str).collect();
+            runtime.record_written(ChangeSource::Plant, &pending, &paths);
+        }
         self.published_feedback.clone_from(values);
         self.feedback_pending = false;
         Ok(())
@@ -311,11 +333,21 @@ impl super::PlantInstance {
         runtime: &mut CompiledRuntime,
     ) -> Result<(), RuntimeError> {
         let targets = &self.config.feedback_targets;
+        // A recording keeps each release as the next cycle's change from a plant (specification 48
+        // RU-59), so the flags released are named only while one runs.
+        let recording = runtime.records_changes();
+        let mut released_flags = Vec::new();
         let released = runtime.with_program(|program| {
             targets.iter().try_for_each(|target| match target {
                 super::signal::PlantSignal::Controller(path) => {
                     match super::signal::controller_instance(&*program, path) {
-                        Ok(instance) => instance.release(program),
+                        Ok(instance) => {
+                            instance.release(program)?;
+                            if recording {
+                                released_flags.push(super::signal::held_flag_path(path));
+                            }
+                            Ok(())
+                        }
                         Err(_) => Ok(()),
                     }
                 }
@@ -329,6 +361,8 @@ impl super::PlantInstance {
             self.last_fault = Some(fault.to_string());
             return Err(fault);
         }
+        let flags: Vec<&str> = released_flags.iter().map(String::as_str).collect();
+        runtime.record_written(ChangeSource::Plant, &[], &flags);
         Ok(())
     }
 

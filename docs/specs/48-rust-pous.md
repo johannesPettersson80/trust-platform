@@ -23,7 +23,9 @@
   a cycle trace holds, its start state and the recorded image's tables among it, how it is recorded
   on demand and by the flight recorder, and how a replay starts another build from it and compares it
   (RU-59, RU-60, Appendix C), decided under the owner's delegation of 22 November 2026 ("do whats
-  most professional and best for us and the users").
+  most professional and best for us and the users"). 0.13, 24 November 2026: the flight recorder's
+  start state, the memory and forces as the cycle before its first cycle left them, and where a
+  fault's trace starts after a record that did not fit (RU-59), decided under the same delegation.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1139,13 +1141,21 @@ traces", gives the requests.
     - each task activation in it, in the order the tasks ran, with the task's logical time
         (`TIME()`, the kernel's `now_ns`, specification 44 §8.2);
     - every change made to the program from outside before the cycle, in the order the runtime
-        applied it, with its source:
+        applied it, with its source. A change made between two cycles, such as a method call or a
+        screen's write (specification 39 §18), is the next cycle's; one made before the trace's
+        first cycle is in its start state:
         - a variable's write: the control link's `set`, `var.write` and `variables.write`, a
             screen's write, Control Studio's, a service's (RU-63), the mesh's, a protocol server's
-            such as OPC UA's, or a plant's;
-        - a force set or released, on a variable or on an address;
-        - an address's one-shot write (`io.write`);
-        - a tool's method call (`method.call`), with its inputs;
+            such as OPC UA's, or a plant's, the measurement it gives a `Control.PID` instance
+            included (specification 46 §13.2);
+        - a force set or released, on a variable or on an address, in the cycle it is set or
+            released before, not in each cycle it holds;
+        - an address's write: a one-shot write, the control link's `io.write` or Control
+            Studio's, or a plant's feedback at an address;
+        - a method call, a tool's (`method.call`) or a screen command's (specification 39 §21.2),
+            with each input as a Structured Text literal: a tool's as its request gave it, and a
+            screen's as IEC 61131-3 writes the value (Tables 5 to 8), an enumeration's value after
+            its type's own name and `#` (`Mode#Auto`, §6.4.4.2);
     - the input image as the cycle's scan sampled it, and the output image the cycle wrote, `%I`
         and `%Q` whole;
     - each reading of the wall clock (`CURRENT_DT`) in the cycle, in order. The wall clock is the
@@ -1168,7 +1178,11 @@ traces", gives the requests.
     ended.
 - **The flight recorder.** With `[runtime.trace] flight_recorder = <n>`, the runtime always keeps
     the last `n` to `2n` cycles. It keeps their records, and the program's state at the first of
-    them, which it takes every `n` cycles.
+    them, which it takes every `n` cycles: the memory and the forces as the cycle before that one
+    left them, so that a change made between the two cycles, which the start state of a recording
+    on demand holds, is the first cycle's change here. A replay applies it before the first cycle
+    either way. A record that does not fit ends its `n` cycles early; the fault's trace then starts
+    at the next `n`, since it cannot join cycles across the lost one.
     - When the resource faults, it keeps those cycles up to the faulted one as the fault's trace, and
         `trust-runtime ctl fault-trace [--out <file>]` saves it.
     - A runtime with a folder of its files (specification 11 §6.8.0a) also writes the trace there,
@@ -2038,13 +2052,15 @@ A change's kind and data:
 | 1 | a variable's write | its path (text), its type's name (text), its value's bytes at the declared size (a length of 4, then the bytes) |
 | 2 | a force set on a variable | as 1 |
 | 3 | a force released on a variable | its path (text) |
-| 4 | an address's one-shot write | the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the bit (1, 255 for whole bytes), reserved (2), the byte offset (4), the bytes (a length of 4, then the bytes) |
+| 4 | an address's one-shot write | the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the bit (1, 255 for whole bytes), reserved (2), the byte offset (4), the bytes (a length of 4, then the bytes): the address's bytes as the write left them, or for a bit one byte, 0 or 1 |
 | 5 | a force set on an address | as 4 |
 | 6 | a force released on an address | the area (1), the bit (1), reserved (2), the byte offset (4), the size (4) |
 | 7 | a method call | the instance's path, the interface's qualified name and the method's name (texts), the number of inputs (2), and each input's name and Structured Text literal (texts) |
 
 A change's source: 1 the control link (the debugger, Live Values and `ctl` among its clients), 2 a
-screen, 3 Control Studio, 4 a service, 5 the mesh, 6 a protocol server, 7 a plant.
+screen, 3 Control Studio, 4 a service, 5 the mesh, 6 a protocol server, 7 a plant. A variable's path is
+the path the debugger names it by, a member of an instance included, whatever form the request named
+it in.
 
 A later version may store a cycle's images as their differences from the cycle before, and record
 that in the section's flags, as the image's `INIT` may be run-length coded (specification 44 §7.4).

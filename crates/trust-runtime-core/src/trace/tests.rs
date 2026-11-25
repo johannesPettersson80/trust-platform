@@ -449,3 +449,211 @@ fn a_trace_of_records_reads_back_as_the_trace() {
     assert_eq!(bytes, encode(&trace));
     assert_eq!(decode(&bytes).unwrap().trace, trace);
 }
+
+#[test]
+fn a_traces_tasks_are_named_from_its_own_tables() {
+    // Specification 48 RU-60, "Each cycle": a cycle's activations index the recorded image's task
+    // table, and the build's tasks of the same names run them, so the names come from the trace's
+    // own task table and string pool. Worked by hand: two records naming offset 1 and offset 6 of
+    // the pool "\0Fast\0Slow\0" are `Fast` and `Slow`; a count of 3 with two records' bytes is
+    // malformed. Catches a name read at the wrong offset, a record read past the table, and a
+    // malformed table taken.
+    use super::replay::task_names;
+    use crate::native::image::{Record, TaskRecord, NONE, TABLE_PREFIX_BYTES};
+
+    let record = |name| {
+        let mut bytes = vec![0; TaskRecord::BYTES];
+        TaskRecord {
+            name,
+            interval_ns: 10_000_000,
+            priority: 0,
+            single: NONE,
+            program_count: 0,
+            program_first: 0,
+            flags: 0,
+        }
+        .write(&mut bytes);
+        bytes
+    };
+    let table = |count: u32| {
+        let mut tasks = vec![0; TABLE_PREFIX_BYTES];
+        tasks[..4].copy_from_slice(&count.to_le_bytes());
+        tasks.extend(record(1));
+        tasks.extend(record(6));
+        ImageTables {
+            tasks,
+            strings: b"\0Fast\0Slow\0".to_vec(),
+            ..ImageTables::default()
+        }
+    };
+    assert_eq!(task_names(&table(2)).unwrap(), [text("Fast"), text("Slow")]);
+    assert!(matches!(
+        task_names(&table(3)),
+        Err(TraceError::Malformed {
+            section: "ITASKS",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn a_cycles_outputs_differ_by_the_located_output_variables() {
+    // Specification 48 RU-60, "Each cycle": a replay compares the output image after a cycle with
+    // the trace's by the trace's located output variables at their addresses: a variable of one bit
+    // by its bit, any other by its bytes; an input is not compared, and a variable one image does
+    // not hold differs. Worked by hand: the trace's outputs 02 00 05 00 .. 01 (ten bytes) and the
+    // build's 06 00 06 00: `Lamp` %QX0.1 is set in both (bit 2, which differs, is no variable's);
+    // `Speed` %QW2 is 5 against 6; `Start` %IX0.0 is an input; `Far` %QB9 lies past the build's
+    // image. Catches a bit compared by its whole byte, an input compared, and a variable past an
+    // image taken as equal.
+    use super::replay::differing_outputs;
+
+    let located = |path: &str, area, bit, offset, size| Located {
+        path: text(path),
+        type_name: text("ANY"),
+        area,
+        bit,
+        offset,
+        size,
+    };
+    let variables = [
+        located("Lamp", IoArea::Output, Some(1), 0, 1),
+        located("Speed", IoArea::Output, None, 2, 2),
+        located("Start", IoArea::Input, Some(0), 0, 1),
+        located("Far", IoArea::Output, None, 9, 1),
+    ];
+    let trace = [0b0000_0010, 0, 5, 0, 0, 0, 0, 0, 0, 1];
+    let build = [0b0000_0110, 0, 6, 0];
+    let differing: Vec<&str> = differing_outputs(&variables, &trace, &build)
+        .iter()
+        .map(|variable| variable.path.as_str())
+        .collect();
+    assert_eq!(differing, ["Speed", "Far"]);
+    assert_eq!(
+        differing_outputs(&variables, &trace, &trace),
+        Vec::<&Located>::new()
+    );
+}
+
+#[test]
+fn a_recorded_image_holds_the_traces_tables_and_its_memory_reads_the_start() {
+    // Specification 48 RU-60, "The start": a build laid out otherwise carries the recorded memory as
+    // an online change carries a running program's, from the recorded program's image and memory.
+    // Worked by hand from `full_trace`: the image put together from its tables holds each of them
+    // in its own section, so it lays its memory out as they say; its memory reads area 6's bytes
+    // 3, 4, 5 at offset 2, but nothing past the area's 9 bytes, nothing of area 2, which the start
+    // does not hold, and takes no write. A trace that names no target (0) has no image. Catches a
+    // table put in another section, an area read at the wrong offset or past its end, a recorded
+    // memory that can be written, and an image made for a target no build has.
+    use super::replay::{recorded_image, same_layout, RecordedMemory};
+    use crate::native::image::{Image, SectionId};
+    use crate::native::memory::ProgramMemory;
+
+    let trace = full_trace();
+    let bytes = recorded_image(&trace).unwrap();
+    let image = Image::parse(&bytes).unwrap();
+    assert!(same_layout(&trace.image, &image));
+    for (id, table) in [
+        (SectionId::Tasks, &trace.image.tasks),
+        (SectionId::IoBind, &trace.image.iobind),
+        (SectionId::Strings, &trace.image.strings),
+    ] {
+        assert_eq!(image.section_bytes(id), &table[..], "{id:?}");
+    }
+    let mut memory = RecordedMemory::new(image, &trace.start.areas);
+    let mut out = [0; 3];
+    assert!(memory.read_area(6, 2, &mut out));
+    assert_eq!(out, [3, 4, 5]);
+    assert!(!memory.read_area(6, 7, &mut out));
+    assert!(!memory.read_area(2, 0, &mut out));
+    assert!(!memory.write_area(6, 0, &[0]));
+    let output = crate::io_address::IoAddress::parse("%QB0").unwrap();
+    assert!(memory
+        .write_image(&output, crate::value::Value::Byte(1))
+        .is_err());
+
+    let mut nowhere = full_trace();
+    nowhere.meta.target = 0;
+    assert!(matches!(
+        recorded_image(&nowhere),
+        Err(TraceError::Malformed {
+            section: "META",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn a_recorded_number_is_replayed_as_the_literal_a_request_gave() {
+    // Specification 48 RU-60, "Each cycle": a change is applied as the runtime applied it, and the
+    // runtime typed a request's integer literal for its variable, so an integer or a bit string is
+    // given back as that literal. Worked by hand: INT -5 is the literal -5, WORD 65 535 the literal
+    // 65 535, LWORD 5 the literal 5; ULINT 2^64 - 1 is past the literal's range and stays, and so do
+    // a REAL and a BOOL. Catches a sign lost, a bit string left typed, which a build that changed
+    // the variable's type refuses, and a number cut to the literal's range.
+    use super::replay::as_requested;
+    use crate::value::Value;
+
+    assert_eq!(as_requested(Value::Int(-5)), Value::LInt(-5));
+    assert_eq!(as_requested(Value::Word(65_535)), Value::LInt(65_535));
+    assert_eq!(as_requested(Value::LWord(5)), Value::LInt(5));
+    assert_eq!(as_requested(Value::ULInt(u64::MAX)), Value::ULInt(u64::MAX));
+    assert_eq!(as_requested(Value::Real(1.5)), Value::Real(1.5));
+    assert_eq!(as_requested(Value::Bool(true)), Value::Bool(true));
+}
+
+#[test]
+fn a_files_variables_and_instances_are_named_as_the_debugger_names_them() {
+    // Appendix C, C.6: a trace names each variable and each method call's instance as the debugger
+    // names it, whatever form the request named it in; the recording keeps the names as given and
+    // its file names them. Here the debugger names `Main.x` `Main.X`, `Main.limit` `Main.Limit` and
+    // `Main.Heating` `Plant1.Heating`, and gives `Tank.level` no name. Worked by hand from
+    // `full_trace`: the write, the release, the method call and the start's force take the new
+    // names; `Tank.level` and every address change stay as they were, and so do the values, the
+    // inputs and the cycle without changes, byte for byte. Catches a path left as recorded, an
+    // instance not named, a name given to a path the debugger does not name, and any other change.
+    let mut debugger = |path: &str| -> Option<String> {
+        match path {
+            "Main.x" => Some(text("Main.X")),
+            "Main.limit" => Some(text("Main.Limit")),
+            "Main.Heating" => Some(text("Plant1.Heating")),
+            _ => None,
+        }
+    };
+    let trace = full_trace();
+    let mut expected = full_trace();
+    let changes = &mut expected.cycles[0].changes;
+    if let ChangeKind::VariableWrite { path, .. } = &mut changes[0].kind {
+        *path = text("Main.X");
+    }
+    if let ChangeKind::VariableRelease { path } = &mut changes[1].kind {
+        *path = text("Main.Limit");
+    }
+    if let ChangeKind::MethodCall { instance, .. } = &mut changes[4].kind {
+        *instance = text("Plant1.Heating");
+    }
+    if let ChangeKind::VariableForce { path, .. } = &mut expected.start.forces[0].kind {
+        *path = text("Main.Limit");
+    }
+    for (cycle, expected) in trace.cycles.iter().zip(&expected.cycles) {
+        let mut record = Vec::new();
+        encode_cycle(cycle, &mut record);
+        let named = named_cycle(&record, &mut debugger).unwrap();
+        assert_eq!(&super::read::read_cycle(&named).unwrap(), expected);
+        assert_eq!(named_cycle(&record, &mut |_| None).unwrap(), record);
+    }
+    let mut forces = Vec::new();
+    for force in &trace.start.forces {
+        encode_change(
+            force.source,
+            &force.kind.borrowed(&mut Vec::new()),
+            &mut forces,
+        );
+    }
+    let count = trace.start.forces.len();
+    let named = named_changes(&forces, count, &mut debugger).unwrap();
+    assert_eq!(
+        super::read::read_change_run(&named, count).unwrap(),
+        expected.start.forces
+    );
+}

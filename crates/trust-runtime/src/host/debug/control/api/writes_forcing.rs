@@ -1,17 +1,26 @@
 use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
-use trust_runtime_services::live_values::apply::{self, WriteSink};
+use trust_runtime_services::live_values::apply::{self, ForceEffect, WriteSink};
 use trust_runtime_services::live_values::queues::REQUEST_QUEUE_CAPACITY;
 use trust_runtime_core::trace::ChangeSource;
-use trust_runtime_services::trace::Recorder;
+use trust_runtime_services::trace::Recordings;
+
+/// An address's force as Live Values hold it: the address and the value it is forced to.
+type IoForce = (IoAddress, Value);
 
 impl DebugControl {
-    /// Queue a one-shot I/O write. A refused write is reported as `write_rejected` and queues
-    /// nothing; protocol and control producers use `try_enqueue_io_write` to receive the refusal.
-    /// Control Studio's experiments and abort bindings write their addresses this way
-    /// (specification 35, A3.5).
+    /// Queue Control Studio's one-shot I/O write: its experiments and abort bindings write their
+    /// addresses this way (specification 35, A3.5), and a cycle trace records the write as Control
+    /// Studio's (specification 48 Appendix C, C.6). A refused write is reported as
+    /// `write_rejected` and queues nothing; protocol and control producers use
+    /// `try_enqueue_io_write` to receive the refusal.
     pub fn enqueue_io_write(&self, address: IoAddress, value: Value) {
-        if self.try_enqueue_io_write(address.clone(), value).is_err() {
+        let queued = self.lock().live_values.try_enqueue_io_write_from(
+            address.clone(),
+            value,
+            ChangeSource::ControlStudio,
+        );
+        if queued.is_err() {
             self.report_refused_request(SmolStr::new(format!("{address:?}")));
         }
     }
@@ -48,6 +57,22 @@ impl DebugControl {
         value: Value,
     ) -> Result<(), RequestQueueFull> {
         self.try_enqueue_var_write(PendingVarTarget::Global(name.into()), value)
+    }
+
+    /// Queue a global write that comes from `source` rather than the control link, such as a
+    /// protocol server's, which a cycle trace records with its source (specification 48 Appendix
+    /// C, C.6). A new target past the queue bound is refused.
+    pub fn try_enqueue_global_write_from(
+        &self,
+        name: impl Into<SmolStr>,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
+        self.lock().live_values.try_upsert_var_write_from(
+            PendingVarTarget::Global(name.into()),
+            value,
+            source,
+        )
     }
 
     /// Queue a retained write from a control or protocol request. A new target past the queue
@@ -114,12 +139,14 @@ impl DebugControl {
     /// §13.3): each at its place, converted to the place's type. A write resolved in another program
     /// generation than `generation` is dropped, since its place names nothing in this program; a
     /// write the program refuses is reported as `write_rejected` at `time`, never a fault: the writer
-    /// reads its variable back.
+    /// reads its variable back. A recording keeps each write applied as Control Studio's
+    /// (specification 48 Appendix C, C.6).
     pub(crate) fn apply_control_writes(
         &self,
-        program: &mut dyn ProgramWrite,
+        variables: &mut dyn CompiledVariables,
         generation: Generation,
         time: Duration,
+        mut trace: Recordings<'_>,
     ) {
         let writes = {
             let mut state = self.lock();
@@ -132,12 +159,15 @@ impl DebugControl {
             if write.generation != generation {
                 continue;
             }
-            if let Err(error) = program.write_at(&write.at, &write.value) {
-                self.push_runtime_event(RuntimeEvent::WriteRejected {
+            match variables.write_located(&write.at, &write.value) {
+                Ok(()) => trace.each(|recorder| {
+                    recorder.written(ChangeSource::ControlStudio, &write.label, &*variables);
+                }),
+                Err(error) => self.push_runtime_event(RuntimeEvent::WriteRejected {
                     target: write.label,
                     error: error.to_string(),
                     time,
-                });
+                }),
             }
         }
     }
@@ -196,7 +226,10 @@ impl DebugControl {
         &self,
         writes: Vec<(PendingVarTarget, Value)>,
     ) -> Result<(), RequestQueueFull> {
-        self.lock().live_values.try_upsert_var_writes(writes)
+        // `variables.write` is a service's (specification 48 RU-63).
+        self.lock()
+            .live_values
+            .try_upsert_var_writes(writes, ChangeSource::Service)
     }
 
     /// Force a global variable from a control or protocol request. A new target past the queue
@@ -341,6 +374,15 @@ impl DebugControl {
         self.lock().live_values.forced_snapshot()
     }
 
+    /// Lends the active forces, the variables' and the addresses', to `with` under the lock
+    /// without copying them: the flight recorder records them as a recording's start state between
+    /// two scans every `n` cycles (specification 48 RU-59), which allocates nothing (specification
+    /// 34 MEM-09).
+    pub(crate) fn with_forces(&self, with: &mut dyn FnMut(&[ForcedVar], &[IoForce])) {
+        let state = self.lock();
+        with(&state.live_values.forced_vars, &state.live_values.forced_io);
+    }
+
     fn try_set_forced_var(
         &self,
         target: ForcedVarTarget,
@@ -378,7 +420,7 @@ impl DebugControl {
         generation: Generation,
         variables: &mut dyn CompiledVariables,
         time: Duration,
-        trace: Option<&mut Recorder>,
+        trace: Recordings<'_>,
     ) -> Result<(), RuntimeError> {
         let mut sink = RejectedEvents {
             events: Vec::new(),
@@ -436,7 +478,7 @@ impl DebugControl {
 /// cycle trace being recorded, the writes the apply made are recorded too.
 struct RejectedEvents<'r> {
     events: Vec<RuntimeEvent>,
-    trace: Option<&'r mut Recorder>,
+    trace: Recordings<'r>,
 }
 
 impl WriteSink for RejectedEvents<'_> {
@@ -448,15 +490,41 @@ impl WriteSink for RejectedEvents<'_> {
         });
     }
 
-    /// A cycle trace records a write by its path (specification 48 RU-59). A member of an
-    /// instance, which the debugger names by the instance's identity, is recorded with the other
-    /// sources of a later lane.
-    fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
-        if let (Some(trace), PendingVarTarget::Global(path) | PendingVarTarget::Retain(path)) =
-            (self.trace.as_deref_mut(), target)
-        {
-            trace.written(ChangeSource::ControlLink, path, variables);
-        }
+    /// A cycle trace records each change the control link made, as Live Values applied it
+    /// (specification 48 RU-59): a variable by the path the debugger names it by, an address by
+    /// the bytes it gives the process image, and a force once, where it is set or released.
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        variables: &dyn CompiledVariables,
+    ) {
+        self.trace
+            .each(|recorder| recorder.written_target(source, target, variables));
+    }
+
+    fn records(&self) -> bool {
+        !self.trace.is_empty()
+    }
+
+    fn address_written(
+        &mut self,
+        source: ChangeSource,
+        address: &IoAddress,
+        value: &Value,
+        variables: &dyn CompiledVariables,
+    ) {
+        self.trace
+            .each(|recorder| recorder.address_written(source, address, value, variables));
+    }
+
+    fn forced(&mut self, effect: ForceEffect<'_>, variables: &dyn CompiledVariables) {
+        self.trace
+            .each(|recorder| recorder.forced(ChangeSource::ControlLink, effect, variables));
+    }
+
+    fn force_changes_lost(&mut self) {
+        self.trace.each(|recorder| recorder.force_changes_lost());
     }
 }
 

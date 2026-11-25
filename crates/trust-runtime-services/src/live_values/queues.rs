@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{FrameId, Generation, InstanceId};
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::Value;
 
 /// Entries each bounded queue holds before it refuses a new request: pending one-shot I/O
@@ -50,6 +51,8 @@ pub struct PendingVarWrite {
     pub target: PendingVarTarget,
     /// The value to write.
     pub value: Value,
+    /// Where the write came from, which a cycle trace records (specification 48 Appendix C, C.6).
+    pub source: ChangeSource,
 }
 
 /// The destination of an active variable force.
@@ -95,12 +98,69 @@ pub struct ForcedSnapshot {
 pub struct LiveValueQueues {
     /// One-shot I/O writes, in arrival order; a repeated address is kept as a separate write.
     pub io_writes: Vec<(IoAddress, Value)>,
+    /// Where each write of `io_writes` came from, at the same index, which a cycle trace records
+    /// (specification 48 Appendix C, C.6); a write without one is the control link's.
+    pub io_write_sources: Vec<ChangeSource>,
     /// Pending variable writes; a write to a target already here replaces it in place.
     pub pending_var_writes: Vec<PendingVarWrite>,
     /// Active variable forces; a force to a target already here replaces it in place.
     pub forced_vars: Vec<ForcedVar>,
     /// Active I/O forces; a force to an address already here replaces it in place.
     pub forced_io: Vec<(IoAddress, Value)>,
+    /// The forces set or released since the last cycle start, in the order they were, which the
+    /// cycle start reports once (specification 48 RU-59); at most [`FORCE_CHANGES_CAPACITY`].
+    pub force_changes: Vec<ForceChange>,
+    /// The force changes the last cycle start reported. A scan frees no memory (specification 34
+    /// MEM-09), so the cycle start sets them aside here, and the next force change, which comes
+    /// outside a scan, frees them.
+    retired_force_changes: Vec<ForceChange>,
+    /// Whether force changes past [`FORCE_CHANGES_CAPACITY`] were not kept since the last cycle
+    /// start.
+    pub force_changes_lost: bool,
+}
+
+/// The most force changes kept between two cycle starts: as many as forces can be active.
+pub const FORCE_CHANGES_CAPACITY: usize = 2 * REQUEST_QUEUE_CAPACITY;
+
+/// A force set or released, which a cycle trace records once, before the cycle it takes effect in
+/// (specification 48 RU-59).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ForceChange {
+    /// A variable force set, or set to another value.
+    VariableSet(ForcedVarTarget),
+    /// A variable force released.
+    VariableReleased(ForcedVarTarget),
+    /// An address force set, or set to another value.
+    AddressSet(IoAddress),
+    /// An address force released.
+    AddressReleased(IoAddress),
+}
+
+impl ForceChange {
+    /// Whether `self` and `other` concern the same variable or the same address.
+    #[must_use]
+    pub fn same_target(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::VariableSet(left) | Self::VariableReleased(left),
+                Self::VariableSet(right) | Self::VariableReleased(right),
+            ) => left == right,
+            (
+                Self::AddressSet(left) | Self::AddressReleased(left),
+                Self::AddressSet(right) | Self::AddressReleased(right),
+            ) => left == right,
+            _ => false,
+        }
+    }
+}
+
+/// Keeps `change` in `changes`, or notes it lost past [`FORCE_CHANGES_CAPACITY`].
+fn note_force_change(changes: &mut Vec<ForceChange>, lost: &mut bool, change: ForceChange) {
+    if changes.len() < FORCE_CHANGES_CAPACITY {
+        changes.push(change);
+    } else {
+        *lost = true;
+    }
 }
 
 impl LiveValueQueues {
@@ -118,6 +178,32 @@ impl LiveValueQueues {
             && self.pending_var_writes.is_empty()
             && self.forced_vars.is_empty()
             && self.forced_io.is_empty()
+            && self.force_changes.is_empty()
+            && !self.force_changes_lost
+    }
+
+    /// Keeps the force change `change` until the next cycle start reports it, and frees the changes
+    /// the last cycle start reported, since a force is set or released outside a scan.
+    fn note_force(&mut self, change: ForceChange) {
+        self.retired_force_changes.clear();
+        note_force_change(
+            &mut self.force_changes,
+            &mut self.force_changes_lost,
+            change,
+        );
+    }
+
+    /// Sets the force changes that the cycle start has reported aside, leaving none to report: a
+    /// scan frees no memory (specification 34 MEM-09), and a change can hold memory, such as an
+    /// address's path, so the next force change frees them, outside a scan.
+    pub fn retire_force_changes(&mut self) {
+        // The change that filled `force_changes` emptied `retired_force_changes`, so the swap leaves
+        // no change to report, in the memory the reported ones had.
+        if self.retired_force_changes.is_empty() {
+            core::mem::swap(&mut self.force_changes, &mut self.retired_force_changes);
+        } else {
+            self.force_changes.clear();
+        }
     }
 
     /// Queue a one-shot I/O write, in arrival order.
@@ -131,10 +217,31 @@ impl LiveValueQueues {
         address: IoAddress,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
+        self.try_enqueue_io_write_from(address, value, ChangeSource::ControlLink)
+    }
+
+    /// Queue a one-shot I/O write that comes from `source` rather than the control link, such as
+    /// Control Studio's, in arrival order: a cycle trace records it with its source (specification
+    /// 48 Appendix C, C.6).
+    ///
+    /// # Errors
+    ///
+    /// [`RequestQueueFull`] when the queue already holds [`REQUEST_QUEUE_CAPACITY`] writes; the
+    /// refused write is not queued.
+    pub fn try_enqueue_io_write_from(
+        &mut self,
+        address: IoAddress,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
         if self.io_writes.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
+        // The writes queued without a source, directly into `io_writes`, are the control link's.
+        self.io_write_sources
+            .resize(self.io_writes.len(), ChangeSource::ControlLink);
         self.io_writes.push((address, value));
+        self.io_write_sources.push(source);
         Ok(())
     }
 
@@ -148,12 +255,16 @@ impl LiveValueQueues {
             .rposition(|(queued, queued_value)| queued == address && queued_value == value)
         {
             self.io_writes.remove(index);
+            if index < self.io_write_sources.len() {
+                self.io_write_sources.remove(index);
+            }
         }
     }
 
     /// Take the queued one-shot I/O writes, in arrival order, leaving the queue empty.
     #[must_use]
     pub fn drain_io_writes(&mut self) -> Vec<(IoAddress, Value)> {
+        self.io_write_sources.clear();
         core::mem::take(&mut self.io_writes)
     }
 
@@ -168,6 +279,21 @@ impl LiveValueQueues {
         target: PendingVarTarget,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
+        self.try_upsert_var_write_from(target, value, ChangeSource::ControlLink)
+    }
+
+    /// [`Self::try_upsert_var_write`] for a write that comes from `source` rather than the control
+    /// link: a protocol server's, a screen's or Control Studio's.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::try_upsert_var_write`].
+    pub fn try_upsert_var_write_from(
+        &mut self,
+        target: PendingVarTarget,
+        value: Value,
+        source: ChangeSource,
+    ) -> Result<(), RequestQueueFull> {
         let is_new = self
             .pending_var_writes
             .iter()
@@ -175,12 +301,12 @@ impl LiveValueQueues {
         if is_new && self.pending_var_writes.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
-        self.upsert_var_write(target, value);
+        self.upsert_var_write(target, value, source);
         Ok(())
     }
 
-    /// Queue the pending variable writes `writes` together, each replacing the earlier write to its
-    /// target in place, or none of them (specification 11 §6.8.1, "Writing variables").
+    /// Queue the pending variable writes `writes` from `source` together, each replacing the earlier
+    /// write to its target in place, or none of them (specification 11 §6.8.1, "Writing variables").
     ///
     /// # Errors
     ///
@@ -189,6 +315,7 @@ impl LiveValueQueues {
     pub fn try_upsert_var_writes(
         &mut self,
         writes: Vec<(PendingVarTarget, Value)>,
+        source: ChangeSource,
     ) -> Result<(), RequestQueueFull> {
         let mut new: Vec<&PendingVarTarget> = Vec::new();
         for (target, _) in &writes {
@@ -204,7 +331,7 @@ impl LiveValueQueues {
             return Err(RequestQueueFull);
         }
         for (target, value) in writes {
-            self.upsert_var_write(target, value);
+            self.upsert_var_write(target, value, source);
         }
         Ok(())
     }
@@ -215,12 +342,17 @@ impl LiveValueQueues {
         core::mem::take(&mut self.pending_var_writes)
     }
 
-    /// Clear every queued write and active force.
+    /// Clear every queued write and active force, and the force changes not yet reported: a clear
+    /// comes at a boundary where a recording has ended.
     pub fn clear(&mut self) {
         self.io_writes.clear();
+        self.io_write_sources.clear();
         self.pending_var_writes.clear();
         self.forced_vars.clear();
         self.forced_io.clear();
+        self.force_changes.clear();
+        self.retired_force_changes.clear();
+        self.force_changes_lost = false;
     }
 
     /// The value of the active variable force on `target`, when the target is forced.
@@ -235,9 +367,12 @@ impl LiveValueQueues {
     /// Put back the variable force that a failed checked write had replaced: `previous` is the
     /// value forced before the failed request, or `None` when the target was not forced.
     pub fn restore_var_force(&mut self, target: &ForcedVarTarget, previous: Option<Value>) {
-        match previous {
-            Some(value) => self.upsert_forced_var(target.clone(), value),
-            None => self.forced_vars.retain(|entry| entry.target != *target),
+        if let Some(value) = previous {
+            self.upsert_forced_var(target.clone(), value);
+            self.note_force(ForceChange::VariableSet(target.clone()));
+        } else {
+            self.forced_vars.retain(|entry| entry.target != *target);
+            self.note_force(ForceChange::VariableReleased(target.clone()));
         }
     }
 
@@ -253,15 +388,22 @@ impl LiveValueQueues {
     /// Put back the I/O force that a failed checked write had replaced: `previous` is the value
     /// forced before the failed request, or `None` when the address was not forced.
     pub fn restore_io_force(&mut self, address: &IoAddress, previous: Option<Value>) {
-        match previous {
-            Some(value) => self.upsert_forced_io(address.clone(), value),
-            None => self.forced_io.retain(|(current, _)| current != address),
+        if let Some(value) = previous {
+            self.upsert_forced_io(address.clone(), value);
+            self.note_force(ForceChange::AddressSet(address.clone()));
+        } else {
+            self.forced_io.retain(|(current, _)| current != address);
+            self.note_force(ForceChange::AddressReleased(address.clone()));
         }
     }
 
     /// Release the active I/O force on `address`, when one is set.
     pub fn release_io(&mut self, address: &IoAddress) {
+        let before = self.forced_io.len();
         self.forced_io.retain(|(current, _)| current != address);
+        if self.forced_io.len() != before {
+            self.note_force(ForceChange::AddressReleased(address.clone()));
+        }
     }
 
     /// An owned copy of every active force, in the order the targets were first forced.
@@ -277,15 +419,23 @@ impl LiveValueQueues {
     /// applied again. The entry goes only while it still holds that value: a newer force on the
     /// same address survives.
     pub fn discard_rejected_io_force(&mut self, address: &IoAddress, value: &Value) {
+        let before = self.forced_io.len();
         self.forced_io
             .retain(|(current, current_value)| !(current == address && current_value == value));
+        if self.forced_io.len() != before {
+            self.note_force(ForceChange::AddressReleased(address.clone()));
+        }
     }
 
     /// Remove the variable force that still holds the rejected `value`. As for I/O forces, the
     /// entry goes only while it still holds that value.
     pub fn discard_rejected_var_force(&mut self, target: &ForcedVarTarget, value: &Value) {
+        let before = self.forced_vars.len();
         self.forced_vars
             .retain(|entry| !(entry.target == *target && entry.value == *value));
+        if self.forced_vars.len() != before {
+            self.note_force(ForceChange::VariableReleased(target.clone()));
+        }
     }
 
     /// Set the active variable force on `target`, replacing an earlier force in place.
@@ -303,6 +453,7 @@ impl LiveValueQueues {
         if is_new && self.forced_vars.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
+        self.note_force(ForceChange::VariableSet(target.clone()));
         self.upsert_forced_var(target, value);
         Ok(())
     }
@@ -325,26 +476,43 @@ impl LiveValueQueues {
         if is_new && self.forced_io.len() >= REQUEST_QUEUE_CAPACITY {
             return Err(RequestQueueFull);
         }
+        self.note_force(ForceChange::AddressSet(address.clone()));
         self.upsert_forced_io(address, value);
         Ok(())
     }
 
     /// Release every active variable force whose target matches `predicate`.
     pub fn clear_forced_vars(&mut self, predicate: impl Fn(&ForcedVarTarget) -> bool) {
-        self.forced_vars.retain(|entry| !predicate(&entry.target));
+        self.retired_force_changes.clear();
+        let (changes, lost) = (&mut self.force_changes, &mut self.force_changes_lost);
+        self.forced_vars.retain(|entry| {
+            let released = predicate(&entry.target);
+            if released {
+                note_force_change(
+                    changes,
+                    lost,
+                    ForceChange::VariableReleased(entry.target.clone()),
+                );
+            }
+            !released
+        });
     }
 
     /// Append the pending write to `target`, or replace the earlier write to it in place.
-    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value) {
+    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value, source: ChangeSource) {
         if let Some(entry) = self
             .pending_var_writes
             .iter_mut()
             .find(|entry| entry.target == target)
         {
             entry.value = value;
+            entry.source = source;
         } else {
-            self.pending_var_writes
-                .push(PendingVarWrite { target, value });
+            self.pending_var_writes.push(PendingVarWrite {
+                target,
+                value,
+                source,
+            });
         }
     }
 

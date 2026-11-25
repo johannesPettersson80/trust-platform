@@ -114,6 +114,24 @@ pub enum ControlAction {
         #[arg(long, value_parser = ["cold", "warm"])]
         restart: Option<String>,
     },
+    /// Record the resource's next cycles into a cycle trace and save it as a `.trusttrace` file
+    /// (specification 11, 6.8.1 "Cycle traces"; specification 48 RU-59). Ctrl+C ends the recording
+    /// early and saves what it holds.
+    Record {
+        /// The cycles to record, or with `--task` that task's runs.
+        #[arg(long, conflicts_with = "duration", required_unless_present = "duration")]
+        cycles: Option<u64>,
+        /// The logical time to record, a duration such as `500ms`, `2s` or `T#1m30s`.
+        #[arg(long)]
+        duration: Option<String>,
+        /// The task whose runs `--cycles` counts.
+        #[arg(long, requires = "cycles")]
+        task: Option<String>,
+        /// The file to write, by default `trace-<UTC date and time>.trusttrace` in the current
+        /// folder.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Read a chip's device settings, `device.toml`, without its Wi-Fi password (specification 34
     /// TARGET-02).
     DeviceGet,

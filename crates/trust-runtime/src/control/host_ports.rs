@@ -34,6 +34,7 @@ use trust_runtime_services::ports::{
 };
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::simulator_advance::{runs_cycles, Advance, AdvanceRefusal, Advanced};
+use trust_runtime_services::simulator_replay::{ReplayRefusal, ReplayReport};
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
 use trust_runtime_services::transfer::TransferSession;
 use trust_runtime_services::variables::{ReadRefusal, ReadSet};
@@ -257,6 +258,39 @@ impl ResourcePort for ControlState {
         })
     }
 
+    /// The scan thread replays the trace between two scans, before the simulator's first
+    /// (specification 48 RU-60); only a simulator, whose test moves its clock, replays one.
+    fn replay_trace(&self, trace: Vec<u8>) -> Result<ReplayReport, ReplayRefusal> {
+        if self.resource.clock().stepped_clock().is_none() {
+            return Err(ReplayRefusal::ClockNotManual);
+        }
+        let (reply, replies) = std::sync::mpsc::channel();
+        let command = ResourceCommand::ReplayTrace {
+            trace,
+            respond_to: reply,
+        };
+        match self.resource.send_command(command) {
+            Ok(()) => {}
+            Err(CommandSendError::Full) => {
+                return Err(ReplayRefusal::Unavailable(
+                    "the scan thread's queue is full: ask again".to_string(),
+                ));
+            }
+            Err(CommandSendError::Closed) => {
+                return Err(ReplayRefusal::Unavailable(format!(
+                    "the resource does not run ({:?})",
+                    self.resource.state()
+                )));
+            }
+        }
+        replies.recv_timeout(REPLAY_WAIT).unwrap_or_else(|_| {
+            Err(ReplayRefusal::Unavailable(format!(
+                "the scan thread did not finish the replay within {} s",
+                REPLAY_WAIT.as_secs()
+            )))
+        })
+    }
+
     /// The scan thread arms the recording between two scans, with the memory it reserves
     /// (specification 48 RU-59); a resource that does not run records nothing.
     fn trace_record(&self, request: &RecordRequest) -> Result<TraceStarted, TraceRefusal> {
@@ -310,6 +344,10 @@ impl ResourcePort for ControlState {
 
 /// How long `cycle.step` waits for the scan thread's answer, the commit bound of a reload.
 const STEP_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// How long `simulator.replay` waits for the scan thread to run a trace's cycles, which a long trace
+/// takes minutes for.
+const REPLAY_WAIT: std::time::Duration = std::time::Duration::from_secs(600);
 
 impl StatusPort for ControlState {
     fn resource_name(&self) -> &str {

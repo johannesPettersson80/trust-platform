@@ -13,12 +13,16 @@ use alloc::format;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::native::variables::CompiledVariables;
+use trust_runtime_core::trace::ChangeSource;
 use trust_runtime_core::value::{Duration, Value};
 
-use super::queues::{ForcedVarTarget, LiveValueQueues, PendingVarTarget, PendingVarWrite};
+use super::queues::{
+    ForceChange, ForcedVarTarget, LiveValueQueues, PendingVarTarget, PendingVarWrite,
+};
 
 /// Reports a Live Values request that a scan boundary refused. The platform turns it into its own
 /// report; trust-runtime pushes its `WriteRejected` event with this target text and time.
@@ -30,9 +34,58 @@ pub trait WriteSink {
     /// (specification 48 RU-59). Forces, which the boundary applies again every cycle, are not
     /// reported here. The default records nothing, and nothing is worked out for it: the target
     /// itself is passed, so that a sink that records nothing allocates nothing.
-    fn written(&mut self, target: &PendingVarTarget, variables: &dyn CompiledVariables) {
-        let _ = (target, variables);
+    fn written(
+        &mut self,
+        source: ChangeSource,
+        target: &PendingVarTarget,
+        variables: &dyn CompiledVariables,
+    ) {
+        let _ = (source, target, variables);
     }
+
+    /// Whether the sink records what the boundary applies, so that a value it reports is worked
+    /// out: a written address's value is copied only for a sink that records. The default records
+    /// nothing.
+    fn records(&self) -> bool {
+        false
+    }
+
+    /// The boundary applied the one-shot write of `value` at `address` that `source` queued
+    /// (`io.write`, or Control Studio's): a cycle trace records it (specification 48 RU-59).
+    /// Reported only to a sink that [`Self::records`].
+    fn address_written(
+        &mut self,
+        source: ChangeSource,
+        address: &IoAddress,
+        value: &Value,
+        variables: &dyn CompiledVariables,
+    ) {
+        let _ = (source, address, value, variables);
+    }
+
+    /// A force set or released since the last cycle start, reported once, as the cycle start
+    /// leaves it in effect (specification 48 RU-59). The default records nothing.
+    fn forced(&mut self, effect: ForceEffect<'_>, variables: &dyn CompiledVariables) {
+        let _ = (effect, variables);
+    }
+
+    /// Force changes were lost since the last cycle start: more came than were kept. The default
+    /// records nothing.
+    fn force_changes_lost(&mut self) {}
+}
+
+/// A force set or released, as a cycle start reports it with the value in effect (specification 48
+/// RU-59).
+#[derive(Debug, Clone, Copy)]
+pub enum ForceEffect<'a> {
+    /// A variable force in effect.
+    VariableSet(&'a ForcedVarTarget),
+    /// A variable force released.
+    VariableReleased(&'a ForcedVarTarget),
+    /// An address force in effect, with its value.
+    AddressSet(&'a IoAddress, &'a Value),
+    /// An address force released.
+    AddressReleased(&'a IoAddress),
 }
 
 /// Whether an error consuming the enclosing cycle's bounded resources must fault the cycle. An
@@ -86,7 +139,11 @@ where
     S: WriteSink,
 {
     for write in queues.pending_var_writes.drain(..) {
-        let PendingVarWrite { target, value } = write;
+        let PendingVarWrite {
+            target,
+            value,
+            source,
+        } = write;
         let result = match &target {
             PendingVarTarget::Global(name) => variables.write_named(name, &value),
             PendingVarTarget::Retain(label) => compiled_retained(variables, label, &value),
@@ -97,7 +154,7 @@ where
             PendingVarTarget::Local(_, _) => Err(RuntimeError::ReferenceLifetime),
         };
         match result {
-            Ok(()) => sink.written(&target, &*variables),
+            Ok(()) => sink.written(source, &target, &*variables),
             Err(error) => {
                 let operational = is_cycle_operational_error(&error);
                 sink.refused(&pending_var_label(&target), &error, time);
@@ -107,7 +164,61 @@ where
             }
         }
     }
-    compiled_forces(queues, generation, variables, time, sink)
+    compiled_forces(queues, generation, variables, time, sink)?;
+    report_force_changes(queues, &*variables, sink);
+    Ok(())
+}
+
+/// Reports the forces set or released since the last cycle start once each, as the cycle start
+/// leaves them (specification 48 RU-59): for each variable and address its last change, a set when
+/// its force is in effect and a release when it is not, so that a force the program refused, or one
+/// set and released between two cycles, is not reported as set. The changes are emptied whether or
+/// not the sink records them.
+fn report_force_changes<S>(
+    queues: &mut LiveValueQueues,
+    variables: &dyn CompiledVariables,
+    sink: &mut S,
+) where
+    S: WriteSink,
+{
+    if core::mem::take(&mut queues.force_changes_lost) {
+        sink.force_changes_lost();
+    }
+    let changes = &queues.force_changes;
+    for (index, change) in changes.iter().enumerate() {
+        if changes[index + 1..]
+            .iter()
+            .any(|later| later.same_target(change))
+        {
+            continue;
+        }
+        let variable_forced =
+            |target: &ForcedVarTarget| queues.forced_vars.iter().any(|f| f.target == *target);
+        let address_force = |address: &IoAddress| {
+            queues
+                .forced_io
+                .iter()
+                .find(|(forced, _)| forced == address)
+        };
+        let effect = match change {
+            ForceChange::VariableSet(target) => {
+                variable_forced(target).then_some(ForceEffect::VariableSet(target))
+            }
+            ForceChange::VariableReleased(target) => {
+                (!variable_forced(target)).then_some(ForceEffect::VariableReleased(target))
+            }
+            ForceChange::AddressSet(address) => {
+                address_force(address).map(|(forced, value)| ForceEffect::AddressSet(forced, value))
+            }
+            ForceChange::AddressReleased(address) => address_force(address)
+                .is_none()
+                .then_some(ForceEffect::AddressReleased(address)),
+        };
+        if let Some(effect) = effect {
+            sink.forced(effect, variables);
+        }
+    }
+    queues.retire_force_changes();
 }
 
 /// The active variable forces of a compiled program, in the order the targets were first forced,
@@ -184,15 +295,33 @@ where
     S: WriteSink,
 {
     if !areas.contains(&IoArea::Output) {
-        for (address, value) in queues.io_writes.drain(..) {
-            if let Err(error) = variables.write_image(&address, value) {
-                let operational = is_cycle_operational_error(&error);
-                sink.refused(&format!("{address:?}"), &error, time);
-                if operational {
-                    return Err(error);
+        // Each write's source is at its index; the list is taken whole, so that an early return
+        // leaves no source behind for the writes queued next.
+        let mut sources = core::mem::take(&mut queues.io_write_sources);
+        for (index, (address, value)) in queues.io_writes.drain(..).enumerate() {
+            let reported = sink.records().then(|| value.clone());
+            match variables.write_image(&address, value) {
+                Ok(()) => {
+                    if let Some(value) = &reported {
+                        let source = sources
+                            .get(index)
+                            .copied()
+                            .unwrap_or(ChangeSource::ControlLink);
+                        sink.address_written(source, &address, value, &*variables);
+                    }
+                }
+                Err(error) => {
+                    let operational = is_cycle_operational_error(&error);
+                    sink.refused(&format!("{address:?}"), &error, time);
+                    if operational {
+                        return Err(error);
+                    }
                 }
             }
         }
+        // Put back empty, so that the next writes' sources reuse its memory.
+        sources.clear();
+        queues.io_write_sources = sources;
     }
     if areas.contains(&IoArea::Input) {
         compiled_forces(queues, generation, variables, time, sink)?;

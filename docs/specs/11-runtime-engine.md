@@ -3684,7 +3684,8 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   reads (`CURRENT_DT`) is the logical time from 1 January 1970 UTC.
 - Its control link is its standard input and output: one request per line in and one response per
   line out (the runtime protocol annex, E0.1), and nothing else on its standard output; its log goes
-  to its standard error. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
+  to its standard error. It reads its first request once its resource has started, so that every
+  request finds the resource started, never booting. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
   the process that started it holds its standard input and has the Admin role, which includes every
   other. Its debug surface is on, whatever `runtime.control.debug_enabled` says, since a test reads
   and forces values as the debugger does. It ends when its standard input closes; after `shutdown`
@@ -3751,7 +3752,9 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
     - Once the recording has ended, it answers `{"state": "ended", "reason": "...", "cycles": n,
         "bytes": L, "sha256": "..."}`, with the end of specification 48 Appendix C, C.3 (`complete`,
         `stopped`, `resource_stopped`, `restarted`, `faulted`, `program_changed`, `paused`,
-        `memory_full`).
+        `memory_full`). A breakpoint or a step that holds the program ends the recording `paused`
+        with the cycles before the held one, which the trace has once the held scan has ended: until
+        then the recording reads as recording.
     - With `offset`, it answers the trace's bytes from there, at most 4,096 of them: `{"offset": o,
         "data": "<base64>", "crc32": "<8 hexadecimal digits>", "next_offset": o2}`. This is a part as
         `transfer.part` carries one the other way (specification 34 PORT-05).
@@ -3766,17 +3769,32 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
 - `runtime.toml` `[runtime.trace] flight_recorder = <n>` keeps the last `n` to `2n` cycles always.
     Absent or 0, there is no flight recorder. A resource whose flight recorder's memory the runtime
     cannot give starts without it, and a `runtime_trace_memory` event names the bytes needed and the
-    bytes free. When the resource faults, the runtime keeps the fault's trace, and a runtime with a
+    bytes free: `{"type": "runtime_trace_memory", "needed": <bytes>, "free": <bytes> | null,
+    "time_ns": <logical time>}`, `free` null where the runtime does not know it, as on a computer.
+    The runtime arms the flight recorder again at each restart and online change. When the resource faults, the runtime keeps the fault's trace, and a runtime with a
     folder of its files (6.8.0a) also writes it there as `traces/fault-<UTC date and
     time>.trusttrace`.
 
 `trust-runtime ctl record (--cycles <n> | --duration <t>) [--task <task>] [--out <file>]` sends
-`trace.record` and asks `trace.read` until the recording has ended. It then reads the trace part by
-part, checks each part's CRC-32 and the whole trace's SHA-256, and writes the file, by default
-`trace-<UTC date and time>.trusttrace` in the current folder. It prints `recorded <n> cycles
-(<reason>) to <file>, <L> bytes`. Ctrl+C sends `trace.stop` and saves what the trace holds.
+`trace.record` and asks `trace.read` until the recording has ended.
+
+- `<t>` is a duration as IEC 61131-3 writes one (Table 8), with or without its `T#` prefix:
+    `500ms`, `2s`, `1m30s`, `T#1h`. It is at least 1 nanosecond.
+- While it records, it prints `recording trace <id>, <b> bytes reserved; Ctrl+C ends it` on
+    standard error.
+- Once the recording has ended, it reads the trace part by part, checks each part's CRC-32 and the
+    whole trace's SHA-256, and writes the file. The file is by default `trace-<UTC date and
+    time>.trusttrace` in the current folder, the date and time in the basic form of ISO 8601:
+    `trace-20261124T013000Z.trusttrace`.
+- It prints `recorded <n> cycles (<reason>) to <file>, <L> bytes` and ends with 0, whatever ended
+    the recording.
+- Ctrl+C sends `trace.stop` and saves what the trace holds. A second Ctrl+C ends the command at
+    once, with 130, and saves nothing.
+- A refused recording, a trace that cannot be read whole and a file that cannot be written end it
+    with 1 and the reason.
+
 `trust-runtime ctl fault-trace [--out <file>]` saves the fault's trace the same way, by default as
-`fault-<UTC date and time>.trusttrace`.
+`fault-<UTC date and time>.trusttrace`, in the same form.
 
 ###### Replaying a trace (`simulator.replay`)
 

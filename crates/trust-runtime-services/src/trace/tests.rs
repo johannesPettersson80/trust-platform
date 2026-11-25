@@ -15,7 +15,7 @@ use trust_runtime_core::value::Value;
 use super::*;
 
 /// Areas of 2 (`%I`), 4 (`%Q`), 0, 8, 0 and 16 bytes; two tasks; a 10 ms resource; a 20 ms task.
-fn sizes() -> Sizes {
+pub(super) fn sizes() -> Sizes {
     Sizes {
         areas: [2, 4, 0, 8, 0, 16],
         tasks: 2,
@@ -24,7 +24,7 @@ fn sizes() -> Sizes {
     }
 }
 
-fn identity() -> Identity<'static> {
+pub(super) fn identity() -> Identity<'static> {
     Identity {
         image_sha256: [0x11; 32],
         sources_hash: [0x22; 32],
@@ -38,7 +38,7 @@ fn identity() -> Identity<'static> {
     }
 }
 
-fn image() -> ImageTables {
+pub(super) fn image() -> ImageTables {
     ImageTables {
         areas: vec![1],
         tasks: vec![2, 2],
@@ -49,12 +49,12 @@ fn image() -> ImageTables {
     }
 }
 
-fn ms(millis: i64) -> Duration {
+pub(super) fn ms(millis: i64) -> Duration {
     Duration::from_millis(millis)
 }
 
 /// A screen's write of the `INT` `Main.x`: 8 bytes of header and 19 of data, 32 bytes padded.
-const WRITE: ChangeRef<'static> = ChangeRef::VariableWrite {
+pub(super) const WRITE: ChangeRef<'static> = ChangeRef::VariableWrite {
     path: "Main.x",
     type_name: "INT",
     value: &[0x2A, 0],
@@ -468,5 +468,224 @@ fn a_written_value_longer_than_its_room_ends_the_recording_memory_full() {
     assert_eq!(
         (trace.meta.end, trace.meta.cycle_count),
         (TraceEnd::MemoryFull, 1)
+    );
+}
+
+#[test]
+fn a_force_is_recorded_once_where_it_is_set_or_released_and_not_in_the_first_cycle() {
+    // Specification 48 RU-59: a force is recorded in the cycle it is set or released before, as the
+    // bytes the forced variable holds or by its path. The trace's first cycle records none: its
+    // start state holds the forces in effect. Here the INT `Main.x` (42) is forced in the first and
+    // second cycles and released in the second; lost force changes then end the recording
+    // memory_full with the cycles before. Catches a force recorded twice, once in the start state
+    // and once as the first cycle's change, a release recorded without its path, and lost changes
+    // passed over.
+    use crate::live_values::apply::ForceEffect;
+    use crate::live_values::queues::{ForcedVarTarget, PendingVarTarget};
+
+    let target = ForcedVarTarget::Global("Main.x".into());
+    let mut recorder = Recorder::arm(Goal::Cycles(5), sizes(), Budget::COMPUTER).unwrap();
+    recorder.begin_cycle(ms(0), 0);
+    recorder.forced(
+        ChangeSource::ControlLink,
+        ForceEffect::VariableSet(&target),
+        &Variables,
+    );
+    assert!(!recorder.end_cycle(None));
+    recorder.begin_cycle(ms(10), 1);
+    recorder.forced(
+        ChangeSource::ControlLink,
+        ForceEffect::VariableSet(&target),
+        &Variables,
+    );
+    recorder.forced(
+        ChangeSource::ControlLink,
+        ForceEffect::VariableReleased(&target),
+        &Variables,
+    );
+    recorder.written_target(
+        ChangeSource::ControlLink,
+        &PendingVarTarget::Global("Main.x".into()),
+        &Variables,
+    );
+    assert!(!recorder.end_cycle(None));
+    recorder.begin_cycle(ms(20), 2);
+    recorder.force_changes_lost();
+    assert!(recorder.end_cycle(None));
+
+    let trace = read(&recorder);
+    assert_eq!(
+        (trace.meta.end, trace.cycles.len()),
+        (TraceEnd::MemoryFull, 2)
+    );
+    assert_eq!(trace.cycles[0].changes, vec![]);
+    let control = |kind| Change {
+        source: ChangeSource::ControlLink,
+        kind,
+    };
+    assert_eq!(
+        trace.cycles[1].changes,
+        vec![
+            control(ChangeKind::VariableForce {
+                path: "Main.x".into(),
+                type_name: "INT".into(),
+                value: vec![0x2A, 0],
+            }),
+            control(ChangeKind::VariableRelease {
+                path: "Main.x".into(),
+            }),
+            control(ChangeKind::VariableWrite {
+                path: "Main.x".into(),
+                type_name: "INT".into(),
+                value: vec![0x2A, 0],
+            }),
+        ]
+    );
+}
+
+#[test]
+fn a_write_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first() {
+    // Specification 48 RU-59: a screen writes between two scans, so its write is the next cycle's;
+    // one made before the trace's first cycle is in its start state, and one after the recording
+    // ended is not recorded. Here a screen writes `Main.x` (INT 42, the bytes 2A 00) before the
+    // first cycle, between the two, and after the end. Catches a write between two cycles lost,
+    // which every screen's write is, and one recorded before the first cycle or after the end.
+    let mut recorder = Recorder::arm(Goal::Cycles(2), sizes(), Budget::COMPUTER).unwrap();
+    recorder.written(ChangeSource::Screen, "Main.x", &Variables);
+    assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
+    recorder.written(ChangeSource::Screen, "Main.x", &Variables);
+    assert!(cycle(&mut recorder, 10, &[0], &[0, 0], &[0; 4]));
+    recorder.written(ChangeSource::Screen, "Main.x", &Variables);
+
+    let trace = read(&recorder);
+    assert_eq!(trace.cycles[0].changes, vec![]);
+    assert_eq!(
+        trace.cycles[1].changes,
+        vec![Change {
+            source: ChangeSource::Screen,
+            kind: ChangeKind::VariableWrite {
+                path: "Main.x".into(),
+                type_name: "INT".into(),
+                value: vec![0x2A, 0],
+            },
+        }]
+    );
+}
+
+#[test]
+fn the_file_names_each_variable_as_the_debugger_names_it() {
+    // Appendix C, C.6: a trace names each variable and each method call's instance as the debugger
+    // names it, whatever form the request named it in. The recording keeps `main.limit`,
+    // `main.x`, `main.heating` and `tank.level` as given; its file names the first three `Main.limit`,
+    // `Main.x` and `Main.Heating`, and keeps `tank.level`, which the debugger does not name. The
+    // plain file keeps every name as given. Catches a file that keeps the requests' names, a start
+    // force or an instance not named, and a name given where the debugger gives none.
+    let mut recorder = Recorder::arm(Goal::Cycles(1), sizes(), Budget::COMPUTER).unwrap();
+    assert_eq!(recorder.begin_cycle(ms(0), 7), Begin::First);
+    recorder.start_force(
+        ChangeSource::ControlLink,
+        &ChangeRef::VariableForce {
+            path: "main.limit",
+            type_name: "REAL",
+            value: &21.5f32.to_le_bytes(),
+        },
+    );
+    let write = |path| ChangeRef::VariableWrite {
+        path,
+        type_name: "INT",
+        value: &[0x2A, 0],
+    };
+    recorder.change(ChangeSource::Screen, &write("main.x"));
+    recorder.change(
+        ChangeSource::ControlLink,
+        &ChangeRef::MethodCall {
+            instance: "main.heating",
+            interface: "ISequence",
+            method: "Start",
+            inputs: &[("Setpoint", "21.5")],
+        },
+    );
+    recorder.change(ChangeSource::Plant, &write("tank.level"));
+    recorder.activation(0, 0);
+    recorder.inputs(&[0, 0]);
+    recorder.outputs(&[0; 4]);
+    assert!(recorder.end_cycle(None));
+
+    let mut debugger = |path: &str| -> Option<String> {
+        match path {
+            "main.limit" => Some("Main.limit".into()),
+            "main.x" => Some("Main.x".into()),
+            "main.heating" => Some("Main.Heating".into()),
+            _ => None,
+        }
+    };
+    let file = recorder
+        .file_named(&identity(), &[], &image(), &mut debugger)
+        .expect("an ended recording");
+    let trace = decode(&file).expect("a trace").trace;
+    let names = |trace: &Trace| -> Vec<String> {
+        let start = trace.start.forces.iter();
+        start
+            .chain(&trace.cycles[0].changes)
+            .map(|change| match &change.kind {
+                ChangeKind::VariableWrite { path, .. }
+                | ChangeKind::VariableForce { path, .. }
+                | ChangeKind::VariableRelease { path } => path.clone(),
+                ChangeKind::MethodCall { instance, .. } => instance.clone(),
+                other => panic!("no change of {other:?} was recorded"),
+            })
+            .collect()
+    };
+    assert_eq!(
+        names(&trace),
+        ["Main.limit", "Main.x", "Main.Heating", "tank.level"]
+    );
+    assert_eq!(
+        names(&read(&recorder)),
+        ["main.limit", "main.x", "main.heating", "tank.level"]
+    );
+    let ChangeKind::MethodCall { inputs, .. } = &trace.cycles[0].changes[1].kind else {
+        panic!("the method call is the cycle's second change");
+    };
+    assert_eq!(inputs, &[(String::from("Setpoint"), String::from("21.5"))]);
+}
+
+#[test]
+fn a_change_between_two_cycles_is_the_next_cycles_and_none_is_before_the_first() {
+    // Specification 48 RU-59: a change made between two cycles, such as a method call, is the next
+    // cycle's; one made before the trace's first cycle is in its start state, and one after the
+    // recording ended is not recorded. Here `Start` of `Main.Heating`'s ISequence, with the literal
+    // 21.5 for `Setpoint`, is called before the first cycle, between the two, and after the end.
+    // Catches a call recorded in the cycle before, recorded where the start state already holds
+    // it, lost between two cycles, and recorded without its inputs' literals.
+    use crate::method_call::MethodCall;
+
+    let call = MethodCall {
+        instance: "main.heating".into(),
+        interface: "ISequence".into(),
+        method: "Start".into(),
+        inputs: vec![("Setpoint".into(), Value::LReal(21.5))],
+        literals: vec!["21.5".into()],
+    };
+    let mut recorder = Recorder::arm(Goal::Cycles(2), sizes(), Budget::COMPUTER).unwrap();
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+    assert!(!cycle(&mut recorder, 0, &[0], &[0, 0], &[0; 4]));
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+    assert!(cycle(&mut recorder, 10, &[0], &[0, 0], &[0; 4]));
+    recorder.method_called(ChangeSource::ControlLink, "Main.Heating", &call);
+
+    let trace = read(&recorder);
+    assert_eq!(trace.cycles[0].changes, vec![]);
+    assert_eq!(
+        trace.cycles[1].changes,
+        vec![Change {
+            source: ChangeSource::ControlLink,
+            kind: ChangeKind::MethodCall {
+                instance: "Main.Heating".into(),
+                interface: "ISequence".into(),
+                method: "Start".into(),
+                inputs: vec![("Setpoint".into(), "21.5".into())],
+            },
+        }]
     );
 }

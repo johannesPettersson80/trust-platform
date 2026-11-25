@@ -5,6 +5,7 @@ use alloc::{
     format,
     string::{String, ToString},
 };
+use core::fmt::Write as _;
 
 /// Format a runtime value for user-visible diagnostics, tests, and debug output.
 #[must_use]
@@ -54,6 +55,84 @@ pub fn format_user_value(value: &Value) -> String {
         Value::Instance(_) => "Instance".to_string(),
         Value::Null => "NULL".to_string(),
     }
+}
+
+/// The Structured Text literal of `value`, as IEC 61131-3 writes one (Tables 5 to 8, §6.4.4.2), for
+/// every type a screen passes to a method (specification 39 §21.2): a boolean, an integer or a bit
+/// string in decimal, a real with its decimal point, a duration, a text in single quotes or a
+/// double-byte one in double quotes with their `$` combinations, and an enumeration's value after
+/// its type's own name and `#`. `None` for a real that is not finite, which no literal spells, and
+/// for the types a screen does not pass, such as a date or a structure. A cycle trace records a
+/// screen's method inputs as these literals (specification 48 Appendix C, C.6).
+#[must_use]
+pub fn st_literal(value: &Value) -> Option<String> {
+    Some(match value {
+        Value::Bool(_)
+        | Value::SInt(_)
+        | Value::Int(_)
+        | Value::DInt(_)
+        | Value::LInt(_)
+        | Value::USInt(_)
+        | Value::UInt(_)
+        | Value::UDInt(_)
+        | Value::ULInt(_)
+        | Value::Byte(_)
+        | Value::Word(_)
+        | Value::DWord(_)
+        | Value::LWord(_) => format_user_value(value),
+        Value::Real(real) => real_literal(f64::from(*real))?,
+        Value::LReal(real) => real_literal(*real)?,
+        Value::Time(duration) => format_duration("T", duration.as_nanos()),
+        Value::LTime(duration) => format_duration("LT", duration.as_nanos()),
+        Value::String(text) => text_literal(text, false),
+        Value::WString(text) => text_literal(text, true),
+        // `Enum_Value` (§6.4.4.2): the type's name is an identifier, which no namespace qualifies.
+        Value::Enum(value) if !value.variant_name().is_empty() => {
+            let own_name = value.type_name().rsplit('.').next().unwrap_or_default();
+            format!("{own_name}#{}", value.variant_name())
+        }
+        _ => return None,
+    })
+}
+
+/// A real literal: expanded decimal digits, always with the decimal point that tells a real from an
+/// integer (`4000.0`); none for a value that is not finite.
+fn real_literal(value: f64) -> Option<String> {
+    value.is_finite().then(|| super::float_text::real(value))
+}
+
+/// A text literal (Table 6): a single-byte one in single quotes, a double-byte one (`wide`) in
+/// double quotes, with `$$`, `$N`, `$R`, `$T`, `$P` and `$` before its own quote, and the code of
+/// another control character, which a literal may not hold as it is, in two hexadecimal digits, or
+/// four in a double-byte one.
+fn text_literal(text: &str, wide: bool) -> String {
+    let quote = if wide { '"' } else { '\'' };
+    let mut literal = String::with_capacity(text.len() + 2);
+    literal.push(quote);
+    for character in text.chars() {
+        match character {
+            '$' => literal.push_str("$$"),
+            '\n' => literal.push_str("$N"),
+            '\r' => literal.push_str("$R"),
+            '\t' => literal.push_str("$T"),
+            '\u{000C}' => literal.push_str("$P"),
+            _ if character == quote => {
+                literal.push('$');
+                literal.push(quote);
+            }
+            control if control.is_ascii_control() => {
+                let code = u32::from(control);
+                let _ = if wide {
+                    write!(literal, "${code:04X}")
+                } else {
+                    write!(literal, "${code:02X}")
+                };
+            }
+            other => literal.push(other),
+        }
+    }
+    literal.push(quote);
+    literal
 }
 
 fn format_duration(prefix: &str, nanos: i64) -> String {

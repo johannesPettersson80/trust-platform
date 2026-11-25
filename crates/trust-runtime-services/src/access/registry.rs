@@ -288,6 +288,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation(
+        "simulator.replay",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
         "method.call",
         RolePolicy::Fixed(AccessRole::Engineer),
         false,

@@ -60,11 +60,27 @@ pub fn run_runtime(
     // `identify` from it, and the runtime's scan and waits blink it. Every program start sets its
     // output from the project's `[runtime.identify]` (`start_program`).
     let identify = trust_runtime::io::IdentifyHandle::new();
+    // The stable runtime ID is read back, or generated once, on every start, even while
+    // announcing is disabled, so a file that cannot be read or holds an invalid ID is an error
+    // rather than a silently new ID (spec 11, runtime discovery; O36). A project folder that cannot
+    // hold the ID has it kept for the user; when no place can hold it, the runtime starts with an
+    // ID for this process and says so (spec 34, ARCH-07). One value serves `status`, the
+    // announcement and the cycle traces, the flight recorder's among them; its place is logged
+    // below, once the logger runs.
+    let runtime_identity = bundle
+        .as_ref()
+        .map(|bundle| trust_runtime::runtime_id::runtime_identity(bundle.root.as_path()))
+        .transpose()?;
+    // The slot of the cycle traces that the control link reads, which the flight recorder reports
+    // its fault's trace into (specification 11 §6.8.1, "Cycle traces").
+    let traces = trust_runtime::control::new_traces();
     let wiring = ProgramWiring {
         debug: debug.clone(),
         metrics: metrics.clone(),
         io_health: io_health.clone(),
         identify: identify.clone(),
+        traces: traces.clone(),
+        runtime_id: runtime_identity.as_ref().map(|identity| identity.id.clone()),
     };
     let io_snapshot = Arc::new(Mutex::new(None));
     let io_snapshot_seen_ms = Arc::new(std::sync::atomic::AtomicU64::new(0));
@@ -314,24 +330,18 @@ pub fn run_runtime(
         .as_ref()
         .map(|bundle| bundle.runtime.resource_name.clone())
         .unwrap_or_else(|| smol_str::SmolStr::new("RESOURCE"));
-    // The stable runtime ID is read back, or generated once, on every start, even while
-    // announcing is disabled, so a file that cannot be read or holds an invalid ID is an error
-    // rather than a silently new ID (spec 11, runtime discovery; O36). A project folder that cannot
-    // hold the ID has it kept for the user; when no place can hold it, the runtime starts with an
-    // ID for this process and says so (spec 34, ARCH-07). One value serves both `status` and the
-    // announcement.
-    let runtime_id = match &bundle {
-        Some(bundle) => {
-            let identity = trust_runtime::runtime_id::runtime_identity(bundle.root.as_path())?;
-            log_runtime_id_place(&logger, &identity);
-            identity.id
+    // The runtime ID read above; where it is kept is logged now.
+    let runtime_id = match &runtime_identity {
+        Some(identity) => {
+            log_runtime_id_place(&logger, identity);
+            identity.id.clone()
         }
         None => resource_name.clone(),
     };
 
     let state = Arc::new(ControlState {
         transfers: trust_runtime::control::new_transfer_session(),
-        traces: trust_runtime::control::new_traces(),
+        traces,
         debug: debug.clone(),
         identify,
         resource: control.clone(),

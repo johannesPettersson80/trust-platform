@@ -7,7 +7,12 @@
 //! the recording `memory_full`, with the cycles before it. Once ended, [`Recorder::file`] gives the
 //! `.trusttrace` file.
 
+mod changes;
+mod flight;
 pub mod requests;
+
+pub use changes::{address_size, trace_area, trace_bit};
+pub use flight::{FlightCycle, FlightRecorder};
 #[cfg(test)]
 mod tests;
 
@@ -16,9 +21,9 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::{
-    change_len, cycle_record_len, encode_change, encode_cycle_parts, encode_records, Activation,
-    ChangeRef, ChangeSource, CycleFault, CycleParts, ImageTables, Located, Meta, StartParts,
-    TraceEnd, TraceOrigin,
+    change_len, cycle_record_len, encode_change, encode_cycle_parts, encode_records, named_changes,
+    named_cycle, Activation, ChangeRef, ChangeSource, CycleFault, CycleParts, ImageTables, Located,
+    Meta, StartParts, TraceEnd, TraceOrigin,
 };
 use trust_runtime_core::value::Duration;
 
@@ -134,6 +139,35 @@ pub struct Identity<'a> {
     pub started_utc_ms: i64,
 }
 
+/// The recordings that one cycle feeds: a recording on demand (`trace.record`) and the flight
+/// recorder's current one ([`FlightRecorder::recorder`]), each when there is one (specification 48
+/// RU-59). Every change, activation, reading and image of the cycle goes to both.
+#[derive(Debug, Default)]
+pub struct Recordings<'a> {
+    /// The recording on demand.
+    pub on_demand: Option<&'a mut Recorder>,
+    /// The flight recorder's current recording.
+    pub flight: Option<&'a mut Recorder>,
+}
+
+impl Recordings<'_> {
+    /// Whether no recording runs, so that nothing needs recording.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.on_demand.is_none() && self.flight.is_none()
+    }
+
+    /// Calls `record` with each recording.
+    pub fn each(&mut self, mut record: impl FnMut(&mut Recorder)) {
+        if let Some(recorder) = self.on_demand.as_deref_mut() {
+            record(recorder);
+        }
+        if let Some(recorder) = self.flight.as_deref_mut() {
+            record(recorder);
+        }
+    }
+}
+
 /// A recording of a cycle trace (module docs).
 #[derive(Debug)]
 pub struct Recorder {
@@ -154,6 +188,10 @@ pub struct Recorder {
     first: Option<(Duration, u64)>,
     task_runs: u64,
     end: Option<TraceEnd>,
+    /// Whether this recording continues another whose last cycle has just ended (the flight
+    /// recorder, [`Recorder::continue_empty`]): its start state was taken then, and a change made
+    /// before its first cycle is that cycle's.
+    continued: bool,
     reserved: usize,
     cycle: Scratch,
 }
@@ -221,6 +259,7 @@ impl Recorder {
                 first: None,
                 task_runs: 0,
                 end: None,
+                continued: false,
                 reserved: needed,
                 cycle: Scratch {
                     open: false,
@@ -267,21 +306,47 @@ impl Recorder {
             self.finish(TraceEnd::Complete);
             return Begin::Ended;
         }
+        // The changes made since the last cycle ended are this cycle's (`change`), and so is their
+        // overflow; the rest starts afresh.
         let cycle = &mut self.cycle;
         cycle.open = true;
-        cycle.overflow = false;
         cycle.time = now;
         cycle.activations.clear();
         cycle.readings.clear();
-        cycle.changes.clear();
-        cycle.change_count = 0;
         cycle.inputs.clear();
         cycle.outputs.clear();
         if self.first.is_none() {
             self.first = Some((now, cycle_number));
-            return Begin::First;
+            // A continued recording took its start state when the cycle before it ended.
+            return if self.continued {
+                Begin::Next
+            } else {
+                Begin::First
+            };
         }
         Begin::Next
+    }
+
+    /// Empties the recording in place, its memory kept, to continue a recording whose last cycle
+    /// has just ended (the flight recorder): the runner gives its start state now
+    /// ([`Self::start_area`], [`Self::start_force`]), the memory and the forces as that cycle left
+    /// them, and a change made before this recording's first cycle is that cycle's. The two
+    /// recordings joined then hold every change once, and this one alone is a trace of its own. It
+    /// allocates nothing.
+    pub(crate) fn continue_empty(&mut self) {
+        self.records.clear();
+        self.record_ends.clear();
+        self.start_forces.clear();
+        self.start_force_count = 0;
+        self.first = None;
+        self.task_runs = 0;
+        self.end = None;
+        self.continued = true;
+        let cycle = &mut self.cycle;
+        cycle.open = false;
+        cycle.overflow = false;
+        cycle.changes.clear();
+        cycle.change_count = 0;
     }
 
     /// The reserved bytes of area `id` (1 `%I` to 6 `P`) at the start, for the runner to fill on
@@ -303,12 +368,22 @@ impl Recorder {
         self.start_force_count += 1;
     }
 
-    /// A change made from outside before the cycle, in the order the runtime applies it.
+    /// Whether a change from outside is recorded now: one made in a cycle, or between two cycles of
+    /// the recording, which is the next cycle's. One made before the first cycle is in the start
+    /// state, but in a continued recording's first cycle ([`Self::continue_empty`]), and one after
+    /// the recording ended is not recorded.
+    fn takes_changes(&self) -> bool {
+        self.cycle.open || ((self.first.is_some() || self.continued) && self.end.is_none())
+    }
+
+    /// A change made from outside before the cycle, in the order the runtime applies it. One made
+    /// between two cycles is the next cycle's, one made before the first cycle is in the start
+    /// state, and one made after the recording ended is not recorded.
     pub fn change(&mut self, source: ChangeSource, change: &ChangeRef<'_>) {
-        let cycle = &mut self.cycle;
-        if !cycle.open {
+        if !self.takes_changes() {
             return;
         }
+        let cycle = &mut self.cycle;
         if !fits(&cycle.changes, change_len(change), self.limits.changes) {
             cycle.overflow = true;
             return;
@@ -319,10 +394,11 @@ impl Recorder {
 
     /// A write from outside to the variable `path`, which `variables` has applied: recorded as the
     /// bytes the variable now holds, at its declared size, with its type's name, read back into
-    /// the reserved room for a value. A value longer than that room, or one that cannot be read
-    /// back, ends the recording `memory_full` at the cycle's end.
+    /// the reserved room for a value. A write between two cycles, such as a screen's, is the next
+    /// cycle's ([`Self::change`]). A value longer than that room, or one that cannot be read back,
+    /// ends the recording `memory_full` at the end of the cycle the write belongs to.
     pub fn written(&mut self, source: ChangeSource, path: &str, variables: &dyn CompiledVariables) {
-        if !self.cycle.open {
+        if !self.takes_changes() {
             return;
         }
         // The room is taken out while its bytes are recorded and put back: moving a vector
@@ -332,30 +408,6 @@ impl Recorder {
             Ok((len, type_name)) => self.change(
                 source,
                 &ChangeRef::VariableWrite {
-                    path,
-                    type_name: &type_name,
-                    value: &value[..len],
-                },
-            ),
-            Err(_) => self.cycle.overflow = true,
-        }
-        self.value = value;
-    }
-
-    /// A force in effect at the start, on the trace's first cycle ([`Begin::First`]), once the
-    /// boundary applied it: recorded as the bytes the forced variable holds, read back as
-    /// [`Self::written`] reads them.
-    pub fn start_forced(
-        &mut self,
-        source: ChangeSource,
-        path: &str,
-        variables: &dyn CompiledVariables,
-    ) {
-        let mut value = core::mem::take(&mut self.value);
-        match variables.read_named_bytes(path, &mut value) {
-            Ok((len, type_name)) => self.start_force(
-                source,
-                &ChangeRef::VariableForce {
                     path,
                     type_name: &type_name,
                     value: &value[..len],
@@ -417,6 +469,18 @@ impl Recorder {
             return self.end.is_some();
         }
         self.cycle.open = false;
+        let ended = self.record_cycle(fault);
+        // The next cycle's changes start from none.
+        let cycle = &mut self.cycle;
+        cycle.changes.clear();
+        cycle.change_count = 0;
+        cycle.overflow = false;
+        ended
+    }
+
+    /// The open cycle's record joins the trace when the trace has room for it, and the recording
+    /// ends where the cycle completes its goal or faulted; it gives whether the recording has ended.
+    fn record_cycle(&mut self, fault: Option<CycleFault>) -> bool {
         if self.cycle.overflow {
             self.finish(TraceEnd::MemoryFull);
             return true;
@@ -470,7 +534,8 @@ impl Recorder {
     }
 
     /// The trace's `.trusttrace` file once the recording has ended: `identity`, the recorded
-    /// image's located variables and tables, the start state and every recorded cycle.
+    /// image's located variables and tables, the start state and every recorded cycle, with the
+    /// variables named as the requests named them.
     #[must_use]
     pub fn file(
         &self,
@@ -478,26 +543,70 @@ impl Recorder {
         located: &[Located],
         image: &ImageTables,
     ) -> Option<Vec<u8>> {
+        // A recording has no file until it has ended, and asking costs nothing.
         let end = self.end?;
-        let (_, first_cycle) = self.first.unwrap_or((Duration::ZERO, 0));
-        let meta = Meta {
-            image_sha256: identity.image_sha256,
-            sources_hash: identity.sources_hash,
-            target: identity.target,
+        let records: Vec<&[u8]> = self.cycle_records().collect();
+        let start = self.start_with(&self.start_forces);
+        let tally = Tally {
+            cycles: self.cycles(),
             end,
-            cycle_interval_ns: u64::try_from(self.sizes.cycle_interval.as_nanos()).unwrap_or(0),
-            first_cycle,
-            cycle_count: self.cycles(),
-            started_utc_ms: identity.started_utc_ms,
-            runtime_version: String::from(identity.runtime_version),
-            runtime_id: String::from(identity.runtime_id),
-            platform: String::from(identity.platform),
-            resource: String::from(identity.resource),
-            task: identity.task.map(String::from),
             origin: TraceOrigin::OnDemand,
         };
+        Some(self.encoded(identity, located, image, &records, &start, tally))
+    }
+
+    /// The trace's file as [`Self::file`] writes it, with each variable's path and each method
+    /// call's instance named by `name`, the name the debugger gives it, or kept when `name` gives
+    /// none (Appendix C, C.6). The recording keeps the names as the requests gave them, since a scan
+    /// cannot look a name up without allocating (specification 34 MEM-09); the file, written after
+    /// the recording, names them.
+    #[must_use]
+    pub fn file_named(
+        &self,
+        identity: &Identity<'_>,
+        located: &[Located],
+        image: &ImageTables,
+        name: &mut dyn FnMut(&str) -> Option<String>,
+    ) -> Option<Vec<u8>> {
+        // A recording has no file until it has ended, and asking costs nothing.
+        self.end?;
+        // Every record and force reads again, since this recorder wrote them; one that did not
+        // would keep its names.
+        let named: Vec<Vec<u8>> = self
+            .cycle_records()
+            .map(|record| named_cycle(record, name).unwrap_or_else(|_| record.to_vec()))
+            .collect();
+        let records: Vec<&[u8]> = named.iter().map(Vec::as_slice).collect();
+        let forces = self.named_forces(name);
+        let start = self.start_with(&forces);
+        let tally = Tally {
+            cycles: self.cycles(),
+            end: self.end?,
+            origin: TraceOrigin::OnDemand,
+        };
+        Some(self.encoded(identity, located, image, &records, &start, tally))
+    }
+
+    /// The forces in effect at the start, with each variable's path named by `name` as
+    /// [`Self::file_named`] names them, or as recorded when they do not read again.
+    fn named_forces(&self, name: &mut dyn FnMut(&str) -> Option<String>) -> Vec<u8> {
+        named_changes(&self.start_forces, self.start_force_count, name)
+            .unwrap_or_else(|_| self.start_forces.clone())
+    }
+
+    /// Each recorded cycle's record, in order.
+    fn cycle_records(&self) -> impl Iterator<Item = &[u8]> {
+        let starts = core::iter::once(0).chain(self.record_ends.iter().copied());
+        starts
+            .zip(&self.record_ends)
+            .map(|(from, end)| &self.records[from..*end])
+    }
+
+    /// The start state this recording took, its areas and the forces `forces`, which name the
+    /// paths as the file does.
+    fn start_with<'f>(&self, forces: &'f [u8]) -> Start<'_, 'f> {
         let mut areas = Vec::new();
-        if self.first.is_some() {
+        if self.first.is_some() || self.continued {
             let mut start = 0;
             for (index, len) in self.sizes.areas.iter().enumerate() {
                 let id = u32::try_from(index + 1).unwrap_or(0);
@@ -505,19 +614,63 @@ impl Recorder {
                 start += len;
             }
         }
-        let start = StartParts {
-            areas: &areas,
+        Start {
+            areas,
+            forces,
             force_count: self.start_force_count,
-            forces: &self.start_forces,
-        };
-        let mut records = Vec::with_capacity(self.record_ends.len());
-        let mut from = 0;
-        for end in &self.record_ends {
-            records.push(&self.records[from..*end]);
-            from = *end;
         }
-        Some(encode_records(&meta, located, &start, image, &records))
     }
+
+    /// The file of a trace that starts with `start`, this recording's, and holds `records`, with
+    /// the count, end and origin of `tally` and this recording's first cycle.
+    fn encoded(
+        &self,
+        identity: &Identity<'_>,
+        located: &[Located],
+        image: &ImageTables,
+        records: &[&[u8]],
+        start: &Start<'_, '_>,
+        tally: Tally,
+    ) -> Vec<u8> {
+        let (_, first_cycle) = self.first.unwrap_or((Duration::ZERO, 0));
+        let meta = Meta {
+            image_sha256: identity.image_sha256,
+            sources_hash: identity.sources_hash,
+            target: identity.target,
+            end: tally.end,
+            cycle_interval_ns: u64::try_from(self.sizes.cycle_interval.as_nanos()).unwrap_or(0),
+            first_cycle,
+            cycle_count: tally.cycles,
+            started_utc_ms: identity.started_utc_ms,
+            runtime_version: String::from(identity.runtime_version),
+            runtime_id: String::from(identity.runtime_id),
+            platform: String::from(identity.platform),
+            resource: String::from(identity.resource),
+            task: identity.task.map(String::from),
+            origin: tally.origin,
+        };
+        let parts = StartParts {
+            areas: &start.areas,
+            force_count: start.force_count,
+            forces: start.forces,
+        };
+        encode_records(&meta, located, &parts, image, records)
+    }
+}
+
+/// A trace's start state, as a recording took it ([`Recorder::start_with`]).
+struct Start<'a, 'f> {
+    areas: Vec<(u32, &'a [u8])>,
+    forces: &'f [u8],
+    force_count: usize,
+}
+
+/// What a trace's identity counts: its cycles, why it ended, and where it comes from.
+#[derive(Debug, Clone, Copy)]
+struct Tally {
+    cycles: u64,
+    end: TraceEnd,
+    origin: TraceOrigin,
 }
 
 /// The bytes a recording reserves: its records and their ends, the start state, the forces, a

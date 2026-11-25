@@ -71,6 +71,7 @@ struct RuntimeSection {
     control: ControlSection,
     log: LogSection,
     events: Option<EventsSection>,
+    trace: Option<TraceSection>,
     identify: Option<IdentifySection>,
     retain: RetainSection,
     watchdog: WatchdogSection,
@@ -130,6 +131,16 @@ struct LogSection {
 struct EventsSection {
     /// `capacity`, 1 to 1,000,000; absent uses the device's default.
     capacity: Option<usize>,
+}
+
+/// `[runtime.trace]`: the flight recorder (specification 48 RU-59, "The flight recorder";
+/// specification 11 §6.8.1, "Cycle traces").
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TraceSection {
+    /// `flight_recorder`, the cycles `n` of which the runtime keeps the last `n` to `2n`; absent or
+    /// 0, the runtime keeps no flight recorder.
+    flight_recorder: Option<u64>,
 }
 
 /// `[runtime.identify]`: the output that `identify` blinks (specification 11, "Identify").

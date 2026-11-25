@@ -149,7 +149,7 @@ mod tests {
         while !writer.is_finished() && std::time::Instant::now() < deadline {
             plant
                 .runtime_mut()
-                .with_program(|program| exchange.serve(program, 0, &[]));
+                .with_program(|program| exchange.serve(program, 0, &[], &mut Vec::new()));
             std::thread::yield_now();
         }
         let answer = writer.join().unwrap();
