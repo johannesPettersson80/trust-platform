@@ -454,7 +454,10 @@ fn recorded_fault_text(
     same_sources: bool,
 ) -> String {
     let text = fault_code_text(fault.code);
-    format!("{text}{}", fault_place_text(fault, build, traced, same_sources))
+    format!(
+        "{text}{}",
+        fault_place_text(fault, build, traced, same_sources)
+    )
 }
 
 /// Where the program raised `fault`, as the report names it after the fault's text (specification
