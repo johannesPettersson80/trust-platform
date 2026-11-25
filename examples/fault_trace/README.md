@@ -26,7 +26,7 @@ the fault, replay it on your computer to see the fault again, and check a fix ag
 1. In the truST side panel, choose **Start from example**, then **Fault trace**. Pick a folder under
    **Select destination folder** and keep the name under **New project folder name**: VS Code opens the
    copy. Open two terminals in its folder.
-2. Open `src/main.st`. `DosePerStroke := DosePerMinute / StrokeRate;` divides the 1,200 units of chlorine
+2. Open `src/Main.st`. `DosePerStroke := DosePerMinute / StrokeRate;` divides the 1,200 units of chlorine
    the water needs a minute by the strokes a minute that the stroke sensor counts at `%IW0`. Nothing
    guards the division against 0.
 3. Open `simulation.toml`: the stroke sensor counts 60 strokes a minute from the start and 0 from 5 s, as
@@ -50,9 +50,9 @@ the fault, replay it on your computer to see the fault again, and check a fix ag
     ```
 
     The first prints `state=faulted fault=division by zero rt_profile=disabled rt_active=false`, the
-    second `saved the fault's trace of 501 cycles (faulted) to dosing-fault.trusttrace, 53576 bytes`. The
+    second `saved the fault's trace of 501 cycles (faulted) to dosing-fault.trusttrace, 53584 bytes`. The
     runtime had already written the same trace into `traces/`, named after the fault's UTC date and time:
-    in the run, `traces/fault-20261125T123048Z.trusttrace`, also 53576 bytes.
+    in the run, `traces/fault-20261125T160340Z.trusttrace`, also 53584 bytes.
 
 6. Press Ctrl+C in the first terminal to stop the runtime. It ends with
    `Error: runtime resource faulted: division by zero`.
@@ -92,7 +92,7 @@ without a broken sensor.
 
 ## Try it yourself
 
-- Guard the division in `src/main.st`, so that the pump doses nothing when the sensor counts no strokes:
+- Guard the division in `src/Main.st`, so that the pump doses nothing when the sensor counts no strokes:
 
     ```st
     IF StrokeRate > 0 THEN
@@ -115,7 +115,7 @@ without a broken sensor.
     fixed program runs on.
 
 - Set `flight_recorder = 100` in `runtime.toml`, run the project again and save the fault's trace. In the
-  run it held 101 cycles, 11976 bytes: with n = 100, ⌊500 / 100⌋ = 5, so the cycles 400 to 500,
+  run it held 101 cycles, 11984 bytes: with n = 100, ⌊500 / 100⌋ = 5, so the cycles 400 to 500,
   100 + 0 + 1 = 101.
 - Run the machine test, which does the same on a clock that only the test moves: `cargo test` in
   `machine-tests/`. `tests/fault.rs` runs 4 s and reads `DosePerStroke` 20, runs on into the fault at 5 s,
@@ -125,11 +125,12 @@ without a broken sensor.
 
 | File | What it holds |
 |---|---|
-| `src/main.st` | the program `Main`, which divides the dose by the stroke rate, and the two located variables |
-| `src/config.st` | the configuration: the task `Dosing` runs `Main` every 10 ms |
+| `src/Main.st` | the program `Main`, which divides the dose by the stroke rate, and the two located variables |
+| `src/Configuration.st` | the configuration: the task `Dosing` runs `Main` every 10 ms |
 | `simulation.toml` | the stroke sensor's two readings: 60 from the start, 0 from 5 s |
 | `runtime.toml` | the runtime's settings; `[runtime.trace] flight_recorder = 300` at the end |
 | `io.toml` | the simulated I/O driver |
+| `.vscode/launch.json` | the **truST Simulator** launch configuration that **Start** uses in VS Code |
 | `machine-tests/` | the machine test `tests/fault.rs`, with trust-sim |
 
 | Variable | Address | Type | Meaning |
