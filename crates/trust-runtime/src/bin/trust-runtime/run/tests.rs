@@ -2,6 +2,7 @@
 //! §4.6 at `TRUST_TOOLCHAIN`.
 
 use super::simulation_warning_message;
+use super::{runtime_fault_fields, FaultPlaces, RuntimeLogger};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -1263,4 +1264,75 @@ fn project_loader_refuses_a_bytecode_program_and_loads_a_project_without_sources
     let loaded = super::load_runtime(Some(root.clone()), None, None).unwrap();
     assert!(loaded.sources.files().is_empty());
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn a_runtime_fault_line_names_where_the_program_faulted() {
+    // Specification 11, the fault entry: a fault that the program raised names its POU, file and
+    // line, and the run log's `runtime_fault` line names them as the entries do. Worked by hand
+    // for the fault_trace example's division by zero at line 17 of src/Main.st in the POU Main, at
+    // 5,000 ms: the line carries `pou` Main, `file` src/Main.st and `line` 17 beside its error and
+    // time; a watchdog's fault at 3 ms names no place. Catches a log line without the place, and
+    // a place named for a fault from outside the program.
+    let placed = runtime_fault_fields(
+        String::from("division by zero"),
+        5_000,
+        Some(trust_runtime_services::events::NamedPlace {
+            pou: String::from("Main"),
+            file: String::from("src/Main.st"),
+            line: 17,
+        }),
+    );
+    assert_eq!(
+        placed,
+        serde_json::json!({
+            "event_id": "TRUST-RT-FAULT-001",
+            "error": "division by zero",
+            "time_ms": 5000,
+            "pou": "Main",
+            "file": "src/Main.st",
+            "line": 17,
+        })
+    );
+    let unplaced = runtime_fault_fields(String::from("watchdog timeout"), 3, None);
+    assert_eq!(
+        unplaced,
+        serde_json::json!({
+            "event_id": "TRUST-RT-FAULT-001",
+            "error": "watchdog timeout",
+            "time_ms": 3,
+        })
+    );
+}
+
+#[test]
+fn the_run_log_asks_the_control_state_for_a_faults_place_once_it_exists() {
+    // Specification 11, the fault entry: the place comes from the program that runs, which the
+    // control state holds once it exists. Before that, and for a fault from outside the program
+    // (`FaultSite::NONE`), the logger names none; after it, the logger names what the lookup
+    // names, for every clone. Catches a logger that never asks, one that asks for a fault from
+    // outside the program, and a clone that does not share the lookup.
+    use trust_runtime_core::fault::FaultSite;
+    use trust_runtime_core::memory::Generation;
+    let logger = RuntimeLogger::new(trust_runtime_core::deployment::LogLevel::Info);
+    let clone = logger.clone();
+    let site = FaultSite {
+        pou: 0,
+        statement: 3,
+        generation: Generation(2),
+    };
+    assert_eq!(clone.fault_place(site), None);
+    logger.locate(FaultPlaces(Arc::new(|site: FaultSite| {
+        (site.statement == 3).then(|| trust_runtime_services::events::NamedPlace {
+            pou: String::from("Main"),
+            file: String::from("src/Main.st"),
+            line: 17,
+        })
+    })));
+    let named = clone.fault_place(site).expect("the place of statement 3");
+    assert_eq!(
+        (named.pou.as_str(), named.file.as_str(), named.line),
+        ("Main", "src/Main.st", 17)
+    );
+    assert_eq!(clone.fault_place(FaultSite::NONE), None);
 }

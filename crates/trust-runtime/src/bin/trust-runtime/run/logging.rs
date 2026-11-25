@@ -1,4 +1,18 @@
 use trust_runtime_core::deployment::LogLevel;
+use trust_runtime_core::fault::FaultSite;
+use trust_runtime_services::events::NamedPlace;
+
+/// Where a fault that the program raised lies, from the program that runs (specification 11, the
+/// fault entry): the control state's lookup, which names no place for a site of a program that a
+/// restart or an online change replaced.
+#[derive(Clone)]
+struct FaultPlaces(Arc<dyn Fn(FaultSite) -> Option<NamedPlace> + Send + Sync>);
+
+impl std::fmt::Debug for FaultPlaces {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("FaultPlaces")
+    }
+}
 
 /// The runtime's log lines on standard output, each written when its level is at most the
 /// configured one, `[runtime.log] level`.
@@ -10,6 +24,8 @@ struct RuntimeLogger {
     /// their `log.level`, which `config.set` changes while the runtime runs (specification 11, the
     /// runtime configuration contract).
     settings: Arc<std::sync::OnceLock<Arc<Mutex<RuntimeSettings>>>>,
+    /// Where the program's faults lie, once the control state exists, shared by every clone.
+    places: Arc<std::sync::OnceLock<FaultPlaces>>,
 }
 
 impl RuntimeLogger {
@@ -17,7 +33,22 @@ impl RuntimeLogger {
         Self {
             level,
             settings: Arc::new(std::sync::OnceLock::new()),
+            places: Arc::new(std::sync::OnceLock::new()),
         }
+    }
+
+    /// Every clone names the place of a fault the program raised from now on.
+    fn locate(&self, places: FaultPlaces) {
+        let _ = self.places.set(places);
+    }
+
+    /// The place of the fault at `site`, none before the control state exists, for a fault from
+    /// outside the program, or for one the lookup does not name.
+    fn fault_place(&self, site: FaultSite) -> Option<NamedPlace> {
+        if site == FaultSite::NONE {
+            return None;
+        }
+        self.places.get().and_then(|places| (places.0)(site))
     }
 
     /// Every clone takes its level from `settings` from now on.
@@ -112,11 +143,11 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
             logger.log(
                 LogLevel::Error,
                 "runtime_fault",
-                json!({
-                    "event_id": "TRUST-RT-FAULT-001",
-                    "error": fault.render(message.as_ref()),
-                    "time_ms": time.as_millis(),
-                }),
+                runtime_fault_fields(
+                    fault.render(message.as_ref()),
+                    time.as_millis(),
+                    logger.fault_place(fault.site),
+                ),
             );
         }
         trust_runtime::debug::RuntimeEvent::SafeStateApplied { outputs, time } => {
@@ -228,6 +259,23 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
         }
         _ => {}
     }
+}
+
+/// The fields of the run log's `runtime_fault` line: the fault's text and logical time, and the
+/// place of a fault the program raised, `pou`, `file` and `line`, as a fault entry names it
+/// (specification 11, the fault entry).
+fn runtime_fault_fields(error: String, time_ms: i64, place: Option<NamedPlace>) -> serde_json::Value {
+    let mut fields = json!({
+        "event_id": "TRUST-RT-FAULT-001",
+        "error": error,
+        "time_ms": time_ms,
+    });
+    if let Some(place) = place {
+        fields["pou"] = json!(place.pou);
+        fields["file"] = json!(place.file);
+        fields["line"] = json!(place.line);
+    }
+    fields
 }
 
 /// Logs where the runtime keeps its stable ID when that is not the project's own file
