@@ -82,9 +82,22 @@ pub(super) fn answer_event_read<H: RecordsPort>(
     ControlResponse::ok(id, serde_json::Value::Object(result))
 }
 
+/// The newest fault event itself, or none when the store holds no fault or cannot be read: what
+/// `simulator.advance` compares before and after its cycles (specification 11 §6.8.1, "Simulator
+/// for machine tests"). The event, not its entry: an entry names a fault's place only while the
+/// program that raised it runs, so a restart changes the entry of the same fault.
+pub(crate) fn newest_fault_event<H: RecordsPort>(host: &H) -> Option<RuntimeEvent> {
+    host.read_events(|store| {
+        newest_selected(store, EventRead::Faults.selection(), 1)
+            .next()
+            .cloned()
+    })
+    .flatten()
+}
+
 /// The newest fault event, as `faults` lists it, or none when the store holds no fault or cannot
-/// be read: what `simulator.advance` compares before and after its cycles and adds to its answer
-/// (specification 11 §6.8.1, "Simulator for machine tests").
+/// be read: what `simulator.advance` adds to its answer (specification 11 §6.8.1, "Simulator for
+/// machine tests").
 pub(crate) fn newest_fault<H: RecordsPort>(host: &H) -> Option<serde_json::Value> {
     host.read_events(|store| {
         newest_selected(store, EventRead::Faults.selection(), 1)

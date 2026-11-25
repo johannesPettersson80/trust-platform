@@ -22,7 +22,7 @@ pub(crate) use reply::capitalize_role;
 pub(crate) use reply::AccessCapabilities;
 use reply::{DebugHold, DriverHealth, Health, Metrics, ProgramMemoryReply, Status, TaskStats};
 
-pub(crate) use event_reads::{newest_fault, write_event_read, EventRead};
+pub(crate) use event_reads::{newest_fault, newest_fault_event, write_event_read, EventRead};
 pub use params::{
     check_number_members, invalid_params, parse_bounded_limit, unavailable, validate_object_fields,
     MemberKind,
