@@ -40,8 +40,9 @@ const LINE_LIMIT: usize = 1 << 20;
 const READ_WAIT: Duration = Duration::from_millis(20);
 
 /// The configuration a program for stepped scans is installed with: the debug surface on, which
-/// `cycle.step` needs, a watchdog of one second, which bounds every stepped scan, and otherwise the
-/// sections a project's `runtime.toml` must have, at their defaults.
+/// `cycle.step` needs, a watchdog of one second, which bounds every stepped scan, an event store of
+/// [`STEPPING_EVENTS`] events, and otherwise the sections a project's `runtime.toml` must have, at
+/// their defaults.
 const STEPPING_RUNTIME: &str = "\
 [bundle]
 version = 1
@@ -69,7 +70,16 @@ action = \"halt\"
 
 [runtime.fault]
 policy = \"halt\"
+
+[runtime.events]
+capacity = 16
 ";
+
+/// The events a program for stepped scans keeps, which also sizes the debugger's buffer of stops a
+/// chip keeps beside the program (specification 11 §6.13.3; specification 34 MEM-12): 16 stops take
+/// about 1.4 KB, where the ESP32-C6's default of 200 took 17,860 bytes and left a debug-enabled
+/// program on a C6 with Wi-Fi on about 4.7 KB. Stepped scans read no event and set no breakpoint.
+pub const STEPPING_EVENTS: u32 = 16;
 
 /// The program a run of stepped scans starts first, to load a record whose debug surface is on: it
 /// runs no statement, so it cannot fault.
@@ -568,3 +578,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "device_link_tests.rs"]
+mod stepping_tests;

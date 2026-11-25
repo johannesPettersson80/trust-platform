@@ -157,7 +157,7 @@ source, so editors and scripts do not need to read the files. Every failure is p
 
 | Key | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `capacity` | integer | no | 1,000 on a computer; on a chip, its chip file's default (200 on the ESP32-C6, 1,000 on the STM32U5A9) | The newest events the event store keeps, from 1 through 1,000,000. A newer event displaces the oldest. A chip refuses a value above its chip file's maximum (200 on the ESP32-C6, 1,000 on the STM32U5A9). `status` reports it as `event_capacity`. |
+| `capacity` | integer | no | 1,000 on a computer; on a chip, its chip file's default (200 on the ESP32-C6, 1,000 on the STM32U5A9) | The newest events the event store keeps, from 1 through 1,000,000. A newer event displaces the oldest. A chip refuses a value above its chip file's maximum (200 on the ESP32-C6, 1,000 on the STM32U5A9). `status` reports it as `event_capacity`. On a chip, a program whose `[runtime.control] debug_enabled` is on also keeps the debugger's buffer of stops beside its memory, one stop for each event, about 89 bytes each on the ESP32-C6 (17,860 bytes for its 200): a lower capacity leaves the program that much more memory. |
 
 ### `[runtime.trace]`
 
