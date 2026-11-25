@@ -107,7 +107,7 @@ readings, and compares each cycle's outputs with the trace's (specification 48 R
     ```
 
     Once 30 s of logical time have run, it prints
-    `recorded 3000 cycles (complete) to traces/commissioning.trusttrace, 995976 bytes`. In the
+    `recorded 3000 cycles (complete) to traces/commissioning.trusttrace, 995984 bytes`. In the
     example's recording, Start came 1.21 s in. The pump ran from 1.33 s, FS-101 saw flow at
     5.33 s, the heater ran from 5.53 s, and the fan from 19.33 s, once the tank reached 40 °C.
 

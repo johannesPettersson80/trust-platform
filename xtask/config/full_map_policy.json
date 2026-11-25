@@ -667,6 +667,14 @@
       "rationale": "The compiled cycle's tests run stand-in modules written against the kernel interface; a dev edge only, so the shared services never depend on it."
     },
     {
+      "from": "trust-runtime-services",
+      "to": "trust-runtime-core",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "cycle traces (specification 48 RU-59)",
+      "rationale": "The services' tests take the core with the standard library, as CI's workspace build links it, so that each test thread keeps its own store of a cycle trace's wall-clock readings; a dev edge only, so a chip still builds the services on the core without it."
+    },
+    {
       "from": "trust-platform-esp32",
       "to": "trust-platform-net",
       "kind": "normal",
