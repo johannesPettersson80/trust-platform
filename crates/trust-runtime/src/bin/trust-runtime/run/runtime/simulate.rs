@@ -67,6 +67,18 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
     identify.set(identify_state(Some(&bundle))?);
     runtime.set_watchdog_policy(bundle.runtime.watchdog);
     runtime.set_fault_policy(bundle.runtime.fault_policy);
+    // The project's flight recorder, its fault's trace in the slot that the control link reads
+    // (specification 48 RU-59; specification 11 §6.8.1).
+    let runtime_id = trust_runtime::runtime_id::runtime_identity(bundle.root.as_path())?.id;
+    let traces = trust_runtime::control::new_traces();
+    runtime.set_flight_recorder(Some(trust_runtime::control::FlightSettings {
+        cycles: bundle.runtime.flight_recorder,
+        traces: traces.clone(),
+        runtime_id: runtime_id.clone(),
+        // A simulator keeps no files of its own: a machine test that faults on purpose leaves
+        // nothing in the project.
+        files: None,
+    }));
     // The safe outputs of `io.toml` apply; its drivers do not run: the simulation is the process
     // image's only source.
     let mut io = bundle.io.clone();
@@ -100,8 +112,16 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
         runner = runner.with_simulation(simulation);
     }
     let mut handle = runner.spawn("trust-runtime-simulator")?;
-    let runtime_id = trust_runtime::runtime_id::runtime_identity(bundle.root.as_path())?.id;
+    // The link answers once the resource has started: a request that reached the scheduler while
+    // its thread was still in Boot was refused, at random on a loaded machine (checklist G302).
+    let control = handle.control();
+    if let Err(error) = wait_until_started(|| control.state(), START_WAIT) {
+        handle.stop();
+        let _ = handle.join();
+        return Err(error);
+    }
     let state = ControlState::local(trust_runtime::control::LocalControl {
+        traces,
         debug,
         identify,
         resource: handle.control(),
@@ -127,4 +147,25 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
     handle.stop();
     let _ = handle.join();
     served.map_err(|error| anyhow::anyhow!("the simulator's standard input or output: {error}"))
+}
+
+/// How long the simulator waits for its resource to start before it gives up.
+const START_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Waits until the resource whose state `state` reads has left Boot, which its scan thread does as it
+/// starts, before the simulator reads its first request: every request then finds the resource
+/// started, as a test that drives the simulator from its start expects (specification 11 §6.8.1,
+/// "Simulator for machine tests"). A resource still booting after `limit` ends the simulator.
+fn wait_until_started(
+    state: impl Fn() -> trust_runtime::scheduler::ResourceState,
+    limit: std::time::Duration,
+) -> anyhow::Result<()> {
+    let started = std::time::Instant::now();
+    while state() == trust_runtime::scheduler::ResourceState::Boot {
+        if started.elapsed() >= limit {
+            anyhow::bail!("the simulator's resource did not start within {limit:?}");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    Ok(())
 }

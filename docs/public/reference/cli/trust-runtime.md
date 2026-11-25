@@ -570,6 +570,20 @@ trust-runtime ctl record --cycles 500 --out pump.trusttrace
 recorded 500 cycles (complete) to pump.trusttrace, 412032 bytes
 ```
 
+`ctl fault-trace` saves the flight recorder's trace of the last fault as a `.trusttrace` file
+(`[runtime.trace] flight_recorder` in `runtime.toml`, specification 48 RU-59), read and checked as
+`ctl record` reads a recording. It writes the file to `--out`, by default
+`fault-<UTC date and time>.trusttrace` in the current folder, and prints its cycles, why it ended
+and its size. A runtime that keeps no fault's trace, because no fault has happened since it
+started or because it keeps no flight recorder, ends the command with 1 and the reason. It needs
+the Engineer role. A runtime with a folder of its files has also written the trace there, as
+`traces/fault-<UTC date and time>.trusttrace`.
+
+```text
+trust-runtime ctl fault-trace --out pump-fault.trusttrace
+saved the fault's trace of 1200 cycles (faulted) to pump-fault.trusttrace, 986432 bytes
+```
+
 `ctl service-token <name> --out <file>` creates the token a service signs in with
 (`pair.service`), or replaces the one it has, and needs the Admin role. It writes
 the token into `<file>`, with mode 0600 on Unix, making the file's folder when it is

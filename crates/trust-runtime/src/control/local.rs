@@ -40,6 +40,9 @@ pub struct LocalControl {
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     /// Whether the debug surface is on.
     pub debug_enabled: Arc<AtomicBool>,
+    /// The slot of the cycle traces that the control link reads, shared with the runtime's flight
+    /// recorder (specification 11 §6.8.1, "Cycle traces").
+    pub traces: crate::runtime::SharedTraces,
 }
 
 impl ControlState {
@@ -50,7 +53,7 @@ impl ControlState {
     pub fn local(parts: LocalControl) -> Self {
         let state = Self {
             transfers: new_transfer_session(),
-            traces: crate::runtime::new_traces(),
+            traces: parts.traces,
             debug: parts.debug,
             identify: parts.identify,
             resource: parts.resource,

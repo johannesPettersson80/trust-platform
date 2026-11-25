@@ -1,16 +1,18 @@
 //! Replaying a cycle trace in the simulator (specification 48 RU-60; specification 11 §6.8.1,
-//! "Replaying a trace"): the build takes the trace's start state and forces, and runs each recorded
-//! cycle at its logical time after the cycle's changes from outside, with its task activations, its
-//! input image and its wall-clock readings; each cycle's outputs, or its fault, are compared with
-//! the trace's.
+//! "Replaying a trace"): the build takes the trace's start state, carried as an online change
+//! carries a running program's when the build's memory is laid out otherwise, and its forces, and
+//! runs each recorded cycle at its logical time after the cycle's changes from outside, with its
+//! task activations, its input image and its wall-clock readings; each cycle's outputs, or its
+//! fault, are compared with the trace's.
 
 use trust_plc_abi::FaultCode;
 use trust_runtime_core::io_address::IoAddress;
-use trust_runtime_core::native::image::TaskRecord;
+use trust_runtime_core::native::change::carry;
+use trust_runtime_core::native::image::{Image, TaskRecord};
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::trace::replay::{
-    differing_outputs, located_address, located_bytes, located_value, path_value, same_layout,
-    task_names,
+    as_requested, differing_outputs, located_address, located_bytes, located_value, names_variable,
+    path_value, recorded_image, same_layout, task_names, RecordedMemory,
 };
 use trust_runtime_core::trace::{
     decode, readings, Change, ChangeKind, Cycle, CycleFault, IoArea, Located,
@@ -18,7 +20,8 @@ use trust_runtime_core::trace::{
 use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_services::method_call::{typed_call, ALLOWANCE};
 use trust_runtime_services::simulator_replay::{
-    Difference, FirstDifference, OutputDifference, ReplayKind, ReplayRefusal, ReplayReport,
+    carried_note, Difference, FirstDifference, OutputDifference, ReplayKind, ReplayRefusal,
+    ReplayReport,
 };
 
 use super::trace::cycle_fault;
@@ -35,17 +38,17 @@ pub(super) struct ReplayedCycle<'r> {
 
 impl CompiledRuntime {
     /// Replays the cycle trace `bytes` before the simulator's first cycle (specification 48 RU-60):
-    /// the build takes the recorded memory byte for byte and the recorded forces, then applies each
-    /// recorded cycle's changes from outside and runs the cycle at its logical time, the build's
-    /// tasks of the recorded names at the recorded times, on the recorded input image with the
-    /// recorded wall-clock readings, and compares its outputs, or its fault, with the trace's. A
-    /// build that faults runs no further cycle.
+    /// the build takes the recorded memory, byte for byte when it lays its memory out as the
+    /// recorded program did and otherwise as an online change carries a running program's values,
+    /// and the recorded forces; then it applies each recorded cycle's changes from outside and runs
+    /// the cycle at its logical time, the build's tasks of the recorded names at the recorded
+    /// times, on the recorded input image with the recorded wall-clock readings, and compares its
+    /// outputs, or its fault, with the trace's. A build that faults runs no further cycle.
     ///
     /// # Errors
     ///
-    /// [`ReplayRefusal::SimulatorStarted`] after a cycle, [`ReplayRefusal::TraceInvalid`] for a
-    /// trace that does not read, and [`ReplayRefusal::Unavailable`] for a build whose memory is laid
-    /// out unlike the recorded program's.
+    /// [`ReplayRefusal::SimulatorStarted`] after a cycle, and [`ReplayRefusal::TraceInvalid`] for a
+    /// trace that does not read or whose start state does not carry into the build.
     pub(crate) fn replay_trace(&mut self, bytes: &[u8]) -> Result<ReplayReport, ReplayRefusal> {
         if self.cycle_counter > 0 {
             return Err(ReplayRefusal::SimulatorStarted);
@@ -57,14 +60,12 @@ impl CompiledRuntime {
         }
         let trace = decoded.trace;
         let recorded = task_names(&trace.image).map_err(|error| invalid(error.to_string()))?;
+        // The recorded program's image reads the trace's memory and values (RU-60).
+        let traced_bytes = recorded_image(&trace).map_err(|error| invalid(error.to_string()))?;
+        let traced = Image::parse(&traced_bytes)
+            .map_err(|_| invalid("its tables do not lay out as an image".to_string()))?;
         let image = self.image.image();
-        if !same_layout(&trace.image, &image) {
-            return Err(ReplayRefusal::Unavailable(
-                "the build's area, symbol or type tables differ from the trace's: a replay of a \
-                 changed build is not available yet"
-                    .to_string(),
-            ));
-        }
+        let same = same_layout(&trace.image, &image);
         let header = image.header();
         let kind = ReplayKind::of(
             &trace.meta.sources_hash,
@@ -91,16 +92,28 @@ impl CompiledRuntime {
             .filter(|(_, task)| task.is_none())
             .map(|(name, _)| format!("the build has no task {name}: its activations are skipped"))
             .collect();
-        for (id, area) in &trace.start.areas {
-            let written =
-                u8::try_from(*id).is_ok_and(|id| self.cycle.program_mut().write(id, 0, area));
-            if !written {
-                return Err(invalid(format!("its start state does not fit area {id}")));
+        if same {
+            for (id, area) in &trace.start.areas {
+                let written =
+                    u8::try_from(*id).is_ok_and(|id| self.cycle.program_mut().write(id, 0, area));
+                if !written {
+                    return Err(invalid(format!("its start state does not fit area {id}")));
+                }
             }
+        } else {
+            // A build laid out otherwise takes the recorded values as an online change carries a
+            // running program's into a new one (RU-60, "The start"; specification 44 §12.2).
+            let memory = RecordedMemory::new(traced, &trace.start.areas);
+            let events = carry(&memory, self.cycle.program_mut()).map_err(|error| {
+                invalid(format!(
+                    "its start state does not carry into the build: {error}"
+                ))
+            })?;
+            notes.extend(events.iter().map(carried_note));
         }
         // The trace's forces start in effect (RU-60, "The start").
         for force in &trace.start.forces {
-            self.apply_change(force, &mut notes);
+            self.apply_change(force, &traced, &mut notes);
         }
         // The build reads the recorded wall clock while the replay runs, and its own again after.
         let _playback = Playback;
@@ -112,7 +125,7 @@ impl CompiledRuntime {
             // cycle's logical time, and before the cycle's wall-clock readings, which belong to
             // its scan (a recording keeps only a scan's readings).
             for change in &cycle.changes {
-                self.apply_change(change, &mut notes);
+                self.apply_change(change, &traced, &mut notes);
             }
             self.set_current_time(Duration::from_nanos(cycle.time_ns));
             readings::play(&cycle.wall_clock_ms);
@@ -129,7 +142,7 @@ impl CompiledRuntime {
                 inputs: &cycle.inputs,
             }));
             cycles += 1;
-            if let Some(difference) = self.difference(&trace.located, cycle, &result) {
+            if let Some(difference) = self.difference(&trace.located, &traced, cycle, &result) {
                 if first_difference.is_none() {
                     first_difference = Some(FirstDifference {
                         cycle: u64::try_from(index).unwrap_or(u64::MAX),
@@ -159,28 +172,35 @@ impl CompiledRuntime {
     /// Applies a change from outside as the runtime applied it before the recorded cycle (RU-60,
     /// "Each cycle"): a variable's write through the checked write; a force set or released through
     /// Live Values, which holds it from the cycle's start on; an address's write into the process
-    /// image; a method call between the scans. A trace names a forced variable by its path, a
-    /// global's name or an instance member's path as the debugger names it, and Live Values forces
-    /// a variable named so through the checked write, which reaches either. A variable, address or
-    /// method the build lacks, or a value it refuses, is noted once and skipped.
-    fn apply_change(&mut self, change: &Change, notes: &mut Vec<String>) {
+    /// image; a method call between the scans. A recorded value is read by the recorded program's
+    /// image `traced`, and a number is given back as the literal the request gave
+    /// ([`as_requested`]), which the checked write types for the build's variable. A trace names a
+    /// forced variable by its path, a global's name or an instance member's path as the debugger
+    /// names it, and Live Values forces a variable named so through the checked write, which
+    /// reaches either; the checked write takes the forced value first, so that a value the build
+    /// refuses is noted rather than dropped at the cycle's start. A variable, address or method
+    /// the build lacks, or a value it refuses, is noted once and skipped.
+    fn apply_change(&mut self, change: &Change, traced: &Image<'_>, notes: &mut Vec<String>) {
         let image = self.image.image();
         let lacks = |what: &str, path: &str| {
             format!("the build has no {what} {path}: its changes are skipped")
         };
         match &change.kind {
             ChangeKind::VariableWrite { path, value, .. } => {
-                let Some(value) = path_value(&image, path, value) else {
-                    return note_once(notes, &lacks("variable", path));
+                let Some(value) = self.requested(traced, path, value, notes) else {
+                    return;
                 };
                 if CompiledVariables::write_named(self.cycle.program_mut(), path, &value).is_err() {
                     note_once(notes, &format!("the build refuses a write of {path}"));
                 }
             }
             ChangeKind::VariableForce { path, value, .. } => {
-                let Some(value) = path_value(&image, path, value) else {
-                    return note_once(notes, &lacks("variable", path));
+                let Some(value) = self.requested(traced, path, value, notes) else {
+                    return;
                 };
+                if CompiledVariables::write_named(self.cycle.program_mut(), path, &value).is_err() {
+                    return note_once(notes, &format!("the build refuses a force of {path}"));
+                }
                 let forced = self
                     .debug
                     .as_ref()
@@ -273,11 +293,40 @@ impl CompiledRuntime {
         }
     }
 
+    /// The value of a recorded write or force of the variable `path`, `bytes` read by the recorded
+    /// program's image `traced`, as the request gave it ([`as_requested`]); none, and a note,
+    /// when the build lacks the variable or the trace's bytes do not read.
+    fn requested(
+        &self,
+        traced: &Image<'_>,
+        path: &str,
+        bytes: &[u8],
+        notes: &mut Vec<String>,
+    ) -> Option<Value> {
+        if !names_variable(&self.image.image(), path) {
+            note_once(
+                notes,
+                &format!("the build has no variable {path}: its changes are skipped"),
+            );
+            return None;
+        }
+        let Some(value) = path_value(traced, path, bytes) else {
+            note_once(
+                notes,
+                &format!("the trace's value of {path} does not read: its changes are skipped"),
+            );
+            return None;
+        };
+        Some(as_requested(value))
+    }
+
     /// How the cycle just replayed differs from the recorded `cycle`: its outputs, by the trace's
-    /// located output variables, or its fault, by the fault's code; none when it matches.
+    /// located output variables, each side's bytes read as the variable's type in the recorded
+    /// program's image `traced`, or its fault, by the fault's code; none when it matches.
     fn difference(
         &self,
         located: &[Located],
+        traced: &Image<'_>,
         cycle: &Cycle,
         result: &Result<(), RuntimeError>,
     ) -> Option<Difference> {
@@ -287,7 +336,7 @@ impl CompiledRuntime {
                 let build = &self.cycle.program().outputs;
                 let value = |variable: &Located, outputs: &[u8]| {
                     located_bytes(variable, outputs)
-                        .and_then(|bytes| located_value(&image, variable, &bytes))
+                        .and_then(|bytes| located_value(traced, variable, &bytes))
                 };
                 let outputs: Vec<OutputDifference> =
                     differing_outputs(located, &cycle.outputs, build)

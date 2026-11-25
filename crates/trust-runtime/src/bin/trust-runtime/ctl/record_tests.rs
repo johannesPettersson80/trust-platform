@@ -43,12 +43,17 @@ fn the_default_file_names_the_utc_date_and_time_in_iso_8601_basic_form() {
     // (Python's datetime). Catches local time, a 0-based month, and separators a Windows file
     // name cannot hold.
     assert_eq!(
-        default_file(1_795_483_800),
+        default_file("trace", 1_795_483_800),
         PathBuf::from("trace-20261124T013000Z.trusttrace")
     );
     assert_eq!(
-        default_file(1_835_481_599),
+        default_file("trace", 1_835_481_599),
         PathBuf::from("trace-20280229T235959Z.trusttrace")
+    );
+    // `ctl fault-trace` and the runtime's own copy of a fault's trace take `fault-` in its place.
+    assert_eq!(
+        default_file("fault", 1_795_483_800),
+        PathBuf::from("fault-20261124T013000Z.trusttrace")
     );
 }
 

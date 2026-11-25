@@ -3684,7 +3684,8 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
   reads (`CURRENT_DT`) is the logical time from 1 January 1970 UTC.
 - Its control link is its standard input and output: one request per line in and one response per
   line out (the runtime protocol annex, E0.1), and nothing else on its standard output; its log goes
-  to its standard error. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
+  to its standard error. It reads its first request once its resource has started, so that every
+  request finds the resource started, never booting. It opens no endpoint, writes no endpoint file (6.8.0a) and takes no token:
   the process that started it holds its standard input and has the Admin role, which includes every
   other. Its debug surface is on, whatever `runtime.control.debug_enabled` says, since a test reads
   and forces values as the debugger does. It ends when its standard input closes; after `shutdown`
@@ -3771,9 +3772,16 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
 - `runtime.toml` `[runtime.trace] flight_recorder = <n>` keeps the last `n` to `2n` cycles always.
     Absent or 0, there is no flight recorder. A resource whose flight recorder's memory the runtime
     cannot give starts without it, and a `runtime_trace_memory` event names the bytes needed and the
-    bytes free. When the resource faults, the runtime keeps the fault's trace, and a runtime with a
-    folder of its files (6.8.0a) also writes it there as `traces/fault-<UTC date and
-    time>.trusttrace`.
+    bytes free: `{"type": "runtime_trace_memory", "needed": <bytes>, "free": <bytes> | null,
+    "time_ns": <logical time>}`, `free` null where the runtime does not know it, as on a computer.
+    The runtime arms the flight recorder again at each restart and online change. When the
+    resource faults, the runtime keeps the fault's trace, and a runtime with a folder of its files
+    (6.8.0a) also writes it there as `traces/fault-<UTC date and time>.trusttrace`. A runtime that
+    cannot write that file keeps the trace for `trace.read` all the same, and a
+    `runtime_trace_file_unavailable` event names the file and the reason: `{"type":
+    "runtime_trace_file_unavailable", "path": <file>, "error": <reason>, "time_ns": <logical
+    time>}`. A simulator writes nothing into the project ("Simulator for machine tests", above), so
+    it keeps the fault's trace for `trace.read` only.
 
 `trust-runtime ctl record (--cycles <n> | --duration <t>) [--task <task>] [--out <file>]` sends
 `trace.record` and asks `trace.read` until the recording has ended.
@@ -3794,7 +3802,9 @@ Every runtime records a cycle trace on request and keeps its flight recorder's, 
     with 1 and the reason.
 
 `trust-runtime ctl fault-trace [--out <file>]` saves the fault's trace the same way, by default as
-`fault-<UTC date and time>.trusttrace`, in the same form.
+`fault-<UTC date and time>.trusttrace`, in the same form, and prints `saved the fault's trace of
+<n> cycles (<reason>) to <file>, <L> bytes`. A runtime that keeps no fault's trace, before its first
+fault or without a flight recorder, ends the command with 1 and the reason.
 
 ###### Replaying a trace (`simulator.replay`)
 

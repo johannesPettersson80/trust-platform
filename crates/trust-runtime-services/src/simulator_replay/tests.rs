@@ -6,7 +6,10 @@ use alloc::vec;
 use serde_json::json;
 use trust_runtime_core::value::Value;
 
-use super::{Difference, FirstDifference, OutputDifference, ReplayKind, ReplayReport};
+use super::{
+    carried_note, Difference, FirstDifference, OutputDifference, ReplayKind, ReplayReport,
+};
+use trust_runtime_core::native::change::CarriedValueEvent;
 
 #[test]
 fn what_was_replayed_comes_from_the_sources_hash_and_the_target() {
@@ -89,5 +92,43 @@ fn the_answer_holds_what_specification_11_lists() {
         faulted.to_json()["first_difference"],
         json!({"cycle": 4, "time_ns": 40_000_000,
             "faults": {"trace": "division by zero", "build": null}})
+    );
+}
+
+#[test]
+fn a_value_the_build_does_not_take_as_recorded_is_noted_as_an_online_change_reports_it() {
+    // RU-60, "The start": the report lists what a build laid out otherwise could not carry over, as
+    // an online change's `online_change_value` events do (specification 11 §6.7.1), each with the
+    // variable's path and what was done, for the trace's value. Catches a note without its
+    // variable, a kind noted as another, and the online change's "running value" in a replay,
+    // which has none.
+    let note = |event| carried_note(&event);
+    assert_eq!(
+        note(CarriedValueEvent::New {
+            name: "P1.bias".into()
+        }),
+        "P1.bias: new variable: declared initial value"
+    );
+    assert_eq!(
+        note(CarriedValueEvent::Converted {
+            name: "limit".into()
+        }),
+        "limit: declaration changed: the trace's value converted to it"
+    );
+    assert_eq!(
+        note(CarriedValueEvent::NotKept {
+            name: "P1.table[3]".into()
+        }),
+        "P1.table[3]: declaration changed: the trace's value does not fit, declared initial value"
+    );
+    assert_eq!(
+        note(CarriedValueEvent::Cleared {
+            name: "P1.target".into()
+        }),
+        "P1.target: its target is gone or has another type: NULL"
+    );
+    assert_eq!(
+        note(CarriedValueEvent::More { count: 4 }),
+        "4 more variables did not keep the trace's values"
     );
 }

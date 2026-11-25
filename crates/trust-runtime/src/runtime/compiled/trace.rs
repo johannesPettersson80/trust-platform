@@ -22,7 +22,8 @@ use trust_runtime_services::trace::requests::{
     RecordRequest, TraceName, TraceRefusal, TraceStarted, TraceState, Until,
 };
 use trust_runtime_services::trace::{
-    address_size, trace_area, trace_bit, Budget, Goal, Identity, Recorder, ReserveError, Sizes,
+    address_size, trace_area, trace_bit, Budget, Goal, Identity, Recorder, Recordings,
+    ReserveError, Sizes,
 };
 
 use super::CompiledRuntime;
@@ -35,15 +36,17 @@ pub struct TraceSlot {
     last_id: u64,
     running: Option<(u64, u64)>,
     ended: Option<EndedTrace>,
+    /// The flight recorder's trace of the last fault, which stays until the next fault.
+    pub(super) fault: Option<EndedTrace>,
 }
 
 #[derive(Debug)]
-struct EndedTrace {
-    id: u64,
-    end: TraceEnd,
-    cycles: u64,
-    file: Vec<u8>,
-    sha256: [u8; 32],
+pub(super) struct EndedTrace {
+    pub(super) id: u64,
+    pub(super) end: TraceEnd,
+    pub(super) cycles: u64,
+    pub(super) file: Vec<u8>,
+    pub(super) sha256: [u8; 32],
 }
 
 /// The slot the control link and the scan thread share.
@@ -61,12 +64,15 @@ pub fn lock(traces: &SharedTraces) -> MutexGuard<'_, TraceSlot> {
 }
 
 impl TraceSlot {
-    /// The state of the trace `name` (`trace.read`). The flight recorder's trace comes with the
-    /// flight recorder: until then no fault has given one.
+    /// The state of the trace `name` (`trace.read`): a recording's, or the flight recorder's trace
+    /// of the last fault, none before a fault has given one.
     #[must_use]
     pub fn state(&self, name: TraceName) -> TraceState {
         let TraceName::Id(id) = name else {
-            return TraceState::None;
+            return self
+                .fault
+                .as_ref()
+                .map_or(TraceState::None, EndedTrace::state);
         };
         if let Some((running, cycles)) = self.running
             && running == id
@@ -74,12 +80,7 @@ impl TraceSlot {
             return TraceState::Recording { cycles };
         }
         match &self.ended {
-            Some(ended) if ended.id == id => TraceState::Ended {
-                reason: ended.end,
-                cycles: ended.cycles,
-                bytes: ended.file.len(),
-                sha256: ended.sha256,
-            },
+            Some(ended) if ended.id == id => ended.state(),
             _ => TraceState::Unknown,
         }
     }
@@ -88,14 +89,26 @@ impl TraceSlot {
     /// and the file has, and gives how many.
     #[must_use]
     pub fn part(&self, name: TraceName, offset: usize, out: &mut [u8]) -> Option<usize> {
-        let TraceName::Id(id) = name else {
-            return None;
+        let ended = match name {
+            TraceName::Id(id) => self.ended.as_ref().filter(|ended| ended.id == id)?,
+            TraceName::Fault => self.fault.as_ref()?,
         };
-        let ended = self.ended.as_ref().filter(|ended| ended.id == id)?;
         let rest = ended.file.get(offset..)?;
         let count = rest.len().min(out.len());
         out[..count].copy_from_slice(&rest[..count]);
         Some(count)
+    }
+}
+
+impl EndedTrace {
+    /// The trace's state, as `trace.read` answers it once a trace has ended.
+    fn state(&self) -> TraceState {
+        TraceState::Ended {
+            reason: self.end,
+            cycles: self.cycles,
+            bytes: self.file.len(),
+            sha256: self.sha256,
+        }
     }
 }
 
@@ -111,7 +124,8 @@ pub(crate) struct TraceSession {
     pub(super) start_pending: bool,
 }
 
-struct SessionIdentity {
+/// What a trace's identity says of the program and the device (Appendix C, C.3).
+pub(super) struct SessionIdentity {
     image_sha256: [u8; 32],
     sources_hash: [u8; 32],
     target: u32,
@@ -120,6 +134,49 @@ struct SessionIdentity {
     resource: SmolStr,
     task: Option<SmolStr>,
     started_utc_ms: i64,
+}
+
+impl SessionIdentity {
+    /// The identity of a trace of the program of `image` on the device `runtime_id`, the task it
+    /// counts by name when it counts one, begun now.
+    pub(super) fn of(
+        image: &Image<'_>,
+        runtime_id: SmolStr,
+        resource: SmolStr,
+        task: Option<SmolStr>,
+    ) -> Self {
+        let header = image.header();
+        Self {
+            image_sha256: sha256(image.bytes()),
+            sources_hash: header.source_hash,
+            target: header.target,
+            runtime_id,
+            platform: crate::runtime_id::platform(),
+            resource,
+            task,
+            started_utc_ms: utc_ms(),
+        }
+    }
+
+    /// The UTC time, in milliseconds, when the trace began.
+    pub(super) const fn started_utc_ms(&self) -> i64 {
+        self.started_utc_ms
+    }
+
+    /// The identity as a trace's file writes it, begun at `started_utc_ms`.
+    pub(super) fn identity(&self, started_utc_ms: i64) -> Identity<'_> {
+        Identity {
+            image_sha256: self.image_sha256,
+            sources_hash: self.sources_hash,
+            target: self.target,
+            runtime_version: env!("CARGO_PKG_VERSION"),
+            runtime_id: &self.runtime_id,
+            platform: self.platform,
+            resource: &self.resource,
+            task: self.task.as_deref(),
+            started_utc_ms,
+        }
+    }
 }
 
 impl CompiledRuntime {
@@ -156,20 +213,11 @@ impl CompiledRuntime {
             (Until::Cycles(count), None) => Goal::Cycles(count),
             (Until::Duration(duration), _) => Goal::Duration(duration),
         };
-        let sizes = Sizes {
-            areas: core::array::from_fn(|index| {
-                let id = u8::try_from(index + 1).unwrap_or(0);
-                image
-                    .area_length(id)
-                    .and_then(|len| usize::try_from(len).ok())
-                    .unwrap_or(0)
-            }),
-            tasks: image
-                .table::<TaskRecord>()
-                .map_or(1, |tasks| tasks.len() as usize),
-            cycle_interval: self.cycle.program().cycle_interval(),
-            task_interval: task.map(|(_, interval)| interval),
-        };
+        let sizes = program_sizes(
+            &image,
+            self.cycle.program().cycle_interval(),
+            task.map(|(_, interval)| interval),
+        );
         let recorder = Recorder::arm(goal, sizes, Budget::COMPUTER).map_err(
             |ReserveError::InsufficientMemory { needed }| TraceRefusal::InsufficientMemory {
                 needed,
@@ -233,18 +281,16 @@ impl CompiledRuntime {
     /// keeps as its next cycle's change (specification 48 RU-59); the trace's file names the
     /// instance as the debugger does.
     pub(crate) fn record_method_call(&mut self, call: &MethodCall) {
-        let Some(session) = &mut self.trace else {
-            return;
-        };
-        session
-            .recorder
-            .method_called(ChangeSource::ControlLink, &call.instance, call);
+        recordings(&mut self.trace, &mut self.flight).each(|recorder| {
+            recorder.method_called(ChangeSource::ControlLink, &call.instance, call);
+        });
     }
 
-    /// Whether a recording runs, which keeps the changes from outside (specification 48 RU-59): a
-    /// writer names what it wrote for [`Self::record_written`] only then.
+    /// Whether a recording runs, on demand or the flight recorder's, which keeps the changes from
+    /// outside (specification 48 RU-59): a writer names what it wrote for [`Self::record_written`]
+    /// only then.
     pub(crate) fn records_changes(&self) -> bool {
-        self.trace.is_some()
+        self.trace.is_some() || self.flight.is_some()
     }
 
     /// Writes that `source` made between two scans, such as a plant's feedback or the mesh's
@@ -257,30 +303,28 @@ impl CompiledRuntime {
         addresses: &[(IoAddress, Value)],
         paths: &[&str],
     ) {
-        let Some(session) = &mut self.trace else {
-            return;
-        };
         let program = self.cycle.program();
-        for (address, value) in addresses {
-            session
-                .recorder
-                .address_written(source, address, value, program);
-        }
-        for path in paths {
-            session.recorder.written(source, path, program);
-        }
+        recordings(&mut self.trace, &mut self.flight).each(|recorder| {
+            for (address, value) in addresses {
+                recorder.address_written(source, address, value, program);
+            }
+            for path in paths {
+                recorder.written(source, path, program);
+            }
+        });
     }
 
     /// The screens' writes made between two scans (specification 39 §18; specification 48
     /// RU-59): each a screen's change of the next cycle, as the bytes the variable then holds.
     pub(super) fn record_screen_writes(&mut self, written: &[MemberPath]) {
-        let Some(session) = &mut self.trace else {
+        let mut recordings = recordings(&mut self.trace, &mut self.flight);
+        if recordings.is_empty() {
             return;
-        };
+        }
+        let program = self.cycle.program();
         for path in written {
-            session
-                .recorder
-                .written(ChangeSource::Screen, &path_text(path), self.cycle.program());
+            let path = path_text(path);
+            recordings.each(|recorder| recorder.written(ChangeSource::Screen, &path, program));
         }
     }
 
@@ -295,15 +339,16 @@ impl CompiledRuntime {
         method: &str,
         inputs: &[(SmolStr, Value)],
     ) {
-        let Some(session) = &mut self.trace else {
+        let mut recordings = recordings(&mut self.trace, &mut self.flight);
+        if recordings.is_empty() {
             return;
-        };
+        }
         let Some(literals) = inputs
             .iter()
             .map(|(_, value)| st_literal(value))
             .collect::<Option<Vec<_>>>()
         else {
-            session.recorder.change_lost();
+            recordings.each(Recorder::change_lost);
             return;
         };
         let inputs: Vec<(&str, &str)> = inputs
@@ -311,15 +356,18 @@ impl CompiledRuntime {
             .zip(&literals)
             .map(|((name, _), literal)| (name.as_str(), literal.as_str()))
             .collect();
-        session.recorder.change(
-            ChangeSource::Screen,
-            &ChangeRef::MethodCall {
-                instance: &path_text(path),
-                interface,
-                method,
-                inputs: &inputs,
-            },
-        );
+        let instance = path_text(path);
+        recordings.each(|recorder| {
+            recorder.change(
+                ChangeSource::Screen,
+                &ChangeRef::MethodCall {
+                    instance: &instance,
+                    interface,
+                    method,
+                    inputs: &inputs,
+                },
+            );
+        });
     }
 
     /// After a scan: the recording's progress for the control link, or once it has ended its file,
@@ -396,6 +444,60 @@ pub(super) fn cycle_fault(image: &Image<'_>, record: &FaultRecord) -> CycleFault
     }
 }
 
+/// The name of a trace's file written at the UTC time `utc_secs`: `<prefix>-<UTC date and
+/// time>.trusttrace`, the date and time in the basic form of ISO 8601, as
+/// `trace-20261124T013000Z.trusttrace` (specification 11 §6.8.1, "Cycle traces"): `trace` for a
+/// recording that `ctl record` saves, `fault` for a fault's trace.
+#[must_use]
+pub fn trace_file_name(prefix: &str, utc_secs: i64) -> String {
+    let at = time::OffsetDateTime::from_unix_timestamp(utc_secs)
+        .unwrap_or(time::OffsetDateTime::UNIX_EPOCH);
+    format!(
+        "{prefix}-{:04}{:02}{:02}T{:02}{:02}{:02}Z.trusttrace",
+        at.year(),
+        u8::from(at.month()),
+        at.day(),
+        at.hour(),
+        at.minute(),
+        at.second()
+    )
+}
+
+/// What a recording of the program of `image` reserves its memory for: its areas, its tasks, the
+/// cycle interval the scans run at, and the interval of the task a goal counts, when it counts one.
+pub(super) fn program_sizes(
+    image: &Image<'_>,
+    cycle_interval: Duration,
+    task_interval: Option<Duration>,
+) -> Sizes {
+    Sizes {
+        areas: core::array::from_fn(|index| {
+            let id = u8::try_from(index + 1).unwrap_or(0);
+            image
+                .area_length(id)
+                .and_then(|len| usize::try_from(len).ok())
+                .unwrap_or(0)
+        }),
+        tasks: image
+            .table::<TaskRecord>()
+            .map_or(1, |tasks| tasks.len() as usize),
+        cycle_interval,
+        task_interval,
+    }
+}
+
+/// The recordings that a change made now feeds: the recording on demand of `trace` and the
+/// flight recorder's current recording of `flight`, each when there is one.
+pub(super) fn recordings<'a>(
+    trace: &'a mut Option<TraceSession>,
+    flight: &'a mut Option<super::flight::FlightSession>,
+) -> Recordings<'a> {
+    Recordings {
+        on_demand: trace.as_mut().map(|session| &mut session.recorder),
+        flight: flight.as_mut().map(|session| session.recorder.recorder()),
+    }
+}
+
 /// The task named `name`, compared without regard to case: its index in the image's task table and
 /// its interval.
 fn task_by_name(image: &Image<'_>, name: &str) -> Option<(u32, Duration)> {
@@ -410,7 +512,7 @@ fn task_by_name(image: &Image<'_>, name: &str) -> Option<(u32, Duration)> {
 }
 
 /// The recorded image's located variables (Appendix C, C.4), from its prepared bindings.
-fn located(
+pub(super) fn located(
     image: &Image<'_>,
     bindings: &[PreparedIoBinding],
     names: &[Option<SmolStr>],
@@ -440,7 +542,7 @@ fn located(
 }
 
 /// The recorded image's sections that name its memory (Appendix C, C.2).
-fn tables(image: &Image<'_>) -> ImageTables {
+pub(super) fn tables(image: &Image<'_>) -> ImageTables {
     ImageTables {
         areas: image.section_bytes(SectionId::Areas).to_vec(),
         tasks: image.section_bytes(SectionId::Tasks).to_vec(),
@@ -451,7 +553,7 @@ fn tables(image: &Image<'_>) -> ImageTables {
     }
 }
 
-fn utc_ms() -> i64 {
+pub(super) fn utc_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()

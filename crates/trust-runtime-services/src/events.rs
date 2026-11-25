@@ -163,6 +163,27 @@ pub enum RuntimeEvent {
         /// clock is not set.
         time: Option<Duration>,
     },
+    /// The resource started without its flight recorder, whose memory the runtime could not give
+    /// (specification 11 §6.8.1, "Cycle traces"; specification 48 RU-59, "Memory").
+    TraceMemory {
+        /// The bytes the flight recorder needs.
+        needed: usize,
+        /// The bytes the runtime has free, when it knows them.
+        free: Option<usize>,
+        /// Logical time when the resource started.
+        time: Duration,
+    },
+    /// The runtime could not write the fault's trace into the folder of its files, which
+    /// `trace.read {"trace": "fault"}` reads all the same (specification 11 §6.8.1, "Cycle
+    /// traces").
+    TraceFileUnavailable {
+        /// The file it could not write.
+        path: String,
+        /// Why it could not.
+        error: String,
+        /// Logical time when it could not.
+        time: Duration,
+    },
     /// The runtime could not write its endpoint file and runs on without it (spec 11, section
     /// 6.8.0a). Clients that need the file cannot find the runtime by its project folder.
     ControlEndpointFileUnavailable {
@@ -447,6 +468,18 @@ pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "feature": feature.as_str(),
             "request_type": request_type.as_deref(),
             "time_ns": time.map(Duration::as_nanos),
+        }),
+        RuntimeEvent::TraceFileUnavailable { path, error, time } => json!({
+            "type": "runtime_trace_file_unavailable",
+            "path": path,
+            "error": error,
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::TraceMemory { needed, free, time } => json!({
+            "type": "runtime_trace_memory",
+            "needed": needed,
+            "free": free,
+            "time_ns": time.as_nanos(),
         }),
         RuntimeEvent::ControlEndpointFileUnavailable {
             endpoint,

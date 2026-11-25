@@ -738,3 +738,48 @@ fn an_unavailable_endpoint_file_event_names_the_endpoint_and_the_reason() {
         })
     );
 }
+
+/// The event of a resource that starts without its flight recorder (specification 11 §6.8.1,
+/// "Cycle traces"): it names the bytes the flight recorder needs and the bytes free, or none when
+/// the runtime does not know them, as a computer does not. Catches the needed bytes left out, an
+/// unknown free amount written as 0, and another type.
+#[test]
+fn a_flight_recorder_without_memory_names_the_bytes_it_needs() {
+    let computer = RuntimeEvent::TraceMemory {
+        needed: 10_485_760,
+        free: None,
+        time: Duration::ZERO,
+    };
+    assert_eq!(
+        runtime_event_to_json(computer),
+        json!({"type": "runtime_trace_memory", "needed": 10_485_760, "free": null, "time_ns": 0})
+    );
+    let chip = RuntimeEvent::TraceMemory {
+        needed: 98_304,
+        free: Some(40_960),
+        time: Duration::from_millis(10),
+    };
+    assert_eq!(
+        runtime_event_to_json(chip),
+        json!({"type": "runtime_trace_memory", "needed": 98_304, "free": 40_960,
+            "time_ns": 10_000_000})
+    );
+}
+
+/// The event of a fault's trace that the runtime could not write into the folder of its files
+/// (specification 11 §6.8.1, "Cycle traces"): the file and the reason. Catches the file or the
+/// reason left out, and another type.
+#[test]
+fn an_unwritten_fault_trace_names_its_file_and_the_reason() {
+    let event = RuntimeEvent::TraceFileUnavailable {
+        path: "/plc/traces/fault-20261124T013000Z.trusttrace".into(),
+        error: "Read-only file system".into(),
+        time: Duration::from_millis(5),
+    };
+    assert_eq!(
+        runtime_event_to_json(event),
+        json!({"type": "runtime_trace_file_unavailable",
+            "path": "/plc/traces/fault-20261124T013000Z.trusttrace",
+            "error": "Read-only file system", "time_ns": 5_000_000})
+    );
+}

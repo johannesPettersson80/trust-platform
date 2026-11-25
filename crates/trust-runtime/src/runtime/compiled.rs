@@ -7,6 +7,7 @@
 
 mod clients;
 mod debugger;
+pub(crate) mod flight;
 mod identify;
 mod methods;
 mod named;
@@ -120,6 +121,10 @@ pub struct CompiledRuntime {
     safe_state_delivered: bool,
     /// The cycle trace being recorded (specification 48 RU-59).
     trace: Option<trace::TraceSession>,
+    /// The flight recorder's settings, kept for a restart and an online change, and the flight
+    /// recorder armed for the program that runs (specification 48 RU-59).
+    flight_settings: Option<flight::FlightSettings>,
+    flight: Option<flight::FlightSession>,
 }
 
 /// This computer's device for a program whose task activations run at most `budget` statements
@@ -269,6 +274,8 @@ impl CompiledRuntime {
             identify: crate::io::IdentifyHandle::default(),
             safe_state_delivered: false,
             trace: None,
+            flight_settings: None,
+            flight: None,
         };
         runtime.publish_program_memory();
         Ok(runtime)
@@ -375,6 +382,7 @@ impl CompiledRuntime {
             drivers: &self.io_drivers,
             input_len,
             trace: self.trace.as_mut(),
+            flight: self.flight.as_mut(),
         };
         let mut result = match replay {
             Some(replayed) => {
@@ -384,16 +392,21 @@ impl CompiledRuntime {
             None => self.cycle.run_scan(now, deadline, &mut observer),
         };
         let task_runs = std::mem::take(&mut observer.task_runs);
-        // A failed scan is a recording's last cycle, with its fault (specification 48 RU-59).
-        if result.is_err()
-            && let Some(session) = self.trace.as_mut()
-        {
-            observer::take_readings(&mut session.recorder);
+        // A failed scan is a recording's last cycle, with its fault, the flight recorder's too
+        // (specification 48 RU-59).
+        if result.is_err() && (self.trace.is_some() || self.flight.is_some()) {
+            observer::take_readings(trace::recordings(&mut self.trace, &mut self.flight));
             let fault = self.cycle.program().last_fault();
             let fault = trace::cycle_fault(&self.image.image(), &fault);
-            session.recorder.end_cycle(Some(fault));
+            if let Some(session) = self.trace.as_mut() {
+                session.recorder.end_cycle(Some(fault));
+            }
+            if let Some(session) = self.flight.as_mut() {
+                session.recorder.end_cycle(Some(fault));
+            }
         }
         self.publish_trace();
+        self.after_scan_flight();
         // The state the reads between scans answer from (specification 11 §6.13.1): the state the
         // scan left, a faulted scan's too (decision O2), published before a fault's safe-state
         // action; a failure after the scan ended does not replace it.
@@ -563,6 +576,8 @@ impl CompiledRuntime {
             }
         }
         self.publish_program_memory();
+        // The restarted resource keeps its flight recorder anew (specification 48 RU-59).
+        self.arm_flight();
         Ok(())
     }
 
@@ -644,6 +659,8 @@ impl CompiledRuntime {
             }
         }
         self.publish_program_memory();
+        // The changed program keeps a flight recorder of its own (specification 48 RU-59).
+        self.arm_flight();
         Ok(())
     }
 

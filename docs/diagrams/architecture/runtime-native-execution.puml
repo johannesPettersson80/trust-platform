@@ -86,7 +86,8 @@ package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Laven
     component "control server threads\ndebug::requests::answer, io.read,\nLive Values queues (DebugControl)" as hostControl
     component "HMI, ADS and OPC UA servers, historian\nread the published CompiledState\nthrough the symbol table" as hostServices
     component "ADS and OPC UA clients, MQTT tags,\nOpenOT telemetry: variables by name;\nsamples after the inputs, outputs and\nproducers after the scan" as hostClients
-    component "Cycle trace (runtime/compiled/trace.rs, spec 48 RU-59)\nTraceSession: the recorder's reserved memory, which\nthe observer fills each scan: start state, changes,\nactivations, CURRENT_DT readings, images, fault;\nTraceSlot: the running and the ended trace,\nshared with the control threads" as hostTrace
+    component "Cycle trace (runtime/compiled/trace.rs, spec 48 RU-59)\nTraceSession: the recorder's reserved memory, which\nthe observer fills each scan: start state, changes,\nactivations, CURRENT_DT readings, images, fault;\nTraceSlot: the running and the ended trace, and the\nfault's trace, shared with the control threads" as hostTrace
+    component "Flight recorder (runtime/compiled/flight.rs, RU-59)\nFlightSession: two recordings of n cycles, armed at\nstart, restart and online change, fed beside the\nrecording on demand; a hand-over's start state is\ntaken after the scan; the fault's trace goes to TraceSlot" as hostFlight
     component "Replay (runtime/compiled/replay.rs, spec 48 RU-60)\nsimulator.replay before the first cycle: the recorded\nmemory, then each recorded cycle's tasks on its input\nimage (ResourceCycle::replay_scan); outputs compared" as hostReplay
     hostImage --> hostRuntime : CompiledRuntime::load_deployed\n(AdmittedImage kept, module mmapped)
     hostTrust ..> hostRuntime : admits at load and\nat each online change
@@ -97,9 +98,10 @@ package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Laven
     hostRuntime --> hostServices : DebugSnapshot.compiled
     hostRuntime --> hostClients : on_compiled_access
     hostRuntime --> hostTrace : observer: each\nscan's record
-    hostControl --> hostRunner : trace.record / trace.stop\n(TraceStart, TraceStop between scans)
-    hostControl --> hostTrace : trace.read: state and\nthe file's parts
-    hostControl --> hostRunner : simulator.replay\n(ReplayTrace between scans)
+    hostRuntime --> hostFlight : observer: each scan's\nrecord, both recordings
+    hostFlight --> hostTrace : at a fault:\nthe fault's trace
+    hostControl --> hostRunner : between scans: trace.record,\ntrace.stop, simulator.replay
+    hostControl --> hostTrace : trace.read: state and\nthe file's parts, the fault's too
     hostRunner --> hostReplay : replay_trace
     hostReplay --> hostRuntime : execute_cycle_with:\nthe recorded cycle
 }
