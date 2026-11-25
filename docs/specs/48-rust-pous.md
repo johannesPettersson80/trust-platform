@@ -1256,7 +1256,11 @@ cycle's output image with the trace's (specification 11 §6.8.1, `simulator.repl
 - **In `cargo test`.** `trust_sim::Replay::open(path)?.run(&project)?` replays a trace in a
     simulator of the project, as RU-58 runs one. It returns `Ok(())` when the outputs match, and
     otherwise an error with the report. A trace from commissioning thereby becomes a test of the next
-    change.
+    change. `sim.fault_trace()?` gives the flight recorder's trace of the simulation's last fault (the
+    project's `[runtime.trace] flight_recorder`): the bytes of its `.trusttrace` file, each part's
+    CRC-32 and the whole file's SHA-256 checked as `trust-runtime ctl fault-trace` checks them, or
+    `None` before a fault. A test that faults on purpose thereby keeps the cycles before the fault,
+    and a replay of them shows the fault again.
 - **Documentation and examples.** The user guide's machine-test page (RU-58) teaches recording a
     trace of the example `room_heating` and replaying it. The example keeps that trace with its
     machine tests, which replay it in CI, and the guide says how to record it again after a change

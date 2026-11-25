@@ -680,7 +680,10 @@ and all targets, on the crates with Windows-only code: `trust-runtime`,
 `trust-tcads-native`, `trust-control`, `trust-hir` and `trust-lsp` (W40,
 5 November 2026: a Windows-only `needless_return` in `trust-tcads-native`,
 reported on #254, and three Windows-only lints in `trust-runtime` had reached
-`main`).
+`main`). For the same reason the portable lane runs Clippy with warnings denied
+for each chip's target: on the `no_std` core, and on the chip's board adapter
+with the shared services (G301, 24 November 2026: two lints in the C6
+adapter's Wi-Fi driver had reached `main`, where only `cargo check` ran).
 
 The mesh TLS stability gate (`runtime_mesh_tls_stability_gate.sh`, four runs on
 Linux and macOS) is the job's last cargo step, after the full suite and its doc

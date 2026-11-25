@@ -3693,7 +3693,10 @@ that drives it, on a clock that only the test moves: the simulator of a machine 
 - It starts nothing that a test does not drive: no web server or HMI, no discovery, mesh or Runtime
   Cloud link, no I/O driver (the simulation is the process image's only source), no historian or
   metrics export. Its retained values stay in its memory: a warm restart keeps them, and it writes
-  nothing into the project.
+  nothing into the project. Since it starts no I/O driver, a project whose `io.toml` enables a
+  physical one, as a chip's project does, runs in it as any other project; `trust-runtime run`
+  with its simulation enabled refuses such a project, since its drivers would run beside the
+  simulation.
 - `simulator.advance` (Engineer) runs the scans that are due from the current logical time. With
   `cycles` (a count) it runs that many cycles of the resource, one every `cycle_interval_ms` of
   logical time as a run's cycles come, each with the tasks due then (specification 10 §4.3); with

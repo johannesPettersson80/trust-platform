@@ -1,5 +1,6 @@
 //! The settings a device receives inside the deployment record (specification 34 §5.1.1,
-//! section 7): what a device without an operating system needs from `runtime.toml` and `io.toml`.
+//! sections 7, 8 and 10): what a device without an operating system needs from `runtime.toml` and
+//! `io.toml`.
 //!
 //! A chip never parses the two configuration files; it runs from this section. A computer reads
 //! the files themselves at each start and ignores it.
@@ -12,7 +13,8 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 
 /// The configuration a device without an operating system runs from (specification 34 §5.1.1,
-/// section 7). Every field is the setting of the same name in `runtime.toml` or `io.toml`.
+/// section 7, with its drivers' parameters from section 8 and the flight recorder from section
+/// 10). Every field is the setting of the same name in `runtime.toml` or `io.toml`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Configuration {
     /// `resource.name`. Empty in a record whose build did not fill this section.
@@ -47,14 +49,18 @@ pub struct Configuration {
     pub io_drivers: Vec<IoDriver>,
     /// `[[io.safe_state]]`, in declaration order.
     pub safe_state: Vec<SafeStateEntry>,
+    /// `runtime.trace.flight_recorder`, which section 10 carries: the cycles `n` of which the
+    /// flight recorder keeps the last `n` to `2n` (specification 11 §6.8.1); 0 keeps none, as
+    /// in a record of version 1 to 3.
+    pub flight_recorder: u64,
 }
 
 impl Default for Configuration {
     /// The empty configuration: what a build writes before it fills the section, so that a record
     /// carries a section 7 from the start. Every flag is off, every interval is 0, the event-store
     /// capacity is 0 (the device's default), every enum of this module carries its first code, the
-    /// watchdog is [`WatchdogPolicy::default`] (disabled, with `safe_halt`), and there are no task
-    /// overrides, no drivers and no safe state.
+    /// watchdog is [`WatchdogPolicy::default`] (disabled, with `safe_halt`), there are no task
+    /// overrides, no drivers and no safe state, and there is no flight recorder.
     fn default() -> Self {
         Self {
             resource_name: SmolStr::new_static(""),
@@ -72,6 +78,7 @@ impl Default for Configuration {
             task_overrides: None,
             io_drivers: Vec::new(),
             safe_state: Vec::new(),
+            flight_recorder: 0,
         }
     }
 }

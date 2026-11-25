@@ -254,6 +254,33 @@ impl Simulator {
         })
     }
 
+    /// The flight recorder's trace of the simulation's last fault (specification 48 RU-59, "The
+    /// flight recorder"; RU-60, "In `cargo test`"): the bytes of its `.trusttrace` file, each part's
+    /// CRC-32 and the whole file's SHA-256 checked as `trust-runtime ctl fault-trace` checks them, or
+    /// `None` before a fault and for a project without a flight recorder
+    /// (`[runtime.trace] flight_recorder`). A test that faults on purpose thereby keeps the cycles
+    /// before the fault, which [`Simulator::replay`] or [`crate::Replay`] replays.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Refused`] when the simulator refuses `trace.read`; [`Error::Simulator`] when the
+    /// link fails, or a part or the whole file is not what the trace's state gave.
+    pub fn fault_trace(&mut self) -> Result<Option<Vec<u8>>> {
+        let client = self
+            .client
+            .as_mut()
+            .ok_or_else(|| Error::Simulator("the simulator has ended".into()))?;
+        trust_runtime_client::trace::fault_trace(client)
+            .map(|trace| trace.map(|(_, file)| file))
+            .map_err(|error| match error {
+                ControlError::Refused { error, .. } => Error::Refused {
+                    request: "trace.read".to_string(),
+                    message: error,
+                },
+                other => Error::Simulator(format!("trace.read: {other}{}", self.stderr_tail())),
+            })
+    }
+
     fn request(&mut self, kind: &str, params: Json) -> Result<Json> {
         let client = self
             .client

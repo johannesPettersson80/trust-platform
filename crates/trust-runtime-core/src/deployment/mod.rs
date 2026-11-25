@@ -27,9 +27,9 @@ use alloc::vec::Vec;
 use core::fmt;
 use smol_str::SmolStr;
 
-/// The record version this runtime writes; it reads this version and versions 1 and 2
+/// The record version this runtime writes; it reads this version and versions 1 to 3
 /// (specification 34 §5.1.1).
-pub const RECORD_VERSION: u16 = 3;
+pub const RECORD_VERSION: u16 = 4;
 /// The largest record a runtime reads or writes, in bytes.
 pub const RECORD_MAX_BYTES: usize = 65_536;
 
@@ -49,8 +49,8 @@ pub struct DeploymentRecord {
     /// Section 6: the built-in imports the program calls, each once, ordered by kind and then
     /// by name.
     pub imports: Vec<RequiredImport>,
-    /// Section 7: the settings a device without an operating system needs from `runtime.toml`
-    /// and `io.toml`.
+    /// Sections 7, 8 and 10: the settings a device without an operating system needs from
+    /// `runtime.toml` and `io.toml`.
     pub configuration: Configuration,
     /// Section 9: the Rust crates the program image holds, in the order of its crate table
     /// (specification 44 §5.12); none for a program without a Rust crate and in a record of

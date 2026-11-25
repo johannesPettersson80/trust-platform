@@ -49,20 +49,22 @@ jobs:
         with:
           components: clippy, rustfmt, rust-src
           targets: ${{ matrix.target }}
-      - name: Check isolated no_std core and value layout
-        run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
+      # Clippy, with warnings denied, on the code that compiles only for a chip's target: the
+      # Linux Clippy job never compiles it (specification 22, CI reliability).
+      - name: Lint isolated no_std core and value layout
+        run: cargo clippy --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -- -D warnings
       - name: Record resolved target features
         run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features,no-dev
-      - name: Check the board adapter for the target
+      - name: Lint the board adapter for the target
         if: ${{ matrix.board_adapter != 'trust-platform-stm32u5' }}
         env:
           RUSTFLAGS: -D warnings
-        run: cargo check --locked -p ${{ matrix.board_adapter }} -p trust-runtime-services --target ${{ matrix.target }}
-      - name: Check the STM32U5A9 adapter for its target
+        run: cargo clippy --locked -p ${{ matrix.board_adapter }} -p trust-runtime-services --target ${{ matrix.target }} -- -D warnings
+      - name: Lint the STM32U5A9 adapter for its target
         if: ${{ matrix.board_adapter == 'trust-platform-stm32u5' }}
         env:
           RUSTFLAGS: -D warnings
-        run: cargo check --locked -p trust-platform-stm32u5 --target thumbv8m.main-none-eabihf
+        run: cargo clippy --locked -p trust-platform-stm32u5 --target thumbv8m.main-none-eabihf -- -D warnings
       - name: Mark gate success
         if: ${{ success() }}
         run: |
@@ -221,6 +223,8 @@ jobs:
         run: python3 -m unittest scripts.tests.test_ci_test_jobs -v
       - name: Guard the Rust toolchain setup of every job
         run: python3 -m unittest scripts.tests.test_workflow_rust_toolchain -v
+      - name: Guard the portable lane's lints
+        run: python3 -m unittest scripts.tests.test_portable_lane_lints -v
       - name: Guard the docs' command and setting names
         run: python3 -m unittest scripts.tests.test_check_public_docs_commands -v
       - name: Guard the motion benchmark breakdown's summary

@@ -1,4 +1,4 @@
-//! The deployment record (spec 34 §5.1.1): its version-3 layout, its identities, and that a reader
+//! The deployment record (spec 34 §5.1.1): its version-4 layout, its identities, and that a reader
 //! refuses every malformed record with the reason.
 
 use trust_runtime_core::crc32;
@@ -88,7 +88,11 @@ fn sample() -> DeploymentRecord {
             import(ImportKind::Function, "SQRT", 1),
             import(ImportKind::FunctionBlock, "TON", 1),
         ],
-        configuration: Configuration::default(),
+        // The empty configuration, but a flight recorder of 600 cycles, which section 10 carries.
+        configuration: Configuration {
+            flight_recorder: 600,
+            ..Configuration::default()
+        },
         // A path crate, a registry crate and a git crate, in the order of their names.
         crates: vec![
             rust_crate("helper", "0.3.1", CrateSource::Path, [0; 32]),
@@ -155,20 +159,20 @@ fn refused(bytes: &[u8]) -> DeploymentRecordError {
 }
 
 #[test]
-fn a_record_round_trips_through_the_version_3_layout() {
+fn a_record_round_trips_through_the_version_4_layout() {
     let record = sample();
     let bytes = record.encode().unwrap();
     assert_eq!(bytes.len(), record.encoded_len());
     assert_eq!(&bytes[0..4], b"TRDR");
-    assert_eq!(u16_at(&bytes, 4), 3, "version 3 (specification 34 §5.1.1)");
-    assert_eq!(u16_at(&bytes, 6), 9, "nine sections");
+    assert_eq!(u16_at(&bytes, 4), 4, "version 4 (specification 34 §5.1.1)");
+    assert_eq!(u16_at(&bytes, 6), 10, "ten sections");
     assert_eq!(u32_at(&bytes, 8) as usize, bytes.len());
     let end = bytes.len() - 4;
     assert_eq!(u32_at(&bytes, end), crc32::checksum(&bytes[..end]));
 
     let parts = sections(&bytes);
     let ids: Vec<u16> = parts.iter().map(|part| part.0).collect();
-    assert_eq!(ids, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    assert_eq!(ids, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     assert!(
         parts.iter().all(|part| part.1 == 0),
         "reserved fields are 0"
@@ -179,10 +183,11 @@ fn a_record_round_trips_through_the_version_3_layout() {
     // included. Its layout is pinned byte by byte in `deployment_configuration.rs`. Section 8 holds
     // the parameters of no driver: its two-byte count, 0. Section 9 is its count and reserved
     // field, then for each crate 36 bytes and its name and version: helper 0.3.1 (6 + 5), libm
-    // 0.2.16 (4 + 6) and trust-ext 1.0.0 (9 + 5), 4 + 47 + 46 + 50 = 147.
+    // 0.2.16 (4 + 6) and trust-ext 1.0.0 (9 + 5), 4 + 47 + 46 + 50 = 147. Section 10 is the flight
+    // recorder's cycles, 8 bytes.
     assert_eq!(
         lengths,
-        [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42, 2, 147]
+        [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42, 2, 147, 8]
     );
 
     // Section 1: program SHA-256 and length, program version (44.1) and flags, the two
@@ -235,6 +240,9 @@ fn a_record_round_trips_through_the_version_3_layout() {
     expected.extend_from_slice(&[0; 12]);
     expected.extend_from_slice(b"trust-ext1.0.0");
     assert_eq!(parts[8].2, expected);
+    // Section 10: the flight recorder's 600 cycles, 0x258, in 8 bytes little-endian. Catches a
+    // flight recorder dropped, written in another width, or into another section.
+    assert_eq!(parts[9].2, [0x58, 0x02, 0, 0, 0, 0, 0, 0]);
 
     let decoded = DeploymentRecord::decode(&bytes).unwrap();
     assert_eq!(decoded, record);
@@ -309,11 +317,11 @@ fn the_header_names_what_is_wrong_with_it() {
     magic[0] = b'X';
     assert_eq!(refused(&magic), DeploymentRecordError::Magic);
     let mut version = bytes.clone();
-    version[4] = 4;
-    assert_eq!(refused(&version), DeploymentRecordError::Version(4));
+    version[4] = 5;
+    assert_eq!(refused(&version), DeploymentRecordError::Version(5));
     assert_eq!(
-        DeploymentRecordError::Version(4).to_string(),
-        "record version 4 is unknown; this runtime reads versions 1 to 3"
+        DeploymentRecordError::Version(5).to_string(),
+        "record version 5 is unknown; this runtime reads versions 1 to 4"
     );
     let mut longer = bytes.clone();
     longer.push(0);
@@ -331,10 +339,10 @@ fn the_header_names_what_is_wrong_with_it() {
 }
 
 #[test]
-fn the_sections_of_version_3_are_exactly_1_to_9_in_order() {
+fn the_sections_of_version_4_are_exactly_1_to_10_in_order() {
     assert_eq!(
-        refused(&edited(|parts| parts[8].0 = 10)),
-        DeploymentRecordError::UnknownSection(10)
+        refused(&edited(|parts| parts[9].0 = 11)),
+        DeploymentRecordError::UnknownSection(11)
     );
     assert_eq!(
         refused(&edited(|parts| parts[0].0 = 0)),
@@ -362,6 +370,10 @@ fn the_sections_of_version_3_are_exactly_1_to_9_in_order() {
         DeploymentRecordError::SectionLength(3)
     );
     assert_eq!(
+        refused(&edited(|parts| parts[9].2.push(0))),
+        DeploymentRecordError::SectionLength(10)
+    );
+    assert_eq!(
         refused(&edited(|parts| {
             parts[0].2.pop();
         })),
@@ -379,17 +391,26 @@ fn the_sections_of_version_3_are_exactly_1_to_9_in_order() {
     );
     // A later version is refused as a whole, whatever its sections.
     assert_eq!(
-        refused(&raw(4, 6, &parts)),
-        DeploymentRecordError::Version(4)
+        refused(&raw(5, 6, &parts)),
+        DeploymentRecordError::Version(5)
     );
     // Version 2 has no section 9, and version 3 needs it.
     assert_eq!(
-        refused(&raw(2, 9, &parts)),
+        refused(&raw(2, 9, &parts[..9])),
         DeploymentRecordError::UnknownSection(9)
     );
     assert_eq!(
-        refused(&raw(RECORD_VERSION, 8, &parts[..8])),
+        refused(&raw(3, 8, &parts[..8])),
         DeploymentRecordError::MissingSection(9)
+    );
+    // Version 3 has no section 10, and version 4 needs it.
+    assert_eq!(
+        refused(&raw(3, 10, &parts)),
+        DeploymentRecordError::UnknownSection(10)
+    );
+    assert_eq!(
+        refused(&raw(RECORD_VERSION, 9, &parts[..9])),
+        DeploymentRecordError::MissingSection(10)
     );
 }
 
@@ -402,9 +423,24 @@ fn a_version_2_record_reads_without_crates() {
     let parts = sections(&record.encode().unwrap());
     let version_2 = DeploymentRecord::decode(&raw(2, 8, &parts[..8])).expect("version 2 reads");
     record.crates.clear();
+    record.configuration.flight_recorder = 0;
     assert_eq!(version_2, record);
     let version_1 = DeploymentRecord::decode(&raw(1, 7, &parts[..7])).expect("version 1 reads");
     assert!(version_1.crates.is_empty());
+}
+
+/// A record of version 3, written before section 10, still reads, with its crates and no flight
+/// recorder (specification 34 §5.1.1: a record of version 1 to 3 carries no flight recorder).
+/// Worked by hand from the sample's sections 1 to 9: the sample but for its flight recorder of 600,
+/// which reads as 0. Catches a reader that refuses version 3, or that invents a flight recorder for
+/// it.
+#[test]
+fn a_version_3_record_reads_without_a_flight_recorder() {
+    let mut record = sample();
+    let parts = sections(&record.encode().unwrap());
+    let version_3 = DeploymentRecord::decode(&raw(3, 9, &parts[..9])).expect("version 3 reads");
+    record.configuration.flight_recorder = 0;
+    assert_eq!(version_3, record);
 }
 
 /// Section 9 refuses what specification 34 §5.1.1 refuses: a source other than 1, 2 or 3, a

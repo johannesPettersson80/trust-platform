@@ -42,6 +42,7 @@ pub use transport::ByteStream;
 
 pub mod project_files;
 pub mod replay;
+pub mod trace;
 pub mod version;
 pub use version::VersionAdvice;
 
@@ -59,6 +60,8 @@ mod project_files_tests;
 mod replay_tests;
 #[cfg(test)]
 mod serial_port_tests;
+#[cfg(test)]
+mod trace_tests;
 
 /// The longest response line, newline included, that the command line and the Devices panel
 /// read: 1 MiB (specification 11, 6.8.1). A client that reads bulk results, such as a test run's
