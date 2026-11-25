@@ -1,0 +1,10 @@
+[package]
+name = "fault-trace-machine-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Machine tests of the truST example fault_trace: its program faults on a broken stroke sensor, and the flight recorder's trace of the fault replays, with trust-sim"
+
+[dev-dependencies]
+trust-sim = "=0.44.1"

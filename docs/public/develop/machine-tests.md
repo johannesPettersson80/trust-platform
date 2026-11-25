@@ -105,7 +105,7 @@ readings, and compares each cycle's outputs with the trace's (specification 48 R
    project's folder, then press Start on the Heating panel in the first seconds:
 
     ```text
-    trust-runtime ctl record --duration 30s --out traces/commissioning.trusttrace
+    trust-runtime ctl --project . record --duration 30s --out traces/commissioning.trusttrace
     ```
 
     Once 30 s of logical time have run, it prints
