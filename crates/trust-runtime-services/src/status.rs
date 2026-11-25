@@ -93,6 +93,11 @@ where
     status_for(id, host, None)
 }
 
+/// The bytes of `status`'s text, for which the heap is asked before it is written: a chip's reply
+/// is about 2,300 bytes, so that a heap without room for it refuses the reply rather than aborting
+/// (specification 34 §7.4, "Reply refusals"); a longer text grows as it is written.
+const STATUS_TEXT_BYTES: usize = 4 * 1024;
+
 /// `status` as [`status`] answers it, with what `role` may change when the dispatcher admitted the
 /// request with a role.
 #[must_use]
@@ -131,7 +136,7 @@ where
     let Some(openot_persistence) = host.openot_persistence() else {
         return unavailable(id, "OpenOT persistence status");
     };
-    ControlResponse::ok_serialized(
+    ControlResponse::ok_serialized_within(
         id,
         &Status {
             access: role.map(AccessCapabilities::of),
@@ -161,6 +166,7 @@ where
             uptime_ms: metrics.uptime_ms,
             version: env!("CARGO_PKG_VERSION"),
         },
+        STATUS_TEXT_BYTES,
     )
 }
 

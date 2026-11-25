@@ -13,6 +13,11 @@ use super::{
     Written,
 };
 use crate::transfer::{reserve_part, room_for, ReplyParts};
+use alloc::collections::TryReserveError;
+use alloc::vec::Vec;
+
+use super::response::{reserve_text, result_text, TextRefusal};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 fn wire(response: &ControlResponse) -> alloc::string::String {
     serde_json::to_string(response).expect("serialize control response")
@@ -559,4 +564,83 @@ fn parts_that_are_not_text_are_reported_and_not_passed_over() {
         panic!("0xFF is not UTF-8");
     };
     assert_eq!(error.valid_up_to(), 1);
+}
+
+/// A heap that has no room for any block.
+fn no_room(_len: usize) -> Result<Vec<u8>, TryReserveError> {
+    Err(Vec::<u8>::new()
+        .try_reserve_exact(usize::MAX)
+        .expect_err("usize::MAX bytes never fit"))
+}
+
+/// The blocks [`room_for_one_block`] has given; only one test asks it.
+static GIVEN: AtomicUsize = AtomicUsize::new(0);
+
+/// A heap that has room for one block and then none.
+fn room_for_one_block(len: usize) -> Result<Vec<u8>, TryReserveError> {
+    if GIVEN.fetch_add(1, Ordering::Relaxed) == 0 {
+        reserve_text(len)
+    } else {
+        no_room(len)
+    }
+}
+
+#[test]
+fn a_frequent_reads_text_is_the_text_serde_json_writes_whatever_room_it_asks_for() {
+    // Specification 34 PORT-02 and §7.4: a frequent read's result is written as JSON text, the
+    // text `serde_json` writes, once the heap has shown room for it. Worked by hand for
+    // {"a":[1,2.5,"x\"y"],"b":null}, 29 bytes: whether the room asked for is 4,096 bytes, 4,
+    // which the text outgrows, or a short read's 512, the reply is the same line. Catches a text
+    // cut to the room asked for and an escape lost on the way.
+    let result = json!({"a": [1, 2.5, "x\"y"], "b": null});
+    let expected = r#"{"id":7,"ok":true,"result":{"a":[1,2.5,"x\"y"],"b":null}}"#;
+    assert_eq!(
+        wire(&ControlResponse::ok_serialized_within(7, &result, 4096)),
+        expected
+    );
+    assert_eq!(
+        wire(&ControlResponse::ok_serialized_within(7, &result, 4)),
+        expected
+    );
+    assert_eq!(wire(&ControlResponse::ok_serialized(7, &result)), expected);
+}
+
+#[test]
+fn a_result_text_the_heap_has_no_room_for_is_refused_and_never_an_abort() {
+    // Specification 34 §7.4, "Reply refusals": a reply for which the heap has no room is refused
+    // with `no room for a reply longer than <n> bytes`, never an abort. A text of up to 4,096
+    // bytes holds at most two blocks of 4,096 at once as `serde_json` writes it, so the heap is
+    // asked for both first. Worked by hand for {"a":[1,2.5,"x\"y"],"b":null}: a heap with no room,
+    // and one with room for one block only, refuse it after 0 bytes, with the request's id and not
+    // ok; a heap with room writes it whole. Catches a text whose room is not asked for, which on a
+    // C6 with about 6 KB free reset the chip at a `status` (checklist G314, G315), and a check
+    // that asks for one block where the text holds two.
+    let result = json!({"a": [1, 2.5, "x\"y"], "b": null});
+    let refused = r#"{"id":7,"ok":false,"error":"no room for a reply longer than 0 bytes"}"#;
+    assert!(matches!(
+        result_text(&result, 4096, no_room),
+        Err(TextRefusal::NoRoom { written: 0 })
+    ));
+    assert_eq!(
+        wire(&ControlResponse::of_text(
+            7,
+            result_text(&result, 4096, no_room)
+        )),
+        refused
+    );
+    GIVEN.store(0, Ordering::Relaxed);
+    assert_eq!(
+        wire(&ControlResponse::of_text(
+            7,
+            result_text(&result, 4096, room_for_one_block)
+        )),
+        refused
+    );
+    assert_eq!(
+        wire(&ControlResponse::of_text(
+            7,
+            result_text(&result, 4096, reserve_text)
+        )),
+        r#"{"id":7,"ok":true,"result":{"a":[1,2.5,"x\"y"],"b":null}}"#
+    );
 }

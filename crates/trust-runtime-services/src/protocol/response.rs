@@ -1,6 +1,8 @@
 use alloc::boxed::Box;
+use alloc::collections::TryReserveError;
 use alloc::format;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::fmt;
 
 use serde::ser::SerializeStruct;
@@ -71,6 +73,58 @@ impl Serialize for ControlResponse {
     }
 }
 
+/// The bytes of a short read's result text, for which the heap is asked before it is written.
+const RESULT_TEXT_BYTES: usize = 512;
+
+/// Takes a block of `len` bytes, or refuses when the heap cannot hold it: how the room for a
+/// result's text is asked for. A test passes one that refuses, to see that the reply is refused
+/// rather than the runtime aborted.
+pub(super) type TextReserve = fn(usize) -> Result<Vec<u8>, TryReserveError>;
+
+/// Takes a block of exactly `len` bytes with `try_reserve_exact`.
+pub(super) fn reserve_text(len: usize) -> Result<Vec<u8>, TryReserveError> {
+    let mut text = Vec::new();
+    text.try_reserve_exact(len)?;
+    Ok(text)
+}
+
+/// Why a result's text was not written.
+#[derive(Debug)]
+pub(super) enum TextRefusal {
+    /// The heap had no room for the text after `written` bytes of it.
+    NoRoom {
+        /// The bytes written when the heap had no room.
+        written: usize,
+    },
+    /// The result does not serialize.
+    Invalid(String),
+}
+
+/// Asks the heap for the blocks a result's text of up to `bytes` bytes holds at its peak, and gives
+/// them back. Without `std`, `serde_json` writes a text only into a block of its own, which it
+/// doubles as the text grows and then copies into a block of the text's length: such a text holds
+/// at most two blocks of `bytes` at once. The loop that serves the request makes no other
+/// allocation before the text is written, so a heap that gave both has room for it, and one that
+/// has none refuses the reply before any of it is written (specification 34 §7.4, "Reply
+/// refusals").
+pub(super) fn room_for_text(bytes: usize, reserve: TextReserve) -> Result<(), TextRefusal> {
+    let first = reserve(bytes).map_err(|_| TextRefusal::NoRoom { written: 0 })?;
+    let second = reserve(bytes).map_err(|_| TextRefusal::NoRoom { written: 0 })?;
+    drop(second);
+    drop(first);
+    Ok(())
+}
+
+/// The JSON text of `result`, once the heap has shown room for it ([`room_for_text`]).
+pub(super) fn result_text<T: Serialize + ?Sized>(
+    result: &T,
+    bytes: usize,
+    reserve: TextReserve,
+) -> Result<Box<RawValue>, TextRefusal> {
+    room_for_text(bytes, reserve)?;
+    serde_json::value::to_raw_value(result).map_err(|error| TextRefusal::Invalid(error.to_string()))
+}
+
 impl ControlResponse {
     /// A successful response carrying `result`.
     #[must_use]
@@ -89,11 +143,25 @@ impl ControlResponse {
 
     /// A successful response whose result is `result` written as JSON text without building a
     /// value: the reply of a frequent read, whose work between scans stays small (specification 34
-    /// PORT-02). A result that does not serialize, which a reply of plain fields never is, answers
-    /// the error that says so.
+    /// PORT-02), for a text of up to 512 bytes, as a short read's is ([`Self::ok_serialized_within`]).
     #[must_use]
     pub fn ok_serialized<T: Serialize + ?Sized>(id: u64, result: &T) -> Self {
-        match serde_json::value::to_raw_value(result) {
+        Self::ok_serialized_within(id, result, RESULT_TEXT_BYTES)
+    }
+
+    /// As [`Self::ok_serialized`], for a result whose text fits `bytes`: the heap is asked first
+    /// for the blocks such a text holds at its peak, and a heap that has no room for them answers
+    /// `no room for a reply longer than 0 bytes`, never an abort (specification 34 §7.4, "Reply
+    /// refusals"). A longer text grows as it is written. A result that does not serialize, which a
+    /// reply of plain fields never is, answers the error that says so.
+    #[must_use]
+    pub fn ok_serialized_within<T: Serialize + ?Sized>(id: u64, result: &T, bytes: usize) -> Self {
+        Self::of_text(id, result_text(result, bytes, reserve_text))
+    }
+
+    /// The response of a result's text, or of the refusal that it could not be written.
+    pub(super) fn of_text(id: u64, text: Result<Box<RawValue>, TextRefusal>) -> Self {
+        match text {
             Ok(text) => Self {
                 id,
                 ok: true,
@@ -104,7 +172,13 @@ impl ControlResponse {
                 audit_id: None,
                 after_response: None,
             },
-            Err(error) => Self::error(id, format!("result does not serialize: {error}")),
+            Err(TextRefusal::NoRoom { written }) => Self::error(
+                id,
+                format!("no room for a reply longer than {written} bytes"),
+            ),
+            Err(TextRefusal::Invalid(error)) => {
+                Self::error(id, format!("result does not serialize: {error}"))
+            }
         }
     }
 
