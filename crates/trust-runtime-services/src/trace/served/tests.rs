@@ -22,9 +22,9 @@ fn debugger(path: &str) -> Option<String> {
 }
 
 /// An ended recording of three cycles at 0, 10 and 20 ms: a start force of `main.limit`; in the
-/// second cycle a screen's write of `main.x`, a method call on `main.heating` and a plant's write of
-/// `tank.level`; in the third the control link's write of `main.x` again; each cycle with an
-/// activation, a wall-clock reading and both images.
+/// second cycle a screen's write of `main.x`, a method call on `main.heating` that read the wall
+/// clock once, and a plant's write of `tank.level`; in the third the control link's write of
+/// `main.x` again; each cycle with an activation, a wall-clock reading and both images.
 fn recording() -> Recorder {
     let mut recorder = Recorder::arm(Goal::Cycles(3), sizes(), Budget::COMPUTER).unwrap();
     for at in [0, 10, 20] {
@@ -54,6 +54,7 @@ fn recording() -> Recorder {
                     interface: "ISequence",
                     method: "Start",
                     inputs: &[("Setpoint", "21.5")],
+                    readings: &[1_795_000_000_005],
                 },
             );
             recorder.change(ChangeSource::Plant, &write("tank.level"));
