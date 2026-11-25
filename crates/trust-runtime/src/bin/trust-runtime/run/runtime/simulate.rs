@@ -21,9 +21,11 @@ pub fn run_simulator(project: PathBuf) -> anyhow::Result<()> {
     } = load_runtime(Some(project), None, None)?;
     let bundle = bundle.ok_or_else(|| anyhow::anyhow!("the project has no runtime.toml"))?;
     let backend_source = execution_backend_source(Some(&bundle));
+    // The simulator starts no I/O driver (below), so a project whose `io.toml` enables a physical
+    // one runs as any other; `run --simulation`, whose drivers run, refuses it.
     let SimulationPlan {
         warning, controller, ..
-    } = build_simulation_plan(Some(&bundle), true, 1)?;
+    } = simulation_plan(Some(&bundle), true, 1)?;
     runtime.set_simulation_enabled(true);
 
     let debug_enabled = Arc::new(std::sync::atomic::AtomicBool::new(true));

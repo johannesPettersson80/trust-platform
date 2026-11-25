@@ -96,10 +96,13 @@ upper_rad = 1.570796
 | `max_plant_substeps_per_cycle` | integer | `10000` | Catch-up bound before a visible simulation fault. |
 | `plant_trace_capacity` | integer | `0` | Bounded completed-substep rows retained per plant; maximum `100000`. |
 
-Simulation startup rejects enabled physical I/O drivers. The nonphysical
-`simulated` (`sim`, `noop`) and `loopback` drivers remain available; disabled
-drivers do not block startup. The first version has no mixed physical/simulated
-output policy.
+`trust-runtime run` with the simulation enabled rejects enabled physical I/O
+drivers. The nonphysical `simulated` (`sim`, `noop`) and `loopback` drivers
+remain available; disabled drivers do not block startup. The first version has
+no mixed physical/simulated output policy. The simulator of a machine test
+(`trust-runtime simulate`, which trust-sim and `trust-dev replay` start) starts
+no I/O driver at all, so it runs a project whose `io.toml` enables a physical
+one, such as a chip's project, as any other.
 
 ### `[[plants]]`
 
