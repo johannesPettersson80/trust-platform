@@ -5,6 +5,7 @@
 //! an optional `$ ` prompt, joined with its `\` continuations; it is split as a POSIX shell splits
 //! it and cut at a comment, a pipe, a list operator or a redirection.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -150,9 +151,48 @@ pub fn words(line: &str) -> Option<Vec<String>> {
     Some(words)
 }
 
+/// The commands that the table under the heading `heading` of the Markdown `page` names in its
+/// first column (checklist G282c): the first word of each command in backquotes, so that
+/// `` `hmi check` `` names `hmi` and `` `run` / `play` `` names `run` and `play`. The table ends at
+/// the next heading; a page without the heading names none.
+#[must_use]
+pub fn table_commands(page: &str, heading: &str) -> BTreeSet<String> {
+    let mut found = BTreeSet::new();
+    let mut inside = false;
+    for line in page.lines() {
+        if line.starts_with('#') {
+            inside = line.trim_end() == heading;
+            continue;
+        }
+        let Some(row) = line.strip_prefix('|').filter(|_| inside) else {
+            continue;
+        };
+        let first = row.split('|').next().unwrap_or_default();
+        for quoted in first.split('`').skip(1).step_by(2) {
+            if let Some(command) = quoted.split_whitespace().next() {
+                found.insert(command.to_owned());
+            }
+        }
+    }
+    found
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{command_lines, words};
+    use super::{command_lines, table_commands, words};
+
+    #[test]
+    fn a_tables_first_column_names_the_first_word_of_each_quoted_command() {
+        // `hmi check` names `hmi`, `run` / `play` both, the header and the purpose column none, and
+        // the table ends at the next heading. Catches a purpose's quoted word taken for a command,
+        // a second word taken for one, and a row of the next table counted.
+        let page = "# Tool\n\n## Commands\n\n| Command | Purpose |\n| --- | --- |\n\
+                    | `run` / `play` | start `it` |\n| `hmi check` | check |\n\n## Next\n\n\
+                    | `other` | x |\n";
+        let names: Vec<String> = table_commands(page, "## Commands").into_iter().collect();
+        assert_eq!(names, ["hmi", "play", "run"]);
+        assert!(table_commands(page, "## Missing").is_empty());
+    }
 
     #[test]
     fn a_command_line_is_split_as_a_shell_splits_it() {

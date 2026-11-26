@@ -5,13 +5,36 @@
 //! command or flag fails here instead of leaving the page behind. A line whose command is a
 //! placeholder, `trust-dev <command>`, names no command and is left out.
 
+use std::collections::BTreeSet;
 use std::fs;
 
 use clap::error::ErrorKind;
-use clap::Parser;
-use trust_test_support::doc_commands::{command_lines, pages, repository, words};
+use clap::{CommandFactory, Parser};
+use trust_test_support::doc_commands::{command_lines, pages, repository, table_commands, words};
 
 use super::Cli;
+
+#[test]
+fn the_reference_names_every_command_that_the_help_shows() {
+    // The CLI reference's table "Command Families" names every command that `trust-dev --help`
+    // shows, and no other (checklist G282c). Catches a new command left out of the reference, and
+    // a removed or renamed one that stays in it.
+    let root = repository(env!("CARGO_MANIFEST_DIR"));
+    let page = fs::read_to_string(root.join("docs/public/reference/cli/trust-dev.md"))
+        .expect("the reference");
+    let listed = table_commands(&page, "## Command Families");
+    let shown: BTreeSet<String> = Cli::command()
+        .get_subcommands()
+        .filter(|command| !command.is_hide_set())
+        .map(|command| command.get_name().to_owned())
+        .collect();
+    let missing: Vec<&String> = shown.difference(&listed).collect();
+    let unknown: Vec<&String> = listed.difference(&shown).collect();
+    assert!(
+        missing.is_empty() && unknown.is_empty(),
+        "the table lacks {missing:?}, and names {unknown:?}, which --help does not show"
+    );
+}
 
 #[test]
 fn every_command_line_in_the_docs_parses() {
