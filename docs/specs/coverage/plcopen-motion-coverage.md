@@ -36,6 +36,7 @@ The per-symbol source of truth remains
 
 ## Notes
 
+- Discrete-move dynamics: the single-axis kernel's virtual axis has no motion profile yet. `MC_MoveAbsolute`, `MC_MoveRelative`, `MC_MoveAdditive`, `MC_MoveContinuousAbsolute` and `MC_MoveContinuousRelative` stay `Busy` while `Execute` is TRUE and end at the call that has `Execute` FALSE, at once and with the axis at the target, whatever the velocity, accelerations and jerk; PLCopen Part 1 ends a move when the axis reaches the target, whatever `Execute` does. The OOP facade's `Release` takes `Execute` to FALSE, so it ends the active move. A program that holds `Execute` until `Done` therefore waits for ever (26 November 2026).
 - `MC_EXECUTION_MODE` is published across the shipped profile; unsupported `mcDelayed` paths are rejected where the current profile does not enable them.
 - The current shipped coordinated-motion profile is the Phase C core subset only; optional Phase C.1 tracking/synchronization remains deferred on the absent path.
 - The current shipped homing profile excludes passive/flying homing FBs.

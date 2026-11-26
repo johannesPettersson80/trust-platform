@@ -19,14 +19,16 @@ this package's object surface:
 - `Power` returns the power command, an `itfCommand`, and the program waits for
   its `Done`.
 - `MoveAbsolute` starts the move to a station and returns its command object,
-  an `itfAxisCommand`, whose `Busy` and `Done` follow the move. A command starts
-  on the rising edge of its `Execute`, as the classic `MC_MoveAbsolute` does.
-- `Release`, called every cycle while the move runs, runs the active command's
-  block with `Execute` FALSE and copies its outputs into the command object, so
-  that `Busy` and `Done` follow the move. With `Execute` back at FALSE, the next
-  `MoveAbsolute` starts with a new rising edge. A program that calls neither
-  `Release` nor the command's method again sees no `Done`: with step 21's
-  `Release` taken out, the table never counts an index.
+  an `itfAxisCommand`. A command starts on the rising edge of its `Execute`, as
+  the classic `MC_MoveAbsolute` does.
+- `Release` runs the active command's block with `Execute` FALSE and copies its
+  outputs into the command object. The package's virtual axis has no motion
+  profile yet: a move ends at the cycle that takes its `Execute` to FALSE, at
+  once and with the axis at the target, and it stays `Busy` while `Execute`
+  stays TRUE. So step 21's first `Release` ends the move and the command reports
+  `Done`; the next `MoveAbsolute` then starts with a new rising edge. Without
+  step 21's `Release` the table never counts an index, and the velocity and
+  accelerations change no timing.
 
 This is the program as the example ships it:
 

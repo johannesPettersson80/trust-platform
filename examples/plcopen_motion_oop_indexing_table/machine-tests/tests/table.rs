@@ -5,8 +5,9 @@
 //! - `runtime.toml`: the resource runs `Main` every 10 ms;
 //! - `src/Main.st`: the first cycle binds the axis object and the program powers the axis (step 10);
 //!   then each index moves the axis to `90.0 * (StationIndex + 1)` with `MoveAbsolute` (step 20),
-//!   takes the command's `Execute` back with `Release` while the move runs (step 21), and on the
-//!   command's `Done` counts the index and takes the next station, after the fourth the first again.
+//!   takes the command's `Execute` back with `Release` (step 21), which ends the move at once, as the
+//!   package's virtual axis has no motion profile yet, and on the command's `Done` counts the index
+//!   and takes the next station, after the fourth the first again.
 //!   So the table stops at 90.0, 180.0, 270.0 and 360.0, and then at 90.0 again.
 
 use trust_sim::{Result, Simulator};
@@ -14,8 +15,8 @@ use trust_sim::{Result, Simulator};
 /// The positions of the first five stations the table stops at, by `Main.st`'s formula.
 const STATIONS: [f32; 5] = [90.0, 180.0, 270.0, 360.0, 90.0];
 
-/// The most cycles a test runs: 10 minutes of the table's time, far more than five moves of 90.0 at
-/// `Main.st`'s velocity of 30.0 a second take.
+/// The most cycles a test runs: 10 minutes of the table's time, far more than five moves take, even
+/// at `Main.st`'s velocity of 30.0 a second.
 const LIMIT_CYCLES: u32 = 60_000;
 
 /// A simulator of this project, the folder above this crate.
