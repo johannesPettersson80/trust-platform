@@ -6,6 +6,7 @@ Get the editor and runtime working, then open a first project.
 | --- | --- |
 | install the VS Code extension and runtime | [Install truST](installation.md) |
 | build from source | [Install From Source](install-from-source.md) |
+| install the compiler toolchain that builds programs, also without internet | [Compiler Toolchain](compiler-toolchain.md) |
 | run a known project | [First Project](first-project.md) |
 | compare VS Code, Browser IDE, and other editors | [Choose Editor](editors.md) |
 
