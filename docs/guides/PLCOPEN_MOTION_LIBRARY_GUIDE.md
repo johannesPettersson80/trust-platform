@@ -34,6 +34,7 @@ PLCopenMotionSingleAxis = { path = "../../libraries/plcopen_motion/single_axis_c
 3. Drive commands with `Execute`/`Enable`; do not expect one-shot FB calls to retain behavior if you stop calling them.
 4. Call `MC_Constants()` once during initialization before you use `PN_*` or `mcERR_*` members.
 5. Use the readback blocks continuously when your state machine depends on live status, position, or error state.
+6. The virtual axis has no motion profile yet, so the velocity, accelerations and jerk change no timing. A discrete move (`MC_MoveAbsolute`, `MC_MoveRelative`, `MC_MoveAdditive`) stays `Busy` while `Execute` is TRUE and ends with `Done` at the scan whose call has `Execute` FALSE, at once and with the axis at the target. Take `Execute` back to FALSE once the move has started, as the starter **PLCopen Motion** does, to let it end. A continuous move (`MC_MoveContinuousAbsolute`, `MC_MoveContinuousRelative`) reports `InEndVelocity` as soon as it is active, before any travel, and at the scan whose call has `Execute` FALSE ends with the axis at its position and at standstill, where PLCopen Part 1 goes on at `EndVelocity`.
 
 ## How To Read The Function Block Interfaces
 

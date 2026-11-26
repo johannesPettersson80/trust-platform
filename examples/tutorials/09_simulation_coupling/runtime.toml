@@ -6,7 +6,6 @@ name = "SimulationRes"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-simulation-coupling.sock"
 mode = "debug"
 debug_enabled = true
 

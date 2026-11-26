@@ -78,7 +78,7 @@ python3 -m venv .venv-pyads
   --read global.StatusWord:WORD \
   --notification global.PumpRunning:BOOL \
   --write global.Setpoint:REAL:12.5 \
-  --doctor-endpoint unix:///tmp/trust-runtime-ads-server-basic.sock
+  --doctor-project examples/communication/ads_server_basic
 ```
 
 The script performs:

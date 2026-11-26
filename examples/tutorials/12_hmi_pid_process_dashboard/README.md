@@ -90,7 +90,7 @@ cargo run -p trust-runtime --bin trust-runtime -- \
 This project ships `runtime.toml` with:
 
 - web UI on `127.0.0.1:18082`
-- control endpoint `unix:///tmp/trust-runtime-tutorial-pid.sock`
+- no control endpoint, so the runtime listens on your platform's default, which `ctl --project` finds
 
 Confirm the runtime is alive:
 

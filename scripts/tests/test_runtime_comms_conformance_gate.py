@@ -61,7 +61,9 @@ MQTT_STAND_INS = {
             sys.exit(0)
         if args[0] == "run":
             project = Path(args[args.index("--project") + 1])
-            path = re.search(r'unix://([^"]+)', (project / "runtime.toml").read_text()).group(1)
+            socket_path = project / ".trust-runtime" / "control.sock"
+            socket_path.parent.mkdir(exist_ok=True)
+            path = str(socket_path)
             with socket.socket(socket.AF_UNIX) as server:
                 server.bind(path)
                 while not Path(path + ".stop").exists():

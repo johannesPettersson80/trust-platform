@@ -26,6 +26,10 @@ before adapting the object-oriented OSCAT comparison examples.
 - [Indexing table](https://github.com/johannesPettersson80/trust-platform/tree/main/examples/plcopen_motion_oop_indexing_table)
 - [Feeder axis](https://github.com/johannesPettersson80/trust-platform/tree/main/examples/plcopen_motion_oop_feeder_axis)
 
+## OSCAT Consumer Example
+
+--8<-- "examples/oscat_smoke/README.md:3"
+
 ## OSCAT OOP Examples
 
 All OSCAT comparison examples live under
