@@ -369,6 +369,48 @@ fn a_fault_event_replies_as_before() {
     }
 }
 
+/// Spec 34 MEM-05 and spec 48 Appendix A: a Rust POU's own fault keeps the number the POU chose and
+/// its two numbers in the fixed record, three bounded numbers as an index fault's are, and every
+/// reply names them as the error does. A sequence's `.within` that waited 2,010 ms at its third
+/// wait point, whose limit is 2,000 ms, gives the numbers 3, 2,000 and 2,010 (RU-72), and reads
+/// `Rust fault 3 (2000, 2010)`. It would catch a record that keeps only the stable code, whose text
+/// `runtime_rust_fault` names neither the wait point nor its times, and one that loses or swaps a
+/// number.
+#[test]
+fn a_rust_fault_replies_with_its_number_and_its_two_numbers() {
+    use crate::status::{events_tail, faults};
+    use crate::tests::fake_host::FakeHost;
+
+    let time = Duration::from_millis(2_320);
+    let error = RuntimeError::RustFault {
+        number: 3,
+        first: 2_000,
+        second: 2_010,
+    };
+    let text = "Rust fault 3 (2000, 2010)";
+    let event = fault_at(&error, time);
+    assert_eq!(
+        runtime_event_to_json(event.clone()),
+        json!({"type": "fault", "error": text, "time_ns": 2_320_000_000_i64}),
+        "the event's JSON"
+    );
+
+    let host = FakeHost::running();
+    host.events.borrow_mut().push_back(event);
+    assert_eq!(
+        faults(1, None, &host).result.expect("faults result"),
+        json!({"faults": [{"type": "fault", "error": text, "time_ns": 2_320_000_000_i64}]}),
+        "the faults reply"
+    );
+    assert_eq!(
+        events_tail(1, None, &host)
+            .result
+            .expect("events tail result"),
+        json!({"events": [{"type": "fault", "error": text, "time_ns": 2_320_000_000_i64}]}),
+        "the events.tail reply"
+    );
+}
+
 /// Spec 11 (`faults` and `events.tail`) and spec 34 MEM-05: a fault whose fixed record does not
 /// hold a hosted name or message renders today's text from the message the error carried, byte for
 /// byte as trust-runtime answers today. It covers one fault of each kind that carries a message:

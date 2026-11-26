@@ -317,7 +317,8 @@ sequence. The wait points:
 A wait never completes at the activation that began it. `.within(t)`, last before `.await`, faults
 with `RustFault` when the wait lasts longer than `t`: the fault's number is the wait point's, its
 place among the body's wait points from 1, and its two numbers are `t` and the time waited, in
-milliseconds. `s.step(&mut output, "NAME")` writes the step's name to a text output, so the HMI and
+milliseconds. The runtime's faults, its log and a machine test name it so: `Rust fault 3 (2000,
+2010)` is the third wait point, which waited 2,010 ms of its 2,000. `s.step(&mut output, "NAME")` writes the step's name to a text output, so the HMI and
 Live Values show where the sequence is.
 
 **Locals.** A local of the sequence names its type, `let count: i16 = 0;`: it is a variable of the

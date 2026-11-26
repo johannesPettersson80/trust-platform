@@ -56,6 +56,17 @@ pub enum FaultDetail {
         /// Sign bits, least significant first: value, lower, upper; set means negative.
         negative: u8,
     },
+    /// A Rust POU's own fault (specification 48 RU-14, Appendix A): the number the POU chose and
+    /// its two numbers of detail, such as a sequence's wait point with its `.within` limit and the
+    /// time it waited, in milliseconds (RU-72).
+    Rust {
+        /// The number the POU chose.
+        number: i64,
+        /// The first number of detail.
+        first: i64,
+        /// The second number of detail.
+        second: i64,
+    },
     /// A limit refusal: the exhausted allowance, accepted demand, requested demand and the
     /// admitted limit.
     Limit {
@@ -109,6 +120,11 @@ impl fmt::Display for FaultDetail {
                 formatter.write_str("..")?;
                 Self::write_signed(formatter, negative & 4 != 0, *upper)
             }
+            Self::Rust {
+                number,
+                first,
+                second,
+            } => write!(formatter, "Rust fault {number} ({first}, {second})"),
             Self::Limit {
                 kind,
                 used,
@@ -279,6 +295,20 @@ impl FaultRecord {
                     limit: u64::try_from(*limit).unwrap_or(u64::MAX),
                 },
             ),
+            // A Rust POU's three numbers are bounded detail, as an index fault's are: the record
+            // keeps them, so its text names the fault as the error does.
+            RuntimeError::RustFault {
+                number,
+                first,
+                second,
+            } => (
+                StableErrorCode::RuntimeRustFault,
+                FaultDetail::Rust {
+                    number: *number,
+                    first: *first,
+                    second: *second,
+                },
+            ),
             other => (other.stable_code(), FaultDetail::None),
         }
     }
@@ -377,6 +407,11 @@ impl fmt::Display for FaultRecord {
                 formatter.write_str("..")?;
                 FaultDetail::write_signed(formatter, negative & 4 != 0, upper)
             }
+            FaultDetail::Rust {
+                number,
+                first,
+                second,
+            } => write!(formatter, "Rust fault {number} ({first}, {second})"),
             FaultDetail::Limit {
                 kind,
                 used,
