@@ -15,10 +15,25 @@ runtime writes when it stops.
 
 ## What you need
 
-- `trust-runtime`, from the truST extension for VS Code or a release archive, and two terminals.
-- A Modbus/TCP server on `127.0.0.1:1502` whose input register 0 holds 256, for example the
-  simulator diagslave from modbusdriver.com (`diagslave -m tcp -p 1502`), with the register set in
-  its tool or by a client of your choice.
+- `trust-runtime`, from the truST extension for VS Code or a release archive, and three terminals.
+- A Modbus/TCP server on `127.0.0.1:1502` whose input register 0 holds 256. A Modbus client cannot
+  write an input register, so take a device or a simulator that lets you set it. This script, for
+  Python 3 with the package pyModbusTCP (`pip install pyModbusTCP`, in a virtual environment where
+  your system asks for one), is such a server, and it prints holding register 0, which the runtime
+  writes, once a second. Save it as `modbus_server.py`:
+
+    ```python
+    from time import sleep
+    from pyModbusTCP.server import ModbusServer
+
+    server = ModbusServer("127.0.0.1", 1502, no_block=True)
+    server.start()
+    server.data_bank.set_input_registers(0, [256])
+    while True:
+        print("holding register 0:", server.data_bank.get_holding_registers(0)[0])
+        sleep(1)
+    ```
+
 - About 15 minutes.
 
 ## Step by step
@@ -29,10 +44,13 @@ runtime writes when it stops.
     trust-runtime build --project . --sources src
     ```
 
-    It writes the program's image, here on an x86-64 Linux computer:
+    It writes the program's image, here on an x86-64 Linux computer, and then names the image's
+    memory figure, the key that signed it and its two sources, `src/config.st` and `src/main.st`:
 
     ```text
     Wrote ./program.tpi
+    Wrote ./build/install.x86_64-unknown-linux-gnu.bin for trust-runtime ctl install
+    Debug image 1972 bytes: code 681, read-only data 0, starting memory 2
     ```
 
     The program `Main` copies one input to one output, `DO0 := DI0;`, and `src/config.st` puts
@@ -65,14 +83,14 @@ runtime writes when it stops.
 
     It answers `Project ok`.
 
-4. Start your Modbus/TCP server with input register 0 at 256, then start the runtime in the first
-   terminal:
+4. Start the server in the second terminal with `python3 modbus_server.py`; it prints
+   `holding register 0: 0` each second. Then start the runtime in the first terminal:
 
     ```text
     trust-runtime run --project .
     ```
 
-5. In the second terminal, read the process image:
+5. In the third terminal, read the process image:
 
     ```text
     trust-runtime ctl --project . io-read
@@ -80,11 +98,12 @@ runtime writes when it stops.
 
     Its answer holds each address with its variable and value. The input reads TRUE,
     `{"address":"%IX0.0","forced":false,"name":"P1.DI0","value":"Bool(true)","valueType":"BOOL"}`,
-    and so does the output `%QX0.0` (`P1.DO0`) that the program copied from it. The server sees
-    holding register 0 written as 256.
+    and so does the output `%QX0.0` (`P1.DO0`) that the program copied from it. The server's
+    terminal now prints `holding register 0: 256`.
 
-6. Stop the runtime with `trust-runtime ctl --project . shutdown --exit`. The server sees holding
-   register 0 written as 0: the safe state of `%QX0.0`.
+6. Stop the runtime with `trust-runtime ctl --project . shutdown --exit`. The server's terminal
+   prints `holding register 0: 0` again: the runtime wrote the safe state of `%QX0.0`. Stop the
+   server with Ctrl+C.
 
 ## What happened
 
@@ -108,14 +127,16 @@ A safe state that the driver cannot confirm ends the stop in `Faulted`, not `Sto
 
 ## Try it yourself
 
-- Set input register 0 to 1 instead of 256. `%IX0.0` reads FALSE, since 1 is bit 0 of the low byte:
-  it is `%IX1.0`, which the program does not use.
+- In `modbus_server.py`, set input register 0 to 1 instead of 256, and start the server and the
+  runtime again. `%IX0.0` reads FALSE, since 1 is bit 0 of the low byte: it is `%IX1.0`, which the
+  program does not use.
 - Set `input_start = 1` in `io.toml` and start the runtime again; the runtime reads `io.toml` when
-  it starts, so no build is needed. It now reads from input register 1, and `%IX0.0` follows that
-  register instead.
-- Stop your server while the runtime runs. The next exchange fails and the resource faults:
-  `trust-runtime ctl --project . status` answers `state=faulted fault=i/o transport error 'modbus
-  tcp 127.0.0.1:1502: the server closed the connection'`.
+  it starts, so no build is needed. It now reads from input register 1, which the script leaves at
+  0, so `%IX0.0` reads FALSE.
+- Stop the server with Ctrl+C while the runtime runs. The next exchange fails and the resource
+  faults: `trust-runtime ctl --project . status` answers `state=faulted fault=i/o transport error
+  'modbus tcp 127.0.0.1:1502: the server closed the connection'`. A stop then ends in `Faulted`,
+  because the safe state cannot reach the server.
 
 ## Reference
 
