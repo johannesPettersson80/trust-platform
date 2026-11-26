@@ -1,5 +1,6 @@
 ### Added
 
-- The `trust-runtime` reference documents `run` and `play`, `ui`, `wizard`, `completions`, `deploy` and
-  `rollback`, `setup`, `hmi-password`, `discover` and `conformance`, each with its options and an example, where
-  its table named them without a section.
+- The `trust-runtime` reference documents every command of its table: `run` and `play`, `ui`, `wizard`,
+  `completions`, `deploy` and `rollback`, `setup`, `hmi-password`, `discover`, `conformance`, `fleet`, `registry`,
+  `plant`, `bench` and `firmware` gain sections with their options and examples, linking the guides that walk
+  through them.

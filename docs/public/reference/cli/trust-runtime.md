@@ -419,6 +419,97 @@ is compiled for the target and run there.
 trust-runtime conformance --suite-root ./conformance --output ./conformance/reports/local.json
 ```
 
+### Fleet
+
+```text
+Usage: trust-runtime fleet <COMMAND>
+```
+
+`fleet` keeps an offline fleet: sibling runtime projects under a fleet root
+(`--fleet-root`), listed in its `fleet.toml`.
+
+- `fleet runtime add` scaffolds a runtime project under the root and registers
+  it; `fleet runtime start` starts a registered project as a managed background
+  process, `stop` stops it through its control endpoint, and `status` and `logs`
+  report on it.
+- `fleet list` lists the runtimes that `fleet.toml` registers (`--json`).
+
+[Fleet Rollout And Templating](../../operate/fleet-rollout-and-templating.md)
+walks through a fleet.
+
+```text
+trust-runtime fleet runtime add --fleet-root ./fleet --name cell-1 --template simulate --json
+trust-runtime fleet list --fleet-root ./fleet --json
+```
+
+### Registry
+
+```text
+Usage: trust-runtime registry <COMMAND>
+```
+
+`registry` keeps a package registry of truST libraries: `init` creates a
+registry root, `publish` publishes a project into it, `download` fetches a
+bundle from it, `verify` checks its payloads' digests against their metadata,
+`list` lists its packages, and `profile` prints its API contract and metadata
+model. [Package Registry](../../develop/package-registry.md) works an example
+through.
+
+```text
+trust-runtime registry init --root ./registry
+trust-runtime registry publish --registry ./registry --project ./my-lib --version 0.1.0
+```
+
+### Plant
+
+```text
+Usage: trust-runtime plant serve --project <PROJECT>
+```
+
+`plant serve` is the stopped-project plant session of the VS Code extension
+(specification 47 §20.7): it reads one control request a line on the standard
+input and answers each on the standard output, on the plants of the project's
+`simulation.toml`, without starting the program or a listener. It is for trusted
+local tools; the extension's plant editor runs it.
+
+### Bench
+
+```text
+Usage: trust-runtime bench <COMMAND>
+```
+
+`bench` measures the runtime: `project` a real project's cycle latency and
+throughput, `init` its start and first cycle, `t0-shm` the T0 shared-memory
+link's latency and overruns, `mesh-zenoh` the mesh's publish, subscribe and
+query latency and jitter, and `dispatch` the runtime cloud's dispatch latency.
+[Benchmarks](../benchmarks.md) gives the baselines.
+
+```text
+trust-runtime bench project --project examples/plcopen_motion_single_axis_demo --watch g_motion_demo_completed_sequences --output json
+trust-runtime bench t0-shm --samples 2000 --output json
+```
+
+### Firmware
+
+```text
+Usage: trust-runtime firmware install [OPTIONS] --chip <CHIP> <FOLDER>
+```
+
+`firmware install` installs truST's firmware on a chip on USB through the chip's
+own boot loader: the first install, which needs no truST on the chip. Its
+folder is the release's firmware folder for the chip, with `bootloader.bin`,
+`partitions.bin` and `firmware.bin`; `--chip` names the chip (`esp32c6`),
+`--port` its USB serial port, found by the chip's USB identity when it is the
+only one, and `--reset-settings` also erases the chip's device settings and
+pairings, so that it boots without a control token, pairing tokens or network.
+Later updates go over the control connection, `trust-runtime ctl firmware`
+([Control](#control)); [Install And Update truST On A
+Chip](../../hardware/chip-install-and-update.md) walks through both.
+
+```text
+trust-runtime firmware install --chip esp32c6 ./trust-firmware-esp32c6
+```
+
 ### Simulate
 
 ```text
