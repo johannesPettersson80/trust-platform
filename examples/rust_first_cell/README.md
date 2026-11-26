@@ -28,9 +28,13 @@ code.
 
 ## Step by step
 
-1. Open the folder `examples/rust_first_cell` of your clone in VS Code. It is a Cargo crate:
-   `Cargo.toml` and `src/lib.rs` lie beside `trust.toml`, `runtime.toml`, `io.toml` and
-   `simulation.toml`, and the machine tests are in `tests/cell.rs`.
+1. Open the folder `examples/rust_first_cell` of your clone in VS Code. Without a clone, choose
+   **Start from example** in the truST side panel, then **Rust-first press cell**, and pick a folder
+   under **Select destination folder**: VS Code opens the copy on `src/lib.rs`. Steps 2 to 4 work in
+   the copy, and the machine tests of steps 5 and 6 once `trust-plc` and `trust-sim` are on
+   crates.io (What you need). The project is a Cargo crate: `Cargo.toml` and `src/lib.rs` lie beside
+   `trust.toml`, `runtime.toml`, `io.toml` and `simulation.toml`, and the machine tests are in
+   `tests/cell.rs`.
 2. Open `trust.toml`. It declares what a `CONFIGURATION` declares: the resource `CellRes`, the task
    `CellTask` every 10 ms, the program instance `Cell` of the Rust program `PRESS_CELL` on that
    task, and the bindings of `Cell`'s inputs and outputs to the fixture's addresses, from

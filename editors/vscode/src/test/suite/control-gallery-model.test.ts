@@ -248,8 +248,10 @@ suite("Control gallery model", () => {
         ...rest: unknown[]
       ) => (command === "trust-lsp.copyExample" ? await previousExecute<T>(command, ...rest) : (undefined as T));
       try {
+        // The entry as the language server answers it: a starter names its program (specification 25 §3.2).
         const copied = await copyModule.copyExample(context, {
-          id: "empty-simulator", title: "Empty simulator", description: "", path: "empty-simulator", hardware: "none",
+          id: "empty-simulator", title: "Empty simulator", description: "", path: "empty-simulator", program: "src/Main.st",
+          hardware: "none",
         });
         assert.strictEqual(copied, true);
         assert.strictEqual(await fs.promises.readFile(path.join(existing, "keep.txt"), "utf8"), "unrelated user content");

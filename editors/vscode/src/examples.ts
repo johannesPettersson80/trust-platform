@@ -23,7 +23,8 @@ import { BUNDLED_EXAMPLE_SCHEME, BundledExamplePreviews } from "./examples/bundl
 import { renderLessonMarkup } from "./examples/lessonMarkup";
 
 // S-25 — "Start from example": a browsable gallery of bundled starters with hardware badges. Choosing a
-// card copies an editable working project and opens it (focus Main.st). The user never hand-edits TOML
+// card copies an editable working project and opens it on its program (src/Main.st, or src/lib.rs of a Rust-first
+// project, as the language server names it). The user never hand-edits TOML
 // to start; a "No hardware" starter is immediately runnable in the Simulator.
 
 export const START_FROM_EXAMPLE_COMMAND = "trust.examples.start";

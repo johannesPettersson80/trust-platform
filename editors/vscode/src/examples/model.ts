@@ -30,6 +30,11 @@ export interface ExampleEntry {
   readonly title: string;
   readonly description: string;
   readonly path: string; // relative project directory within media/examples
+  /**
+   * The language server's answer: the project's program file, relative to its folder, which a copied starter opens:
+   * src/Main.st, or src/lib.rs of a Rust-first project (specification 25 §3.2).
+   */
+  readonly program?: string;
   readonly hardware: ExampleHardware;
   readonly tags?: ReadonlyArray<string>;
   readonly lesson?: ControlLessonMetadata;

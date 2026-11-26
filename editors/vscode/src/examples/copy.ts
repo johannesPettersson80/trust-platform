@@ -70,8 +70,9 @@ export async function copyExample(
     }
 
     // Keep one landing handoff per copied project. Control lessons land on their
-    // instructions; ordinary starters land on Main.st. Setting both keys caused
-    // two activation consumers to compete for the first editor.
+    // instructions; ordinary starters land on their program, which the language server
+    // names (src/Main.st, or src/lib.rs of a Rust-first project). Setting both keys
+    // caused two activation consumers to compete for the first editor.
     if (entry.lesson) {
       await prepareLessonProjectHandoff(
         context,
@@ -79,8 +80,8 @@ export async function copyExample(
         vscode.Uri.joinPath(dest, "README.md").fsPath,
         entry.id
       );
-    } else {
-      await prepareStarterProjectHandoff(context, vscode.Uri.joinPath(dest, "src", "Main.st").fsPath);
+    } else if (entry.program) {
+      await prepareStarterProjectHandoff(context, vscode.Uri.joinPath(dest, entry.program).fsPath, dest.fsPath);
     }
     if (automation?.openFolder === false) {
       return true;

@@ -389,7 +389,8 @@ package, or end-to-end evidence.
   in the course but is not runnable; schemas 3 and 4 must hold their complete
   contract), and answers each entry's availability with its reason, whether
   the entry can be copied (a starter always, a lesson only while available),
-  and which stored lesson ids the learner's progress keeps (every id the
+  each entry's program (§3.2), and which stored lesson ids the learner's
+  progress keeps (every id the
   gallery still lists with a lesson; ids it no longer lists are dropped). The
   gallery shows that answer.
 - Copying a control lesson adapts the copy's README through the language
@@ -459,7 +460,12 @@ package, or end-to-end evidence.
 
 - Project creation MUST establish one exclusive activation landing destination
   before opening the destination folder: creating a starter schedules its
-  `src/Main.st` and clears any earlier example README landing. Copying a control
+  program and clears any earlier example README landing. A starter's program is
+  `src/Main.st`, or the crate's source of a Rust start (Create Project's
+  `focus`, below); a copied example's is the language server's `program`:
+  `src/lib.rs` of a Rust-first project (specification 48 RU-65), whose
+  `trust.toml` makes the project's own folder its crate, and `src/Main.st` of
+  every other. Copying a control
   lesson schedules that lesson's README and clears earlier Main focus. An
   unrelated workspace activation MUST NOT consume this pending destination.
 - Pending project landing MUST have one activation dispatcher and one current
@@ -492,8 +498,9 @@ package, or end-to-end evidence.
   Retrying opens that same folder without repeating project creation.
 
 - Every bundled entry MUST contain `trust-lsp.toml`, `runtime.toml`,
-  `io.toml`, `.vscode/launch.json`, `.vscode/settings.json`, and
-  `src/Main.st`.
+  `io.toml`, `.vscode/launch.json`, `.vscode/settings.json`, and its program,
+  which the language server names (`src/Main.st`, or `src/lib.rs` of a
+  Rust-first project).
 - Each non-control starter MUST also include a source-owned README that is copied
   by the existing example packager. It shall state the first VS Code action,
   expected observable result, simulation mode, physical-hardware boundary and
