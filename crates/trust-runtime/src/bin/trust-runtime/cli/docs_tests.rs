@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod docs_tests {
     //! The `trust-runtime` command lines that the documentation shows parse with this command line (checklist G16): every
-    //! line of a fenced block in the README, the pages of `docs/public` and the examples' READMEs that starts with
+    //! line of a fenced block in the README, the pages of `docs/public`, the deployment notes of `docs/deploy` and the
+    //! examples' READMEs that starts with
     //! `trust-runtime` (after an optional `$ ` prompt) is split as a POSIX shell splits it, joined with its `\`
     //! continuations, cut at a comment, a pipe, a list operator or a redirection, and parsed with [`Cli`]. A renamed command
     //! or flag fails here instead of leaving the page behind. A placeholder such as `<project>` is a value; a line whose
@@ -21,7 +22,7 @@ mod docs_tests {
     };
     use trust_test_support::unique_temp_path;
 
-    use super::Cli;
+    use super::{Cli, Command};
 
     #[test]
     fn the_reference_names_every_command_that_the_help_shows() {
@@ -64,6 +65,39 @@ mod docs_tests {
             }
         }
         assert!(problems.is_empty(), "{}", problems.join("\n"));
+    }
+
+    #[test]
+    fn the_service_units_start_the_runtime_warm() {
+        // Specification 11, "Service units": the systemd units of `docs/deploy/systemd`, which the runtime archives
+        // carry, run `trust-runtime run` on the deployed project with `--restart warm`, so that retained values come
+        // back after a power loss, a crash or a restart by systemd. Catches a unit whose command line the CLI refuses
+        // (both ran `trust-runtime --project ...`, refused as an unexpected argument, so systemd restarted the service
+        // every 2 s and the PLC never ran), and a unit that starts cold and so drops the retained values at every boot.
+        let folder = repository(env!("CARGO_MANIFEST_DIR")).join("docs/deploy/systemd");
+        let mut units = 0;
+        for entry in fs::read_dir(&folder).expect("read the units' folder") {
+            let path = entry.expect("a folder entry").path();
+            if path.extension().is_none_or(|extension| extension != "service") {
+                continue;
+            }
+            units += 1;
+            let text = fs::read_to_string(&path).expect("read a unit");
+            let starts: Vec<&str> = text.lines().filter_map(|line| line.strip_prefix("ExecStart=")).collect();
+            assert_eq!(starts.len(), 1, "{}: one ExecStart", path.display());
+            let mut arguments = words(starts[0]).expect("a command line");
+            assert_eq!(arguments[0], "/usr/local/bin/trust-runtime", "{}", path.display());
+            arguments[0] = "trust-runtime".to_string();
+            let cli = Cli::try_parse_from(&arguments).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+            match cli.command {
+                Some(Command::Run { project, restart, .. }) => {
+                    assert_eq!(project.as_deref(), Some(Path::new("/opt/trust/current")), "{}", path.display());
+                    assert_eq!(restart, "warm", "{}", path.display());
+                }
+                other => panic!("{}: ExecStart runs `trust-runtime run`, not {other:?}", path.display()),
+            }
+        }
+        assert_eq!(units, 2, "the two units of docs/deploy/systemd");
     }
 
     #[test]
