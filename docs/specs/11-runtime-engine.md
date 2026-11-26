@@ -3189,6 +3189,15 @@ not construct a transport. Enabling either client without its loaded sidecar
 configuration is a startup error detected before transport construction or
 connection-state mutation.
 
+**Service units.** The systemd units that the runtime archives carry
+(`docs/deploy/systemd/`) run `trust-runtime run --project /opt/trust/current
+--restart warm`. A supervised runtime starts warm, so that its retained values
+come back after a power loss, a crash or a restart by the supervisor (IEC
+61131-3 Ed.3 §6.5.6.2); its first start, before a retain store holds values,
+begins with the declared initial values (26 November 2026: both units ran
+`trust-runtime --project …`, which the command line refuses, so the service
+restarted every 2 s and the PLC never ran).
+
 Simulation startup rejects a CLI or project time scale of zero. `--simulation`
 enables simulation without discarding the project's simulation model; a CLI
 time scale greater than one enables simulation and overrides the project time

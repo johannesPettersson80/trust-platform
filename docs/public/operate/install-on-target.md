@@ -63,6 +63,11 @@ The first build installs the compiler toolchain when none is installed.
 The repo ships a service file at
 [`docs/deploy/systemd/trust-runtime.service`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/deploy/systemd/trust-runtime.service).
 
+The unit runs `trust-runtime run --project /opt/trust/current --restart warm`:
+it starts the deployed project warm, so that its retained values come back after
+a power loss, a crash or a restart by systemd. Its first start, before any
+retained values are saved, begins with the declared initial values.
+
 For `PREEMPT_RT` deployments, use the dedicated template instead:
 
 - [`docs/deploy/systemd/trust-runtime-preempt-rt.service`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/deploy/systemd/trust-runtime-preempt-rt.service)

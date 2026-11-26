@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/trust/current
-ExecStart=/usr/local/bin/trust-runtime --project /opt/trust/current
+ExecStart=/usr/local/bin/trust-runtime run --project /opt/trust/current --restart warm
 Restart=always
 RestartSec=2
 

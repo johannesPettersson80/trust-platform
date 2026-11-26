@@ -36,7 +36,7 @@ on the computer that runs it.
 ## 3) Start the Runtime
 
 ```
-trust-runtime --project /path/to/project
+trust-runtime run --project /path/to/project
 ```
 
 The runtime runs in the foreground and reports the control endpoint.
@@ -79,7 +79,9 @@ Then point `trust-runtime ctl --endpoint tcp://127.0.0.1:9000`.
 
 ## 5) Run at Boot (systemd)
 
-See `docs/deploy/systemd/trust-runtime.service`.
+See `docs/deploy/systemd/trust-runtime.service`. It runs
+`trust-runtime run --project /opt/trust/current --restart warm`: it starts the deployed project
+warm, so that its retained values come back after a power loss, a crash or a restart by systemd.
 
 ### Log Rotation / Retention (journald)
 

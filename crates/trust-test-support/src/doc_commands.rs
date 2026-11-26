@@ -34,12 +34,17 @@ fn collect(folder: &Path, found: &mut Vec<PathBuf>, wanted: &dyn Fn(&Path) -> bo
     }
 }
 
-/// The documentation's pages under `root`: the README, the pages of `docs/public` and the examples'
-/// READMEs, sorted.
+/// The documentation's pages under `root`: the README, the pages of `docs/public`, the deployment
+/// notes of `docs/deploy` and the examples' READMEs, sorted.
 #[must_use]
 pub fn pages(root: &Path) -> Vec<PathBuf> {
     let mut found = vec![root.join("README.md")];
     collect(&root.join("docs/public"), &mut found, &|path| {
+        path.extension().is_some_and(|extension| extension == "md")
+    });
+    // The deployment notes, which the runtime archives carry (26 November 2026: two of them, and the systemd
+    // units, ran `trust-runtime --project …`, which the command line refuses).
+    collect(&root.join("docs/deploy"), &mut found, &|path| {
         path.extension().is_some_and(|extension| extension == "md")
     });
     collect(&root.join("examples"), &mut found, &|path| {
