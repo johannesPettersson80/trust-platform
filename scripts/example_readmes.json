@@ -210,7 +210,6 @@
     "examples/tutorials/19_safety_commissioning/README.md",
     "examples/tutorials/21_ci_cd_project_pipeline/README.md",
     "examples/tutorials/22_neovim_zed_workflow/README.md",
-    "examples/tutorials/23_observability_historian_prometheus/README.md",
     "examples/tutorials/24_hmi_alarms/README.md",
     "examples/tutorials/README.md",
     "examples/twincat-ads/README.md",

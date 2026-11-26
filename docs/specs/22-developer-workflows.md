@@ -96,6 +96,14 @@ Three tutorials additionally define executable behavior locks:
   `SealInContact` after `StartPb`, remains latched when `StartPb` is released,
   unlatches on `StopPb`, can start again, and unlatches on `OverloadTrip`.
 
+Tutorial 23 runs on tutorial 13's project as its README writes it: with its
+allowlist of `P1.StartCmd` and `P1.LampOut` and the input set on and off with
+`ctl io-write`, the history file `history/historian.jsonl` holds exactly those
+two variables, equal in every sample and of the BOOL kind, and the Prometheus
+path `/metrics` names the runtime's uptime, a fault total of 0 and a historian
+sample total of at least the samples in the file (specification 11, the
+runtime historian's recording and export contract).
+
 Every observed cycle in these behavior locks must complete without runtime
 errors. The exact delays and I/O sequences above describe the shipped tutorial
 fixtures, not general IEC timer, traffic-control, or motor-safety semantics.

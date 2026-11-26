@@ -535,3 +535,130 @@ fn tutorial_15_configurations_build_and_validate() {
         assert!(output.status.success(), "{what}: {}", describe(&output));
     }
 }
+
+/// The historian's samples in `project`'s `history/historian.jsonl`, as (time, variable, value).
+fn historian_samples(project: &std::path::Path) -> Vec<(u64, String, serde_json::Value)> {
+    let Ok(text) = std::fs::read_to_string(project.join("history").join("historian.jsonl")) else {
+        return Vec::new();
+    };
+    text.lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter_map(|sample| {
+            Some((
+                sample["timestamp_ms"].as_u64()?,
+                sample["variable"].as_str()?.to_string(),
+                sample["value"].clone(),
+            ))
+        })
+        .collect()
+}
+
+#[test]
+fn tutorial_23_records_its_allowlist_and_serves_metrics_as_its_readme_writes_it() {
+    // examples/tutorials/23_observability_historian_prometheus/README.md on tutorial 13's project:
+    // step 2 puts the README's sections into runtime.toml (the web interface on, the historian in
+    // allowlist mode for `P1.StartCmd` and `P1.LampOut`, a sample a second, history/historian.jsonl
+    // and the Prometheus path /metrics); steps 3 and 4 build and run; step 5 toggles `%IX0.0` with
+    // `ctl io-write`; step 6 reads the history file; step 7 the Prometheus endpoint. Specification
+    // 11, the runtime historian's recording and export contract: allowlist mode records exactly the
+    // configured names, a program's variable by its full path, and the Prometheus renderer gives
+    // the runtime's uptime and fault totals with the historian's sample total. The program copies
+    // `StartCmd` to `LampOut`, so each sample holds the two equal. The copy moves the web interface
+    // to its own loopback port. Catches an allowlist that names nothing the historian records, a
+    // history file holding other variables, and an endpoint without the historian's totals.
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/23_observability_historian_prometheus/README.md"),
+    )
+    .expect("tutorial 23's README");
+    // The block stands in a numbered step, indented as the step's text is.
+    let configuration: String = readme
+        .split("```toml\n")
+        .nth(1)
+        .and_then(|block| block.split("```").next())
+        .expect("the README's configuration, its first TOML block")
+        .lines()
+        .map(|line| format!("{}\n", line.trim_start()))
+        .collect();
+    let mut files = here_documents(
+        &std::fs::read_to_string(
+            repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
+        )
+        .expect("tutorial 13's README"),
+    );
+    for (file, text) in &mut files {
+        if file == "runtime.toml" {
+            *text = with_sections(text, &configuration);
+        }
+    }
+
+    let runtime = ExampleRuntime::written("tutorial-23", files).web().start();
+    for value in [true, false] {
+        set(&runtime, "%IX0.0", value);
+        runtime.wait_until(
+            STEP,
+            &format!("step 6: a sample of P1.StartCmd = {value}"),
+            || {
+                historian_samples(runtime.project())
+                    .iter()
+                    .any(|(_, variable, sampled)| {
+                        variable == "P1.StartCmd" && sampled["value"] == value
+                    })
+            },
+        );
+    }
+
+    let samples = historian_samples(runtime.project());
+    let variables: std::collections::BTreeSet<&str> = samples
+        .iter()
+        .map(|(_, variable, _)| variable.as_str())
+        .collect();
+    assert_eq!(
+        variables,
+        std::collections::BTreeSet::from(["P1.LampOut", "P1.StartCmd"]),
+        "step 6: the history holds the allowlist, and only it"
+    );
+    let mut by_time: std::collections::BTreeMap<u64, Vec<(&str, &serde_json::Value)>> =
+        std::collections::BTreeMap::new();
+    for (time, variable, value) in &samples {
+        by_time
+            .entry(*time)
+            .or_default()
+            .push((variable.as_str(), value));
+    }
+    for (time, sample) in &by_time {
+        let of = |name: &str| {
+            sample
+                .iter()
+                .find(|(variable, _)| *variable == name)
+                .map(|(_, v)| *v)
+        };
+        if let (Some(start), Some(lamp)) = (of("P1.StartCmd"), of("P1.LampOut")) {
+            assert_eq!(
+                start, lamp,
+                "the sample at {time} ms: LampOut copies StartCmd"
+            );
+            assert_eq!(
+                start["kind"], "bool",
+                "the sample at {time} ms keeps the BOOL's type"
+            );
+        }
+    }
+
+    let mut response = ureq::get(&format!("{}/metrics", runtime.web_base()))
+        .call()
+        .expect("step 7: GET /metrics");
+    let body = response.body_mut().read_to_string().expect("the metrics");
+    let value = |name: &str| {
+        body.lines()
+            .find_map(|line| line.strip_prefix(&format!("{name} ")))
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .unwrap_or_else(|| panic!("step 7: no {name} in\n{body}"))
+    };
+    assert!(value("trust_runtime_uptime_ms") > 0.0, "{body}");
+    assert_eq!(value("trust_runtime_faults_total"), 0.0, "{body}");
+    assert!(
+        value("trust_runtime_historian_samples_total") >= samples.len() as f64,
+        "step 7: the historian's sample total counts at least the {} samples read before\n{body}",
+        samples.len()
+    );
+}
