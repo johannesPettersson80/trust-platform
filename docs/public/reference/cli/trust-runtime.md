@@ -222,6 +222,299 @@ check: with `[runtime.identify] output` set, a program that uses the output, an
 `io.toml` that maps the GPIO line, or an output beyond the output image is
 refused with the error `run` prints.
 
+### Run and Play
+
+```text
+Usage: trust-runtime run [OPTIONS]
+Usage: trust-runtime play [OPTIONS]
+```
+
+`run` starts a runtime of the project in the foreground: it builds the program
+image when the project has none, loads it and runs the resource until the
+process ends, on Ctrl+C, SIGTERM or `trust-runtime ctl shutdown --exit`. `play`
+starts the same runtime for everyday use: it finds the project folder, creates
+a default project in the folder that `--project` names when it holds none, and
+in a terminal opens an interactive console.
+
+Options of both:
+
+- `--project`: the project folder.
+- `--restart`: `cold` (the default) or `warm`, how the resource starts.
+- `--simulation`: run with the project's simulation (`simulation.toml`), and
+  `--time-scale` (1 and above, 1 by default) to run it faster than real time.
+- `--paused`: start paused, so that no scan runs until
+  `trust-runtime ctl resume`.
+- `--install-toolchain`: install the compiler toolchain without asking when the
+  build needs it and none is installed, as a script or CI needs.
+- `--verbose`: show the details of the start.
+
+`run` alone takes `--config` and `--runtime-root`, a configuration entry file
+and the root folder of the sources in development mode. `play` alone takes
+`--console` and `--no-console`, which force the interactive console on (in a
+terminal) or off, and `--beginner`, which limits the console's controls.
+
+```text
+trust-runtime run --project ./my-plc
+trust-runtime run --project ./my-plc --restart warm --paused
+trust-runtime play --project ./my-plc --simulation --time-scale 8
+```
+
+### UI
+
+```text
+Usage: trust-runtime ui [OPTIONS]
+```
+
+`ui` is a terminal UI that monitors and controls a running runtime through its
+control endpoint. `--project` names the project whose `runtime.toml` gives the
+endpoint and the token, found from the current folder when omitted;
+`--endpoint` (`tcp://host:port` or `unix://path`) and `--token` override them.
+`--refresh` sets how often it reads, in milliseconds (250 by default),
+`--no-input` makes it read-only, a monitor, and `--beginner` limits its
+controls to Play, Stop, Download and Debug.
+
+```text
+trust-runtime ui --project ./my-plc --no-input
+```
+
+### Wizard
+
+```text
+Usage: trust-runtime wizard [OPTIONS]
+```
+
+`wizard` creates a new project folder with guided questions in the terminal, in
+the folder that `--path` names, by default the current one; `--start` starts
+the runtime once the folder is written. `trust-runtime new` creates a project
+without questions ([New](#new)).
+
+```text
+trust-runtime wizard --path ./my-plc --start
+```
+
+### Completions
+
+```text
+Usage: trust-runtime completions <SHELL>
+```
+
+`completions` prints the completion script of `trust-runtime` for a shell,
+`bash`, `elvish`, `fish`, `powershell` or `zsh`, to the standard output. Write
+it where your shell loads completions, for example for bash:
+
+```text
+trust-runtime completions bash > ~/.local/share/bash-completion/completions/trust-runtime
+```
+
+### Deploy and Rollback
+
+```text
+Usage: trust-runtime deploy [OPTIONS] --project <PROJECT>
+Usage: trust-runtime rollback [OPTIONS]
+```
+
+`deploy` copies the project folder that `--project` names into a versioned
+deployment root, `--root` (the current folder by default), as a new version
+named by `--label` (`project-<timestamp>` by default), and makes it the active
+one; `--restart` gives the restart mode after the deployment, `cold` or `warm`.
+`rollback` makes the previous version of `--root` active again. The root keeps
+the active and the previous version; [Deploy And
+Rollback](../../operate/deploy-rollback.md) describes its files and when to roll
+back.
+
+```text
+trust-runtime deploy --project ./my-plc --root ./deploy-root
+trust-runtime rollback --root ./deploy-root
+```
+
+### Setup
+
+```text
+Usage: trust-runtime setup [OPTIONS]
+```
+
+`setup` writes this computer's system I/O configuration, `/etc/trust/io.toml`
+(`--path` names another file), with its drivers detected. `--mode` chooses how:
+`browser`, a setup page, `cli`, questions in the terminal, or `cancel`.
+`--access local` serves the setup page on this computer only, and
+`--access remote` on the network, behind a token valid for
+`--token-ttl-minutes`; `--bind` and `--port` set its address. `--project` names
+the project the setup is for, `--dry-run` shows the plan without writing,
+`--driver` overrides the detected driver, `--backend` the GPIO backend (libgpiod
+or chardev by default, sysfs on legacy hosts), and `--force` overwrites an
+existing system configuration.
+
+```text
+trust-runtime setup --mode cli --dry-run
+```
+
+### HMI Password
+
+```text
+Usage: trust-runtime hmi-password [OPTIONS]
+```
+
+`hmi-password` reads a password from the standard input and prints the hash that
+an HMI user's `password` stores in `[[runtime.web.hmi.user]]` of `runtime.toml`
+(specification 39 §12.8): PBKDF2-HMAC-SHA256 with its iteration count and a
+random salt, never the password itself. `--iterations` sets the count, at least
+10000 and 600000 by default. The HMI Builder's **Add user…** writes the same
+hash. For the throwaway password `not-a-real-password` with `--iterations
+10000`, it printed:
+
+```text
+pbkdf2-sha256:10000:Yrfdf9GzjQWNHOUGgmNedw:FDTIayzvJ1J0wJpmP4a-_ScXHAqxP8sdNEWAgdEBAOU
+```
+
+```toml
+[[runtime.web.hmi.user]]
+name = "anna"
+role = "operator"
+password = "pbkdf2-sha256:600000:<salt>:<hash>"
+```
+
+### Discover
+
+```text
+Usage: trust-runtime discover [OPTIONS]
+```
+
+`discover` searches for devices, truST runtimes, ADS, Modbus TCP, MQTT, OPC UA,
+EtherCAT and GPIO, as the Discover pane of Devices & Connections does, and
+prints what it finds by source.
+
+- `--only`: search only these sources, one or several, comma-separated or
+  repeated: `trust_runtime`, `ads`, `modbus_tcp`, `mqtt`, `opcua`, `ethercat`,
+  `gpio`, `serial`, `usb`, `bluetooth`.
+- `--host` (repeatable) and `--cidr`: a known address, a host name or an IP
+  address with an optional port, and an IPv4 subnet of at most `/24` to search.
+- `--deadline-ms`: how long the search may take, 1 to 60000 ms, 10000 by
+  default.
+- `--confirm-fieldbus`: confirms an EtherCAT scan, `ethercat` or
+  `ethercat:<adapter>`, which runs only when confirmed.
+- `--endpoint` and `--token`: run the search inside the runtime at that control
+  endpoint, a chip on USB (`serial:///dev/ttyACM0`) too, instead of on this
+  computer.
+- `--project`: use the choices that the project's Discover pane remembers
+  (`.trust-runtime/devices.toml`); `--show-ignored` shows the devices it
+  ignores, and `--compare` compares the search with the project's configured
+  devices instead of listing what it found.
+- `--json`: one JSON object per line, such as
+  `{"count":0,"event":"source","id":"modbus_tcp","state":"found"}`.
+
+```text
+trust-runtime discover --only modbus_tcp,opcua --cidr 192.168.1.0/24
+```
+
+### Conformance
+
+```text
+Usage: trust-runtime conformance [OPTIONS]
+```
+
+`conformance` runs the cases of the deterministic conformance suite in
+`--suite-root`. `--filter` runs the cases whose ids contain a text (in any
+case), `--output` writes a JSON summary, and `--update-expected` refreshes the
+expected results from the current runtime's behaviour. `--device` with
+`--target` (`esp32c6`, `stm32u5a9`) runs the runtime cases on a device on its
+serial port, or through a `tcp://<host>:<port>` bridge to that port: each case
+is compiled for the target and run there.
+
+```text
+trust-runtime conformance --suite-root ./conformance --output ./conformance/reports/local.json
+```
+
+### Fleet
+
+```text
+Usage: trust-runtime fleet <COMMAND>
+```
+
+`fleet` keeps an offline fleet: sibling runtime projects under a fleet root
+(`--fleet-root`), listed in its `fleet.toml`.
+
+- `fleet runtime add` scaffolds a runtime project under the root and registers
+  it; `fleet runtime start` starts a registered project as a managed background
+  process, `stop` stops it through its control endpoint, and `status` and `logs`
+  report on it.
+- `fleet list` lists the runtimes that `fleet.toml` registers (`--json`).
+
+[Fleet Rollout And Templating](../../operate/fleet-rollout-and-templating.md)
+walks through a fleet.
+
+```text
+trust-runtime fleet runtime add --fleet-root ./fleet --name cell-1 --template simulate --json
+trust-runtime fleet list --fleet-root ./fleet --json
+```
+
+### Registry
+
+```text
+Usage: trust-runtime registry <COMMAND>
+```
+
+`registry` keeps a package registry of truST libraries: `init` creates a
+registry root, `publish` publishes a project into it, `download` fetches a
+bundle from it, `verify` checks its payloads' digests against their metadata,
+`list` lists its packages, and `profile` prints its API contract and metadata
+model. [Package Registry](../../develop/package-registry.md) works an example
+through.
+
+```text
+trust-runtime registry init --root ./registry
+trust-runtime registry publish --registry ./registry --project ./my-lib --version 0.1.0
+```
+
+### Plant
+
+```text
+Usage: trust-runtime plant serve --project <PROJECT>
+```
+
+`plant serve` is the stopped-project plant session of the VS Code extension
+(specification 47 §20.7): it reads one control request a line on the standard
+input and answers each on the standard output, on the plants of the project's
+`simulation.toml`, without starting the program or a listener. It is for trusted
+local tools; the extension's plant editor runs it.
+
+### Bench
+
+```text
+Usage: trust-runtime bench <COMMAND>
+```
+
+`bench` measures the runtime: `project` a real project's cycle latency and
+throughput, `init` its start and first cycle, `t0-shm` the T0 shared-memory
+link's latency and overruns, `mesh-zenoh` the mesh's publish, subscribe and
+query latency and jitter, and `dispatch` the runtime cloud's dispatch latency.
+[Benchmarks](../benchmarks.md) gives the baselines.
+
+```text
+trust-runtime bench project --project examples/plcopen_motion_single_axis_demo --watch g_motion_demo_completed_sequences --output json
+trust-runtime bench t0-shm --samples 2000 --output json
+```
+
+### Firmware
+
+```text
+Usage: trust-runtime firmware install [OPTIONS] --chip <CHIP> <FOLDER>
+```
+
+`firmware install` installs truST's firmware on a chip on USB through the chip's
+own boot loader: the first install, which needs no truST on the chip. Its
+folder is the release's firmware folder for the chip, with `bootloader.bin`,
+`partitions.bin` and `firmware.bin`; `--chip` names the chip (`esp32c6`),
+`--port` its USB serial port, found by the chip's USB identity when it is the
+only one, and `--reset-settings` also erases the chip's device settings and
+pairings, so that it boots without a control token, pairing tokens or network.
+Later updates go over the control connection, `trust-runtime ctl firmware`
+([Control](#control)); [Install And Update truST On A
+Chip](../../hardware/chip-install-and-update.md) walks through both.
+
+```text
+trust-runtime firmware install --chip esp32c6 ./trust-firmware-esp32c6
+```
+
 ### Simulate
 
 ```text
