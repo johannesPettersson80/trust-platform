@@ -63,26 +63,24 @@ pub(super) fn answer(state: &ServerState, argument: Value) -> Result<Value, Stri
 fn create(state: &ServerState, workspace: Option<PathBuf>) -> Result<Value, String> {
     let token = trust_runtime::control::endpoint::generate_control_token()
         .map_err(|error| format!("No control token for the simulator: {error}"))?;
-    let named = state.simulator_controls();
-    let control = SimulatorControl {
-        endpoint: endpoint(workspace_hash(workspace.as_deref()), |endpoint| {
-            named.named_for_another_folder(workspace.as_deref(), endpoint)
-        }),
-        auth_token: token,
-    };
-    let answer = json!({
+    let hash = workspace_hash(workspace.as_deref());
+    let control = state
+        .simulator_controls()
+        .name_and_record(workspace, |named_elsewhere| SimulatorControl {
+            endpoint: endpoint(hash, named_elsewhere),
+            auth_token: token,
+        });
+    Ok(json!({
         "ok": true,
         "endpoint": control.endpoint,
         "authToken": control.auth_token,
-    });
-    state.simulator_controls().record(workspace, control);
-    Ok(answer)
+    }))
 }
 
 /// The socket `trust-debug-<h>.sock` in the system temporary folder, `<h>` the 8 hexadecimal
 /// digits of `hash`.
 #[cfg(unix)]
-fn endpoint(hash: u32, _named_elsewhere: impl Fn(&str) -> bool) -> String {
+fn endpoint(hash: u32, _named_elsewhere: &dyn Fn(&str) -> bool) -> String {
     let socket = std::env::temp_dir().join(format!("trust-debug-{hash:08x}.sock"));
     format!("unix://{}", socket.display())
 }
@@ -91,7 +89,7 @@ fn endpoint(hash: u32, _named_elsewhere: impl Fn(&str) -> bool) -> String {
 /// named for another workspace folder (`named_elsewhere`): a port that another workspace's
 /// simulator, in this window or another, or another program holds is passed over.
 #[cfg(not(unix))]
-fn endpoint(hash: u32, named_elsewhere: impl Fn(&str) -> bool) -> String {
+fn endpoint(hash: u32, named_elsewhere: &dyn Fn(&str) -> bool) -> String {
     let port = free_port_from(workspace_port(hash), |port| {
         !named_elsewhere(&format!("tcp://127.0.0.1:{port}"))
             && std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).is_ok()

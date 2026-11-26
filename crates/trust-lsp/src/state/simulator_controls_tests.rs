@@ -14,9 +14,9 @@ fn a_document_reaches_the_simulator_of_its_innermost_workspace_folder() {
     // Catches: a document in a nested project reaching the outer folder's simulator, or a document
     // in another folder reaching a simulator that is not its own.
     let controls = SimulatorControls::default();
-    controls.record(Some(PathBuf::from("/work")), control("outer"));
-    controls.record(Some(PathBuf::from("/work/plant")), control("plant"));
-    controls.record(Some(PathBuf::from("/other")), control("other"));
+    controls.name_and_record(Some(PathBuf::from("/work")), |_| control("outer"));
+    controls.name_and_record(Some(PathBuf::from("/work/plant")), |_| control("plant"));
+    controls.name_and_record(Some(PathBuf::from("/other")), |_| control("other"));
 
     let reached = |path: &str| controls.for_document(Path::new(path)).map(|c| c.endpoint);
     assert_eq!(reached("/work/plant/src/main.st").as_deref(), Some("plant"));
@@ -33,8 +33,8 @@ fn a_document_reaches_the_simulator_of_its_innermost_workspace_folder() {
 fn a_document_outside_every_folder_reaches_the_simulator_named_without_one() {
     // Catches: a launch without a workspace folder, whose simulator no document could reach.
     let controls = SimulatorControls::default();
-    controls.record(None, control("default"));
-    controls.record(Some(PathBuf::from("/work/plant")), control("plant"));
+    controls.name_and_record(None, |_| control("default"));
+    controls.name_and_record(Some(PathBuf::from("/work/plant")), |_| control("plant"));
 
     let reached = |path: &str| controls.for_document(Path::new(path)).map(|c| c.endpoint);
     assert_eq!(reached("/elsewhere/main.st").as_deref(), Some("default"));
@@ -46,8 +46,8 @@ fn a_new_simulator_of_a_folder_replaces_the_earlier_one() {
     // Catches: inline values that keep reaching the first simulator of a folder after the server
     // named another one for it.
     let controls = SimulatorControls::default();
-    controls.record(Some(PathBuf::from("/work/plant")), control("first"));
-    controls.record(Some(PathBuf::from("/work/plant")), control("second"));
+    controls.name_and_record(Some(PathBuf::from("/work/plant")), |_| control("first"));
+    controls.name_and_record(Some(PathBuf::from("/work/plant")), |_| control("second"));
 
     let reached = controls
         .for_document(Path::new("/work/plant/main.st"))
@@ -61,15 +61,66 @@ fn an_endpoint_named_for_another_folder_is_passed_over_and_its_own_is_not() {
     // (two workspaces whose hashes share a Windows port, the first's simulator not yet running),
     // and a folder that passes over its own earlier port.
     let controls = SimulatorControls::default();
-    controls.record(
-        Some(PathBuf::from("/work/plant")),
-        control("tcp://127.0.0.1:22699"),
+    controls.name_and_record(Some(PathBuf::from("/work/plant")), |_| {
+        control("tcp://127.0.0.1:22699")
+    });
+    let mut seen = None;
+    controls.name_and_record(Some(PathBuf::from("/work/line")), |named_elsewhere| {
+        seen = Some((
+            named_elsewhere("tcp://127.0.0.1:22699"),
+            named_elsewhere("tcp://127.0.0.1:22700"),
+        ));
+        control("tcp://127.0.0.1:22700")
+    });
+    assert_eq!(
+        seen,
+        Some((true, false)),
+        "another folder's endpoint, then a free one"
     );
+    let mut own = None;
+    controls.name_and_record(Some(PathBuf::from("/work/plant")), |named_elsewhere| {
+        own = Some(named_elsewhere("tcp://127.0.0.1:22699"));
+        control("tcp://127.0.0.1:22699")
+    });
+    assert_eq!(
+        own,
+        Some(false),
+        "a folder's own endpoint is not another folder's"
+    );
+}
 
-    let named = |folder: &str, endpoint: &str| {
-        controls.named_for_another_folder(Some(Path::new(folder)), endpoint)
+#[test]
+fn two_folders_asked_for_at_once_get_two_endpoints() {
+    // Catches a choice and a record under separate locks: both folders would see the same
+    // endpoint free before either keeps it (Codex's review of #839).
+    let controls = std::sync::Arc::new(SimulatorControls::default());
+    let pick = |named_elsewhere: &dyn Fn(&str) -> bool| {
+        let endpoint = ["tcp://127.0.0.1:22699", "tcp://127.0.0.1:22700"]
+            .into_iter()
+            .find(|endpoint| !named_elsewhere(endpoint))
+            .expect("a free endpoint");
+        // A slow choice, as the port probe is, widens the window in which both could choose.
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        control(endpoint)
     };
-    assert!(named("/work/line", "tcp://127.0.0.1:22699"));
-    assert!(!named("/work/plant", "tcp://127.0.0.1:22699"));
-    assert!(!named("/work/line", "tcp://127.0.0.1:22700"));
+    let threads: Vec<_> = ["/work/one", "/work/two"]
+        .into_iter()
+        .map(|folder| {
+            let controls = std::sync::Arc::clone(&controls);
+            std::thread::spawn(move || {
+                controls
+                    .name_and_record(Some(PathBuf::from(folder)), pick)
+                    .endpoint
+            })
+        })
+        .collect();
+    let mut endpoints: Vec<String> = threads
+        .into_iter()
+        .map(|thread| thread.join().expect("a thread"))
+        .collect();
+    endpoints.sort();
+    assert_eq!(
+        endpoints,
+        ["tcp://127.0.0.1:22699", "tcp://127.0.0.1:22700"]
+    );
 }

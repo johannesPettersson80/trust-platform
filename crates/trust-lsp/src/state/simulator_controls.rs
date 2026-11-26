@@ -21,24 +21,24 @@ pub(crate) struct SimulatorControls {
 }
 
 impl SimulatorControls {
-    /// Keeps `control` as the one named for `workspace`, in place of an earlier one.
-    pub(crate) fn record(&self, workspace: Option<PathBuf>, control: SimulatorControl) {
-        let mut named = self.named.write();
-        named.retain(|(folder, _)| folder != &workspace);
-        named.push((workspace, control));
-    }
-
-    /// Whether `endpoint` is named for a workspace folder other than `workspace`, so that a new
-    /// simulator of `workspace` passes it over.
-    pub(crate) fn named_for_another_folder(
+    /// Names a control for `workspace` with `name` and keeps it in place of an earlier one, under
+    /// one lock, so that two
+    /// folders asked for at once never take one endpoint. `name` is given whether an endpoint is
+    /// named for a folder other than `workspace`, which a new simulator of `workspace` passes over.
+    pub(crate) fn name_and_record(
         &self,
-        workspace: Option<&Path>,
-        endpoint: &str,
-    ) -> bool {
-        self.named
-            .read()
-            .iter()
-            .any(|(folder, control)| folder.as_deref() != workspace && control.endpoint == endpoint)
+        workspace: Option<PathBuf>,
+        name: impl FnOnce(&dyn Fn(&str) -> bool) -> SimulatorControl,
+    ) -> SimulatorControl {
+        let mut named = self.named.write();
+        let control = name(&|endpoint: &str| {
+            named.iter().any(|(folder, control)| {
+                folder.as_deref() != workspace.as_deref() && control.endpoint == endpoint
+            })
+        });
+        named.retain(|(folder, _)| folder != &workspace);
+        named.push((workspace, control.clone()));
+        control
     }
 
     /// The control named for the workspace folder that holds `document`, the innermost when

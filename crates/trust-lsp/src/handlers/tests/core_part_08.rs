@@ -488,13 +488,14 @@ pub(super) fn lsp_inline_values_reach_the_simulator_a_launch_started_for_the_wor
         "trust_lsp": { "runtime": { "control_auth_token": "editor-token" } }
     }));
     let folder = std::path::Path::new(SIMULATOR_WORKSPACE);
-    state.simulator_controls().record(
-        Some(folder.to_path_buf()),
-        crate::state::simulator_controls::SimulatorControl {
-            endpoint,
-            auth_token: "simulator-token".to_owned(),
-        },
-    );
+    state
+        .simulator_controls()
+        .name_and_record(Some(folder.to_path_buf()), |_| {
+            crate::state::simulator_controls::SimulatorControl {
+                endpoint,
+                auth_token: "simulator-token".to_owned(),
+            }
+        });
     let source = runtime_inline_values_source();
     let uri =
         tower_lsp::lsp_types::Url::from_file_path(folder.join("runtime.st")).expect("a file URI");
