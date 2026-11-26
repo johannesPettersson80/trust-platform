@@ -4,6 +4,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::Mutex;
 
 /// A two-file project in a fresh temporary directory, removed on drop.
 struct Project(PathBuf);
@@ -149,4 +150,103 @@ fn check_reports_the_configuration_and_fails_on_its_error() {
     let stdout = text(&output.stdout);
     assert_eq!(output.status.code(), Some(0), "{stdout}");
     assert!(!stdout.contains("trust-lsp.toml"), "{stdout}");
+}
+
+/// The examples that are editor projects: a folder with `trust-lsp.toml` and no `runtime.toml`,
+/// outside the libraries and vendor stubs that projects use.
+fn editor_projects(folder: &Path, found: &mut Vec<PathBuf>) {
+    for entry in std::fs::read_dir(folder).expect("read an examples folder") {
+        let path = entry.expect("a folder entry").path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+        if matches!(
+            name,
+            "libraries" | "vendor" | "node_modules" | "target" | "build"
+        ) {
+            continue;
+        }
+        if path.join("trust-lsp.toml").is_file() && !path.join("runtime.toml").is_file() {
+            found.push(path.clone());
+        }
+        editor_projects(&path, found);
+    }
+}
+
+#[test]
+fn every_editor_project_of_the_examples_checks_without_errors() {
+    // Specification 22, "Shipped project example corpus": an example that is an editor project,
+    // with trust-lsp.toml and no runtime.toml, checks with `trust-lsp check` without an error:
+    // oscat_smoke and vendor_library_stubs, the OSCAT classic projects, tutorial 10 and the control
+    // lessons' tests (29 on 26 November 2026). Warnings may stay, the OSCAT library's among them.
+    // Catches an example that a library or language change breaks while nothing builds it, as
+    // nothing built or checked oscat_smoke and vendor_library_stubs.
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let mut projects = Vec::new();
+    editor_projects(&examples, &mut projects);
+    projects.sort();
+    let names: Vec<String> = projects
+        .iter()
+        .map(|project| shown(&examples, project))
+        .collect();
+    for expected in [
+        "oscat_smoke",
+        "vendor_library_stubs",
+        "tutorials/10_unit_testing_101",
+    ] {
+        assert!(
+            names.iter().any(|name| name == expected),
+            "{expected} among {names:?}"
+        );
+    }
+    let failures = Mutex::new(Vec::new());
+    std::thread::scope(|scope| {
+        for share in projects.chunks(projects.len().div_ceil(4)) {
+            let failures = &failures;
+            let examples = &examples;
+            scope.spawn(move || {
+                for project in share {
+                    let output = check(&[std::ffi::OsStr::new("--project"), project.as_os_str()]);
+                    if !output.status.success() {
+                        let stdout = text(&output.stdout);
+                        let errors: Vec<&str> = stdout
+                            .lines()
+                            .filter(|line| line.contains(": error["))
+                            .collect();
+                        failures.lock().expect("the failures").push(format!(
+                            "{}: {}{}",
+                            shown(examples, project),
+                            text(&output.stderr).trim(),
+                            errors
+                                .iter()
+                                .map(|line| format!("\n  {line}"))
+                                .collect::<String>()
+                        ));
+                    }
+                }
+            });
+        }
+    });
+    let failures = failures.into_inner().expect("the failures");
+    assert!(
+        failures.is_empty(),
+        "{} of {} editor projects do not check:\n{}",
+        failures.len(),
+        projects.len(),
+        failures.join("\n")
+    );
+}
+
+/// `project`'s path under `examples`, with `/` between its parts.
+fn shown(examples: &Path, project: &Path) -> String {
+    let relative = project.strip_prefix(examples).unwrap_or(project);
+    relative
+        .components()
+        .map(|part| part.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }
