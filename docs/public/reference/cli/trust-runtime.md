@@ -217,6 +217,90 @@ check: with `[runtime.identify] output` set, a program that uses the output, an
 `io.toml` that maps the GPIO line, or an output beyond the output image is
 refused with the error `run` prints.
 
+### Run and Play
+
+```text
+Usage: trust-runtime run [OPTIONS]
+Usage: trust-runtime play [OPTIONS]
+```
+
+`run` starts a runtime of the project in the foreground: it builds the program
+image when the project has none, loads it and runs the resource until the
+process ends, on Ctrl+C, SIGTERM or `trust-runtime ctl shutdown --exit`. `play`
+starts the same runtime for everyday use: it finds the project folder, creates
+a default project in the folder that `--project` names when it holds none, and
+in a terminal opens an interactive console.
+
+Options of both:
+
+- `--project`: the project folder.
+- `--restart`: `cold` (the default) or `warm`, how the resource starts.
+- `--simulation`: run with the project's simulation (`simulation.toml`), and
+  `--time-scale` (1 and above, 1 by default) to run it faster than real time.
+- `--paused`: start paused, so that no scan runs until
+  `trust-runtime ctl resume`.
+- `--install-toolchain`: install the compiler toolchain without asking when the
+  build needs it and none is installed, as a script or CI needs.
+- `--verbose`: show the details of the start.
+
+`run` alone takes `--config` and `--runtime-root`, a configuration entry file
+and the root folder of the sources in development mode. `play` alone takes
+`--console` and `--no-console`, which force the interactive console on (in a
+terminal) or off, and `--beginner`, which limits the console's controls.
+
+```text
+trust-runtime run --project ./my-plc
+trust-runtime run --project ./my-plc --restart warm --paused
+trust-runtime play --project ./my-plc --simulation --time-scale 8
+```
+
+### UI
+
+```text
+Usage: trust-runtime ui [OPTIONS]
+```
+
+`ui` is a terminal UI that monitors and controls a running runtime through its
+control endpoint. `--project` names the project whose `runtime.toml` gives the
+endpoint and the token, found from the current folder when omitted;
+`--endpoint` (`tcp://host:port` or `unix://path`) and `--token` override them.
+`--refresh` sets how often it reads, in milliseconds (250 by default),
+`--no-input` makes it read-only, a monitor, and `--beginner` limits its
+controls to Play, Stop, Download and Debug.
+
+```text
+trust-runtime ui --project ./my-plc --no-input
+```
+
+### Wizard
+
+```text
+Usage: trust-runtime wizard [OPTIONS]
+```
+
+`wizard` creates a new project folder with guided questions in the terminal, in
+the folder that `--path` names, by default the current one; `--start` starts
+the runtime once the folder is written. `trust-runtime new` creates a project
+without questions ([New](#new)).
+
+```text
+trust-runtime wizard --path ./my-plc --start
+```
+
+### Completions
+
+```text
+Usage: trust-runtime completions <SHELL>
+```
+
+`completions` prints the completion script of `trust-runtime` for a shell,
+`bash`, `elvish`, `fish`, `powershell` or `zsh`, to the standard output. Write
+it where your shell loads completions, for example for bash:
+
+```text
+trust-runtime completions bash > ~/.local/share/bash-completion/completions/trust-runtime
+```
+
 ### Simulate
 
 ```text
