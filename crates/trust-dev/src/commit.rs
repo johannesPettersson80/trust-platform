@@ -41,7 +41,7 @@ fn run_commit_impl(
     after_initial_collision_check();
     let status = git_status(&repo_root, &project_rel)?;
     if status.is_empty() {
-        println!("No changes to commit.");
+        outln!("No changes to commit.");
         return Ok(());
     }
 
@@ -87,9 +87,9 @@ fn run_commit_impl(
                 project_pathspec,
             ],
         )?;
-        println!("Commit created.");
+        outln!("Commit created.");
     } else {
-        println!("Commit cancelled.");
+        outln!("Commit cancelled.");
     }
 
     Ok(())
@@ -289,15 +289,15 @@ impl CommitSummary {
     }
 
     fn print(&self) {
-        println!("Changes detected: {} file(s)", self.total);
+        outln!("Changes detected: {} file(s)", self.total);
         if !self.config_files.is_empty() {
-            println!("Config: {}", summarize_list(&self.config_files, 4));
+            outln!("Config: {}", summarize_list(&self.config_files, 4));
         }
         if !self.st_files.is_empty() {
-            println!("Sources: {}", summarize_list(&self.st_files, 6));
+            outln!("Sources: {}", summarize_list(&self.st_files, 6));
         }
         if !self.other_files.is_empty() {
-            println!("Other: {}", summarize_list(&self.other_files, 4));
+            outln!("Other: {}", summarize_list(&self.other_files, 4));
         }
     }
 }

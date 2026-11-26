@@ -44,7 +44,7 @@ pub fn run_audit(project: Option<PathBuf>, db: Option<PathBuf>) -> anyhow::Resul
     let toolchain = Toolchain::find()?;
     let work = project.join("build").join("audit");
     let Some(graph) = scan_crate_graph(&project, &toolchain, &work)? else {
-        println!("The project's build compiles no Rust crate: nothing to check.");
+        outln!("The project's build compiles no Rust crate: nothing to check.");
         return Ok(());
     };
     let (folder, source) = match db {
@@ -59,14 +59,14 @@ pub fn run_audit(project: Option<PathBuf>, db: Option<PathBuf>) -> anyhow::Resul
     };
     let findings = check(&graph, &folder)?;
     for finding in &findings {
-        println!("{}", finding.line());
+        outln!("{}", finding.line());
     }
     let vulnerabilities = findings
         .iter()
         .filter(|finding| finding.kind.is_none())
         .count();
     let warnings = findings.len() - vulnerabilities;
-    println!(
+    outln!(
         "Checked {} of the scan crate graph against the RustSec advisory database {source}: {}, {}.",
         counted(graph.len(), "crate", "crates"),
         counted(vulnerabilities, "vulnerability", "vulnerabilities"),

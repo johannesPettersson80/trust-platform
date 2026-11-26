@@ -1554,6 +1554,18 @@ unclassified message uses command fallback: `build` maps to 11, `test` to 12,
 substring classifier is a compatibility boundary; it does not imply that
 arbitrary prose containing one of its tokens is semantically typed.
 
+## trust-dev output
+
+What a `trust-dev` command prints on the standard output ends quietly when its
+reader closes the pipe, by the rule of `trust-runtime`'s (specification 11,
+"CLI entrypoint"): the rest of the output is dropped, and the command carries on
+to its own end and exit status, so that `trust-dev test --list | head -1` ends
+with success and a commit or a service's installation completes. Another write
+error, such as a full disk, still ends the command with a failure. A command
+whose standard output carries its messages, `trust-dev agent serve`, ends when
+its client has gone, as before (26 November 2026: every printing command
+panicked on the closed pipe).
+
 ## API documentation generation
 
 `trust-dev docs` uses an explicit project path when supplied. Without one, it

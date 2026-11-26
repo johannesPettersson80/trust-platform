@@ -246,3 +246,33 @@ fn test_reports_name_files_relative_to_the_project_folder() {
     );
     let _ = std::fs::remove_dir_all(&parent);
 }
+
+/// Specification 22, "trust-dev output": `trust-dev test --list | head -1` once the reader has closed
+/// the pipe. The pipe's reader is closed before the command starts, so the first line already finds
+/// it closed. Catches the panic 'failed printing to stdout: Broken pipe (os error 32)' and its exit
+/// status 101, which every printing command gave (checklist G323b).
+#[test]
+fn test_list_into_a_closed_pipe_ends_quietly() {
+    let project = trust_test_support::unique_temp_path("trust-dev-closed-pipe");
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(
+        project.join("src/tests.st"),
+        "TEST_PROGRAM First\nASSERT_TRUE(IN := TRUE);\nEND_TEST_PROGRAM\n\nTEST_PROGRAM Second\nASSERT_TRUE(IN := TRUE);\nEND_TEST_PROGRAM\n",
+    )
+    .expect("write the tests");
+    let (reader, writer) = std::io::pipe().expect("a pipe");
+    drop(reader);
+    let output = trust_dev()
+        .args(["test", "--list", "--project"])
+        .arg(&project)
+        .stdout(writer)
+        .output()
+        .expect("run trust-dev test --list");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "status {:?}, stderr: {stderr}",
+        output.status
+    );
+    assert!(!stderr.contains("panicked"), "stderr: {stderr}");
+}

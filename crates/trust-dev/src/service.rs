@@ -45,6 +45,6 @@ pub fn run_bindings(project: Option<PathBuf>, name: &str, out: &Path) -> anyhow:
         std::fs::create_dir_all(folder).with_context(|| format!("create {}", folder.display()))?;
     }
     std::fs::write(out, text).with_context(|| format!("write {}", out.display()))?;
-    println!("Wrote {}: the bindings of service {name}.", out.display());
+    outln!("Wrote {}: the bindings of service {name}.", out.display());
     Ok(())
 }
