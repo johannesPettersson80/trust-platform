@@ -154,7 +154,6 @@
     "examples/communication/README.md",
     "examples/communication/ads_line1/README.md",
     "examples/communication/ads_server_basic/README.md",
-    "examples/communication/ethercat/README.md",
     "examples/communication/ethercat_field_validated_es/README.md",
     "examples/communication/gpio/README.md",
     "examples/communication/mqtt/README.md",

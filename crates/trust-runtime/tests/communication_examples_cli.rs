@@ -589,3 +589,24 @@ fn the_modbus_tcp_example_carries_its_bit_through_the_server_and_writes_its_safe
         "the stop writes the safe state of %QX0.0 to holding register 0"
     );
 }
+
+#[test]
+fn the_ethercat_example_maps_its_mock_input_to_its_output() {
+    // The README of examples/communication/ethercat (specification 11, the EtherCAT driver's mock
+    // adapter, and the safe state at a deliberate stop): the mock reports the input bytes
+    // ["01", "00"], whose first sets %IX0.0 (DI0); the program copies it to DO0 at %QX0.0. The
+    // resource runs without a fault, and `shutdown --exit` ends the process with success after the
+    // safe state is written. Catches a mock that does not report its bytes, a chain mapped in
+    // another layout, and a stop that fails on the chain.
+    let mut runtime = ExampleRuntime::new("communication/ethercat").start();
+    runtime.wait_for_snapshot(WAIT, "%IX0.0 and %QX0.0 to read TRUE", |s| {
+        s.text("%IX0.0") == "Bool(true)" && s.text("%QX0.0") == "Bool(true)"
+    });
+    runtime.assert_running_without_fault();
+    runtime.ctl_ok(&["shutdown", "--exit"]);
+    let status = runtime.wait_for_exit(WAIT);
+    assert!(
+        status.success(),
+        "the runtime ends with success after shutdown --exit: {status}"
+    );
+}
