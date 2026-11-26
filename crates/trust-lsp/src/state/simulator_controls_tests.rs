@@ -124,3 +124,30 @@ fn two_folders_asked_for_at_once_get_two_endpoints() {
         ["tcp://127.0.0.1:22699", "tcp://127.0.0.1:22700"]
     );
 }
+
+#[test]
+fn a_windows_folder_holds_its_documents_in_any_case() {
+    // Windows' file systems ignore case, so VS Code can name a folder `C:\Work\Plant` and one of
+    // its documents `c:\work\plant\src\main.st` (Codex's review of #839); elsewhere case
+    // matters. Catches a lookup that misses the folder's simulator on Windows, and two records of
+    // one Windows folder asked for in two cases.
+    let controls = SimulatorControls::default();
+    controls.name_and_record(Some(PathBuf::from(r"C:\Work\Plant")), |_| control("first"));
+    let reached = controls
+        .for_document(Path::new(r"c:\work\plant\src\main.st"))
+        .map(|control| control.endpoint);
+    if cfg!(windows) {
+        assert_eq!(reached.as_deref(), Some("first"));
+        controls.name_and_record(Some(PathBuf::from(r"c:\work\plant")), |_| control("second"));
+        let replaced = controls
+            .for_document(Path::new(r"C:\WORK\PLANT\main.st"))
+            .map(|control| control.endpoint);
+        assert_eq!(
+            replaced.as_deref(),
+            Some("second"),
+            "one record of one folder"
+        );
+    } else {
+        assert_eq!(reached, None, "case matters outside Windows");
+    }
+}

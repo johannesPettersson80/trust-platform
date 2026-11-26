@@ -17,33 +17,36 @@ pub(crate) struct SimulatorControl {
 /// The simulator control named for each workspace folder, and for a launch without one.
 #[derive(Default)]
 pub(crate) struct SimulatorControls {
+    /// Each folder in the form this platform compares ([`compared`]), with its control.
     named: RwLock<Vec<(Option<PathBuf>, SimulatorControl)>>,
 }
 
 impl SimulatorControls {
     /// Names a control for `workspace` with `name` and keeps it in place of an earlier one, under
-    /// one lock, so that two
-    /// folders asked for at once never take one endpoint. `name` is given whether an endpoint is
-    /// named for a folder other than `workspace`, which a new simulator of `workspace` passes over.
+    /// one lock, so that two folders asked for at once never take one endpoint. `name` is given
+    /// whether an endpoint is named for a folder other than `workspace`, which a new simulator of
+    /// `workspace` passes over.
     pub(crate) fn name_and_record(
         &self,
         workspace: Option<PathBuf>,
         name: impl FnOnce(&dyn Fn(&str) -> bool) -> SimulatorControl,
     ) -> SimulatorControl {
+        let key = workspace.as_deref().map(compared);
         let mut named = self.named.write();
         let control = name(&|endpoint: &str| {
-            named.iter().any(|(folder, control)| {
-                folder.as_deref() != workspace.as_deref() && control.endpoint == endpoint
-            })
+            named
+                .iter()
+                .any(|(folder, control)| *folder != key && control.endpoint == endpoint)
         });
-        named.retain(|(folder, _)| folder != &workspace);
-        named.push((workspace, control.clone()));
+        named.retain(|(folder, _)| *folder != key);
+        named.push((key, control.clone()));
         control
     }
 
     /// The control named for the workspace folder that holds `document`, the innermost when
     /// folders nest, else the one named without a folder.
     pub(crate) fn for_document(&self, document: &Path) -> Option<SimulatorControl> {
+        let document = compared(document);
         let named = self.named.read();
         let in_folder = named
             .iter()
@@ -57,6 +60,16 @@ impl SimulatorControls {
                 .find(|(folder, _)| folder.is_none())
                 .map(|(_, control)| control.clone())
         })
+    }
+}
+
+/// `path` in the form this platform compares: Windows' file systems ignore case, so a folder and a
+/// document's path there match in any case, as `C:\Work` and `c:\work\main.st` do.
+fn compared(path: &Path) -> PathBuf {
+    if cfg!(windows) {
+        PathBuf::from(path.to_string_lossy().to_lowercase())
+    } else {
+        path.to_path_buf()
     }
 }
 
