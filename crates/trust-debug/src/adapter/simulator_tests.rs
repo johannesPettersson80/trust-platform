@@ -1,7 +1,10 @@
 //! The compiled simulator end to end on this computer (specification 44 NX-16): a launch builds the
 //! project with the toolchain `TRUST_TOOLCHAIN` names (§4.6), runs it on trust-runtime's scheduler
-//! with a control server at the launch's endpoint, and debugs it through the control protocol.
+//! with a control server at the launch's endpoint, and debugs it through the control protocol. The
+//! launches on TCP run on every platform, Windows among them, where a VS Code launch's simulator
+//! serves its control API on a loopback port (specification 25 §6.8).
 
+#[cfg(unix)]
 use super::remote::{RemoteEndpoint, RemoteSession};
 use super::*;
 use serde_json::json;
@@ -111,6 +114,7 @@ fn succeeded(outcome: &DispatchOutcome) -> &Value {
 /// breakpoints set before the launch that never reach the runtime, a condition dropped (the first
 /// scan would stop with `count` 1), an evaluation that misses the held frame or the project's
 /// enumeration, and a reload refused for a compiled launch.
+#[cfg(unix)]
 #[test]
 fn a_launch_runs_the_program_compiled_and_debugs_it_through_the_control_protocol() {
     trust_runtime::native::Toolchain::find()
