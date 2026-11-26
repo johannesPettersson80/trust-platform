@@ -86,7 +86,7 @@ pub fn run_test(
     if list {
         let rendered =
             render_list_output(&project_root, &tests, discovered_total, filter.as_deref());
-        print!("{rendered}");
+        out!("{rendered}");
         return Ok(());
     }
 
@@ -100,7 +100,7 @@ pub fn run_test(
             filter.as_deref(),
             0,
         )?;
-        print!("{rendered}");
+        out!("{rendered}");
         return Ok(());
     }
 
@@ -116,7 +116,7 @@ pub fn run_test(
             filter.as_deref(),
             0,
         )?;
-        print!("{rendered}");
+        out!("{rendered}");
         return Ok(());
     }
 
@@ -149,7 +149,7 @@ pub fn run_test(
         filter.as_deref(),
         total_duration_ms,
     )?;
-    print!("{rendered}");
+    out!("{rendered}");
 
     if summary.has_failures() {
         anyhow::bail!("{} ST test(s) failed", summary.failed + summary.errors);

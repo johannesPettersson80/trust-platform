@@ -42,7 +42,7 @@ pub fn run_docs(
     }
     let written = publish_documents(&output_root, &documents)?;
 
-    println!(
+    outln!(
         "{}",
         style::success(format!(
             "Generated documentation for {} API item(s) in {}",
@@ -51,13 +51,13 @@ pub fn run_docs(
         ))
     );
     for path in &written {
-        println!(" - {}", path.display());
+        outln!(" - {}", path.display());
     }
 
     if diagnostics.is_empty() {
-        println!("{}", style::success("No documentation tag diagnostics."));
+        outln!("{}", style::success("No documentation tag diagnostics."));
     } else {
-        println!(
+        outln!(
             "{}",
             style::warning(format!(
                 "Generated with {} documentation diagnostic(s):",
@@ -65,7 +65,7 @@ pub fn run_docs(
             ))
         );
         for diagnostic in diagnostics {
-            println!(
+            outln!(
                 " - {}:{} {}",
                 diagnostic.file.display(),
                 diagnostic.line,

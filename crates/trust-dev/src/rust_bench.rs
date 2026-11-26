@@ -70,7 +70,7 @@ pub fn run_bench(
             .join("\n"))
     })?;
     let Some(krate) = krate else {
-        println!("The project declares no Rust POU.");
+        outln!("The project declares no Rust POU.");
         return Ok(());
     };
     let plan = bench::programs(&krate);
@@ -419,7 +419,7 @@ fn report(
     } else {
         format!("the device {measured_on}")
     };
-    println!(
+    outln!(
         "Measured on {place} ({}), {scans} scan(s) a case:",
         triple(target)
     );
@@ -429,7 +429,7 @@ fn report(
         }
         if let Some(faults) = found.faulted.get(pou) {
             for fault in faults {
-                println!("  {pou}: the case {fault}; no time recorded");
+                outln!("  {pou}: the case {fault}; no time recorded");
             }
             continue;
         }
@@ -438,7 +438,7 @@ fn report(
         } else {
             ""
         };
-        println!("  {pou}: longest call {time} ns, budget {budget} ns{over}");
+        outln!("  {pou}: longest call {time} ns, budget {budget} ns{over}");
         records.push(measured::Measured {
             pou: pou.clone(),
             longest_ns: u64::try_from(*time).unwrap_or(0),
@@ -447,11 +447,11 @@ fn report(
         });
     }
     for pou in &found.unconfigured {
-        println!("  {pou}: the program image has no instance of it; not measured");
+        outln!("  {pou}: the program image has no instance of it; not measured");
     }
     measured::write(project, triple(target), &records)
         .map_err(|message| anyhow::anyhow!(message))?;
-    println!(
+    outln!(
         "Wrote {} measurement(s) into trust.toml [timing.measured].",
         records.len()
     );

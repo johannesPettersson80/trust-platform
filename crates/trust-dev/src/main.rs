@@ -6,6 +6,10 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
+// First: the macros of `output`, `outln!` and `out!`, serve every module declared after it.
+#[macro_use]
+mod output;
+
 mod agent;
 mod build;
 mod ci;

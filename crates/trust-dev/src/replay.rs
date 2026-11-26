@@ -26,7 +26,7 @@ pub(crate) fn run_replay(trace: &Path, project: Option<PathBuf>) -> anyhow::Resu
     };
     match replay(trace, &root) {
         Ok(answer) => {
-            print!("{answer}");
+            out!("{answer}");
             if !answer.matched {
                 std::process::exit(i32::from(answer.exit_code()));
             }

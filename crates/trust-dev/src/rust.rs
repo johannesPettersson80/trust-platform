@@ -25,28 +25,28 @@ pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
     match write_generated(&project) {
         Ok(generated) => {
             match generated.declarations {
-                Written::Wrote(count) => println!("Wrote {declarations}: {count} Rust POU(s)."),
-                Written::UpToDate => println!("{declarations} is up to date."),
+                Written::Wrote(count) => outln!("Wrote {declarations}: {count} Rust POU(s)."),
+                Written::UpToDate => outln!("{declarations} is up to date."),
                 Written::Removed => {
-                    println!("Removed {declarations}: the project declares no Rust POU.");
+                    outln!("Removed {declarations}: the project declares no Rust POU.");
                 }
-                Written::Nothing => println!("The project declares no Rust POU."),
+                Written::Nothing => outln!("The project declares no Rust POU."),
             }
             if let (Some(configuration), Some(file)) =
                 (generated.configuration, &layout.configuration)
             {
                 match configuration {
-                    Written::UpToDate => println!("{file} is up to date."),
-                    _ => println!("Wrote {file} from trust.toml."),
+                    Written::UpToDate => outln!("{file} is up to date."),
+                    _ => outln!("Wrote {file} from trust.toml."),
                 }
             }
             // The heartbeats of the services trust.toml declares (RU-63).
             let services = &layout.services;
             match generated.services {
-                Written::Wrote(count) => println!("Wrote {services}: {count} service(s)."),
-                Written::UpToDate => println!("{services} is up to date."),
+                Written::Wrote(count) => outln!("Wrote {services}: {count} service(s)."),
+                Written::UpToDate => outln!("{services} is up to date."),
                 Written::Removed => {
-                    println!("Removed {services}: trust.toml declares no service.");
+                    outln!("Removed {services}: trust.toml declares no service.");
                 }
                 Written::Nothing => {}
             }
@@ -69,7 +69,7 @@ pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
         if let Err(error) = write_bindings(&project, &sources, conversions) {
             bail!("{BINDINGS_FOLDER} is not written: {error}");
         }
-        println!("Wrote {BINDINGS_FOLDER}: the bindings of the Structured Text the crate calls.");
+        outln!("Wrote {BINDINGS_FOLDER}: the bindings of the Structured Text the crate calls.");
     }
     Ok(())
 }

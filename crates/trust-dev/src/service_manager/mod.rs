@@ -69,20 +69,20 @@ pub fn run_install(
     };
     execute(&steps)?;
     match &owner {
-        Some(owner) => println!(
+        Some(owner) => outln!(
             "Installed and started {id}: {} runs as {} in {}.",
             plan.binary.display(),
             owner.name,
             plan.project.display()
         ),
-        None => println!(
+        None => outln!(
             "Installed and started {id}: {} runs as {} in {}.",
             plan.binary.display(),
             windows_steps::account(name),
             plan.project.display()
         ),
     }
-    println!("Its output: {}", system.output(name));
+    outln!("Its output: {}", system.output(name));
     Ok(())
 }
 
@@ -122,7 +122,7 @@ pub fn run_uninstall(name: &str) -> anyhow::Result<()> {
         }
     };
     execute(&steps)?;
-    println!("Stopped and removed {id}.");
+    outln!("Stopped and removed {id}.");
     Ok(())
 }
 
