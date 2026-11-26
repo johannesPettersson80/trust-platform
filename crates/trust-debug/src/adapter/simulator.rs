@@ -366,7 +366,21 @@ impl DebugAdapter {
             },
             None => default_control_endpoint(),
         };
-        let token = launch_control_auth_token(args);
+        // The control server requires a token on every TCP endpoint, the adapter's requests
+        // included, so a launch that names none gets a new one (specification 25 §6.8).
+        let token = match launch_control_auth_token(args) {
+            Some(token) => Some(token),
+            None if matches!(endpoint, ControlEndpoint::Tcp(_)) => {
+                match trust_runtime::control::endpoint::generate_control_token() {
+                    Ok(token) => Some(token),
+                    Err(error) => {
+                        let message = format!("control token error: {error}");
+                        return self.launch_failed(request, events, &message);
+                    }
+                }
+            }
+            None => None,
+        };
         let simulator = match Simulator::start(
             image,
             program,

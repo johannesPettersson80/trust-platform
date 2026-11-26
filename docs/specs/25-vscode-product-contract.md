@@ -1999,14 +1999,20 @@ that request (`trust-lsp.simulationSpeed`).
 A simulator that Start or a launch configuration without `controlEndpoint`
 launches serves its control API on an endpoint, and with a token, that the
 language server names (`trust-lsp.simulatorControl`): on Linux and macOS the
-socket `trust-debug-<h>.sock` in the system temporary folder, where `<h>` is
-the first 8 hexadecimal digits of the SHA-256 of the workspace folder's path,
-and a new token of 32 bytes from the operating system's secure random source
-as unpadded base64url (specification 11 §6.8.0a); on Windows none, and the
-debug adapter binds its default endpoint. The extension asks once per
-workspace folder in a VS Code session, so the launch and Devices & Connections
-(§5.1) use the same endpoint and token. A launch configuration's own
-`controlEndpoint` is used as it is, and the debug adapter connects to the
+socket `trust-debug-<h>.sock` in the system temporary folder, and on Windows
+the loopback endpoint `tcp://127.0.0.1:<port>`, where `<port>` is 20000 plus
+the value of `<h>` modulo 20000, below the dynamic port range from 49152 that
+Windows hands ports out from; `<h>` is the first 8 hexadecimal digits of the
+SHA-256 of the workspace folder's path. On every platform the token is a new
+one of 32 bytes from the operating system's secure random source as unpadded
+base64url (specification 11 §6.8.0a). The simulator's control server requires
+a token on a TCP endpoint, so a launch configuration that names a TCP
+`controlEndpoint` without `controlAuthToken`, and a launch that names no
+endpoint where the debug adapter's default is a TCP port, gets a new token from
+the debug adapter, which the adapter uses for its own requests. The extension
+asks once per workspace folder in a VS Code session, so the launch and Devices
+& Connections (§5.1) use the same endpoint and token. A launch configuration's
+own `controlEndpoint` is used as it is, and the debug adapter connects to the
 simulator it launched at the endpoint that the simulator's control server
 bound. Before Start launches on a TCP endpoint,
 the language server tries to connect to it for at most 300 ms; when a program

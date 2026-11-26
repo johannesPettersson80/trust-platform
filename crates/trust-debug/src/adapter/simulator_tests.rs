@@ -208,6 +208,66 @@ fn a_launch_runs_the_program_compiled_and_debugs_it_through_the_control_protocol
     assert!(adapter.simulator.is_none());
 }
 
+/// A launch that names a TCP endpoint and no token, as every VS Code launch on Windows did while
+/// the language server named no endpoint there (specification 25 §6.8), holds at its breakpoint:
+/// the control server requires a token on every TCP endpoint, so the adapter takes a new one and
+/// uses it for its own requests. Catches a simulator that refuses the adapter's `debug.state` with
+/// `missing auth token`, so that the program never holds and the stack stays empty.
+#[test]
+fn a_launch_on_tcp_without_a_token_holds_at_its_breakpoint() {
+    trust_runtime::native::Toolchain::find()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let project = Project::new();
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
+    adapter.dispatch_request(request(1, "initialize", json!({})));
+    let launch = adapter.dispatch_request(request(
+        2,
+        "launch",
+        json!({
+            "program": project.main().to_string_lossy(),
+            "runtimeRoot": project.root.to_string_lossy(),
+            "controlEndpoint": "tcp://127.0.0.1:0",
+        }),
+    ));
+    assert!(launch.responses.is_empty(), "the launch waits");
+    succeeded(&adapter.dispatch_request(request(
+        3,
+        "setBreakpoints",
+        json!({
+            "source": {"path": project.main().to_string_lossy()},
+            "breakpoints": [{"line": 7, "condition": "count = INT#5"}],
+        }),
+    )));
+    let configured = adapter.dispatch_request(request(4, "configurationDone", json!({})));
+    assert!(
+        configured
+            .responses
+            .iter()
+            .all(|response| response["success"].as_bool().unwrap_or(false)),
+        "{:?}",
+        configured.responses
+    );
+
+    let deadline = Instant::now() + WallDuration::from_secs(30);
+    loop {
+        let session = adapter
+            .remote_session
+            .as_mut()
+            .expect("the adapter's session with the simulator");
+        let state = session
+            .debug_state()
+            .expect("the simulator answers the adapter's debug.state");
+        if state.paused {
+            break;
+        }
+        assert!(Instant::now() < deadline, "no hold within 30 s");
+        std::thread::sleep(WallDuration::from_millis(20));
+    }
+    let stack = adapter.dispatch_request(request(5, "stackTrace", json!({"threadId": 1})));
+    assert_eq!(succeeded(&stack)["body"]["stackFrames"][0]["line"], 7);
+    succeeded(&adapter.dispatch_request(request(6, "disconnect", json!({}))));
+}
+
 /// The adapter after the launch of `project` with its control server at `endpoint`, authenticated
 /// with `auth`, and `configurationDone`.
 fn launched(project: &Project, endpoint: &str, auth: &str) -> DebugAdapter {
