@@ -28,6 +28,19 @@ impl SimulatorControls {
         named.push((workspace, control));
     }
 
+    /// Whether `endpoint` is named for a workspace folder other than `workspace`, so that a new
+    /// simulator of `workspace` passes it over.
+    pub(crate) fn named_for_another_folder(
+        &self,
+        workspace: Option<&Path>,
+        endpoint: &str,
+    ) -> bool {
+        self.named
+            .read()
+            .iter()
+            .any(|(folder, control)| folder.as_deref() != workspace && control.endpoint == endpoint)
+    }
+
     /// The control named for the workspace folder that holds `document`, the innermost when
     /// folders nest, else the one named without a folder.
     pub(crate) fn for_document(&self, document: &Path) -> Option<SimulatorControl> {

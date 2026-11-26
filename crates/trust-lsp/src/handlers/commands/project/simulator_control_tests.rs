@@ -123,6 +123,26 @@ fn on_windows_two_workspaces_whose_hashes_share_a_port_both_get_one() {
     drop(held);
 }
 
+#[cfg(not(unix))]
+#[test]
+fn on_windows_one_server_names_two_workspaces_whose_hashes_share_a_port_two_ports() {
+    // `C:\work\cell46` hashes to 0e41ac44… (239,184,964) and `C:\work\cell202` to 932524a4…
+    // (2,468,684,964): both leave 4964, port 24964, apart from the ports the other tests hold.
+    // Neither simulator runs yet, so the port binds for both, but the server named it for the
+    // first. Catches: one window's two workspaces named one port, so that the second launch
+    // cannot bind once the first runs, and a workspace that loses its own port when asked again.
+    let state = ServerState::new();
+    let endpoint = |workspace| {
+        created(&state, Some(workspace))["endpoint"]
+            .as_str()
+            .expect("an endpoint")
+            .to_owned()
+    };
+    assert_eq!(endpoint(r"C:\work\cell46"), "tcp://127.0.0.1:24964");
+    assert_eq!(endpoint(r"C:\work\cell202"), "tcp://127.0.0.1:24965");
+    assert_eq!(endpoint(r"C:\work\cell46"), "tcp://127.0.0.1:24964");
+}
+
 #[test]
 fn a_windows_port_that_does_not_bind_is_passed_over_for_the_next() {
     // Catches: a port that another simulator or program holds named again, a search that leaves

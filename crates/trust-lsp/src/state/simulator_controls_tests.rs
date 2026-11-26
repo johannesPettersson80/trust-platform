@@ -54,3 +54,22 @@ fn a_new_simulator_of_a_folder_replaces_the_earlier_one() {
         .expect("a simulator");
     assert_eq!(reached, control("second"));
 }
+
+#[test]
+fn an_endpoint_named_for_another_folder_is_passed_over_and_its_own_is_not() {
+    // Catches: a new simulator of one folder named the port that this server named for another
+    // (two workspaces whose hashes share a Windows port, the first's simulator not yet running),
+    // and a folder that passes over its own earlier port.
+    let controls = SimulatorControls::default();
+    controls.record(
+        Some(PathBuf::from("/work/plant")),
+        control("tcp://127.0.0.1:22699"),
+    );
+
+    let named = |folder: &str, endpoint: &str| {
+        controls.named_for_another_folder(Some(Path::new(folder)), endpoint)
+    };
+    assert!(named("/work/line", "tcp://127.0.0.1:22699"));
+    assert!(!named("/work/plant", "tcp://127.0.0.1:22699"));
+    assert!(!named("/work/line", "tcp://127.0.0.1:22700"));
+}
