@@ -716,3 +716,24 @@ fn a_chips_flight_recorder_takes_what_one_recording_would() {
     };
     assert_eq!(reserved(400_000) - reserved(200_000), 82_226);
 }
+
+#[test]
+fn a_chip_that_records_nothing_keeps_only_a_few_words_for_its_traces() {
+    // Specification 34 MEM-12: a chip measures the memory it has for programs at boot, after its
+    // runner, which holds the trace state, is built. That state keeps the slot's ended trace and
+    // fault trace, the recording on demand and the flight recorder boxed, so a chip that records
+    // nothing keeps a few words for them: on this computer 56 bytes for the slot and 88 for the
+    // traces. Inline, one served trace alone is several hundred bytes; the C6 lost 2,064 bytes of
+    // its memory for programs to them (checklist G319: -888 with #783, -320 with #788, -856 with
+    // #794). Catches any of the four put back inline.
+    assert!(
+        core::mem::size_of::<crate::trace::session::TraceSlot>() <= 64,
+        "the slot takes {} bytes",
+        core::mem::size_of::<crate::trace::session::TraceSlot>()
+    );
+    assert!(
+        core::mem::size_of::<super::trace::ChipTraces>() <= 128,
+        "the traces take {} bytes",
+        core::mem::size_of::<super::trace::ChipTraces>()
+    );
+}

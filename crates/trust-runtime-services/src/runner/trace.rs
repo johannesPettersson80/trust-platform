@@ -20,6 +20,7 @@
 //! or the flight recorder runs does it call the work here, which is never inlined and runs from
 //! flash. A scan without either runs as before.
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
@@ -186,8 +187,11 @@ impl SharedTraces<'_> {
 #[derive(Default)]
 pub(super) struct ChipTraces {
     slot: TraceSlot,
-    session: Option<TraceSession>,
-    flight: Option<ChipFlight>,
+    /// The recording on demand that runs, boxed, as the flight recorder is, so that the traces of
+    /// a chip that records nothing keep only these words in the runner it holds from its boot
+    /// (specification 34 MEM-12).
+    session: Option<Box<TraceSession>>,
+    flight: Option<Box<ChipFlight>>,
     /// The flight recorder's cycles `n`, from the program's deployment record; 0 keeps none.
     flight_cycles: u64,
     /// The scan that runs began while the debugger had held this many scans.
@@ -244,7 +248,7 @@ impl ChipTraces {
             now_utc_ms,
             &mut self.slot,
         )?;
-        self.session = Some(session);
+        self.session = Some(Box::new(session));
         Ok(started)
     }
 
@@ -282,7 +286,7 @@ impl ChipTraces {
             .tables()
             .ok_or_else(|| recorder.reserved_bytes().saturating_add(tables_len))?;
         recorder.began(now_utc_ms);
-        self.flight = Some(ChipFlight {
+        self.flight = Some(Box::new(ChipFlight {
             recorder,
             identity: SessionIdentity::of(
                 program.image,
@@ -296,7 +300,7 @@ impl ChipTraces {
             start_pending: false,
             handover_pending: false,
             rearm_pending: false,
-        });
+        }));
         Ok(())
     }
 
@@ -425,7 +429,7 @@ impl ChipTraces {
     /// current recording, each when there is one.
     fn recordings(&mut self) -> Recordings<'_> {
         Recordings {
-            on_demand: self.session.as_mut().map(TraceSession::recorder),
+            on_demand: self.session.as_deref_mut().map(TraceSession::recorder),
             flight: self
                 .flight
                 .as_mut()
