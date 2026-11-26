@@ -122,7 +122,11 @@ arbitrary-language conformance claim:
   `runtime.toml` (`oscat_smoke`, `vendor_library_stubs`, the OSCAT classic
   projects, tutorial 10, the control lessons' tests), checks with `trust-lsp
   check` without an error; warnings may stay (26 November 2026: nothing built
-  or checked `oscat_smoke` and `vendor_library_stubs`).
+  or checked `oscat_smoke` and `vendor_library_stubs`); and
+- the OSCAT consumer example, an editor project, builds as its README says,
+  `trust-runtime build --project examples/oscat_smoke --sources src` from the
+  repository's root, and its four tests pass under `trust-dev test`, each by
+  its name.
 
 Fixture discovery, copying, and filesystem setup are test preconditions. The
 product oracle is the bounded tracked corpus and the named build, validation,

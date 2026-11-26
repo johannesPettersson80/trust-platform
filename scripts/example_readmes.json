@@ -179,7 +179,6 @@
     "examples/openot_database/sqlserver/README.md",
     "examples/openot_database/timescaledb/README.md",
     "examples/openot_multi_program/README.md",
-    "examples/oscat_smoke/README.md",
     "examples/plant_demo/README.md",
     "examples/plcopen_motion_oop_feeder_axis/README.md",
     "examples/plcopen_motion_oop_indexing_table/README.md",
