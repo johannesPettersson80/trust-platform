@@ -15,39 +15,39 @@ them before `new` was added; the table below lists `new`.
 
 | Command | Purpose |
 | --- | --- |
-| `run` / `play` | start a runtime instance |
-| `simulate` | run a project's program and its simulation for a machine test, on a clock its test moves |
-| `ui` | interactive terminal UI |
-| `ctl` | send control requests to a running runtime |
-| `new` | create a project folder with the files a new project starts from |
-| `identify` | make a runtime show where it is by blinking its identify output |
-| `discover` | search for devices: truST runtimes, ADS, Modbus TCP, MQTT, OPC UA, EtherCAT and GPIO |
-| `check` | validate sources/config without writing a program image |
-| `build` | compile the project into the program image `program.tpi` |
-| `validate` | validate project config + program image |
-| `hmi check` | check the project's HMI files against its program, for CI |
-| `hmi test` | compare every HMI page's look with its approved screenshot, for CI |
-| `hmi-password` | print the stored hash of an HMI user's password |
-| `test` | deprecated alias for `trust-dev test` |
-| `docs` | deprecated alias for `trust-dev docs` |
-| `ads` | Beckhoff ADS onboarding backend, symbol import, route artifacts, and validation |
-| `comm` | offline communication schema, configuration, discovery, topology, and symbol browsing |
-| `plant` | the plant configuration of a stopped project, for trusted local tools |
-| `plcopen` | PLCopen import/export/profile |
-| `registry` | package registry workflows |
-| `fleet` | offline fleet manifests and sibling runtimes |
-| `setup` | initialize system I/O config |
-| `ide` | serve the browser IDE |
-| `config-ui` | deprecated alias for `ide` |
-| `agent` | deprecated alias for `trust-dev agent serve` |
-| `commit` | deprecated alias for `trust-dev commit` |
-| `wizard` | create a new project folder |
-| `deploy` / `rollback` | versioned deployment and rollback |
-| `bench` | communication/runtime benchmark surfaces |
-| `conformance` | deterministic conformance suite runner |
-| `completions` | generate shell completions |
-| `toolchain` | the compiler toolchain that builds programs: `status`, `install`, `bundle` |
-| `firmware` | install truST's firmware on a chip through the chip's own boot loader: `install` |
+| [`run`](#run-and-play) / [`play`](#run-and-play) | start a runtime instance |
+| [`simulate`](#simulate) | run a project's program and its simulation for a machine test, on a clock its test moves |
+| [`ui`](#ui) | interactive terminal UI |
+| [`ctl`](#control) | send control requests to a running runtime |
+| [`new`](#new) | create a project folder with the files a new project starts from |
+| [`identify`](#identify) | make a runtime show where it is by blinking its identify output |
+| [`discover`](#discover) | search for devices: truST runtimes, ADS, Modbus TCP, MQTT, OPC UA, EtherCAT and GPIO |
+| [`check`](#check) | validate sources/config without writing a program image |
+| [`build`](#build) | compile the project into the program image `program.tpi` |
+| [`validate`](#validate) | validate project config + program image |
+| [`hmi check`](#hmi-check) | check the project's HMI files against its program, for CI |
+| [`hmi test`](#hmi-test) | compare every HMI page's look with its approved screenshot, for CI |
+| [`hmi-password`](#hmi-password) | print the stored hash of an HMI user's password |
+| [`test`](#test) | deprecated alias for `trust-dev test` |
+| [`docs`](#docs) | deprecated alias for `trust-dev docs` |
+| [`ads`](#ads) | Beckhoff ADS onboarding backend, symbol import, route artifacts, and validation |
+| [`comm`](#communication) | offline communication schema, configuration, discovery, topology, and symbol browsing |
+| [`plant`](#plant) | the plant configuration of a stopped project, for trusted local tools |
+| [`plcopen`](#plcopen) | PLCopen import/export/profile |
+| [`registry`](#registry) | package registry workflows |
+| [`fleet`](#fleet) | offline fleet manifests and sibling runtimes |
+| [`setup`](#setup) | initialize system I/O config |
+| [`ide`](#serve-browser-ide) | serve the browser IDE |
+| [`config-ui`](#serve-browser-ide) | deprecated alias for `ide` |
+| [`agent`](#agent) | deprecated alias for `trust-dev agent serve` |
+| [`commit`](#commit) | deprecated alias for `trust-dev commit` |
+| [`wizard`](#wizard) | create a new project folder |
+| [`deploy`](#deploy-and-rollback) / [`rollback`](#deploy-and-rollback) | versioned deployment and rollback |
+| [`bench`](#bench) | communication/runtime benchmark surfaces |
+| [`conformance`](#conformance) | deterministic conformance suite runner |
+| [`completions`](#completions) | generate shell completions |
+| [`toolchain`](#toolchain) | the compiler toolchain that builds programs: `status`, `install`, `bundle` |
+| [`firmware`](#firmware) | install truST's firmware on a chip through the chip's own boot loader: `install` |
 
 ## Entry-point and Error Contract
 
@@ -245,7 +245,8 @@ Options of both:
 - `--paused`: start paused, so that no scan runs until
   `trust-runtime ctl resume`.
 - `--install-toolchain`: install the compiler toolchain without asking when the
-  build needs it and none is installed, as a script or CI needs.
+  build needs it and none is installed, as a script or CI needs ([The Compiler
+  Toolchain](../../start/compiler-toolchain.md)).
 - `--verbose`: show the details of the start.
 
 `run` alone takes `--config` and `--runtime-root`, a configuration entry file

@@ -195,8 +195,9 @@ enum ServiceAction {
 
 #[derive(Debug, Subcommand)]
 enum RustAction {
-    /// Write the Structured Text declarations of the project's Rust POUs,
-    /// src/generated/rust_pous.st, from its crate in rust/ (specification 48 RU-24).
+    /// Write the Structured Text declarations of the project's Rust POUs (specification 48 RU-24):
+    /// src/generated/rust_pous.st from its crate in rust/, or in a Rust-first project
+    /// src/generated/trust/ with the configuration of its trust.toml (RU-67).
     Declarations {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
