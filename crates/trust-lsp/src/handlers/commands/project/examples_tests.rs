@@ -1,6 +1,7 @@
 //! The examples gallery (specification 25 §3.1). Each test writes its gallery; the expected entries
 //! follow from the files written. The extension's former `loadExamples` isolation cases live here.
 
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
@@ -334,6 +335,77 @@ fn every_example_of_the_packaged_gallery_says_it_runs_in_the_simulator() {
         };
         assert_eq!(example["hardwareLabel"], expected, "{}", example["id"]);
     }
+}
+
+/// The rows of the table under "## The bundled starters" of the page `start-from-example.md`: each
+/// example's title, in bold in the first column, and the hardware badge in the second.
+fn starter_rows(page: &str) -> BTreeMap<String, String> {
+    let mut rows = BTreeMap::new();
+    let mut inside = false;
+    for line in page.lines() {
+        if line.starts_with('#') {
+            inside = line.trim_end() == "## The bundled starters";
+            continue;
+        }
+        let Some(row) = line.strip_prefix("| **").filter(|_| inside) else {
+            continue;
+        };
+        let cells: Vec<&str> = row.split('|').collect();
+        if let (Some(title), Some(hardware)) = (cells[0].split("**").next(), cells.get(1)) {
+            rows.insert(title.to_owned(), hardware.trim().to_owned());
+        }
+    }
+    rows
+}
+
+#[test]
+fn the_start_from_example_page_names_every_starter_with_its_cards_badge() {
+    // The page "Start From An Example" names, in its table of the bundled starters, every example
+    // of the packaged gallery that is no course lesson, by the title its card shows and with the
+    // hardware badge its card shows, and no other (checklist G282c; specification 25 §3.1). Catches
+    // a starter added to the catalog without its row, a renamed or removed one that stays, and a
+    // badge that the page states otherwise than the card.
+    let gallery = packaged_gallery();
+    let answer = catalog_answer(json!({ "root": gallery.0 })).expect("the gallery loads");
+    let cards: BTreeMap<String, String> = answer["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .filter(|entry| entry.get("lessonAvailability").is_none())
+        .map(|entry| {
+            (
+                entry["title"].as_str().expect("a title").to_owned(),
+                entry["hardwareLabel"].as_str().expect("a badge").to_owned(),
+            )
+        })
+        .collect();
+    let page = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/public/start/start-from-example.md"),
+    )
+    .expect("the page");
+    let rows = starter_rows(&page);
+    let missing: Vec<&String> = cards
+        .keys()
+        .filter(|title| !rows.contains_key(*title))
+        .collect();
+    let unknown: Vec<&String> = rows
+        .keys()
+        .filter(|title| !cards.contains_key(*title))
+        .collect();
+    let badges: Vec<String> = rows
+        .iter()
+        .filter_map(|(title, badge)| {
+            cards
+                .get(title)
+                .filter(|card| *card != badge)
+                .map(|card| format!("{title}: the page says {badge:?}, the card {card:?}"))
+        })
+        .collect();
+    assert!(
+        missing.is_empty() && unknown.is_empty() && badges.is_empty(),
+        "the page lacks {missing:?}, names {unknown:?}, which no card shows, and states other \
+         badges: {badges:?}"
+    );
 }
 
 #[test]
