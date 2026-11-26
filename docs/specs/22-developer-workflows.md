@@ -884,8 +884,9 @@ manual can show an example's program as it ships (26 November 2026: the PLCopen
 Motion manual's worked example). A library manual's worked example is the
 program of an example that CI runs: its acceptance journey, or its own test
 programs, which a native test runs with `trust-dev test` and checks by name, so
-that an empty run cannot pass (26 November 2026: the OSCAT manuals' cold storage
-alarm). Every command that such a page or
+that an empty run cannot pass, or its machine tests (specification 48 RU-58)
+(26 November 2026: the OSCAT manuals' cold storage alarm; the PLCopen Motion OOP
+manual's indexing table). Every command that such a page or
 the Marketplace page (`editors/vscode/README.md`) names by its Command Palette
 title in bold, or as the title that a palette step
 (`Ctrl/Cmd+Shift+P` and an arrow) types, and every setting it names by its key

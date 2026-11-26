@@ -136,10 +136,18 @@ It also exposes control and motion methods:
 - `SetPosition`
 - `SetOverride`
 - `Reset`
+- `Release`
 - `ReadParameter`, `WriteParameter`
 - `ReadBoolParameter`, `WriteBoolParameter`
 - PLCopen synchronization/profile method names with deterministic unsupported
   command objects where the current OOP package does not implement behavior.
+
+`Release` keeps the active command going: called every cycle while the command
+runs, it runs the command's classic block with `Execute` FALSE and copies the
+block's outputs into the command object, so that `Busy`, `Done` and `Error`
+follow it. With `Execute` back at FALSE, the next call of the command's method
+starts on a new rising edge. A program that neither calls `Release` nor calls
+the command's method again each cycle sees no `Done`.
 
 ## Concrete Objects
 
@@ -169,6 +177,12 @@ single-axis kernel behavior.
 `MC_OopAxis` does not duplicate the classic motion queue/state kernel. It calls
 the classic FBs and maps their outputs into returned command objects and cached
 axis properties.
+
+Two methods belong to `MC_OopAxis` alone, outside `itfAxis`: `Bind` ties the
+object to a truST axis slot (Usage Pattern), and `Refresh` reads the axis's
+actual position, velocity and torque, its status, motion state, axis information
+and errors into those cached properties. Call `Refresh` every cycle before the
+properties are read.
 
 ## Unsupported Methods
 
