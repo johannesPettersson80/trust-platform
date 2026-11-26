@@ -869,7 +869,11 @@ the README, the pages of `docs/public` and the examples' READMEs quotes the
 sources of its example, or of an example its page links to, each line without
 comments and with its whitespace collapsed (a line or a part of a line written
 as `...` stands for code the quote leaves out), or else parses as Structured
-Text; a fence marked `ignore` is left out. Every command that such a page or
+Text; a fence marked `ignore` is left out. A line of such a block that includes
+a file with the site's snippets (`--8<-- "<path>"`, from the repository's root)
+is checked as that file's text, which the site shows in its place, so that a
+manual can show an example's program as it ships (26 November 2026: the PLCopen
+Motion manual's worked example). Every command that such a page or
 the Marketplace page (`editors/vscode/README.md`) names by its Command Palette
 title in bold, or as the title that a palette step
 (`Ctrl/Cmd+Shift+P` and an arrow) types, and every setting it names by its key
