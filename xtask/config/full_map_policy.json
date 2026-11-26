@@ -867,6 +867,22 @@
       "rationale": "the machine tests of the example fault_trace fault its program on purpose and replay the flight recorder's trace with trust-sim, as a user's machine tests do (specification 48 RU-58, RU-60)"
     },
     {
+      "from": "rust-first-cell",
+      "to": "trust-plc",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "the example rust_first_cell, a Rust-first project, writes its program and sequence with the SDK, as a project's crate does (specification 48 RU-08, RU-65)"
+    },
+    {
+      "from": "rust-first-cell",
+      "to": "trust-sim",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "the machine tests of the example rust_first_cell lie in the project's own crate and run its program and simulated clamp and press with trust-sim, as a Rust-first project's machine tests do (specification 48 RU-58, RU-65)"
+    },
+    {
       "from": "trust-sim",
       "to": "trust-plc",
       "kind": "normal",

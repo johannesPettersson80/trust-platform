@@ -5821,6 +5821,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-first-cell"
+version = "0.1.0"
+dependencies = [
+ "trust-plc",
+ "trust-sim",
+]
+
+[[package]]
 name = "rust-signal"
 version = "0.1.0"
 dependencies = [

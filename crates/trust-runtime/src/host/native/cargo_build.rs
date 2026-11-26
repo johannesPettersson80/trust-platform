@@ -131,6 +131,22 @@ fn vendored_crates(vendor: &Path) -> Result<Vec<(String, PathBuf)>, NativeError>
     Ok(crates)
 }
 
+/// `path` as cargo reads a path in a manifest: with `/` between its parts, and without the verbatim
+/// prefix that a canonical path carries on Windows (`\\?\D:\…`, `\\?\UNC\server\…`), which cargo
+/// refuses as an "invalid path url". trust-sim opens a machine test's project at its canonical
+/// folder, so the build of a project with Rust POUs meets such a path there (specification 48
+/// RU-58).
+fn cargo_path(path: &Path) -> String {
+    let text = path.display().to_string();
+    let plain = match text.strip_prefix(r"\\?\") {
+        Some(rest) => rest
+            .strip_prefix(r"UNC\")
+            .map_or_else(|| rest.to_owned(), |unc| format!(r"\\{unc}")),
+        None => text.clone(),
+    };
+    plain.replace('\\', "/")
+}
+
 /// The manifest of the generated crate's package in `work`, for `target`, depending on `project`
 /// and on the SDK's crates in `sdk`, with the crates of `vendored` (`vendored_crates`) in place of
 /// crates.io's.
@@ -140,12 +156,7 @@ fn manifest(
     vendored: &[(String, PathBuf)],
     project: &ProjectCrate,
 ) -> String {
-    let path = |crate_name: &str| {
-        sdk.join(crate_name)
-            .display()
-            .to_string()
-            .replace('\\', "/")
-    };
+    let path = |crate_name: &str| cargo_path(&sdk.join(crate_name));
     let mut text = String::from(
         "[package]\nname = \"trust_module\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
          [[bin]]\nname = \"trust_module\"\npath = \"module.rs\"\ntest = false\nbench = false\n\n\
@@ -167,7 +178,7 @@ fn manifest(
     let _ = writeln!(
         text,
         "{PROJECT_CRATE} = {{ path = \"{}\", package = \"{}\" }}",
-        project.folder.display().to_string().replace('\\', "/"),
+        cargo_path(&project.folder),
         project.package
     );
     // Layer 1, whose types and functions the generated code takes (specification 48 §9.2).
@@ -180,7 +191,7 @@ fn manifest(
         let _ = writeln!(
             text,
             "trust_st = {{ path = \"{}\"{features} }}",
-            bindings.display().to_string().replace('\\', "/")
+            cargo_path(bindings)
         );
     }
     text.push_str("\n[patch.crates-io]\n");
@@ -193,7 +204,7 @@ fn manifest(
         let _ = writeln!(
             text,
             "{crate_name} = {{ path = \"{}\" }}",
-            folder.display().to_string().replace('\\', "/")
+            cargo_path(folder)
         );
     }
     // The module's code generation of specification 44 §4.5: one unit, link-time optimization,
@@ -609,3 +620,7 @@ fn metadata(
     serde_json::from_slice(&output.stdout)
         .map_err(|error| NativeError::Toolchain(format!("cargo metadata: {error}")))
 }
+
+#[cfg(test)]
+#[path = "cargo_build_tests.rs"]
+mod tests;

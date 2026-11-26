@@ -1,0 +1,13 @@
+[package]
+name = "rust-first-cell"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "The truST example rust_first_cell: a press cell written in Rust, with its sequence and its machine tests"
+
+[dependencies]
+trust-plc = "=0.44.1"
+
+[dev-dependencies]
+trust-sim = "=0.44.1"
