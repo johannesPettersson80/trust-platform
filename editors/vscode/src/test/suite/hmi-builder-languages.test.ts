@@ -19,6 +19,24 @@ const PAGE =
   'format = 1\ntitle = "Overview"\n\n[[object]]\nid = "heading"\ntype = "text"\nat = [40, 40]\nsize = [240, 40]\ntext = "Pumps"\n';
 const SWEDISH = 'format = 1\nlanguage = "sv"\n\n[texts]\n"Pumps" = "Pumpar"\n';
 
+/**
+ * Waits until `file` holds `text`. A save rewrites the file, which reads empty for a moment, so a
+ * wait for a translation's absence held on that empty read, and the comparison after it read the
+ * file mid-write too (G325: '' for the expected text). On a timeout the file's last text is
+ * compared with `text`, so that a wrong text fails with its difference.
+ */
+async function fileHolds(file: string, text: string): Promise<void> {
+  let last = "";
+  try {
+    await until(`${path.basename(file)} to hold the expected text`, () => {
+      last = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+      return last === text;
+    });
+  } catch (timeout) {
+    assert.strictEqual(last, text, String(timeout));
+  }
+}
+
 async function project(
   files: Record<string, string>,
 ): Promise<{ root: string } & Awaited<ReturnType<typeof openBuilder>>> {
@@ -95,20 +113,16 @@ suite("HMI Builder editor: languages on the host", function () {
     webview.send({ type: "ready" });
     await until("the texts", () => lastTexts(webview));
     const file = path.join(root, "hmi", "texts", "sv.toml");
-    const written = (): string => (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "");
     webview.send({ type: "translate", language: "sv", text: "Pumps", translation: "Pumpar" });
-    await until("the new text file", () => written().includes("Pumpar"));
-    assert.strictEqual(written(), SWEDISH);
+    await fileHolds(file, SWEDISH);
     await until("the texts with it", () => lastTexts(webview)?.project.sv?.Pumps === "Pumpar");
     webview.send({ type: "translate", language: "sv", text: "Overview", translation: "Översikt" });
-    await until("the second translation", () => written().includes("Översikt"));
-    assert.strictEqual(
-      written(),
+    await fileHolds(
+      file,
       'format = 1\nlanguage = "sv"\n\n[texts]\n"Overview" = "Översikt"\n"Pumps" = "Pumpar"\n',
     );
     webview.send({ type: "translate", language: "sv", text: "Pumps", translation: "" });
-    await until("the removed translation", () => !written().includes("Pumpar"));
-    assert.strictEqual(written(), 'format = 1\nlanguage = "sv"\n\n[texts]\n"Overview" = "Översikt"\n');
+    await fileHolds(file, 'format = 1\nlanguage = "sv"\n\n[texts]\n"Overview" = "Översikt"\n');
     // The disk holds the text a moment before the editor marks the document saved (G112).
     await until(
       "the saved text file",
@@ -136,8 +150,11 @@ suite("HMI Builder editor: languages on the host", function () {
           ?.languages.map((entry) => entry.tag)
           .join() === "sv,en,de",
     );
-    const document = vscode.workspace.textDocuments.find((open) => open.uri.fsPath === screen);
-    assert.ok(!document?.isDirty, "the screen layout is saved");
+    // The disk holds the text a moment before the editor marks the document saved (G112, G325).
+    await until(
+      "the saved screen layout",
+      () => !vscode.workspace.textDocuments.find((open) => open.uri.fsPath === screen)?.isDirty,
+    );
     panel.dispose();
   });
 });
