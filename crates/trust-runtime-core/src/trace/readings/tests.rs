@@ -83,3 +83,13 @@ fn the_rules_are_the_same_wherever_the_readings_are_kept() {
     state.stop_playing();
     assert_eq!(state.played(), None);
 }
+
+#[test]
+fn a_computer_keeps_a_replays_room_beside_the_recordings() {
+    // Specification 48 RU-60: a replay runs in a simulator on a computer, so a computer's store keeps
+    // the room a replay plays from beside the recording's room, while a chip's keeps the recording's
+    // alone (the compile-time guard of a build without `std`). Catches a computer's store that drops
+    // the replay's room with the chip's, which would leave a replay no readings to play.
+    let room = ROOM * core::mem::size_of::<i64>();
+    assert!(core::mem::size_of::<State>() >= 2 * room);
+}
