@@ -538,6 +538,14 @@ folder, so it runs after such a session, as in the list's order:
   56 at the sensor's spike and near 44 at its dip, then a Write of the frame
   that comes in: 1 trusted with the register value 42, 2 refused and counted
   with the register kept, and 1 trusted again;
+- `rust-first-cell`: the walkthrough of `rust_first_cell` on the unmodified
+  example: Start building the Rust-first crate with truST's toolchain, Live
+  Values showing the fixture's seven signals by their addresses with Ready on,
+  a Write of TRUE to the part sensor and then to Start running one part, the
+  clamp's valve, its sensor, the press's valve and its sensor coming on in that
+  order, the cell at rest in `UNLOAD` about 2.7 s after Start with the part
+  still in the fixture and Ready off, and FALSE written to Start and then to the
+  part sensor turning Ready on again (specification 48, RU-88);
 - `rust-service`: the walkthrough of `rust_service`, its runtime started in the
   same way on its platform's default endpoint, without a web server, and the
   service connecting to the endpoint the runtime published (specification 48
