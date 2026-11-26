@@ -6,7 +6,8 @@ import { projectRequest } from "./projectRequest";
 // running simulator with the same endpoint and token, which a Unix connection needs for write access.
 // The language server names them (`trust-lsp.simulatorControl`); this module keeps its answer per
 // workspace folder for the VS Code session, so the launch (debug.ts) and the canvas use the same
-// pair whatever their order. On Windows the server names none, and the adapter takes its default.
+// pair whatever their order. The server names both on every platform: a socket on Linux and macOS, a
+// loopback port on Windows, where the simulator's control server requires the token.
 
 export interface SimControl {
   endpoint: string;

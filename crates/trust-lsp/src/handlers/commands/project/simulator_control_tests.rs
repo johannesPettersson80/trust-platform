@@ -1,5 +1,6 @@
 //! The simulator's control endpoint (specification 25 §6.8). Each socket name's hash is the first
-//! 8 hexadecimal digits that `printf '%s' <path> | sha256sum` prints for the workspace path.
+//! 8 hexadecimal digits that `printf '%s' <path> | sha256sum` prints for the workspace path, and a
+//! Windows port is 20000 plus their value modulo 20000.
 
 use super::*;
 use std::net::TcpListener;
@@ -53,11 +54,12 @@ fn each_workspace_has_its_own_socket_in_the_temporary_folder() {
     assert_eq!(endpoint(None), socket("trust-debug-37a8eec1.sock"));
 }
 
-#[cfg(unix)]
 #[test]
 fn each_simulator_gets_a_new_token_of_32_random_bytes() {
-    // 32 bytes as unpadded base64url are 43 characters (specification 11 §6.8.0a). Catches: a fixed
-    // or predictable token, which would let another local program write to the simulator.
+    // 32 bytes as unpadded base64url are 43 characters (specification 11 §6.8.0a), on every
+    // platform. Catches: a fixed or predictable token, which would let another local program write
+    // to the simulator, and a simulator on Windows without one, whose TCP control server then
+    // refuses every request, the debug adapter's own included.
     let token = || {
         create_answer(Some("/work/plant"))["authToken"]
             .as_str()
@@ -77,11 +79,67 @@ fn each_simulator_gets_a_new_token_of_32_random_bytes() {
 
 #[cfg(not(unix))]
 #[test]
-fn on_windows_the_adapter_keeps_its_default_endpoint() {
-    // Catches: a Unix socket named to an adapter that cannot bind one.
-    let answer = create_answer(Some(r"C:\work\plant"));
-    assert_eq!(answer["endpoint"], Value::Null);
-    assert_eq!(answer["authToken"], Value::Null);
+fn on_windows_each_workspace_has_its_own_loopback_port() {
+    // `C:\work\plant` hashes to e6c2c079… (3,871,522,937, port 22937), `C:\work\other` to
+    // 4e86a825… (1,317,447,717, port 27717), `default` to 37a8eec1… (933,818,049, port 38049).
+    // Catches: no endpoint, which leaves the adapter on its default port without a token, a Unix
+    // socket named to an adapter that cannot bind one, and two workspaces sharing one port.
+    let endpoint = |workspace| {
+        create_answer(workspace)["endpoint"]
+            .as_str()
+            .expect("an endpoint")
+            .to_owned()
+    };
+    assert_eq!(endpoint(Some(r"C:\work\plant")), "tcp://127.0.0.1:22937");
+    assert_eq!(endpoint(Some(r"C:\work\other")), "tcp://127.0.0.1:27717");
+    assert_eq!(endpoint(None), "tcp://127.0.0.1:38049");
+}
+
+#[cfg(not(unix))]
+#[test]
+fn on_windows_two_workspaces_whose_hashes_share_a_port_both_get_one() {
+    // `C:\work\project2` hashes to c9ad11cb… (3,383,562,699) and `C:\work\project76` to
+    // 5ce886ab… (1,558,742,699): both leave 2699, port 22699. With the first's simulator holding
+    // it, the second workspace gets the next port. Catches two workspaces named one port, so that
+    // the second launch cannot bind while the first simulator runs.
+    let endpoint = |workspace| {
+        create_answer(Some(workspace))["endpoint"]
+            .as_str()
+            .expect("an endpoint")
+            .to_owned()
+    };
+    assert_eq!(endpoint(r"C:\work\project2"), "tcp://127.0.0.1:22699");
+    let held = TcpListener::bind("127.0.0.1:22699").expect("the first workspace's simulator");
+    assert_eq!(endpoint(r"C:\work\project76"), "tcp://127.0.0.1:22700");
+    drop(held);
+}
+
+#[test]
+fn a_windows_port_that_does_not_bind_is_passed_over_for_the_next() {
+    // Catches: a port that another simulator or program holds named again, a search that leaves
+    // the range at its end instead of wrapping to 20000, and no port at all when every try fails
+    // (the launch then names the port it cannot bind).
+    assert_eq!(free_port_from(20_660, |port| port != 20_660), 20_661);
+    assert_eq!(free_port_from(20_660, |port| port > 20_662), 20_663);
+    assert_eq!(free_port_from(39_999, |port| port != 39_999), 20_000);
+    assert_eq!(free_port_from(20_660, |_| false), 20_660);
+}
+
+#[test]
+fn a_windows_simulator_port_is_20000_plus_the_workspace_hash_modulo_20000() {
+    // `/work/plant` hashes to 4a5761d4… = 1,247,240,660, which leaves 660; the ports run from 20000
+    // to 39999, below the dynamic range from 49152 that Windows hands ports out from. Catches: a
+    // port in the dynamic range, where an outgoing connection's port can take it, or one outside
+    // the range of a u16.
+    assert_eq!(workspace_port(0x4a57_61d4), 20_660);
+    assert_eq!(
+        workspace_port(workspace_hash(Some("/work/plant".into()))),
+        20_660
+    );
+    assert_eq!(workspace_port(0), 20_000);
+    assert_eq!(workspace_port(19_999), 39_999);
+    assert_eq!(workspace_port(20_000), 20_000);
+    assert_eq!(workspace_port(u32::MAX), 27_295);
 }
 
 #[test]
