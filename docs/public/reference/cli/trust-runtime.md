@@ -640,6 +640,32 @@ that prints the runtime's error text and its error code: for example
 (a chip answers it too until its firmware drives an output), or
 `identify_output_unavailable` when the output cannot be made ready.
 
+### Toolchain
+
+`toolchain` manages the compiler toolchain that builds programs (specification
+44 §4.6); [The Compiler Toolchain](../../start/compiler-toolchain.md) walks
+through it with its outputs.
+
+- `status` names the toolchain that the tools use, where it is and its version,
+  or that none is installed. With `--json` it prints one object: `installed`,
+  `folder`, `source` (`TRUST_TOOLCHAIN` or `installed`) and `trust`, the
+  version.
+- `install` installs this release's toolchain bundle: the one beside the tools,
+  as the VS Code extension carries it, else downloaded from the release and
+  checked against its `SHA256SUMS`. `--from <file>` installs a bundle file
+  instead, without the download. Every file is checked against the bundle's
+  manifest before the toolchain is moved into place. With `--json` it writes one
+  object per line: `download` (with `bytes` and `total`), `verify`, and
+  `installed` (with `folder`) or `failed` (with `error`).
+- `bundle <folder> <archive>` writes the bundle of this computer from a
+  development toolchain folder (`scripts/native/build_toolchain_libraries.sh`).
+
+```text
+trust-runtime toolchain status --json
+trust-runtime toolchain install --from trust-toolchain-linux-arm64.tar.gz
+trust-runtime toolchain bundle ./dev-toolchain trust-toolchain-linux-x64.tar.gz
+```
+
 ## Common Flows
 
 ### Build / validate / test

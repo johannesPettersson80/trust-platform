@@ -85,6 +85,7 @@ nav:
       - Overview: start/index.md
       - Install truST: start/installation.md
       - Install From Source: start/install-from-source.md
+      - Compiler Toolchain: start/compiler-toolchain.md
       - First Project: start/first-project.md
       - Choose Editor: start/editors.md
   - Program:
