@@ -4,7 +4,9 @@
 //! quotes its example when each of its lines, without comments and with its whitespace collapsed, is found in the
 //! example's sources; a line or a part of a line written as `...` stands for code the quote leaves out. A README that
 //! quotes a lesson's program fails once the program changes without it; a block that no parser accepts fails at once. A
-//! block whose fence says `ignore` is left out (` ```iecst ignore`), visibly.
+//! block whose fence says `ignore` is left out (` ```iecst ignore`), visibly. A line of a block that includes a file with
+//! the site's snippets, `--8<-- "<path>"` from the repository's root, is checked as the file's text, which the site
+//! shows in its place.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -236,6 +238,35 @@ fn parse_error(text: &str) -> Option<String> {
     Some(errors.join("; "))
 }
 
+/// The text that `block` shows on the site: each of its lines that includes a file with the site's snippets,
+/// `--8<-- "<path>"` with `path` from the repository's root (`pymdownx.snippets`' `base_path` in `mkdocs.yml`), is that
+/// file's text, as the site builds the page; a `:<line>` after the path starts it at that line. A file that does not
+/// read is the error, with its path.
+fn shown_text(root: &Path, block: &str) -> Result<String, String> {
+    let mut shown = Vec::new();
+    for line in block.lines() {
+        let Some(quoted) = line.trim().strip_prefix("--8<-- ") else {
+            shown.push(line.to_owned());
+            continue;
+        };
+        let target = quoted.trim().trim_matches('"');
+        let (path, first) = match target.rsplit_once(':') {
+            Some((path, number)) if number.parse::<usize>().is_ok() => {
+                (path, number.parse::<usize>().unwrap_or(1))
+            }
+            _ => (target, 1),
+        };
+        let text = fs::read_to_string(root.join(path))
+            .map_err(|error| format!("it includes {path}, which does not read: {error}"))?;
+        shown.extend(
+            text.lines()
+                .skip(first.saturating_sub(1))
+                .map(str::to_owned),
+        );
+    }
+    Ok(shown.join("\n"))
+}
+
 #[test]
 fn every_structured_text_block_quotes_its_example_or_parses() {
     let root = root();
@@ -252,20 +283,27 @@ fn every_structured_text_block_quotes_its_example_or_parses() {
                 continue;
             }
             checked += 1;
+            let shown = page
+                .strip_prefix(&root)
+                .unwrap_or(&page)
+                .display()
+                .to_string();
+            let text = match shown_text(&root, &block.text) {
+                Ok(text) => text,
+                Err(error) => {
+                    failures.push(format!("{shown}:{}: {error}", block.line));
+                    continue;
+                }
+            };
             let unquoted = if sources.is_empty() {
                 Some(String::new())
             } else {
-                unquoted_line(&block.text, &sources)
+                unquoted_line(&text, &sources)
             };
             let Some(unquoted) = unquoted else {
                 continue;
             };
-            if let Some(error) = parse_error(&block.text) {
-                let shown = page
-                    .strip_prefix(&root)
-                    .unwrap_or(&page)
-                    .display()
-                    .to_string();
+            if let Some(error) = parse_error(&text) {
                 let quote = if unquoted.is_empty() {
                     "no example sources".to_owned()
                 } else {
@@ -286,6 +324,27 @@ fn every_structured_text_block_quotes_its_example_or_parses() {
         failures.len(),
         failures.join("\n")
     );
+}
+
+#[test]
+fn a_block_of_includes_is_checked_as_the_text_it_includes() {
+    // The site shows a file's text where a block includes it with `--8<--`, and the check reads the same text: the whole
+    // file, or from the line a `:<line>` names, and a line that includes nothing as it is. Catches a block checked as its
+    // include line, which no parser accepts, and an include of a file that does not read, which the site shows empty.
+    let root = root();
+    let path = "examples/plcopen-motion-single-axis/src/Main.st";
+    let program = fs::read_to_string(root.join(path)).expect("the example's program");
+    let lines: Vec<&str> = program.lines().collect();
+    assert_eq!(
+        shown_text(&root, &format!("--8<-- \"{path}\"")),
+        Ok(lines.join("\n"))
+    );
+    assert_eq!(
+        shown_text(&root, &format!("--8<-- \"{path}:3\"")),
+        Ok(lines[2..].join("\n"))
+    );
+    assert!(shown_text(&root, "--8<-- \"examples/no-such-file.st\"").is_err());
+    assert_eq!(shown_text(&root, "x := 1;"), Ok("x := 1;".to_owned()));
 }
 
 #[test]
