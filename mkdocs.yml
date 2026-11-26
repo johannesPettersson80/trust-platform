@@ -215,6 +215,7 @@ nav:
       - Upgrade: operate/upgrade.md
       - Offline Install: operate/offline-install.md
       - Secrets: operate/secrets.md
+      - Control Roles And Tokens: operate/control-roles-and-tokens.md
       - Audit Log: operate/audit-log.md
       - Observability: operate/observability.md
       - OpenOT Database Persistence:

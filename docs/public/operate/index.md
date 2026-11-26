@@ -17,6 +17,7 @@
 | prepare safety/commissioning boundaries | [Safety And Commissioning](safety-and-commissioning.md) |
 | back up, restore, or upgrade | [Backup And Restore](backup-and-restore.md) / [Upgrade](upgrade.md) |
 | manage secrets or audit evidence | [Secrets](secrets.md) / [Audit Log](audit-log.md) |
+| decide who may read, operate, change or administer a runtime | [Control Roles And Tokens](control-roles-and-tokens.md) |
 | collect operational evidence | [Observability](observability.md) |
 | persist OpenOT alarms, messages, values, and audit events | [OpenOT Database Persistence](openot-database-persistence.md) / [Choose A Database](openot-database-selection.md) |
 | tune runtime performance | [Performance Tuning](performance-tuning.md) |
