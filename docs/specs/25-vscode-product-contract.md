@@ -448,6 +448,12 @@ package, or end-to-end evidence.
   in catalog order, have the sequences 1, 2, 3 … with every prerequisite an
   earlier lesson. The gallery itself keeps a broken lesson visible as
   unavailable (above); the check keeps it out of a release.
+- The guide page "Start From An Example"
+  (`docs/public/start/start-from-example.md`) names every starter of the
+  catalog, each by the title its card shows and with the hardware badge its
+  card shows, and no other; trust-lsp's tests compare the page with the
+  gallery's answer (26 November 2026: the page named 6 of 18 starters, one by
+  an old title).
 
 ### 3.2 Runnable scaffold
 
