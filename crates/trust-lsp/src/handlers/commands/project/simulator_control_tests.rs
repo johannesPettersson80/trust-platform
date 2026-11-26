@@ -6,11 +6,20 @@ use super::*;
 use std::net::TcpListener;
 
 fn create_answer(workspace: Option<&str>) -> Value {
-    answer(json!({ "action": "create", "workspace": workspace })).expect("answer")
+    created(&ServerState::new(), workspace)
+}
+
+fn created(state: &ServerState, workspace: Option<&str>) -> Value {
+    answer(state, json!({ "action": "create", "workspace": workspace })).expect("answer")
 }
 
 fn problem(endpoint: &str) -> Value {
-    answer(json!({ "action": "check", "endpoint": endpoint })).expect("answer")["problem"].clone()
+    answer(
+        &ServerState::new(),
+        json!({ "action": "check", "endpoint": endpoint }),
+    )
+    .expect("answer")["problem"]
+        .clone()
 }
 
 /// A loopback address that was free a moment ago: its listener is closed at once.
@@ -103,7 +112,7 @@ fn a_windows_simulator_port_is_20000_plus_the_workspace_hash_modulo_20000() {
     // the range of a u16.
     assert_eq!(workspace_port(0x4a57_61d4), 20_660);
     assert_eq!(
-        workspace_port(workspace_hash(Some("/work/plant".into()))),
+        workspace_port(workspace_hash(Some(Path::new("/work/plant")))),
         20_660
     );
     assert_eq!(workspace_port(0), 20_000);
@@ -150,4 +159,23 @@ fn other_endpoints_are_left_to_the_adapter() {
     assert_eq!(problem("unix:///tmp/trust-lsp-no-such.sock"), Value::Null);
     assert_eq!(problem("tcp://192.0.2.1:9901"), Value::Null);
     assert_eq!(problem("not an endpoint"), Value::Null);
+}
+
+#[test]
+fn the_server_keeps_what_it_named_for_the_inline_values_of_the_folders_documents() {
+    // Specification 14: without a configured endpoint, a document's inline values reach the
+    // simulator that a launch started for its workspace folder, with the token the server
+    // generated for it. Catches: a server that forgets the endpoint and token it named, so that
+    // inline values reach no simulator, or keeps the first of two simulators named for a folder.
+    let state = ServerState::new();
+    let first = created(&state, Some("/work/plant"));
+    let second = created(&state, Some("/work/plant"));
+    assert_ne!(first["authToken"], second["authToken"]);
+
+    let kept = state
+        .simulator_controls()
+        .for_document(Path::new("/work/plant/src/main.st"))
+        .expect("the folder's simulator");
+    assert_eq!(json!(kept.endpoint), second["endpoint"]);
+    assert_eq!(json!(kept.auth_token), second["authToken"]);
 }
