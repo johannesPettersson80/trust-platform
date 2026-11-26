@@ -6,7 +6,6 @@ name = "MotionOopLabeling"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-motion-oop-labeling.sock"
 mode = "production"
 debug_enabled = false
 

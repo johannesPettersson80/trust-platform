@@ -6,7 +6,6 @@ name = "MotionOopFeeder"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-motion-oop-feeder.sock"
 mode = "production"
 debug_enabled = false
 

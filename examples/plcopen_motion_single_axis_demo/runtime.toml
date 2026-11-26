@@ -6,7 +6,6 @@ name = "MotionDemoRes"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-motion-demo.sock"
 mode = "production"
 debug_enabled = false
 
