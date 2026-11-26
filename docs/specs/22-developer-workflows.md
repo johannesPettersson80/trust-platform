@@ -102,6 +102,15 @@ fixtures, not general IEC timer, traffic-control, or motor-safety semantics.
 They are truST product contracts and are neither IEC decisions nor IEC
 deviations.
 
+Tutorial 19 runs on tutorial 13's project as its README writes it: with the
+fault policy `safe_halt` and the safe state `%QX0.0` FALSE, `%QX0.0` follows
+`%IX0.0`; setting `%IX0.1` divides by zero and faults the resource with
+`division by zero`; `io-read` then answers with `%QX0.0` at `Bool(false)`,
+marked `"safe_state": true`, and the events hold the fault and
+`safe_state_applied` for `%QX0.0`; `restart cold` runs the program again, whose
+snapshot carries no mark (specification 11 §6.6 and its safe state in the
+reads).
+
 ## Shipped project example corpus
 
 The reviewed shipped project corpus is a product artifact rather than an
