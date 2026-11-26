@@ -1,8 +1,11 @@
 # Tutorial 19: Safety Commissioning (Safe State, Watchdog, Fault Policy, Restart)
 
-Prove on a bench, before production start-up, that a runtime fault drives the outputs to their safe
-state, and that a cold restart brings the program back. You trigger a division by zero on purpose,
-read the safe state back, and restart. Run it only in a non-production environment.
+Rehearse a fault before production start-up: a division by zero, triggered on purpose, makes the
+runtime drive its outputs to their safe state, and a cold restart brings the program back. The
+loopback driver used here touches no real I/O, so the run proves the runtime's own reaction, its
+output image, reads and events; on the target, repeat the steps with its real I/O driver and watch
+the physical output before you count them as commissioning evidence. Run it only in a
+non-production environment.
 
 ## What you learn
 
@@ -162,11 +165,12 @@ fault policy of `halt` would have left it TRUE.
 **The reads.** While the resource is halted, `io-read` answers with the snapshot of the last scan
 that completed, its inputs, and the safe values in its outputs, marked `"safe_state": true`, and
 the event log keeps the fault, with the file, line and program of the division, and
-`safe_state_applied`. Archive the status, the snapshot and the events as the commissioning
-evidence.
+`safe_state_applied`. These records are the runtime's side of the commissioning evidence; the
+loopback driver drives no physical output, so on the target, repeat the steps with its I/O driver
+and record what the output itself does.
 
-**The loopback driver.** It stands in for a bench where each output is wired back to the input of
-the same address. A value that you write to an input takes effect at the next scan, and it holds
+**The loopback driver.** It is a nonphysical driver (specification 46 §15) that stands in for a
+bench where each output is wired back to the input of the same address. A value that you write to an input takes effect at the next scan, and it holds
 where the program drives the output at that address to the same value, as `%IX0.0` does through
 `%QX0.0`. The snapshot after the fault is the last scan that completed, the one before the trigger
 took effect, so `%IX0.1` reads FALSE in it.
@@ -184,7 +188,8 @@ the program runs again, and the next scan's snapshot carries no safe-state mark.
 
 ## Reference
 
-- Specification 11 §6.6, fault, overrun and watchdog handling, and its safe state in the reads.
+- Specification 11 §6.6, fault, overrun and watchdog handling, and its safe state in the reads;
+  specification 46 §15, the nonphysical drivers.
 - `io.toml`'s `[[io.safe_state]]`, `runtime.toml`'s `[runtime.watchdog]` and `[runtime.fault]`, and
   the `trust-runtime ctl` commands `io-write`, `io-read`, `status`, `events` and `restart`, in the
   reference of the documentation.
