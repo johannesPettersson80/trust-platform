@@ -688,3 +688,62 @@ fn every_oscat_integration_map_lists_the_io_its_configuration_binds() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// The test programs of the OSCAT manuals' worked example, the cold storage alarm, by project
+/// (`non-oop/src/Tests.st` and `oop/src/Tests.st`).
+const WORKED_EXAMPLE_TESTS: [(&str, &[&str]); 2] = [
+    ("non-oop", &["ColdStorageAlarmClassicDetectsWarmChamber"]),
+    (
+        "oop",
+        &[
+            "ColdStorageAlarmOopDetectWarmChamber",
+            "ColdStorageAlarmTracksChamberTemperatureChanges",
+            "ColdStorageAlarmHoldsThroughHysteresisBand",
+            "ColdStorageAlarmBoundaryAtExactLimits",
+            "ColdStorageTwoChambersAreIsolated",
+            "ColdStorageInvertedLimitsRaiseError",
+        ],
+    ),
+];
+
+#[test]
+fn the_oscat_manuals_worked_example_passes_its_st_tests() {
+    // Specification 22: a library manual's worked example is a program whose tests CI runs. The
+    // OSCAT and OSCAT OOP manuals show the cold storage alarm and name its test programs: one in the
+    // classic project and six in the OOP one, each of which must run and pass, while the sweep of
+    // all 98 projects stays an explicit gate. Catches a worked example whose tests fail, tests that
+    // are no longer found (an empty run would pass on its exit status), and a test that the manual
+    // describes but the example no longer has.
+    for (variant, names) in WORKED_EXAMPLE_TESTS {
+        let project = oscat_examples_root()
+            .join("cold_storage_alarm")
+            .join(variant);
+        let output = Command::new(trust_dev_bin())
+            .args(["test", "--output", "json", "--project"])
+            .arg(&project)
+            .output()
+            .expect("run trust-dev test");
+        let shown = || {
+            format!(
+                "{}: status {}\nstdout:\n{}\nstderr:\n{}",
+                project.display(),
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            )
+        };
+        assert!(output.status.success(), "{}", shown());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).unwrap_or_else(|_| panic!("{}", shown()));
+        let passed: std::collections::BTreeSet<&str> = report["tests"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", shown()))
+            .iter()
+            .filter(|test| test["status"] == "passed")
+            .filter_map(|test| test["name"].as_str())
+            .collect();
+        let expected: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+        assert_eq!(passed, expected, "{}", shown());
+        assert_eq!(report["summary"]["total"], names.len(), "{}", shown());
+    }
+}
