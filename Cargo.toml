@@ -49,6 +49,9 @@ members = [
     "examples/room_heating/machine-tests",
     # The machine tests of the example fault_trace, so that CI runs them (specification 48 RU-58, RU-60).
     "examples/fault_trace/machine-tests",
+    # The machine tests of the example plcopen_motion_oop_indexing_table, so that CI runs them (specification 48
+    # RU-58); the PLCopen Motion OOP manual shows the example.
+    "examples/plcopen_motion_oop_indexing_table/machine-tests",
     # The example rust_first_cell, a Rust-first project, so that CI runs its machine tests (specification 48
     # RU-88).
     "examples/rust_first_cell",

@@ -867,6 +867,14 @@
       "rationale": "the machine tests of the example fault_trace fault its program on purpose and replay the flight recorder's trace with trust-sim, as a user's machine tests do (specification 48 RU-58, RU-60)"
     },
     {
+      "from": "plcopen-motion-oop-indexing-table-machine-tests",
+      "to": "trust-sim",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "the machine tests of the example plcopen_motion_oop_indexing_table run its program and the PLCopen Motion OOP library's simulated axis with trust-sim, as a user's machine tests do (specification 48 RU-58); the PLCopen Motion OOP manual shows the example as its worked example"
+    },
+    {
       "from": "rust-first-cell",
       "to": "trust-plc",
       "kind": "normal",

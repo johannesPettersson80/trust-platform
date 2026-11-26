@@ -1,0 +1,10 @@
+[package]
+name = "plcopen-motion-oop-indexing-table-machine-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Machine tests of the truST example plcopen_motion_oop_indexing_table: its program indexes the table to each station in turn through the PLCopen Motion OOP axis, with trust-sim"
+
+[dev-dependencies]
+trust-sim = "=0.44.1"
