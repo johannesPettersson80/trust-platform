@@ -888,7 +888,8 @@ each command-line reference, "Top-level Command Families" of `trust-runtime`
 and "Command Families" of `trust-dev`, names every command that the program's
 `--help` shows and no other (26 November 2026: `trust-runtime`'s lacked `plant`,
 `discover`, `fleet`, `completions` and `config-ui`, `trust-dev`'s lacked
-`rust`). A quote that its program no longer
+`rust`), and links each command to its section, a heading of the page by the id
+the site gives it. A quote that its program no longer
 holds, a renamed or retired command or setting, and a renamed flag therefore
 fail a pull request instead of leaving the page behind (30 October 2026: five
 blocks that no parser accepted, among them an OpenOT variable named with the

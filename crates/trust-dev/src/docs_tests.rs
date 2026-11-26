@@ -10,7 +10,9 @@ use std::fs;
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
-use trust_test_support::doc_commands::{command_lines, pages, repository, table_commands, words};
+use trust_test_support::doc_commands::{
+    command_lines, heading_anchors, pages, repository, table_commands, table_links, words,
+};
 
 use super::Cli;
 
@@ -34,6 +36,27 @@ fn the_reference_names_every_command_that_the_help_shows() {
         missing.is_empty() && unknown.is_empty(),
         "the table lacks {missing:?}, and names {unknown:?}, which --help does not show"
     );
+}
+
+#[test]
+fn every_command_of_the_reference_links_to_its_section() {
+    // Each row of the table "Command Families" links its commands to sections of the page, by the
+    // ids that the site gives their headings (checklist G282c). Catches a row without a link, and a
+    // link whose section was renamed or removed.
+    let root = repository(env!("CARGO_MANIFEST_DIR"));
+    let page = fs::read_to_string(root.join("docs/public/reference/cli/trust-dev.md"))
+        .expect("the reference");
+    let anchors = heading_anchors(&page);
+    let mut problems = Vec::new();
+    for (row, links) in table_links(&page, "## Command Families") {
+        if links.is_empty() {
+            problems.push(format!("{row}: no link to its section"));
+        }
+        for link in links.iter().filter(|link| !anchors.contains(*link)) {
+            problems.push(format!("{row}: #{link} names no heading of the page"));
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
 #[test]

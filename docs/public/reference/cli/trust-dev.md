@@ -8,13 +8,13 @@ binary.
 
 | Command | Purpose |
 | --- | --- |
-| `agent serve` | serve the external agent JSON-RPC contract over stdio |
-| `commit` | summarize and commit project changes |
-| `docs` | generate API documentation from tagged ST comments |
-| `replay` | replay a cycle trace in a simulator of the project as it is now |
-| `rust declarations`, `rust audit`, `rust bench` | write the Structured Text declarations of the project's Rust POUs, check the crates its program is built from against the RustSec advisory database, and measure its Rust POUs for their time budgets |
-| `service bindings`, `service install`, `service uninstall` | write a service's bindings to the program's variables, put the service under the computer's service manager, or remove it |
-| `test` | discover and execute ST tests |
+| [`agent serve`](#agent) | serve the external agent JSON-RPC contract over stdio |
+| [`commit`](#commit) | summarize and commit project changes |
+| [`docs`](#docs) | generate API documentation from tagged ST comments |
+| [`replay`](#replay) | replay a cycle trace in a simulator of the project as it is now |
+| [`rust declarations`](#rust), [`rust audit`](#rust), [`rust bench`](#rust) | write the Structured Text declarations of the project's Rust POUs, check the crates its program is built from against the RustSec advisory database, and measure its Rust POUs for their time budgets |
+| [`service bindings`](#service), [`service install`](#service), [`service uninstall`](#service) | write a service's bindings to the program's variables, put the service under the computer's service manager, or remove it |
+| [`test`](#test) | discover and execute ST tests |
 
 ## Agent
 
@@ -99,6 +99,37 @@ Primary options:
 
 The runtime is found as trust-sim finds it: `TRUST_RUNTIME`, else the `PATH`,
 else the newest truST VS Code extension.
+
+## Rust
+
+```text
+Usage: trust-dev rust <COMMAND>
+```
+
+The project's Rust POUs (specification 48):
+
+- `rust declarations` writes the Structured Text that declares the project's
+  Rust POUs: `src/generated/rust_pous.st` from its crate in `rust/`, or, in a
+  Rust-first project, `src/generated/trust/` with the configuration of its
+  `trust.toml`. The extension writes the same files when you save the crate's
+  sources, and the build refuses a project whose files are out of date.
+- `rust audit` checks the crates that the program's module is built from
+  against the RustSec advisory database and fails when a vulnerability names
+  one; `--db` names a copy of the database's repository, for a computer that
+  never reaches GitHub.
+- `rust bench` measures the project's Rust functions, function blocks, methods
+  and programs with their `#[bench_case]` cases, `--scans` calls each (1000 by
+  default), on this computer or on a device (`--device` and `--target`, with
+  `--token`), and writes each one's longest call into `[timing.measured]` of
+  `trust.toml`.
+
+[Rust POUs](../../develop/rust-pous.md) explains each of them in a project.
+
+```text
+trust-dev rust declarations --project ./my-plc
+trust-dev rust audit --project ./my-plc
+trust-dev rust bench --project ./my-plc --scans 1000
+```
 
 ## Service
 
