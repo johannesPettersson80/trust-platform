@@ -17,8 +17,9 @@ release deploy, retain recovery, and safety recovery.
 
 - Normal start brings the runtime up from a stopped state.
 - A warm restart keeps the variables declared `RETAIN` and gives every other variable its initial
-  value; a warm start after a stop reads the retained values back from the retain store
-  ([Retain Across Restarts](retain-across-restarts.md)).
+  value. A warm start after a stop reads the retained values back from the retain file that
+  `[runtime.retain] mode = "file"` keeps, as every `runtime.toml` that truST writes does; with
+  `mode = "none"` every start is cold ([Retain Across Restarts](retain-across-restarts.md)).
 - A cold restart gives every variable its initial value, the retained ones too, and a cold start
   reads no retain store.
 - Compile/reload is the engineering loop for code or config changes.

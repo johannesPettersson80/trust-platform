@@ -140,7 +140,8 @@ one second's here. A cold start reads no file, and its saves replace the values 
 
 **A supervised runtime starts warm.** The systemd units that the runtime archives carry run
 `trust-runtime run --project /opt/trust/current --restart warm`, so that a PLC that systemd restarts,
-or that comes back after a power loss, keeps its totals. Start a runtime by hand with
+or that comes back after a power loss, keeps its totals in its retain file, as this project does. With
+`mode = "none"` in `[runtime.retain]`, there is no file, and every start is cold. Start a runtime by hand with
 `--restart warm` too, unless its retained values should go.
 
 ## Try it yourself
