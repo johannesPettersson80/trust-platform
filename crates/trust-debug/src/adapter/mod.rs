@@ -36,8 +36,8 @@ mod remote_attach_tests;
 mod remote_value_type_tests;
 #[cfg(test)]
 mod simulator_rust_tests;
-// The simulator's control server listens on a Unix socket in this test.
-#[cfg(all(test, unix))]
+// The launches listen on TCP on every platform; the one on a Unix socket runs on Unix only.
+#[cfg(test)]
 mod simulator_tests;
 #[cfg(test)]
 pub(crate) mod test_simulator;
