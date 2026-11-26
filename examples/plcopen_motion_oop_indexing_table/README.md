@@ -3,9 +3,10 @@
 Docs category: `docs/public/examples/libraries-and-motion.md`
 
 Rotary indexing-table example. It moves the table to four stations in turn with
-`MoveAbsolute` through the OOP axis interface, and calls `Release` every cycle
-while a move runs, which keeps the command's `Busy` and `Done` up to date and lets
-the next move start with a new rising edge.
+`MoveAbsolute` through the OOP axis interface, and calls `Release`, which ends
+the move: the package's virtual axis has no motion profile yet, so a move ends at
+the cycle that takes its `Execute` to FALSE, at once and with the axis at the
+station. The next `MoveAbsolute` then starts with a new rising edge.
 
 Build it from the repository root:
 
