@@ -28,10 +28,13 @@ watch one bit travel from the input terminal's image to the output terminal's. Y
     trust-runtime build --project . --sources src
     ```
 
-    It writes the program's image, here on an x86-64 Linux computer:
+    It writes the program's image, here on an x86-64 Linux computer, and then names the image's
+    memory figure, the key that signed it and its two sources, `src/config.st` and `src/main.st`:
 
     ```text
     Wrote ./program.tpi
+    Wrote ./build/install.x86_64-unknown-linux-gnu.bin for trust-runtime ctl install
+    Debug image 1972 bytes: code 681, read-only data 0, starting memory 2
     ```
 
     The program `Main` copies one input to one output, `DO0 := DI0;`, and `src/config.st` puts
