@@ -157,7 +157,6 @@
     "examples/communication/ethercat/README.md",
     "examples/communication/ethercat_field_validated_es/README.md",
     "examples/communication/gpio/README.md",
-    "examples/communication/modbus_tcp/README.md",
     "examples/communication/mqtt/README.md",
     "examples/communication/mqtt_traffic_light/README.md",
     "examples/communication/multi_driver/README.md",
