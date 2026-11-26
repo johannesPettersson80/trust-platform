@@ -23,12 +23,12 @@ this package's object surface:
   the classic `MC_MoveAbsolute` does.
 - `Release` runs the active command's block with `Execute` FALSE and copies its
   outputs into the command object. The package's virtual axis has no motion
-  profile yet: a move ends at the cycle that takes its `Execute` to FALSE, at
-  once and with the axis at the target, and it stays `Busy` while `Execute`
-  stays TRUE. So step 21's first `Release` ends the move and the command reports
-  `Done`; the next `MoveAbsolute` then starts with a new rising edge. Without
-  step 21's `Release` the table never counts an index, and the velocity and
-  accelerations change no timing.
+  profile yet: a discrete move such as `MoveAbsolute`'s ends at the cycle that
+  takes its `Execute` to FALSE, at once and with the axis at the target, and it
+  stays `Busy` while `Execute` stays TRUE. So step 21's first `Release` ends the
+  move and the command reports `Done`; the next `MoveAbsolute` then starts with
+  a new rising edge. Without step 21's `Release` the table never counts an
+  index, and the velocity and accelerations change no timing.
 
 This is the program as the example ships it:
 

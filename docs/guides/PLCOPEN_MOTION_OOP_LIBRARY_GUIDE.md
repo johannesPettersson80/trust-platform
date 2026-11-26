@@ -144,12 +144,16 @@ It also exposes control and motion methods:
 
 `Release` runs the active command's classic block with `Execute` FALSE and
 copies the block's outputs into the command object (`Busy`, `Done`, `Error`).
-The single-axis kernel behind this package has no motion profile yet: a move
-ends at the cycle that takes its `Execute` to FALSE, at once and with the axis
-at the target, and while `Execute` stays TRUE, as when the command's method is
-called every cycle, the move stays `Busy` and reports no `Done`. Call `Release`
-once the move has started; the next call of the command's method then starts on
-a new rising edge.
+The single-axis kernel behind this package has no motion profile yet: a discrete
+move (`MoveAbsolute`, `MoveRelative`, `MoveAdditive`) ends at the cycle that
+takes its `Execute` to FALSE, at once and with the axis at the target, and while
+`Execute` stays TRUE, as when the command's method is called every cycle, it
+stays `Busy` and reports no `Done`. Call `Release` once the move has started;
+the next call of the command's method then starts on a new rising edge. A
+continuous command (`MoveContinuousAbsolute`, `MoveContinuousRelative`) takes
+its block's `InEndVelocity` as its `Done`, which the kernel reports as soon as
+the move is active, before any travel; `Release` ends the move with the axis at
+its position and at standstill.
 
 ## Concrete Objects
 
