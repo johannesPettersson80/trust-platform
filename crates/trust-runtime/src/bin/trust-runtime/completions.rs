@@ -26,5 +26,5 @@ fn write_completions(shell: Shell, out: &mut impl Write) -> io::Result<()> {
 }
 
 #[cfg(test)]
-#[path = "completions_tests.rs"]
+#[path = "completions/tests.rs"]
 mod tests;
