@@ -111,7 +111,7 @@ pub fn run_native_build(
                 warnings: issues.len() - errors,
                 issues,
             };
-            println!("{}", serde_json::to_string_pretty(&failure)?);
+            outln!("{}", serde_json::to_string_pretty(&failure)?);
             // The exit code a failure has without the JSON (specification 11 §6.8.1d).
             std::process::exit(if output.ci { ci::EXIT_BUILD_FAILED } else { 1 });
         }
@@ -123,19 +123,19 @@ pub fn run_native_build(
         let mut json = built.json.clone();
         json["warnings"] = issues.len().into();
         json["issues"] = serde_json::to_value(&issues)?;
-        println!("{}", serde_json::to_string_pretty(&json)?);
+        outln!("{}", serde_json::to_string_pretty(&json)?);
         return Ok(());
     }
     let figure = built.figure;
-    println!(
+    outln!(
         "{}",
         style::success(format!("Wrote {}", built.image.display()))
     );
-    println!(
+    outln!(
         "Wrote {} for trust-runtime ctl install",
         built.install.display()
     );
-    println!(
+    outln!(
         "{} {} bytes: code {}, read-only data {}, starting memory {}",
         if built.debug {
             "Debug image"
@@ -147,12 +147,16 @@ pub fn run_native_build(
         figure.rodata,
         figure.init
     );
-    println!(
+    outln!(
         "Memory figure: {} bytes (areas {}, stack {}, bookkeeping {}, retain capture {})",
-        figure.total, figure.areas, figure.stack, figure.bookkeeping, figure.retain_capture
+        figure.total,
+        figure.areas,
+        figure.stack,
+        figure.bookkeeping,
+        figure.retain_capture
     );
     // The public key a device must trust to run the image (specification 44 §5.11).
-    println!("Signed by the key {}", built.signer);
+    outln!("Signed by the key {}", built.signer);
     // A task whose Rust POUs may outlast its interval (specification 48 RU-47).
     for warning in &built.warnings {
         eprintln!("warning: {warning}");
@@ -161,12 +165,12 @@ pub fn run_native_build(
     for warning in &built.crate_warnings {
         eprintln!("{}", warning.rendered.trim_end());
     }
-    println!("Sources: {} file(s)", built.sources.len());
+    outln!("Sources: {} file(s)", built.sources.len());
     for path in built.sources.iter().take(5) {
-        println!(" - {}", path.display());
+        outln!(" - {}", path.display());
     }
     if built.sources.len() > 5 {
-        println!(" - ... +{}", built.sources.len() - 5);
+        outln!(" - ... +{}", built.sources.len() - 5);
     }
     Ok(())
 }

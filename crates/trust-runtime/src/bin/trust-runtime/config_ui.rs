@@ -125,12 +125,12 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
     )
     .map_err(|error| anyhow::anyhow!("start standalone IDE web server: {error}"))?;
 
-    println!(
+    outln!(
         "Standalone IDE running at http://{}/ide (mode=standalone-ide)",
         listen.trim()
     );
-    println!("Project root: {}", project_root.display());
-    println!("Press Ctrl+C to stop.");
+    outln!("Project root: {}", project_root.display());
+    outln!("Press Ctrl+C to stop.");
 
     loop {
         thread::sleep(Duration::from_secs(3600));

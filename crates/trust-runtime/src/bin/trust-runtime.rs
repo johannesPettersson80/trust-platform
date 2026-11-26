@@ -1,5 +1,10 @@
 //! CLI entrypoint for ST runtime.
 
+// First: the macros of `output`, `outln!` and `out!`, serve every module declared after it.
+#[macro_use]
+#[path = "trust-runtime/output.rs"]
+mod output;
+
 #[path = "trust-runtime/ads.rs"]
 mod ads;
 #[path = "trust-runtime/agent.rs"]

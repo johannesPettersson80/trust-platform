@@ -118,7 +118,7 @@ pub(super) fn run(
         poll: STATUS_POLL,
     };
     let report = install(&mut client, &bytes, restart, &waits)?;
-    println!("{}", report.render());
+    outln!("{}", report.render());
     Ok(())
 }
 

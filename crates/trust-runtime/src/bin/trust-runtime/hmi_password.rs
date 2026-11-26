@@ -14,7 +14,7 @@ pub fn run_hmi_password(iterations: u32) -> Result<()> {
     std::io::stdin().read_to_string(&mut input)?;
     let mut salt = [0_u8; SALT_BYTES];
     getrandom::fill(&mut salt).map_err(|error| anyhow::anyhow!("no random source: {error}"))?;
-    println!("{}", hash_line(&input, iterations, &salt)?);
+    outln!("{}", hash_line(&input, iterations, &salt)?);
     Ok(())
 }
 

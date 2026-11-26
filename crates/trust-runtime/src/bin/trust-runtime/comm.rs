@@ -189,6 +189,6 @@ fn parse_params(text: &str) -> anyhow::Result<serde_json::Value> {
 }
 
 fn print_json(value: serde_json::Value) -> anyhow::Result<()> {
-    println!("{}", serde_json::to_string_pretty(&value)?);
+    outln!("{}", serde_json::to_string_pretty(&value)?);
     Ok(())
 }

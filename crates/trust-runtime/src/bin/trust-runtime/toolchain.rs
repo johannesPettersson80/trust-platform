@@ -20,7 +20,7 @@ pub fn run_toolchain(action: ToolchainAction) -> anyhow::Result<()> {
         ToolchainAction::Install { from, json } => install(from, json),
         ToolchainAction::Bundle { folder, archive } => {
             let manifest = bundle::write_bundle(&folder, &archive)?;
-            println!(
+            outln!(
                 "Wrote {}: truST {} for {}, rustc {}, {}, {} files",
                 archive.display(),
                 manifest.trust,
@@ -114,7 +114,7 @@ fn status(json: bool) -> anyhow::Result<()> {
         _ => None,
     };
     if json {
-        println!(
+        outln!(
             "{}",
             json!({
                 "installed": located.is_ok(),
@@ -129,19 +129,19 @@ fn status(json: bool) -> anyhow::Result<()> {
         return Ok(());
     }
     match (&located, folder) {
-        (Ok((toolchain, ToolchainSource::Environment)), Some(folder)) => println!(
+        (Ok((toolchain, ToolchainSource::Environment)), Some(folder)) => outln!(
             "TRUST_TOOLCHAIN names the toolchain in {} (rustc {})",
             folder.display(),
             toolchain.version
         ),
-        (Ok((toolchain, ToolchainSource::Installed)), Some(folder)) => println!(
+        (Ok((toolchain, ToolchainSource::Installed)), Some(folder)) => outln!(
             "The truST toolchain {} is installed in {} (rustc {})",
             trust.as_deref().unwrap_or(TRUST_VERSION),
             folder.display(),
             toolchain.version
         ),
-        (Err(error), _) => println!("{error}"),
-        (Ok(_), None) => println!("The toolchain's folder cannot be named"),
+        (Err(error), _) => outln!("{error}"),
+        (Ok(_), None) => outln!("The toolchain's folder cannot be named"),
     }
     Ok(())
 }
@@ -162,7 +162,7 @@ fn install(from: Option<PathBuf>, json: bool) -> anyhow::Result<()> {
                     json!({"event": "installed", "folder": folder.display().to_string()})
                 }
             };
-            println!("{line}");
+            outln!("{line}");
         } else {
             human.report(&event);
         }
@@ -175,7 +175,7 @@ fn install(from: Option<PathBuf>, json: bool) -> anyhow::Result<()> {
         Ok(_) => Ok(()),
         Err(error) => {
             if json {
-                println!("{}", json!({"event": "failed", "error": error.to_string()}));
+                outln!("{}", json!({"event": "failed", "error": error.to_string()}));
             }
             Err(error.into())
         }

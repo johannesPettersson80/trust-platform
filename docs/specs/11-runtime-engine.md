@@ -3048,6 +3048,14 @@ command-aware fallback codes. Known configuration and permission failures may
 append one actionable tip to the original error text; the tip does not replace
 or reclassify the underlying error.
 
+What a command prints on the standard output ends quietly when its reader
+closes the pipe, as `head` does: the rest of the output is dropped, and the
+command carries on to its own end and exit status. A listing completes, a change
+such as a deploy completes instead of stopping halfway, and a running runtime
+keeps running while its log lines go nowhere. Another write error, such as a
+full disk, still ends the command with a failure (26 November 2026: every
+printing command panicked on the closed pipe).
+
 `completions <shell>` writes the completion script of `trust-runtime` for
 `bash`, `elvish`, `fish`, `powershell` or `zsh` to the standard output. A reader
 that closes the pipe before the script's end, as `head` does, ends the command

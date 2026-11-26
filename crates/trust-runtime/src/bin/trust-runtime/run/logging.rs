@@ -86,7 +86,7 @@ impl RuntimeLogger {
             "event": event,
             "data": data,
         });
-        println!("{payload}");
+        outln!("{payload}");
     }
 }
 

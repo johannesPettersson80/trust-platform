@@ -99,7 +99,7 @@ pub fn run_deploy(
     )?;
 
     spinner.finish_and_clear();
-    println!(
+    outln!(
         "{}",
         style::success(format!(
             "Deployed project {} -> {}",
@@ -107,7 +107,7 @@ pub fn run_deploy(
             dest.display()
         ))
     );
-    println!("Current project version: {}", current_link.display());
+    outln!("Current project version: {}", current_link.display());
     Ok(DeployResult {
         current_bundle: current_link,
     })
@@ -116,14 +116,14 @@ pub fn run_deploy(
 pub fn run_rollback(root: Option<PathBuf>) -> anyhow::Result<()> {
     let root = root.unwrap_or(std::env::current_dir()?);
     let rolled = rollback(&root)?;
-    println!(
+    outln!(
         "{}",
         style::success(format!(
             "Rolled back to project {}",
             rolled.current.display()
         ))
     );
-    println!(
+    outln!(
         "Current project version: {}",
         root.join(CURRENT_LINK).display()
     );

@@ -114,7 +114,7 @@ pub(crate) fn attach(
 /// As [`attach`].
 pub(crate) fn print_compiled(text: &str, project: Option<&Path>) -> anyhow::Result<()> {
     let compiled = Expressions::for_project(project)?.compile(text)?;
-    println!("{}", serde_json::to_string(&compiled)?);
+    outln!("{}", serde_json::to_string(&compiled)?);
     Ok(())
 }
 

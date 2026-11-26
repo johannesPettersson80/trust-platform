@@ -9,7 +9,7 @@ use crate::cli::IdentifyArgs;
 use crate::ctl;
 
 pub fn run_identify(args: IdentifyArgs) -> anyhow::Result<()> {
-    println!("{}", identify(args)?);
+    outln!("{}", identify(args)?);
     Ok(())
 }
 

@@ -1,7 +1,7 @@
 fn run_browser_setup_interactive() -> anyhow::Result<()> {
-    println!("Where will you open the browser?");
-    println!("  1) On this device (local GUI)");
-    println!("  2) From another device (headless/SSH)");
+    outln!("Where will you open the browser?");
+    outln!("  1) On this device (local GUI)");
+    outln!("  2) From another device (headless/SSH)");
     let choice = prompt::prompt_string("Select option", "2")?;
     let access = if matches!(choice.trim(), "2") {
         SetupAccessArg::Remote
@@ -9,11 +9,11 @@ fn run_browser_setup_interactive() -> anyhow::Result<()> {
         SetupAccessArg::Local
     };
     let token_ttl_minutes = if matches!(access, SetupAccessArg::Remote) {
-        println!("Token expiry:");
-        println!("  1) 15 min (default)");
-        println!("  2) 30 min");
-        println!("  3) 60 min");
-        println!("  4) Custom");
+        outln!("Token expiry:");
+        outln!("  1) 15 min (default)");
+        outln!("  2) 30 min");
+        outln!("  3) 60 min");
+        outln!("  4) Custom");
         let ttl = match prompt::prompt_string("Select option", "1")?.as_str() {
             "2" => 30,
             "3" => 60,
@@ -39,7 +39,7 @@ fn run_browser_setup_interactive() -> anyhow::Result<()> {
     } else {
         DEFAULT_SETUP_PORT
     };
-    println!("Project folder: where runtime.toml, io.toml, src/, program.tpi live.");
+    outln!("Project folder: where runtime.toml, io.toml, src/, program.tpi live.");
     let default_bundle = default_bundle_path();
     let bundle_path = prompt::prompt_path("Project folder (runtime files)", &default_bundle)?;
     run_browser_setup_mode(
@@ -64,23 +64,23 @@ fn run_browser_setup_mode(
     let bundle_path = project.unwrap_or_else(default_bundle_path);
     let defaults = SetupDefaults::from_bundle(&bundle_path);
     if dry_run {
-        println!("{}", style::accent("Setup dry run (browser mode)"));
-        println!("Project: {}", bundle_path.display());
-        println!(
+        outln!("{}", style::accent("Setup dry run (browser mode)"));
+        outln!("Project: {}", bundle_path.display());
+        outln!(
             "Access: {}",
             match access {
                 SetupAccessArg::Local => "local",
                 SetupAccessArg::Remote => "remote",
             }
         );
-        println!("Bind: {}", profile.bind);
-        println!("Port: {}", profile.port);
-        println!(
+        outln!("Bind: {}", profile.bind);
+        outln!("Port: {}", profile.port);
+        outln!(
             "Token required: {}",
             if profile.token_required { "yes" } else { "no" }
         );
         if profile.token_required {
-            println!("Token TTL (minutes): {}", profile.token_ttl_minutes);
+            outln!("Token TTL (minutes): {}", profile.token_ttl_minutes);
         }
         return Ok(());
     }
@@ -95,7 +95,7 @@ fn run_browser_setup_mode(
 }
 
 fn run_browser_setup_auto() -> anyhow::Result<()> {
-    println!("Project folder: where runtime.toml, io.toml, src/, program.tpi live.");
+    outln!("Project folder: where runtime.toml, io.toml, src/, program.tpi live.");
     let default_bundle = default_bundle_path();
     let bundle_path = prompt::prompt_path("Project folder (runtime files)", &default_bundle)?;
     run_browser_setup_mode(

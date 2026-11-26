@@ -63,21 +63,21 @@ pub fn run_check(
     let print_json = json || ci_mode;
 
     if print_json {
-        println!("{}", serde_json::to_string_pretty(&response)?);
+        outln!("{}", serde_json::to_string_pretty(&response)?);
     } else if response.ok {
-        println!("{}", style::success("Project check passed"));
-        println!("Sources: {} file(s)", response.source_count);
+        outln!("{}", style::success("Project check passed"));
+        outln!("Sources: {} file(s)", response.source_count);
         for path in response.sources.iter().take(5) {
-            println!(" - {path}");
+            outln!(" - {path}");
         }
         if response.source_count > 5 {
-            println!(" - ... +{}", response.source_count - 5);
+            outln!(" - ... +{}", response.source_count - 5);
         }
         // A passed check's warnings, such as the Rust crate's (specification 11 §6.8.1c).
         if !response.issues.is_empty() {
-            println!("Warnings: {}", response.issues.len());
+            outln!("Warnings: {}", response.issues.len());
             for issue in &response.issues {
-                println!(" - {}{}", issue.location(), issue.message);
+                outln!(" - {}{}", issue.location(), issue.message);
             }
         }
     } else {

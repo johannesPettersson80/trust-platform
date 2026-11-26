@@ -79,9 +79,9 @@ pub(super) fn run(
         &bytes,
         wait,
         RECONNECT_POLL,
-        |line| println!("{line}"),
+        |line| outln!("{line}"),
     )?;
-    println!("{}", report.render());
+    outln!("{}", report.render());
     Ok(())
 }
 

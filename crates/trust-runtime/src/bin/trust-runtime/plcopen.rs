@@ -18,37 +18,39 @@ pub fn run_plcopen(action: PlcopenAction) -> anyhow::Result<()> {
         PlcopenAction::Profile { json } => {
             let profile = supported_profile();
             if json {
-                println!("{}", serde_json::to_string_pretty(&profile)?);
+                outln!("{}", serde_json::to_string_pretty(&profile)?);
                 return Ok(());
             }
-            println!("{}", style::accent("PLCopen profile (ST-complete subset)"));
-            println!("Namespace: {}", profile.namespace);
-            println!("Profile: {}", profile.profile);
-            println!("Version: {}", profile.version);
-            println!("Source mapping: {}", profile.source_mapping);
-            println!("Vendor extension hook: {}", profile.vendor_extension_hook);
-            println!("Supported subset:");
+            outln!("{}", style::accent("PLCopen profile (ST-complete subset)"));
+            outln!("Namespace: {}", profile.namespace);
+            outln!("Profile: {}", profile.profile);
+            outln!("Version: {}", profile.version);
+            outln!("Source mapping: {}", profile.source_mapping);
+            outln!("Vendor extension hook: {}", profile.vendor_extension_hook);
+            outln!("Supported subset:");
             for item in &profile.strict_subset {
-                println!(" - {item}");
+                outln!(" - {item}");
             }
-            println!("Unsupported nodes:");
+            outln!("Unsupported nodes:");
             for item in &profile.unsupported_nodes {
-                println!(" - {item}");
+                outln!(" - {item}");
             }
-            println!("Compatibility matrix:");
+            outln!("Compatibility matrix:");
             for entry in &profile.compatibility_matrix {
-                println!(
+                outln!(
                     " - [{}] {}: {}",
-                    entry.status, entry.capability, entry.notes
+                    entry.status,
+                    entry.capability,
+                    entry.notes
                 );
             }
-            println!("Round-trip limits:");
+            outln!("Round-trip limits:");
             for item in &profile.round_trip_limits {
-                println!(" - {item}");
+                outln!(" - {item}");
             }
-            println!("Known gaps:");
+            outln!("Known gaps:");
             for item in &profile.known_gaps {
-                println!(" - {item}");
+                outln!(" - {item}");
             }
             Ok(())
         }
@@ -77,7 +79,7 @@ fn run_export(
     let output_path = output.unwrap_or_else(|| default_export_output_path(&project_root, target));
     let report = export_project_to_xml_with_target(&project_root, &output_path, target)?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&report)?);
+        outln!("{}", serde_json::to_string_pretty(&report)?);
     } else {
         print_export_report(&report);
     }
@@ -91,7 +93,7 @@ fn run_import(input: PathBuf, project: Option<PathBuf>, json: bool) -> anyhow::R
     }
     let report = import_xml_to_project(&input, &project_root)?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&report)?);
+        outln!("{}", serde_json::to_string_pretty(&report)?);
     } else {
         print_import_report(&report);
     }
@@ -130,12 +132,12 @@ fn default_export_output_path(
 }
 
 fn print_export_report(report: &PlcopenExportReport) {
-    println!(
+    outln!(
         "{}",
         style::success(format!("Wrote {}", report.output_path.display()))
     );
-    println!("Target adapter: {}", report.target);
-    println!(
+    outln!("Target adapter: {}", report.target);
+    outln!(
         "Exported {} POU(s), {} data type(s), {} global list(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s) from {} source file(s)",
         report.pou_count,
         report.data_type_count,
@@ -146,55 +148,59 @@ fn print_export_report(report: &PlcopenExportReport) {
         report.program_instance_count,
         report.source_count
     );
-    println!(
+    outln!(
         "CODESYS project structure: {} object node(s), {} folder path(s)",
-        report.exported_project_structure_nodes, report.exported_folder_paths
+        report.exported_project_structure_nodes,
+        report.exported_folder_paths
     );
-    println!("Source map: {}", report.source_map_path.display());
+    outln!("Source map: {}", report.source_map_path.display());
     if let Some(bundle_dir) = &report.siemens_scl_bundle_dir {
-        println!("Siemens SCL bundle: {}", bundle_dir.display());
-        println!("Siemens SCL files: {}", report.siemens_scl_files.len());
+        outln!("Siemens SCL bundle: {}", bundle_dir.display());
+        outln!("Siemens SCL files: {}", report.siemens_scl_files.len());
     }
     if let Some(adapter_report_path) = &report.adapter_report_path {
-        println!("Adapter report: {}", adapter_report_path.display());
+        outln!("Adapter report: {}", adapter_report_path.display());
     }
     if !report.adapter_diagnostics.is_empty() {
-        println!("Target diagnostics:");
+        outln!("Target diagnostics:");
         for diagnostic in report.adapter_diagnostics.iter().take(10) {
-            println!(
+            outln!(
                 " - {} {}: {} ({})",
-                diagnostic.severity, diagnostic.code, diagnostic.message, diagnostic.action
+                diagnostic.severity,
+                diagnostic.code,
+                diagnostic.message,
+                diagnostic.action
             );
         }
         if report.adapter_diagnostics.len() > 10 {
-            println!(" - ... +{}", report.adapter_diagnostics.len() - 10);
+            outln!(" - ... +{}", report.adapter_diagnostics.len() - 10);
         }
     }
     if !report.adapter_manual_steps.is_empty() {
-        println!("Manual steps:");
+        outln!("Manual steps:");
         for step in &report.adapter_manual_steps {
-            println!(" - {step}");
+            outln!(" - {step}");
         }
     }
     if !report.adapter_limitations.is_empty() {
-        println!("Adapter limitations:");
+        outln!("Adapter limitations:");
         for limitation in &report.adapter_limitations {
-            println!(" - {limitation}");
+            outln!(" - {limitation}");
         }
     }
     if !report.warnings.is_empty() {
-        println!(
+        outln!(
             "{}",
             style::warning(format!("{} warning(s):", report.warnings.len()))
         );
         for warning in &report.warnings {
-            println!(" - {warning}");
+            outln!(" - {warning}");
         }
     }
 }
 
 fn print_import_report(report: &PlcopenImportReport) {
-    println!(
+    outln!(
         "{}",
         style::success(format!(
             "Imported {} POU(s) into {}",
@@ -202,11 +208,13 @@ fn print_import_report(report: &PlcopenImportReport) {
             report.project_root.display()
         ))
     );
-    println!(
+    outln!(
         "Discovered {} POU(s), source coverage {:.2}%, semantic loss {:.2}%",
-        report.discovered_pous, report.source_coverage_percent, report.semantic_loss_percent
+        report.discovered_pous,
+        report.source_coverage_percent,
+        report.semantic_loss_percent
     );
-    println!(
+    outln!(
         "Imported {} data type(s), {} interface(s), {} global list(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s)",
         report.imported_data_types,
         report.imported_interfaces,
@@ -216,14 +224,14 @@ fn print_import_report(report: &PlcopenImportReport) {
         report.imported_tasks,
         report.imported_program_instances
     );
-    println!(
+    outln!(
         "Discovered {} global list(s), imported {} project-structure object node(s), used {} folder path(s)",
         report.discovered_global_var_lists,
         report.imported_project_structure_nodes,
         report.imported_folder_paths
     );
-    println!("Detected ecosystem: {}", report.detected_ecosystem);
-    println!(
+    outln!("Detected ecosystem: {}", report.detected_ecosystem);
+    outln!(
         "Compatibility coverage: {:.2}% (supported={}, partial={}, unsupported={}, verdict={})",
         report.compatibility_coverage.support_percent,
         report.compatibility_coverage.supported_items,
@@ -231,14 +239,14 @@ fn print_import_report(report: &PlcopenImportReport) {
         report.compatibility_coverage.unsupported_items,
         report.compatibility_coverage.verdict
     );
-    println!(
+    outln!(
         "Migration report: {}",
         report.migration_report_path.display()
     );
     if !report.applied_library_shims.is_empty() {
-        println!("Applied library shims:");
+        outln!("Applied library shims:");
         for shim in report.applied_library_shims.iter().take(10) {
-            println!(
+            outln!(
                 " - {}: {} -> {} ({} occurrence(s)) [{}]",
                 shim.vendor,
                 shim.source_symbol,
@@ -248,17 +256,17 @@ fn print_import_report(report: &PlcopenImportReport) {
             );
         }
         if report.applied_library_shims.len() > 10 {
-            println!(" - ... +{}", report.applied_library_shims.len() - 10);
+            outln!(" - ... +{}", report.applied_library_shims.len() - 10);
         }
     }
     for path in report.written_sources.iter().take(10) {
-        println!(" - {}", path.display());
+        outln!(" - {}", path.display());
     }
     if report.written_sources.len() > 10 {
-        println!(" - ... +{}", report.written_sources.len() - 10);
+        outln!(" - ... +{}", report.written_sources.len() - 10);
     }
     if !report.unsupported_nodes.is_empty() {
-        println!(
+        outln!(
             "{}",
             style::warning(format!(
                 "{} unsupported node(s) preserved/skipped",
@@ -267,7 +275,7 @@ fn print_import_report(report: &PlcopenImportReport) {
         );
     }
     if !report.unsupported_diagnostics.is_empty() {
-        println!(
+        outln!(
             "{}",
             style::warning(format!(
                 "{} structured compatibility diagnostic(s):",
@@ -276,7 +284,7 @@ fn print_import_report(report: &PlcopenImportReport) {
         );
         for diagnostic in report.unsupported_diagnostics.iter().take(10) {
             if let Some(pou) = &diagnostic.pou {
-                println!(
+                outln!(
                     " - {} {} [{}] pou={}: {} ({})",
                     diagnostic.severity,
                     diagnostic.code,
@@ -286,7 +294,7 @@ fn print_import_report(report: &PlcopenImportReport) {
                     diagnostic.action
                 );
             } else {
-                println!(
+                outln!(
                     " - {} {} [{}]: {} ({})",
                     diagnostic.severity,
                     diagnostic.code,
@@ -297,16 +305,16 @@ fn print_import_report(report: &PlcopenImportReport) {
             }
         }
         if report.unsupported_diagnostics.len() > 10 {
-            println!(" - ... +{}", report.unsupported_diagnostics.len() - 10);
+            outln!(" - ... +{}", report.unsupported_diagnostics.len() - 10);
         }
     }
     if !report.warnings.is_empty() {
-        println!(
+        outln!(
             "{}",
             style::warning(format!("{} warning(s):", report.warnings.len()))
         );
         for warning in &report.warnings {
-            println!(" - {warning}");
+            outln!(" - {warning}");
         }
     }
 }

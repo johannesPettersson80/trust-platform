@@ -22,7 +22,7 @@ pub(super) fn run(target: &ResolvedControlTarget, assignments: &[String]) -> any
     });
     let response = send_request(&target.endpoint, &request)?;
     ensure_control_response_ok(&response)?;
-    println!("{}", serde_json::to_string(&response)?);
+    outln!("{}", serde_json::to_string(&response)?);
     Ok(())
 }
 
