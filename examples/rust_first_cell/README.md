@@ -24,14 +24,14 @@ code.
   repository `cargo test` takes them from the repository itself. The tests run the `trust-runtime`
   that the environment variable `TRUST_RUNTIME` names, else the one on your `PATH`, else your truST
   extension's; it must be of the clone's version.
-- About 20 minutes.
+- About 25 minutes.
 
 ## Step by step
 
 1. Open the folder `examples/rust_first_cell` of your clone in VS Code. Without a clone, choose
    **Start from example** in the truST side panel, then **Rust-first press cell**, and pick a folder
-   under **Select destination folder**: VS Code opens the copy on `src/lib.rs`. Steps 2 to 4 work in
-   the copy, and the machine tests of steps 5 and 6 once `trust-plc` and `trust-sim` are on
+   under **Select destination folder**: VS Code opens the copy on `src/lib.rs`. Steps 2 to 5 work in
+   the copy, and the machine tests of steps 6 and 7 once `trust-plc` and `trust-sim` are on
    crates.io (What you need). The project is a Cargo crate: `Cargo.toml` and `src/lib.rs` lie beside
    `trust.toml`, `runtime.toml`, `io.toml` and `simulation.toml`, and the machine tests are in
    `tests/cell.rs`.
@@ -89,7 +89,33 @@ code.
     program's declarations, `rust_pous.st`. It also names the install file for
     `trust-runtime ctl install` and the key that signed the image.
 
-5. Run the machine tests:
+5. Run the cell in VS Code. Press **Start** in the truST side panel: truST builds the project as
+   step 4 did and runs it on the Simulator, and the status bar shows `truST: Simulator running`.
+   Live Values lists the fixture's signals by their addresses: the inputs `Cell.start` (`%IX0.0`),
+   `Cell.part_present` (`%IX0.1`), `Cell.clamp_closed` (`%IX0.2`) and `Cell.press_down`
+   (`%IX0.3`), and the outputs `Cell.clamp` (`%QX0.0`), `Cell.press` (`%QX0.1`) and `Cell.ready`
+   (`%QX0.2`). `Cell.ready` is `TRUE`: the cell waits in `READY`.
+
+    Lay a part in the fixture: on the row of `Cell.part_present`, choose `TRUE` and press
+    **Write**. Then press Start the same way, with `TRUE` on the row of `Cell.start`. The cell runs
+    one part. Read from the Write of Start, one run showed:
+
+    | After Start | Live Values shows | Because |
+    |---|---|---|
+    | 0.1 s | `Cell.ready` FALSE, `Cell.clamp` TRUE | `CLAMP` opens the clamp's valve |
+    | 0.4 s | `Cell.clamp_closed` TRUE, `Cell.press` TRUE | the clamp's sensor, 300 ms later; `PRESS` |
+    | 1.4 s | `Cell.press_down` TRUE | the press's sensor, 800 ms later; `HOLD` |
+    | 1.8 s | `Cell.press` FALSE | `LIFT`, after the hold of 500 ms |
+    | 2.5 s | `Cell.press_down` FALSE, `Cell.clamp` FALSE | the press is up; `UNCLAMP` |
+    | 2.8 s | `Cell.clamp_closed` FALSE | the clamp is open; `UNLOAD` |
+
+    These are the times of the table under What happened, 2.7 s from the first cycle that sees
+    Start to `UNLOAD`, as Live Values reads them. The cell now waits in `UNLOAD`, with
+    `Cell.ready` FALSE, until the part is taken out. Take it out: write `FALSE` to `Cell.start`, as
+    an operator releases the button, and then to `Cell.part_present`. `Cell.ready` turns `TRUE`
+    again, and the next part starts the same way.
+
+6. Run the machine tests:
 
     ```text
     cargo test
@@ -111,7 +137,7 @@ code.
     The first test runs 3 s of the cell's time, a whole part from Start to `UNLOAD`, in a fraction of
     that.
 
-6. Read a failure. In `src/lib.rs`, set `PRESS_TIME_MS` to `500` and run `cargo test` again. Two
+7. Read a failure. In `src/lib.rs`, set `PRESS_TIME_MS` to `500` and run `cargo test` again. Two
    tests fail:
 
     ```text
@@ -169,7 +195,7 @@ place among the sequence's waits from 1, then `t` and the time waited, in millis
 `PRESS`'s wait is the sequence's third and begins at 310 ms. With its limit of 2,000 ms and a press
 sensor that never comes, the cycle at 310 + 2,000 + 10 = 2,320 ms faults, after a wait of 2,010 ms:
 `Rust fault 3 (2000, 2010)`, as the test `a_press_that_does_not_come_down_faults_the_cell_at_its_limit`
-checks. With the limit of 500 ms of step 6 the press, which needs 800 ms, comes too late for every
+checks. With the limit of 500 ms of step 7 the press, which needs 800 ms, comes too late for every
 part: 310 + 500 + 10 = 820 ms and `Rust fault 3 (500, 510)`.
 
 **The fault.** `runtime.toml` sets `policy = "safe_halt"`: a fault halts the resource and drives

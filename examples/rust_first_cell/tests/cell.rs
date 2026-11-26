@@ -125,6 +125,34 @@ fn start_without_a_part_leaves_the_cell_ready() -> Result<()> {
 }
 
 #[test]
+fn a_part_alone_leaves_the_cell_ready_until_start() -> Result<()> {
+    // The README's step 5 lays the part in the fixture before it presses Start. READY waits for a
+    // part and Start at the start of one cycle, so with the part alone the sequence stays in READY,
+    // its lamp on and the clamp's valve closed, however long the part lies there. The first cycle
+    // that also sees Start, 10 ms after the last, enters CLAMP: it opens the clamp's valve and turns
+    // the Ready lamp off. Catches a cell that clamps the part before the operator presses Start,
+    // while the operator's hands may still be at the fixture.
+    let mut cell = cell()?;
+    cell.write("Cell.part_present", true)?;
+    cell.run_for(Duration::from_secs(2))?;
+    assert_eq!(cell.read::<String>("Cell.active_step")?, "READY");
+    assert!(cell.read::<bool>("Cell.ready")?, "the Ready lamp stays on");
+    assert!(
+        !cell.read::<bool>("Cell.clamp")?,
+        "the clamp's valve stays closed"
+    );
+
+    let before = millis(cell.now());
+    cell.write("Cell.start", true)?;
+    cell.run_cycles(1)?;
+    assert_eq!(millis(cell.now()), before + 10);
+    assert_eq!(cell.read::<String>("Cell.active_step")?, "CLAMP");
+    assert!(cell.read::<bool>("Cell.clamp")?, "the clamp's valve opens");
+    assert!(!cell.read::<bool>("Cell.ready")?, "the Ready lamp goes off");
+    Ok(())
+}
+
+#[test]
 fn a_press_that_does_not_come_down_faults_the_cell_at_its_limit() -> Result<()> {
     // The press's sensor is broken: forced FALSE, it never sees the press down. PRESS's wait, the
     // sequence's third, begins at 310 ms with a limit of 2,000 ms. A wait of exactly 2,000 ms is
