@@ -1,8 +1,8 @@
 # Tutorial 14: Deploy and Roll Back a PLC Project
 
 Deploy a project into a versioned store, run the runtime on the store's `current` link, deploy a
-changed revision, and roll back to the one before, each time seeing which revision the runtime runs.
-It starts from tutorial 13's project.
+changed revision, and roll back to the one before with `trust-runtime rollback`, each time seeing
+which revision the runtime runs. It starts from tutorial 13's project.
 
 ## What you learn
 
