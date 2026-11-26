@@ -415,7 +415,7 @@ python3 scripts/ads_server_pyads_smoke.py \
   --read global.PumpRunning:BOOL \
   --notification global.PumpRunning:BOOL \
   --write global.Setpoint:REAL:12.5 \
-  --doctor-endpoint unix:///tmp/trust-runtime-ads-server-basic.sock \
+  --doctor-project examples/communication/ads_server_basic \
   --trust-runtime target/debug/trust-runtime
 ```
 

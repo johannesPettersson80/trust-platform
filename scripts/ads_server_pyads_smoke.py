@@ -122,15 +122,19 @@ def near_equal(left: Any, right: Any) -> bool:
 
 
 def run_doctor_with_external_evidence(args: argparse.Namespace, evidence: dict[str, Any]) -> Any:
-    if not args.doctor_endpoint:
+    if not args.doctor_endpoint and not args.doctor_project:
         return None
+    runtime = (
+        ["--endpoint", args.doctor_endpoint]
+        if args.doctor_endpoint
+        else ["--project", args.doctor_project]
+    )
     command = [
         args.trust_runtime,
         "ads",
         "server",
         "doctor",
-        "--endpoint",
-        args.doctor_endpoint,
+        *runtime,
         "--external-kind",
         evidence["kind"],
         "--external-name",
@@ -364,9 +368,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--notification-cycle-s", type=float, default=0.05)
     parser.add_argument("--write-settle-s", type=float, default=0.2)
     parser.add_argument("--evidence-name", default="pyads-smoke")
-    parser.add_argument(
+    doctor = parser.add_mutually_exclusive_group()
+    doctor.add_argument(
         "--doctor-endpoint",
         help="optional runtime control endpoint; when set, attach pyads evidence to ads.server.doctor",
+    )
+    doctor.add_argument(
+        "--doctor-project",
+        help="optional project folder of the running runtime, whose control endpoint and token "
+        "trust-runtime finds; when set, attach pyads evidence to ads.server.doctor",
     )
     parser.add_argument("--doctor-token", help="runtime control token for --doctor-endpoint")
     parser.add_argument("--trust-runtime", default="trust-runtime")
