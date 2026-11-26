@@ -3048,6 +3048,13 @@ command-aware fallback codes. Known configuration and permission failures may
 append one actionable tip to the original error text; the tip does not replace
 or reclassify the underlying error.
 
+`completions <shell>` writes the completion script of `trust-runtime` for
+`bash`, `elvish`, `fish`, `powershell` or `zsh` to the standard output. A reader
+that closes the pipe before the script's end, as `head` does, ends the command
+with success, since the reader only stopped reading; another write error, such
+as a full disk, is the command's error (26 November 2026: the command panicked
+on the closed pipe).
+
 For `ide serve`, the explicit project path, or the current directory when it is
 omitted, must be an existing directory. A root `runtime.toml` is the primary
 runtime; otherwise the lexicographically first immediate child containing
