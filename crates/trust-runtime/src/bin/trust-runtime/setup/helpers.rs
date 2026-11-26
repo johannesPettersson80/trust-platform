@@ -1,15 +1,15 @@
 fn print_cancel_message() {
-    println!(
+    outln!(
         "{}",
         style::warning("Setup cancelled. Resume any time with: trust-runtime setup")
     );
 }
 
 fn print_setup_complete(bundle_path: &Path) {
-    println!("{}", style::success("✓ Setup complete!"));
-    println!("Start the PLC with:");
-    println!("  trust-runtime --project {}", bundle_path.display());
-    println!("Open http://localhost:8080 to monitor.");
+    outln!("{}", style::success("✓ Setup complete!"));
+    outln!("Start the PLC with:");
+    outln!("  trust-runtime --project {}", bundle_path.display());
+    outln!("Open http://localhost:8080 to monitor.");
 }
 
 fn normalize_bind(bind: String) -> anyhow::Result<String> {

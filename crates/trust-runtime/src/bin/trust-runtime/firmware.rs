@@ -174,7 +174,7 @@ fn install(
         .iter()
         .map(|part| Segment::new(part.address, &part.bytes))
         .collect();
-    println!("installing truST on {chip} at {name}");
+    outln!("installing truST on {chip} at {name}");
     flasher
         .erase_region(select.start, select.kib * 1024)
         .map_err(|error| anyhow!("erase the firmware selection: {error}"))?;
@@ -184,7 +184,7 @@ fn install(
             .map_err(|error| anyhow!("erase the device settings: {error}"))?;
     }
     if !settings.is_empty() {
-        println!("erased the device settings: the chip boots without a control token or a network");
+        outln!("erased the device settings: the chip boots without a control token or a network");
     }
     flasher
         .write_bins_to_flash(&segments, &mut Progress { parts: &parts })
@@ -193,7 +193,7 @@ fn install(
         .connection()
         .reset()
         .map_err(|error| anyhow!("reset the chip: {error}"))?;
-    println!("installed truST on {chip} at {name}; it starts the firmware now");
+    outln!("installed truST on {chip} at {name}; it starts the firmware now");
     Ok(())
 }
 
@@ -206,12 +206,12 @@ struct Progress<'a> {
 impl ProgressCallbacks for Progress<'_> {
     fn init(&mut self, addr: u32, _blocks: usize) {
         match self.parts.iter().find(|part| part.address == addr) {
-            Some(part) => println!(
+            Some(part) => outln!(
                 "writing {} ({} bytes) at 0x{addr:x}",
                 part.name,
                 part.bytes.len()
             ),
-            None => println!("writing at 0x{addr:x}"),
+            None => outln!("writing at 0x{addr:x}"),
         }
     }
 

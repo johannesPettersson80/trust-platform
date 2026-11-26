@@ -36,18 +36,18 @@ pub fn run_new(
 ) -> anyhow::Result<()> {
     match create_project_as(&parent, &name, start, force) {
         Ok(project) if json => {
-            println!(
+            outln!(
                 "{}",
                 serde_json::to_string(&project_answer(&project, start))?
             );
             Ok(())
         }
         Ok(project) => {
-            println!("Created project {}", project.display());
+            outln!("Created project {}", project.display());
             Ok(())
         }
         Err(error) if json => {
-            println!("{}", serde_json::to_string(&error_answer(&error))?);
+            outln!("{}", serde_json::to_string(&error_answer(&error))?);
             std::process::exit(1)
         }
         Err(error) => Err(error.into()),

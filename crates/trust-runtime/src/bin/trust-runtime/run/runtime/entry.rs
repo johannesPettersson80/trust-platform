@@ -592,7 +592,7 @@ pub fn run_runtime(
             false,
             beginner,
         )?;
-        println!("Console closed. Runtime still running. Press Ctrl+C to stop.");
+        outln!("Console closed. Runtime still running. Press Ctrl+C to stop.");
     }
 
     if let Some(bundle) = &bundle {

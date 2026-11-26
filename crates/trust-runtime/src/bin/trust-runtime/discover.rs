@@ -340,7 +340,7 @@ impl Printer {
                     .get("deadline_ms")
                     .and_then(Value::as_u64)
                     .unwrap_or(0);
-                println!(
+                outln!(
                     "Searching from {} for up to {:.1} s.",
                     self.origin_text,
                     seconds(deadline_ms)
@@ -372,7 +372,7 @@ impl Printer {
                 line["event"] = json!("device");
                 print_line(&line)?;
             } else {
-                println!("{}", device_text(device));
+                outln!("{}", device_text(device));
             }
         }
         for source in array(status, "sources") {
@@ -388,7 +388,7 @@ impl Printer {
                 line["event"] = json!("source");
                 print_line(&line)?;
             } else if let Some(text) = source_text(source) {
-                println!("{text}");
+                outln!("{text}");
             }
         }
         Ok(())
@@ -404,9 +404,9 @@ impl Printer {
         if self.json {
             return print_line(&compare_event(project, search_id, comparison));
         }
-        println!("Compared with the project {}.", project.display());
+        outln!("Compared with the project {}.", project.display());
         for line in comparison_text(&comparison.report(search_id)) {
-            println!("{line}");
+            outln!("{line}");
         }
         Ok(())
     }
@@ -433,7 +433,7 @@ impl Printer {
         }
         for warning in array(status, "warnings") {
             if let Some(warning) = warning.as_str() {
-                println!("Warning: {warning}");
+                outln!("Warning: {warning}");
             }
         }
         let ended = if state == "cancelled" {
@@ -443,7 +443,7 @@ impl Printer {
         };
         let count = self.devices.len();
         let noun = if count == 1 { "device" } else { "devices" };
-        println!("{ended}: {count} {noun} in {:.1} s.", seconds(elapsed_ms));
+        outln!("{ended}: {count} {noun} in {:.1} s.", seconds(elapsed_ms));
         Ok(())
     }
 }
@@ -653,7 +653,7 @@ fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
 }
 
 fn print_line(value: &Value) -> anyhow::Result<()> {
-    println!("{}", serde_json::to_string(value)?);
+    outln!("{}", serde_json::to_string(value)?);
     Ok(())
 }
 

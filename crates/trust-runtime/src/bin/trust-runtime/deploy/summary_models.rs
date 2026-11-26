@@ -48,7 +48,7 @@ impl BundleChangeSummary {
     }
 
     fn print(&self) {
-        println!("{}", self.render());
+        outln!("{}", self.render());
     }
 
     fn render(&self) -> String {

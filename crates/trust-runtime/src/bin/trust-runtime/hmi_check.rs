@@ -44,19 +44,19 @@ pub fn run_hmi_check(project: Option<PathBuf>, json: bool) -> anyhow::Result<()>
             .iter()
             .map(|problem| json!({ "file": problem.file, "line": problem.line, "message": problem.message }))
             .collect();
-        println!(
+        outln!(
             "{}",
             serde_json::to_string_pretty(
                 &json!({ "ok": problems.is_empty(), "problems": listed })
             )?
         );
     } else if problems.is_empty() {
-        println!("HMI check passed: {} files", bundle.files.len());
+        outln!("HMI check passed: {} files", bundle.files.len());
     } else {
         for problem in &problems {
-            println!("{}:{}: {}", problem.file, problem.line, problem.message);
+            outln!("{}:{}: {}", problem.file, problem.line, problem.message);
         }
-        println!("{} problem(s)", problems.len());
+        outln!("{} problem(s)", problems.len());
     }
     if !problems.is_empty() {
         std::process::exit(1);

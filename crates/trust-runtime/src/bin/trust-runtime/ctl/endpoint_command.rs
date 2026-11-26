@@ -32,9 +32,9 @@ pub(super) fn print_control_endpoint(
     match resolve_endpoint(bundle, endpoint.as_deref(), token.as_deref()) {
         Ok(target) => {
             if json {
-                println!("{}", endpoint_report(&target));
+                outln!("{}", endpoint_report(&target));
             } else {
-                println!("{}", target.endpoint_text);
+                outln!("{}", target.endpoint_text);
                 if let Some(reason) = &target.endpoint_file_skipped {
                     eprintln!("warning: the endpoint file was skipped: {reason}");
                 }
@@ -43,7 +43,7 @@ pub(super) fn print_control_endpoint(
         }
         Err(failure) => {
             if json {
-                println!("{}", error_report(&failure));
+                outln!("{}", error_report(&failure));
             }
             anyhow::bail!("{}", failure.message)
         }

@@ -40,7 +40,7 @@ pub(super) fn run(
     let (id, role, token) = (text("id")?, text("role")?, text("token")?);
     write_token(out, token)
         .with_context(|| format!("the service token {id} was created but not written"))?;
-    println!("id={id} role={role} token_file={}", out.display());
+    outln!("id={id} role={role} token_file={}", out.display());
     Ok(())
 }
 

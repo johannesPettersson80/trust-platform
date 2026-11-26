@@ -6,23 +6,23 @@ fn print_trust_banner(
     execution_backend_source: trust_runtime::execution_backend::ExecutionBackendSource,
 ) {
     crate::style::print_logo();
-    println!("Your PLC is running.");
+    outln!("Your PLC is running.");
     if let Some(warning) = simulation_warning_message(simulation_enabled, simulation_time_scale) {
-        println!("{}", style::warning(warning));
+        outln!("{}", style::warning(warning));
     }
     if let Some(bundle) = bundle {
-        println!("PLC name: {}", bundle.runtime.resource_name);
-        println!("Project: {}", bundle.root.display());
-        println!(
+        outln!("PLC name: {}", bundle.runtime.resource_name);
+        outln!("Project: {}", bundle.root.display());
+        outln!(
             "Execution backend: {} ({})",
             trust_runtime::execution_backend::EXECUTION_BACKEND,
             execution_backend_source.as_str()
         );
-        println!(
+        outln!(
             "I/O drivers: {}",
             enabled_io_driver_names(bundle).join(", ")
         );
-        println!(
+        outln!(
             "Control mode: {:?} (debug {})",
             bundle.runtime.control_mode,
             if bundle.runtime.control_debug_enabled {
@@ -33,16 +33,16 @@ fn print_trust_banner(
         );
     }
     if let Some(web_url) = web_url {
-        println!("Open: {web_url}");
+        outln!("Open: {web_url}");
     } else {
-        println!(
+        outln!(
             "Execution backend: {} ({})",
             trust_runtime::execution_backend::EXECUTION_BACKEND,
             execution_backend_source.as_str()
         );
-        println!("Web UI: disabled");
+        outln!("Web UI: disabled");
     }
-    println!("Press Ctrl+C to stop.");
+    outln!("Press Ctrl+C to stop.");
 }
 
 fn format_endpoint(endpoint: &ControlEndpoint) -> String {
@@ -66,10 +66,10 @@ fn print_startup_summary(
     simulation_time_scale: u32,
     execution_backend_source: trust_runtime::execution_backend::ExecutionBackendSource,
 ) {
-    println!("project folder: {}", bundle.root.display());
-    println!("PLC name: {}", bundle.runtime.resource_name);
-    println!("restart: {restart:?}");
-    println!(
+    outln!("project folder: {}", bundle.root.display());
+    outln!("PLC name: {}", bundle.runtime.resource_name);
+    outln!("restart: {restart:?}");
+    outln!(
         "mode: {} (time scale x{})",
         if simulation_enabled {
             "simulation"
@@ -78,18 +78,18 @@ fn print_startup_summary(
         },
         simulation_time_scale
     );
-    println!(
+    outln!(
         "cycle interval: {} ms",
         bundle.runtime.cycle_interval.as_millis()
     );
-    println!(
+    outln!(
         "execution backend: {} ({})",
         trust_runtime::execution_backend::EXECUTION_BACKEND,
         execution_backend_source.as_str()
     );
-    println!("io drivers: {}", enabled_io_driver_names(bundle).join(", "));
-    println!("control mode: {:?}", bundle.runtime.control_mode);
-    println!(
+    outln!("io drivers: {}", enabled_io_driver_names(bundle).join(", "));
+    outln!("control mode: {:?}", bundle.runtime.control_mode);
+    outln!(
         "debug: {}",
         if bundle.runtime.control_debug_enabled {
             "enabled"
@@ -98,11 +98,11 @@ fn print_startup_summary(
         }
     );
     if let Some(token) = bundle.runtime.control_auth_token.as_ref() {
-        println!("control auth: set (len={})", token.len());
+        outln!("control auth: set (len={})", token.len());
     } else {
-        println!("control auth: none");
+        outln!("control auth: none");
     }
-    println!(
+    outln!(
         "retain: {} {}",
         format_retain_mode(bundle.runtime.retain_mode),
         bundle
@@ -112,19 +112,19 @@ fn print_startup_summary(
             .map(|path| format!("({})", path.display()))
             .unwrap_or_default()
     );
-    println!(
+    outln!(
         "retain save: {} ms",
         bundle.runtime.retain_save_interval.as_millis()
     );
-    println!(
+    outln!(
         "watchdog: enabled={} timeout={} ms action={:?}",
         bundle.runtime.watchdog.enabled,
         bundle.runtime.watchdog.timeout.as_millis(),
         bundle.runtime.watchdog.action
     );
-    println!("fault policy: {:?}", bundle.runtime.fault_policy);
-    println!("control endpoint: {}", format_endpoint(endpoint));
-    println!(
+    outln!("fault policy: {:?}", bundle.runtime.fault_policy);
+    outln!("control endpoint: {}", format_endpoint(endpoint));
+    outln!(
         "web ui: {} ({})",
         if bundle.runtime.web.enabled {
             "enabled"
@@ -133,7 +133,7 @@ fn print_startup_summary(
         },
         bundle.runtime.web.listen
     );
-    println!(
+    outln!(
         "discovery: {} ({})",
         if bundle.runtime.discovery.enabled {
             "enabled"
@@ -142,7 +142,7 @@ fn print_startup_summary(
         },
         bundle.runtime.discovery.service_name
     );
-    println!(
+    outln!(
         "mesh: {} ({})",
         if bundle.runtime.mesh.enabled {
             "enabled"
@@ -151,7 +151,7 @@ fn print_startup_summary(
         },
         bundle.runtime.mesh.listen
     );
-    println!(
+    outln!(
         "opc ua: {} ({})",
         if bundle.runtime.opcua.enabled {
             "enabled"
@@ -161,6 +161,6 @@ fn print_startup_summary(
         bundle.runtime.opcua.listen
     );
     if let Some(endpoint) = opcua_endpoint {
-        println!("opc ua endpoint: {endpoint}");
+        outln!("opc ua endpoint: {endpoint}");
     }
 }

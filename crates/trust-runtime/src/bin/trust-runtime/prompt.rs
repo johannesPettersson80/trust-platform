@@ -1,6 +1,6 @@
 //! Interactive prompt helpers for CLI flows.
 
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal};
 use std::path::{Path, PathBuf};
 
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
@@ -25,8 +25,8 @@ pub(crate) fn prompt_string(label: &str, default: &str) -> anyhow::Result<String
         return Ok(input);
     }
     let prompt = format!("{label} [{default}]: ");
-    print!("{prompt}");
-    io::stdout().flush()?;
+    out!("{prompt}");
+    crate::output::flush()?;
     let mut line = String::new();
     io::stdin().read_line(&mut line)?;
     let trimmed = line.trim();
@@ -57,8 +57,8 @@ pub(crate) fn prompt_choice(
     }
     let options_text = options.join("/");
     let prompt = format!("{label} ({options_text}) [{default}]: ");
-    print!("{prompt}");
-    io::stdout().flush()?;
+    out!("{prompt}");
+    crate::output::flush()?;
     let mut line = String::new();
     io::stdin().read_line(&mut line)?;
     let trimmed = line.trim();
@@ -102,8 +102,8 @@ pub(crate) fn prompt_yes_no(label: &str, default: bool) -> anyhow::Result<bool> 
     }
     let default_text = if default { "Y/n" } else { "y/N" };
     let prompt = format!("{label} [{default_text}]: ");
-    print!("{prompt}");
-    io::stdout().flush()?;
+    out!("{prompt}");
+    crate::output::flush()?;
     let mut line = String::new();
     io::stdin().read_line(&mut line)?;
     let trimmed = line.trim().to_ascii_lowercase();
@@ -184,8 +184,8 @@ mod tests {
     fn numeric_prompt_wrapper_preserves_zero_ordinary_default_and_errors() {
         if std::env::var_os(PROMPT_CHILD_ENV).is_some() {
             match prompt_u64("Cycle time", 73) {
-                Ok(value) => println!("PROMPT_RESULT=ok:{value}"),
-                Err(error) => println!("PROMPT_RESULT=error:{error}"),
+                Ok(value) => outln!("PROMPT_RESULT=ok:{value}"),
+                Err(error) => outln!("PROMPT_RESULT=error:{error}"),
             }
             return;
         }

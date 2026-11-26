@@ -353,11 +353,14 @@ fn render_config_source(resource_name: &SmolStr, cycle_ms: u64) -> String {
 
 fn print_add_response(response: FleetRuntimeAddResponse, json: bool) -> anyhow::Result<()> {
     if json {
-        println!("{}", serde_json::to_string_pretty(&response)?);
+        outln!("{}", serde_json::to_string_pretty(&response)?);
     } else {
-        println!(
+        outln!(
             "Added runtime '{}' at {} ({}, web port {})",
-            response.name, response.path, response.control_endpoint, response.web_port
+            response.name,
+            response.path,
+            response.control_endpoint,
+            response.web_port
         );
     }
     Ok(())
@@ -365,17 +368,20 @@ fn print_add_response(response: FleetRuntimeAddResponse, json: bool) -> anyhow::
 
 fn print_list_response(response: FleetListResponse, json: bool) -> anyhow::Result<()> {
     if json {
-        println!("{}", serde_json::to_string_pretty(&response)?);
+        outln!("{}", serde_json::to_string_pretty(&response)?);
         return Ok(());
     }
     if response.runtimes.is_empty() {
-        println!("No runtimes registered in {}", response.fleet_root);
+        outln!("No runtimes registered in {}", response.fleet_root);
         return Ok(());
     }
     for runtime in response.runtimes {
-        println!(
+        outln!(
             "{}\t{}\t{}\t{}",
-            runtime.name, runtime.path, runtime.control_endpoint, runtime.web_port
+            runtime.name,
+            runtime.path,
+            runtime.control_endpoint,
+            runtime.web_port
         );
     }
     Ok(())
@@ -386,23 +392,26 @@ fn print_lifecycle_response(
     json: bool,
 ) -> anyhow::Result<()> {
     if json {
-        println!("{}", serde_json::to_string_pretty(&response)?);
+        outln!("{}", serde_json::to_string_pretty(&response)?);
         return Ok(());
     }
-    println!(
+    outln!(
         "{}\t{}\t{}\t{}",
-        response.name, response.status, response.control_endpoint, response.message
+        response.name,
+        response.status,
+        response.control_endpoint,
+        response.message
     );
     Ok(())
 }
 
 fn print_logs_response(response: FleetRuntimeLogsResponse, json: bool) -> anyhow::Result<()> {
     if json {
-        println!("{}", serde_json::to_string_pretty(&response)?);
+        outln!("{}", serde_json::to_string_pretty(&response)?);
         return Ok(());
     }
     for line in response.lines {
-        println!("{line}");
+        outln!("{line}");
     }
     Ok(())
 }

@@ -100,24 +100,24 @@ pub fn run_hmi_test(
             std::fs::create_dir_all(&screens)?;
             std::fs::copy(&shot, &approved)?;
             let _ = std::fs::remove_file(&actual);
-            println!("{name}: approved");
+            outln!("{name}: approved");
             continue;
         }
         if !approved.is_file() {
             std::fs::create_dir_all(&screens)?;
             std::fs::copy(&shot, &actual)?;
-            println!("{name}: no approved screenshot (hmi/screens/{name}.png); its look is in hmi/screens/{name}.actual.png, run with --update to approve it");
+            outln!("{name}: no approved screenshot (hmi/screens/{name}.png); its look is in hmi/screens/{name}.actual.png, run with --update to approve it");
             failed += 1;
             continue;
         }
         match compare(&pixels(&approved)?, &pixels(&shot)?) {
             Compared::Same => {
                 let _ = std::fs::remove_file(&actual);
-                println!("{name}: same");
+                outln!("{name}: same");
             }
             Compared::Changed(share) => {
                 std::fs::copy(&shot, &actual)?;
-                println!("{name}: changed ({:.1} % of the pixels), the new look in hmi/screens/{name}.actual.png", share * 100.0);
+                outln!("{name}: changed ({:.1} % of the pixels), the new look in hmi/screens/{name}.actual.png", share * 100.0);
                 failed += 1;
             }
         }

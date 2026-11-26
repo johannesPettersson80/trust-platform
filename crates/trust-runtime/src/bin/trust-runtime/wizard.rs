@@ -16,23 +16,23 @@ use crate::run;
 use crate::style;
 
 pub fn run_wizard(path: Option<PathBuf>, start: bool) -> anyhow::Result<()> {
-    println!(
+    outln!(
         "{}",
         style::accent("Welcome to trueST! Creating a new PLC project...")
     );
     let bundle_path = create_bundle(path)?;
-    println!(
+    outln!(
         "{}",
         style::success(format!("✓ Project created at {}", bundle_path.display()))
     );
-    println!(
+    outln!(
         "{}",
         style::accent(format!(
             "Next: trust-runtime --project {}",
             bundle_path.display()
         ))
     );
-    println!("(Project folder contains runtime.toml, io.toml, src/, program.tpi)");
+    outln!("(Project folder contains runtime.toml, io.toml, src/, program.tpi)");
     let should_start = if start {
         true
     } else {

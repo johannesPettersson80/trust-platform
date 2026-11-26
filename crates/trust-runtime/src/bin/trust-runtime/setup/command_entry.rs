@@ -41,14 +41,14 @@ pub fn run_setup(options: SetupCommandOptions) -> anyhow::Result<()> {
             "setup requires an interactive terminal, or explicit mode (e.g. `trust-runtime setup --mode cancel`)"
         );
     }
-    println!(
+    outln!(
         "{}",
         style::accent("Welcome to trueST! Let’s set up your first PLC project.")
     );
-    println!("Setup options:");
-    println!("  1) Open browser setup");
-    println!("  2) Start CLI setup");
-    println!("  3) Cancel setup");
+    outln!("Setup options:");
+    outln!("  1) Open browser setup");
+    outln!("  2) Start CLI setup");
+    outln!("  3) Cancel setup");
     let choice = prompt::prompt_string("Select option", "1")?;
     match choice.trim() {
         "1" => run_browser_setup_interactive(),
@@ -65,11 +65,11 @@ pub fn run_setup(options: SetupCommandOptions) -> anyhow::Result<()> {
 
 pub fn run_setup_default() -> anyhow::Result<()> {
     crate::style::print_logo();
-    println!(
+    outln!(
         "{}",
         style::accent("Welcome to trueST! Let’s create your first PLC project.")
     );
-    println!("If you are on another device, run: trust-runtime setup");
+    outln!("If you are on another device, run: trust-runtime setup");
     run_browser_setup_auto()
 }
 
@@ -149,7 +149,7 @@ fn run_system_setup(
         path,
     };
     let path = trust_runtime::setup::run_setup(options)?;
-    println!(
+    outln!(
         "{}",
         style::success(format!("System I/O config written to {}", path.display()))
     );

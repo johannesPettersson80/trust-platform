@@ -44,18 +44,18 @@ pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Resul
         PlayProjectPlan::Create(path) => (wizard::create_bundle_auto(path)?, true),
     };
     if created {
-        println!(
+        outln!(
             "{}",
             style::accent("Welcome to trueST! Creating your first PLC project...")
         );
-        println!(
+        outln!(
             "{}",
             style::success(format!(
                 "Created project folder: {}",
                 project_path.display()
             ))
         );
-        println!("What’s next: open http://localhost:8080 to monitor this PLC.");
+        outln!("What’s next: open http://localhost:8080 to monitor this PLC.");
     }
     run_runtime(
         Some(project_path),
@@ -75,10 +75,10 @@ pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Resul
 pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
     let payload = validate_json_payload(bundle)?;
     if ci {
-        println!("{}", serde_json::to_string_pretty(&payload)?);
+        outln!("{}", serde_json::to_string_pretty(&payload)?);
         return Ok(());
     }
-    println!("{}", style::success("Project ok"));
+    outln!("{}", style::success("Project ok"));
     Ok(())
 }
 

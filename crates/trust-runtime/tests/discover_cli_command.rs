@@ -142,6 +142,38 @@ fn cli_discover_prints_one_json_object_per_line() {
 }
 
 #[test]
+fn cli_discover_into_a_closed_pipe_ends_quietly() {
+    // Specification 11, "CLI entrypoint": `trust-runtime discover --json ... | head -1` once the
+    // reader has closed the pipe. Here the pipe's reader is closed before the command starts, so the
+    // first line already finds it closed; the search still runs to its end. Catches the panic 'failed
+    // printing to stdout: Broken pipe (os error 32)' and its exit status 101 (26 November 2026).
+    let address = silent_port();
+    let (reader, writer) = std::io::pipe().expect("a pipe");
+    drop(reader);
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("discover")
+    .args(["--json", "--only", "modbus_tcp", "--host", &address])
+    .env_remove("TRUST_CTL_TOKEN")
+    .stdout(writer)
+    .output()
+    .expect("run trust-runtime discover");
+    assert!(
+        output.status.success(),
+        "status {:?}, stderr: {}",
+        output.status,
+        stderr(&output)
+    );
+    assert!(
+        !stderr(&output).contains("panicked"),
+        "stderr: {}",
+        stderr(&output)
+    );
+}
+
+#[test]
 fn cli_only_limits_the_sources() {
     let address = silent_port();
     let output = run_discover(&["--json", "--only", "modbus_tcp,mqtt", "--host", &address]);

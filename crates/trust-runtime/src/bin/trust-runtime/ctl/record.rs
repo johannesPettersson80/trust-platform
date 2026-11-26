@@ -57,7 +57,7 @@ pub(super) fn run(
         .map_err(|error| step_failed("trace.read", &error))?;
     let path = out.map_or_else(|| default_file("trace", now_utc_secs()), Path::to_path_buf);
     std::fs::write(&path, &file).with_context(|| format!("cannot write {}", path.display()))?;
-    println!(
+    outln!(
         "recorded {} cycles ({}) to {}, {} bytes",
         ended.cycles,
         ended.reason,
@@ -87,7 +87,7 @@ pub(super) fn run_fault(target: &ResolvedControlTarget, out: Option<&Path>) -> a
     };
     let path = out.map_or_else(|| default_file("fault", now_utc_secs()), Path::to_path_buf);
     std::fs::write(&path, &file).with_context(|| format!("cannot write {}", path.display()))?;
-    println!(
+    outln!(
         "saved the fault's trace of {} cycles ({}) to {}, {} bytes",
         ended.cycles,
         ended.reason,

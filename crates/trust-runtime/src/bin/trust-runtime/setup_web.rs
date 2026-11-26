@@ -320,7 +320,7 @@ pub fn run_setup_web(options: SetupWebOptions) -> anyhow::Result<()> {
         let response = Response::from_string("not found").with_status_code(StatusCode(404));
         let _ = request.respond(response);
     }
-    println!("Setup web server stopped.");
+    outln!("Setup web server stopped.");
     Ok(())
 }
 
@@ -453,16 +453,16 @@ fn print_setup_urls(state: &Arc<Mutex<SetupState>>, announcement: &SetupAnnounce
         format!("http://localhost:{}/setup", announcement.port)
     };
     if let Some(token) = token {
-        println!("Setup URL (mDNS): {base}?token={token}");
-        println!("If mDNS is unavailable, open the device IP in your browser.");
-        println!(
+        outln!("Setup URL (mDNS): {base}?token={token}");
+        outln!("If mDNS is unavailable, open the device IP in your browser.");
+        outln!(
             "Token expires in {} minutes",
             guard.options.token_ttl_minutes
         );
-        println!("No browser available? Run: trust-runtime setup and choose CLI setup.");
+        outln!("No browser available? Run: trust-runtime setup and choose CLI setup.");
     } else {
-        println!("Setup URL: {base}");
-        println!("No browser available? Run: trust-runtime setup and choose CLI setup.");
+        outln!("Setup URL: {base}");
+        outln!("No browser available? Run: trust-runtime setup and choose CLI setup.");
     }
 }
 

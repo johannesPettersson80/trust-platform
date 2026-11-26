@@ -32,7 +32,7 @@ pub(super) fn print_rust_pous(response: &JsonValue) -> anyhow::Result<()> {
             .get("over_budget")
             .and_then(JsonValue::as_u64)
             .context("Rust POU result missing non-negative integer 'over_budget'")?;
-        println!("rust_pou={name} budget_ns={budget} longest_ns={longest} over_budget={over}");
+        outln!("rust_pou={name} budget_ns={budget} longest_ns={longest} over_budget={over}");
     }
     Ok(())
 }

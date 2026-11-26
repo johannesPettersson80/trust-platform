@@ -30,7 +30,7 @@ pub(super) fn run(target: &ResolvedControlTarget, action: &ControlAction) -> any
     let response = send_request(&target.endpoint, &request)?;
     ensure_control_response_ok(&response)?;
     let result = &response["result"];
-    println!("{}", render(action, result)?);
+    outln!("{}", render(action, result)?);
     Ok(())
 }
 

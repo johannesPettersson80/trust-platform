@@ -45,9 +45,9 @@ pub fn accent(text: impl AsRef<str>) -> String {
 }
 
 pub fn print_logo() {
-    println!(" _            ___ _____");
-    println!("| |_ _ _ _  _/ __|_   _|");
-    println!("|  _| '_| || \\__ \\ | |");
-    println!(" \\__|_|  \\_,_|___/ |_|");
-    println!();
+    outln!(" _            ___ _____");
+    outln!("| |_ _ _ _  _/ __|_   _|");
+    outln!("|  _| '_| || \\__ \\ | |");
+    outln!(" \\__|_|  \\_,_|___/ |_|");
+    outln!();
 }

@@ -1,7 +1,7 @@
 pub fn run_bench(action: BenchAction) -> anyhow::Result<()> {
     let (report, output_format) = execute_bench(action)?;
     let rendered = render_bench_output(&report, output_format)?;
-    print!("{rendered}");
+    out!("{rendered}");
     Ok(())
 }
 

@@ -380,13 +380,13 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 }
                 None => ("disabled", false),
             };
-            println!("state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}");
+            outln!("state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}");
         }
         ControlAction::Capabilities => {
             let result = response
                 .get("result")
                 .context("capabilities reply missing 'result'")?;
-            println!("{}", serde_json::to_string_pretty(result)?);
+            outln!("{}", serde_json::to_string_pretty(result)?);
         }
         ControlAction::Health => {
             let ok = response
@@ -394,7 +394,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 .and_then(|result| result.get("ok"))
                 .and_then(JsonValue::as_bool)
                 .context("health result missing boolean 'ok'")?;
-            println!("ok={ok}");
+            outln!("ok={ok}");
         }
         ControlAction::Stats => {
             let tasks = response
@@ -403,7 +403,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 .and_then(JsonValue::as_array)
                 .context("stats result missing array 'tasks'")?;
             if tasks.is_empty() {
-                println!("tasks=0");
+                outln!("tasks=0");
             }
             for task in tasks {
                 let name = task
@@ -430,7 +430,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                     .get("overruns")
                     .and_then(JsonValue::as_u64)
                     .context("task result missing non-negative integer 'overruns'")?;
-                println!(
+                outln!(
                     "task={name} min_ms={min:.3} avg_ms={avg:.3} max_ms={max:.3} last_ms={last:.3} overruns={overruns}"
                 );
             }
@@ -446,9 +446,9 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
             if let Some(result) = response.get_mut("result") {
                 one_based_positions(result);
             }
-            println!("{}", serde_json::to_string(&response)?);
+            outln!("{}", serde_json::to_string(&response)?);
         }
-        _ => println!("{}", serde_json::to_string(response)?),
+        _ => outln!("{}", serde_json::to_string(response)?),
     }
     Ok(())
 }
@@ -461,7 +461,7 @@ fn print_variables(response: &JsonValue) -> anyhow::Result<()> {
         .and_then(JsonValue::as_object)
         .context("variables.read response missing object 'result'")?;
     let field = |name: &str| result.get(name).cloned().unwrap_or(JsonValue::Null);
-    println!(
+    outln!(
         "scan={} time_ns={} state={} quality={}",
         field("scan"),
         field("time_ns"),
@@ -473,7 +473,7 @@ fn print_variables(response: &JsonValue) -> anyhow::Result<()> {
         .and_then(JsonValue::as_array)
         .context("variables.read result missing array 'values'")?;
     for value in values {
-        println!(
+        outln!(
             "{} : {} = {}",
             value.get("path").and_then(JsonValue::as_str).unwrap_or("?"),
             value.get("type").and_then(JsonValue::as_str).unwrap_or("?"),

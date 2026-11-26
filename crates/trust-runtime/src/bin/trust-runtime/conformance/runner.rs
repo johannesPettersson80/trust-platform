@@ -164,7 +164,7 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
 
     let rendered =
         serde_json::to_string_pretty(&summary).context("serialize conformance summary")?;
-    println!("{rendered}");
+    outln!("{rendered}");
     fs::write(&output_path, format!("{rendered}\n")).with_context(|| {
         format!(
             "write conformance summary output '{}'",

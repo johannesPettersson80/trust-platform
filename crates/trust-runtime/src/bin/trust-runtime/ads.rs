@@ -332,14 +332,14 @@ fn run_server_control(
     let response = crate::ctl::send_request(&target.endpoint, &request)?;
     crate::ctl::ensure_control_response_ok(&response)?;
     if json_output {
-        println!("{}", serde_json::to_string_pretty(&response)?);
+        outln!("{}", serde_json::to_string_pretty(&response)?);
         return Ok(());
     }
     let result = response
         .get("result")
         .cloned()
         .unwrap_or(serde_json::Value::Null);
-    println!("{}", render_server_control_result(kind, &result));
+    outln!("{}", render_server_control_result(kind, &result));
     Ok(())
 }
 
@@ -942,13 +942,13 @@ fn run_remove_symbols(
     )
     .map_err(anyhow::Error::msg)?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&value)?);
+        outln!("{}", serde_json::to_string_pretty(&value)?);
     } else {
         let message = value
             .get("message")
             .and_then(serde_json::Value::as_str)
             .unwrap_or("ADS tag removal finished.");
-        println!("{}", style::success(message));
+        outln!("{}", style::success(message));
     }
     Ok(())
 }
@@ -1247,9 +1247,9 @@ where
     T: Serialize,
 {
     if json {
-        println!("{}", serde_json::to_string_pretty(report)?);
+        outln!("{}", serde_json::to_string_pretty(report)?);
     } else {
-        print!("{}", render_human(report));
+        out!("{}", render_human(report));
     }
     Ok(())
 }
