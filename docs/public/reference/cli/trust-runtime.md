@@ -301,6 +301,124 @@ it where your shell loads completions, for example for bash:
 trust-runtime completions bash > ~/.local/share/bash-completion/completions/trust-runtime
 ```
 
+### Deploy and Rollback
+
+```text
+Usage: trust-runtime deploy [OPTIONS] --project <PROJECT>
+Usage: trust-runtime rollback [OPTIONS]
+```
+
+`deploy` copies the project folder that `--project` names into a versioned
+deployment root, `--root` (the current folder by default), as a new version
+named by `--label` (`project-<timestamp>` by default), and makes it the active
+one; `--restart` gives the restart mode after the deployment, `cold` or `warm`.
+`rollback` makes the previous version of `--root` active again. The root keeps
+the active and the previous version; [Deploy And
+Rollback](../../operate/deploy-rollback.md) describes its files and when to roll
+back.
+
+```text
+trust-runtime deploy --project ./my-plc --root ./deploy-root
+trust-runtime rollback --root ./deploy-root
+```
+
+### Setup
+
+```text
+Usage: trust-runtime setup [OPTIONS]
+```
+
+`setup` writes this computer's system I/O configuration, `/etc/trust/io.toml`
+(`--path` names another file), with its drivers detected. `--mode` chooses how:
+`browser`, a setup page, `cli`, questions in the terminal, or `cancel`.
+`--access local` serves the setup page on this computer only, and
+`--access remote` on the network, behind a token valid for
+`--token-ttl-minutes`; `--bind` and `--port` set its address. `--project` names
+the project the setup is for, `--dry-run` shows the plan without writing,
+`--driver` overrides the detected driver, `--backend` the GPIO backend (libgpiod
+or chardev by default, sysfs on legacy hosts), and `--force` overwrites an
+existing system configuration.
+
+```text
+trust-runtime setup --mode cli --dry-run
+```
+
+### HMI Password
+
+```text
+Usage: trust-runtime hmi-password [OPTIONS]
+```
+
+`hmi-password` reads a password from the standard input and prints the hash that
+an HMI user's `password` stores in `[[runtime.web.hmi.user]]` of `runtime.toml`
+(specification 39 §12.8): PBKDF2-HMAC-SHA256 with its iteration count and a
+random salt, never the password itself. `--iterations` sets the count, at least
+10000 and 600000 by default. The HMI Builder's **Add user…** writes the same
+hash. For the throwaway password `not-a-real-password` with `--iterations
+10000`, it printed:
+
+```text
+pbkdf2-sha256:10000:Yrfdf9GzjQWNHOUGgmNedw:FDTIayzvJ1J0wJpmP4a-_ScXHAqxP8sdNEWAgdEBAOU
+```
+
+```toml
+[[runtime.web.hmi.user]]
+name = "anna"
+role = "operator"
+password = "pbkdf2-sha256:600000:<salt>:<hash>"
+```
+
+### Discover
+
+```text
+Usage: trust-runtime discover [OPTIONS]
+```
+
+`discover` searches for devices, truST runtimes, ADS, Modbus TCP, MQTT, OPC UA,
+EtherCAT and GPIO, as the Discover pane of Devices & Connections does, and
+prints what it finds by source.
+
+- `--only`: search only these sources, one or several, comma-separated or
+  repeated: `trust_runtime`, `ads`, `modbus_tcp`, `mqtt`, `opcua`, `ethercat`,
+  `gpio`, `serial`, `usb`, `bluetooth`.
+- `--host` (repeatable) and `--cidr`: a known address, a host name or an IP
+  address with an optional port, and an IPv4 subnet of at most `/24` to search.
+- `--deadline-ms`: how long the search may take, 1 to 60000 ms, 10000 by
+  default.
+- `--confirm-fieldbus`: confirms an EtherCAT scan, `ethercat` or
+  `ethercat:<adapter>`, which runs only when confirmed.
+- `--endpoint` and `--token`: run the search inside the runtime at that control
+  endpoint, a chip on USB (`serial:///dev/ttyACM0`) too, instead of on this
+  computer.
+- `--project`: use the choices that the project's Discover pane remembers
+  (`.trust-runtime/devices.toml`); `--show-ignored` shows the devices it
+  ignores, and `--compare` compares the search with the project's configured
+  devices instead of listing what it found.
+- `--json`: one JSON object per line, such as
+  `{"count":0,"event":"source","id":"modbus_tcp","state":"found"}`.
+
+```text
+trust-runtime discover --only modbus_tcp,opcua --cidr 192.168.1.0/24
+```
+
+### Conformance
+
+```text
+Usage: trust-runtime conformance [OPTIONS]
+```
+
+`conformance` runs the cases of the deterministic conformance suite in
+`--suite-root`. `--filter` runs the cases whose ids contain a text (in any
+case), `--output` writes a JSON summary, and `--update-expected` refreshes the
+expected results from the current runtime's behaviour. `--device` with
+`--target` (`esp32c6`, `stm32u5a9`) runs the runtime cases on a device on its
+serial port, or through a `tcp://<host>:<port>` bridge to that port: each case
+is compiled for the target and run there.
+
+```text
+trust-runtime conformance --suite-root ./conformance --output ./conformance/reports/local.json
+```
+
 ### Simulate
 
 ```text
