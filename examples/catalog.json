@@ -89,6 +89,17 @@
     ]
   },
   {
+    "id": "rust-first-cell",
+    "title": "Rust-first press cell",
+    "description": "A press cell whose whole program is Rust: trust.toml is its configuration, a sequence clamps, presses and lifts with a time limit on each move, and machine tests check it. Simulates with no hardware.",
+    "path": "rust_first_cell",
+    "hardware": "none",
+    "tags": [
+      "rust",
+      "simulator"
+    ]
+  },
+  {
     "id": "twincat-ads",
     "title": "TwinCAT ADS",
     "description": "Beckhoff ADS starter. Simulates now; connect the PLC later.",

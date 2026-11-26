@@ -18,6 +18,7 @@ interface CatalogEntry {
   readonly title: string;
   readonly description: string;
   readonly path: string;
+  readonly program: string;
   readonly hardware: string;
   readonly tags?: ReadonlyArray<string>;
   readonly lesson?: ControlLessonMetadata;
@@ -68,6 +69,7 @@ function toExampleEntry(entry: CatalogEntry): ExampleEntry {
     title: entry.title,
     description: entry.description,
     path: entry.path,
+    program: entry.program,
     hardware: entry.hardware,
     tags: entry.tags,
     lesson: entry.lesson,

@@ -3,8 +3,8 @@
 //! - `trust-lsp.examplesCatalog` `{ root, created? }`: the gallery's entries from the packaged
 //!   `manifest.json` in `root`, each control lesson with its availability, whether each entry can be
 //!   copied, what each card says of its packaged default (`execution`, `hardwareLabel` and
-//!   `hardwareRequired`, specification 25 §3.1), and which of the `created` lesson ids the learner's
-//!   progress keeps. A manifest that
+//!   `hardwareRequired`, specification 25 §3.1), each entry's program file, which a copied starter
+//!   opens (`program`, §3.2), and which of the `created` lesson ids the learner's progress keeps. A manifest that
 //!   cannot be read, or whose entries miss their fields, fails the gallery; one lesson whose
 //!   `lesson.json` is missing, unreadable or invalid only makes that lesson unavailable. The
 //!   repository's catalog, which the extension's build copies, passes the stricter packaging check
@@ -25,6 +25,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
+use trust_runtime::native::rust_pous;
+use trust_runtime::new_project::ProjectStart;
 
 use super::decode;
 
@@ -170,6 +172,10 @@ fn entry_answer(root: &Path, entry: &ManifestEntry) -> Map<String, Value> {
     answer.insert("title".to_owned(), json!(entry.title));
     answer.insert("description".to_owned(), json!(entry.description));
     answer.insert("path".to_owned(), json!(entry.path));
+    answer.insert(
+        "program".to_owned(),
+        json!(program_file(&root.join(&entry.path))),
+    );
     answer.insert("hardware".to_owned(), json!(entry.hardware));
     if let Some(tags) = &entry.tags {
         answer.insert("tags".to_owned(), json!(tags));
@@ -208,6 +214,20 @@ fn entry_answer(root: &Path, entry: &ManifestEntry) -> Map<String, Value> {
     answer.insert("lessonAvailability".to_owned(), Value::Object(state));
     answer.insert("copyable".to_owned(), json!(availability.available));
     answer
+}
+
+/// The program file of the project in `folder`, relative to it: the file a copied starter opens
+/// (specification 25 §3.2), as Create Project opens a new project's (`ProjectStart::focus`). A
+/// Rust-first project, whose `trust.toml` makes the project's own folder its crate (specification 48
+/// RU-65), has its program in the crate, `src/lib.rs`. Every other project has it in `src/Main.st`,
+/// which calls the crate of a project with Rust in `rust/`.
+fn program_file(folder: &Path) -> &'static str {
+    let rust_first = rust_pous::layout(folder).is_ok_and(|layout| layout.crate_folder == ".");
+    if rust_first {
+        ProjectStart::RustFirst.focus()
+    } else {
+        ProjectStart::StructuredText.focus()
+    }
 }
 
 /// What a card says of an example's packaged default (specification 25 §3.1).

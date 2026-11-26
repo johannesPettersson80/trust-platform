@@ -2,7 +2,9 @@ import { pbkdf2Sync, timingSafeEqual } from "crypto";
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
+import * as vscode from "vscode";
 
+import { loadExamples } from "../../examples/load";
 import {
   compactExampleDescription,
   type ExampleEntry,
@@ -552,16 +554,21 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     }
   });
 
-  test("every example folder is a runnable scaffold (the 4 files), bundled in media/", () => {
+  test("every example folder is a runnable scaffold with its program, bundled in media/", async () => {
+    // The program is the language server's answer (`program`: src/Main.st, or src/lib.rs of a Rust-first project,
+    // specification 25 §3.2), which a copied starter opens.
+    const answered = await loadExamples({ extensionUri: vscode.Uri.file(extensionRoot()) } as vscode.ExtensionContext);
     for (const entry of manifestEntries()) {
       const dir = path.join(EXAMPLES_DIR, entry.path);
+      const program = answered.find((candidate) => candidate.id === entry.id)?.program;
+      assert.ok(program, `the language server names the program of example '${entry.id}'`);
       for (const file of [
         "trust-lsp.toml",
         "runtime.toml",
         "io.toml",
         path.join(".vscode", "launch.json"),
         path.join(".vscode", "settings.json"),
-        path.join("src", "Main.st"),
+        program,
       ]) {
         assert.ok(
           fs.existsSync(path.join(dir, file)),
@@ -680,14 +687,22 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     }
   });
 
+  /**
+   * The Structured Text files below `dir` and its folders, as `include_paths = ["src"]` reads a project's sources: a
+   * Rust-first project's configuration lies in `src/generated/trust/` (specification 48 RU-67).
+   */
+  function structuredTextBelow(dir: string): string[] {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((item) => {
+      const full = path.join(dir, item.name);
+      if (item.isDirectory()) return structuredTextBelow(full);
+      return item.name.toLowerCase().endsWith(".st") ? [full] : [];
+    });
+  }
+
   test("every example instantiates its program in a configuration", () => {
     for (const entry of manifestEntries()) {
-      const srcDir = path.join(EXAMPLES_DIR, entry.path, "src");
-      const stFiles = fs
-        .readdirSync(srcDir)
-        .filter((name) => name.toLowerCase().endsWith(".st"));
-      const source = stFiles
-        .map((name) => fs.readFileSync(path.join(srcDir, name), "utf8"))
+      const source = structuredTextBelow(path.join(EXAMPLES_DIR, entry.path, "src"))
+        .map((file) => fs.readFileSync(file, "utf8"))
         .join("\n");
       assert.ok(
         /\bCONFIGURATION\b/i.test(source),

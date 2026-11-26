@@ -6,7 +6,7 @@
 use super::remote::{RemoteEndpoint, RemoteSession};
 use super::*;
 use serde_json::json;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration as WallDuration, Instant};
 
 /// The project's crate: a Rust function, which the SDK's procedural macros declare (specification
@@ -296,5 +296,130 @@ fn a_launch_whose_crate_does_not_compile_reports_its_error_where_it_is() {
         build_diagnostics(&configured.events),
         &the_type_error(&project.root)
     );
+    assert!(adapter.simulator.is_none());
+}
+
+/// A copy of the example `rust_first_cell`, a Rust-first project whose crate is its own folder
+/// (specification 48 RU-65), without what an earlier build left in the example, removed when
+/// dropped.
+struct RustFirstCell {
+    root: PathBuf,
+}
+
+impl RustFirstCell {
+    fn new() -> Self {
+        let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/rust_first_cell");
+        let root = trust_test_support::unique_temp_path("trust-simulator-rust-first");
+        copy_project(&example, &root);
+        Self { root }
+    }
+}
+
+impl Drop for RustFirstCell {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+/// Copies the project in `from` to `to`, leaving out what a build or a run writes.
+fn copy_project(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).expect("the copy's folder");
+    for item in std::fs::read_dir(from).expect("the example's folder") {
+        let item = item.expect("a folder entry");
+        let name = item.file_name();
+        if matches!(
+            name.to_str(),
+            Some("build" | "target" | "program.tpi" | "deployment-record.bin" | ".trust-runtime")
+        ) {
+            continue;
+        }
+        let target = to.join(&name);
+        if item.file_type().expect("its type").is_dir() {
+            copy_project(&item.path(), &target);
+        } else {
+            std::fs::copy(item.path(), &target).expect("a copy");
+        }
+    }
+}
+
+/// Whether the output at `address` reads TRUE in the runtime's I/O state, as Live Values reads it.
+fn output_is_true(client: &mut RemoteSession, address: &str) -> bool {
+    client.io_state().is_ok_and(|state| {
+        state.outputs.iter().any(|entry| {
+            entry.address == address && entry.value.to_ascii_lowercase().contains("true")
+        })
+    })
+}
+
+/// Waits up to `limit` until the output at `address` reads TRUE.
+fn wait_for_output(client: &mut RemoteSession, address: &str, limit: WallDuration) {
+    let deadline = Instant::now() + limit;
+    while !output_is_true(client, address) {
+        assert!(
+            Instant::now() < deadline,
+            "{address} not TRUE within {limit:?}"
+        );
+        std::thread::sleep(WallDuration::from_millis(20));
+    }
+}
+
+/// Specification 48 RU-69 and specification 25 §3.2, worked from the example's files: Start on a
+/// copy of the example `rust_first_cell` launches its generated configuration, builds the project's
+/// own crate and runs the press cell, whose sequence lights the Ready lamp (`%QX0.2`, trust.toml) in
+/// its first scan. With the part sensor (`%IX0.1`) and Start (`%IX0.0`) written as Live Values
+/// writes an input, the sequence leaves READY at the next scan and opens the clamp's valve
+/// (`%QX0.0`). Catches a launch that finds no crate in a project whose crate is its own folder, a
+/// configuration built without its Rust program, and bindings that do not reach the program.
+#[test]
+fn a_launch_of_a_rust_first_project_runs_its_crate_and_takes_its_inputs() {
+    let toolchain = trust_runtime::native::Toolchain::find()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        // The launch is refused, as a_launch_builds_the_projects_rust_crate_and_runs_its_pous proves.
+        return;
+    }
+    let cell = RustFirstCell::new();
+    let configuration = cell.root.join("src/generated/trust/configuration.st");
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
+    adapter.dispatch_request(request(1, "initialize", json!({})));
+    let launch = adapter.dispatch_request(request(
+        2,
+        "launch",
+        json!({
+            "program": configuration.to_string_lossy(),
+            "runtimeRoot": cell.root.to_string_lossy(),
+            "runtimeIncludeGlobs": [trust_runtime::runtime_sources::DEFAULT_INCLUDE_GLOB],
+            "controlEndpoint": "tcp://127.0.0.1:0",
+            "controlAuthToken": TOKEN,
+        }),
+    ));
+    assert!(launch.responses.is_empty(), "the launch waits");
+    let configured = adapter.dispatch_request(request(3, "configurationDone", json!({})));
+    assert!(
+        configured
+            .responses
+            .iter()
+            .all(|response| response["success"].as_bool().unwrap_or(false)),
+        "{:?}",
+        configured.responses
+    );
+    let addr = adapter
+        .simulator
+        .as_ref()
+        .expect("the program runs compiled")
+        .control_server()
+        .tcp_addr();
+    let mut client = RemoteSession::connect(RemoteEndpoint::Tcp(addr), Some(TOKEN.to_string()))
+        .expect("connect");
+    // The first launch compiles the SDK, so the first scan may take a while on a slow computer.
+    wait_for_output(&mut client, "%QX0.2", WallDuration::from_secs(60));
+    assert!(
+        !output_is_true(&mut client, "%QX0.0"),
+        "the clamp waits for a part"
+    );
+    client.io_write("%IX0.1", "TRUE").expect("the part sensor");
+    client.io_write("%IX0.0", "TRUE").expect("Start");
+    wait_for_output(&mut client, "%QX0.0", WallDuration::from_secs(10));
+    succeeded(&adapter.dispatch_request(request(4, "disconnect", json!({}))));
     assert!(adapter.simulator.is_none());
 }

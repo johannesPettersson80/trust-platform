@@ -305,6 +305,62 @@ fn a_card_says_what_its_packaged_default_needs() {
 }
 
 #[test]
+fn a_copied_starter_opens_its_program_and_a_rust_first_one_its_crate() {
+    // Specification 25 §3.2 and specification 48 RU-65: the gallery names each entry's program, the
+    // file a copied starter opens, as Create Project opens a new project's. A Rust-first project,
+    // whose trust.toml makes the project's own folder its crate, has it in `src/lib.rs`; a
+    // Structured Text project, and one whose crate lies in `rust/` and is called from
+    // `src/Main.st`, in `src/Main.st`. Catches a Rust-first starter that would land on a
+    // `src/Main.st` it does not have, and a project with Rust in `rust/` taken for a Rust-first one.
+    let gallery = Gallery::new(
+        r#"[
+          {"id":"st","title":"ST","description":"d","path":"st","hardware":"none"},
+          {"id":"with-rust","title":"With Rust","description":"d","path":"with-rust","hardware":"none"},
+          {"id":"rust-first","title":"Rust-first","description":"d","path":"rust-first","hardware":"none"}
+        ]"#,
+    );
+    gallery.write("st/src/Main.st", "PROGRAM Main\nEND_PROGRAM\n");
+    gallery.write("with-rust/trust.toml", "[rust]\ncrate = \"rust\"\n");
+    gallery.write(
+        "rust-first/trust.toml",
+        "[rust]\ncrate = \".\"\n\n[resource]\nname = \"CellRes\"\n",
+    );
+    let answer = gallery.catalog(&[]).expect("the gallery loads");
+    let program = |id: &str| entry(&answer, id)["program"].clone();
+    assert_eq!(program("st"), json!("src/Main.st"));
+    assert_eq!(program("with-rust"), json!("src/Main.st"));
+    assert_eq!(program("rust-first"), json!("src/lib.rs"));
+}
+
+#[test]
+fn every_example_of_the_packaged_gallery_holds_the_program_it_opens() {
+    // Specification 25 §3.2: every packaged entry holds the program that the gallery names for it,
+    // so a copied starter opens a file that is there; the Rust-first press cell's is its crate's
+    // `src/lib.rs`. Catches an example packaged without its program, and a Rust-first example sent
+    // to a `src/Main.st` it does not have.
+    let gallery = packaged_gallery();
+    let answer = catalog_answer(json!({ "root": gallery.0 })).expect("the gallery loads");
+    let entries = answer["entries"].as_array().expect("entries");
+    let missing: Vec<String> = entries
+        .iter()
+        .filter_map(|entry| {
+            let path = entry["path"].as_str().expect("a path");
+            let program = entry["program"].as_str().expect("a program");
+            (!gallery.0.join(path).join(program).is_file()).then(|| format!("{path}/{program}"))
+        })
+        .collect();
+    assert_eq!(missing, Vec::<String>::new());
+    assert_eq!(
+        entry(&answer, "rust-first-cell")["program"],
+        json!("src/lib.rs")
+    );
+    assert_eq!(
+        entry(&answer, "rust-service")["program"],
+        json!("src/Main.st")
+    );
+}
+
+#[test]
 fn every_example_of_the_packaged_gallery_says_it_runs_in_the_simulator() {
     // The examples the extension packages, other than the course lessons, all ship the simulated
     // driver, so each card says `Runs in simulator`; TwinCAT ADS and Raspberry Pi keep their

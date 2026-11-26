@@ -255,7 +255,8 @@ suite("Created project folder recovery", () => {
         assert.ok(actions.includes("Retry opening"));
         return "Retry opening";
       }) as typeof vscode.window.showErrorMessage;
-      assert.strictEqual(await copyExample(context, { id: "starter", title: "Starter", path: "starter", description: "Starter", tags: [], hardware: "none" }), true);
+      // The entry as the language server answers it: a starter names its program (specification 25 §3.2).
+      assert.strictEqual(await copyExample(context, { id: "starter", title: "Starter", path: "starter", program: "src/Main.st", description: "Starter", tags: [], hardware: "none" }), true);
       assert.strictEqual(opens, 2);
       assert.strictEqual(notices.length, 1);
       assert.ok(readProjectLanding(context));

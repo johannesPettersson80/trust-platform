@@ -32,6 +32,7 @@ Each of these cards says **Runs in simulator**:
 | **Rust barcode reader** | No hardware needed | A Rust function block reads GS1-128 labels, and the program accepts or rejects each box. |
 | **Rust signal filter and CRC** | No hardware needed | Rust function blocks drop a level sensor's spikes and check Modbus frames' CRC. |
 | **Rust service** | No hardware needed | A Rust service beside the runtime writes a heater's setpoint from the electricity price. |
+| **Rust-first press cell** | No hardware needed | A press cell whose whole program is Rust: `trust.toml` is its configuration, a sequence clamps, presses and lifts, and machine tests check it. |
 | **TwinCAT ADS** | Hardware optional: TwinCAT | Starter for a Beckhoff TwinCAT (ADS) device — runs in the simulator; wire the real PLC in Devices & Connections. |
 | **Raspberry Pi (EtherCAT / GPIO)** | Hardware optional: Raspberry Pi | Starter for a Raspberry Pi field-IO target — runs in the simulator; wire real I/O in Devices & Connections. |
 | **HMI tank level** | No hardware needed | A tank level loop with the real `Control.PID`, alarms, and screens built in the HMI Builder. |
