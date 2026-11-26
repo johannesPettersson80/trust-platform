@@ -200,6 +200,7 @@ nav:
       - Control Studio: operate/control-studio.md
       - Install On Target: operate/install-on-target.md
       - Supervision: operate/supervision.md
+      - Retain Across Restarts: operate/retain-across-restarts.md
       - PREEMPT_RT: operate/preempt-rt.md
       - Deploy And Rollback: operate/deploy-rollback.md
       - Errors And Recovery: operate/errors-and-recovery.md
