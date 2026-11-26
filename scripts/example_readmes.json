@@ -206,7 +206,6 @@
     "examples/tutorials/16_secure_remote_access/README.md",
     "examples/tutorials/17_io_backends_and_multi_driver/README.md",
     "examples/tutorials/18_simulation_toml_fault_injection/README.md",
-    "examples/tutorials/19_safety_commissioning/README.md",
     "examples/tutorials/21_ci_cd_project_pipeline/README.md",
     "examples/tutorials/22_neovim_zed_workflow/README.md",
     "examples/tutorials/23_observability_historian_prometheus/README.md",

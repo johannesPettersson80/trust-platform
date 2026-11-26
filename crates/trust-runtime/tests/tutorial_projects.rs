@@ -17,12 +17,15 @@ use runtime_process::{describe, repo_root, trust_runtime_command, ExampleRuntime
 const STEP: Duration = Duration::from_secs(10);
 
 /// The files `readme` writes with `cat > <file> <<'<TAG>'`, each with its lines up to the line
-/// `<TAG>`, in the README's order.
+/// `<TAG>`, in the README's order. A here-document in a numbered step is indented as the step's
+/// text is: its lines lose the indentation of its `cat` line, as the reader's shell gets them.
 fn here_documents(readme: &str) -> Vec<(String, String)> {
     let mut files = Vec::new();
     let mut lines = readme.lines();
     while let Some(line) = lines.next() {
-        let Some((file, tag)) = line
+        let command = line.trim_start();
+        let indent = &line[..line.len() - command.len()];
+        let Some((file, tag)) = command
             .strip_prefix("cat > ")
             .and_then(|rest| rest.split_once(" <<'"))
         else {
@@ -33,10 +36,10 @@ fn here_documents(readme: &str) -> Vec<(String, String)> {
         };
         let mut text = String::new();
         for body in lines.by_ref() {
-            if body == tag {
+            if body.trim_start() == tag {
                 break;
             }
-            text.push_str(body);
+            text.push_str(body.strip_prefix(indent).unwrap_or(body));
             text.push('\n');
         }
         files.push((file.to_string(), text));
@@ -498,6 +501,121 @@ fn tutorial_18_runs_its_simulation_as_its_readme_writes_it() {
                 })
             })
     });
+}
+
+#[test]
+fn tutorial_19_drives_the_safe_state_at_a_fault_and_recovers_cold_as_its_readme_writes_it() {
+    // examples/tutorials/19_safety_commissioning/README.md on tutorial 13's project: step 2 writes
+    // src/Main.st, whose divisor `FaultTrigger` sets to 0, and src/Configuration.st, which puts
+    // `FaultTrigger` at `%IX0.1`; step 3 writes io.toml (the loopback driver, the safe state
+    // `%QX0.0` FALSE) and puts the watchdog and the fault policy `safe_halt` into runtime.toml;
+    // step 5 sets `%IX0.0` and `%QX0.0` follows; step 6 sets `%IX0.1` and the division by zero
+    // faults the resource; step 7 restarts it cold. Specification 11 §6.6: `safe_halt` drives the
+    // safe values before the resource halts; its "safe state in the reads": the snapshot holds
+    // the safe values, marked `"safe_state": true`, and the event `safe_state_applied` names
+    // `%QX0.0` with `Bool(false)`; the next scan's snapshot carries no mark. Catches a tutorial
+    // whose fault leaves the output as the last scan drove it, a fault that the events do not
+    // name, and a cold restart that does not run the program again.
+    let tutorial = repo_root().join("examples/tutorials");
+    let readme19 = std::fs::read_to_string(tutorial.join("19_safety_commissioning/README.md"))
+        .expect("tutorial 19's README");
+    let mut files = here_documents(
+        &std::fs::read_to_string(tutorial.join("13_project_bootstrap_zero_to_first_app/README.md"))
+            .expect("tutorial 13's README"),
+    );
+    let replaced = here_documents(&readme19);
+    assert_eq!(
+        replaced
+            .iter()
+            .map(|(file, _)| file.as_str())
+            .collect::<Vec<_>>(),
+        ["src/Main.st", "src/Configuration.st", "io.toml"],
+        "the files steps 2 and 3 write"
+    );
+    for (file, text) in replaced {
+        let slot = files
+            .iter_mut()
+            .find(|(written, _)| *written == file)
+            .expect("tutorial 13 writes the file that tutorial 19 replaces");
+        slot.1 = text;
+    }
+    // The block stands in a step, indented as the step's text is.
+    let policy: String = readme19
+        .split("```toml\n")
+        .nth(1)
+        .and_then(|block| block.split("```").next())
+        .expect("step 3's runtime.toml sections, the README's first TOML block")
+        .lines()
+        .map(|line| format!("{}\n", line.trim_start()))
+        .collect();
+    for (file, text) in &mut files {
+        if file == "runtime.toml" {
+            *text = with_sections(text, &policy);
+        }
+    }
+
+    let runtime = ExampleRuntime::written("tutorial-19", files).start();
+    set(&runtime, "%IX0.0", true);
+    holds(
+        &runtime,
+        &[("%IX0.0", true), ("%QX0.0", true)],
+        "step 5: %QX0.0 follows %IX0.0",
+    );
+
+    set(&runtime, "%IX0.1", true);
+    runtime.wait_until(STEP, "step 6: the fault halts the resource", || {
+        runtime.status().state == "faulted"
+    });
+    let status = runtime.status();
+    assert_eq!(status.fault, "division by zero", "step 6");
+    let snapshot = runtime.ctl_result(&["io-read"])["snapshot"].clone();
+    assert_eq!(
+        snapshot["safe_state"], true,
+        "step 6: the safe state's snapshot\n{snapshot}"
+    );
+    let output = snapshot["outputs"]
+        .as_array()
+        .and_then(|outputs| outputs.iter().find(|entry| entry["address"] == "%QX0.0"))
+        .unwrap_or_else(|| panic!("step 6: no %QX0.0 in\n{snapshot}"));
+    assert_eq!(
+        output["value"], "Bool(false)",
+        "step 6: the safe value of %QX0.0"
+    );
+    let events = runtime.ctl_result(&["events"])["events"].clone();
+    let listed = events.as_array().cloned().unwrap_or_default();
+    assert!(
+        listed
+            .iter()
+            .any(|event| event["type"] == "fault" && event["error"] == "division by zero"),
+        "step 6: the events name the fault\n{events}"
+    );
+    assert!(
+        listed.iter().any(|event| {
+            event["type"] == "safe_state_applied"
+                && event["outputs"]
+                    == serde_json::json!([{"address": "%QX0.0", "value": "Bool(false)"}])
+        }),
+        "step 6: the events name the safe state of %QX0.0\n{events}"
+    );
+
+    runtime.ctl_ok(&["restart", "cold"]);
+    runtime.wait_until(
+        STEP,
+        "step 7: the cold restart runs the program again",
+        || runtime.status().state == "running",
+    );
+    set(&runtime, "%IX0.0", true);
+    holds(
+        &runtime,
+        &[("%IX0.0", true), ("%IX0.1", false), ("%QX0.0", true)],
+        "step 7: after the cold restart %QX0.0 follows %IX0.0 again",
+    );
+    assert!(
+        runtime.ctl_result(&["io-read"])["snapshot"]
+            .get("safe_state")
+            .is_none(),
+        "step 7: a scan's snapshot carries no safe-state mark"
+    );
 }
 
 /// The `trust-runtime build` and `trust-runtime validate` lines of the README at `readme` (a path

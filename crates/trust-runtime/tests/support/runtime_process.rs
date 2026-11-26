@@ -791,32 +791,39 @@ pub struct StatusSummary {
     pub rt_active: String,
 }
 
-/// Parses the summary in the documented form (spec 11 §6.8.1). Any other shape fails.
+/// Parses the summary in the documented form (spec 11 §6.8.1), `state=<state> fault=<fault>
+/// rt_profile=<profile> rt_active=<bool>`. The fault is a runtime's message, which may hold spaces
+/// (`fault=division by zero`), so the summary is split at its keys in their order. Any other shape
+/// fails.
 pub fn parse_status_summary(line: &str) -> StatusSummary {
     let line = line.trim_end();
-    let fields: Vec<(&str, &str)> = line
-        .split(' ')
-        .map(|field| {
-            field
-                .split_once('=')
-                .unwrap_or_else(|| panic!("status field `{field}` is not key=value in `{line}`"))
-        })
-        .collect();
-    let keys: Vec<&str> = fields.iter().map(|(key, _)| *key).collect();
-    assert_eq!(
-        keys,
-        ["state", "fault", "rt_profile", "rt_active"],
-        "status must print the documented summary: `{line}`"
+    let shape = || format!("status must print the documented summary: `{line}`");
+    let rest = line
+        .strip_prefix("state=")
+        .unwrap_or_else(|| panic!("{}", shape()));
+    let (state, rest) = rest
+        .split_once(" fault=")
+        .unwrap_or_else(|| panic!("{}", shape()));
+    let (fault, rest) = rest
+        .rsplit_once(" rt_profile=")
+        .unwrap_or_else(|| panic!("{}", shape()));
+    let (rt_profile, rt_active) = rest
+        .split_once(" rt_active=")
+        .unwrap_or_else(|| panic!("{}", shape()));
+    assert!(
+        !state.contains(' ') && !rt_profile.contains(' '),
+        "{}",
+        shape()
     );
     assert!(
-        matches!(fields[3].1, "true" | "false"),
+        matches!(rt_active, "true" | "false"),
         "rt_active must be a boolean: `{line}`"
     );
     StatusSummary {
-        state: fields[0].1.to_string(),
-        fault: fields[1].1.to_string(),
-        rt_profile: fields[2].1.to_string(),
-        rt_active: fields[3].1.to_string(),
+        state: state.to_string(),
+        fault: fault.to_string(),
+        rt_profile: rt_profile.to_string(),
+        rt_active: rt_active.to_string(),
     }
 }
 
