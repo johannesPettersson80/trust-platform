@@ -95,6 +95,36 @@ fn on_windows_each_workspace_has_its_own_loopback_port() {
     assert_eq!(endpoint(None), "tcp://127.0.0.1:38049");
 }
 
+#[cfg(not(unix))]
+#[test]
+fn on_windows_two_workspaces_whose_hashes_share_a_port_both_get_one() {
+    // `C:\work\project2` hashes to c9ad11cb… (3,383,562,699) and `C:\work\project76` to
+    // 5ce886ab… (1,558,742,699): both leave 2699, port 22699. With the first's simulator holding
+    // it, the second workspace gets the next port. Catches two workspaces named one port, so that
+    // the second launch cannot bind while the first simulator runs.
+    let endpoint = |workspace| {
+        create_answer(Some(workspace))["endpoint"]
+            .as_str()
+            .expect("an endpoint")
+            .to_owned()
+    };
+    assert_eq!(endpoint(r"C:\work\project2"), "tcp://127.0.0.1:22699");
+    let held = TcpListener::bind("127.0.0.1:22699").expect("the first workspace's simulator");
+    assert_eq!(endpoint(r"C:\work\project76"), "tcp://127.0.0.1:22700");
+    drop(held);
+}
+
+#[test]
+fn a_windows_port_that_does_not_bind_is_passed_over_for_the_next() {
+    // Catches: a port that another simulator or program holds named again, a search that leaves
+    // the range at its end instead of wrapping to 20000, and no port at all when every try fails
+    // (the launch then names the port it cannot bind).
+    assert_eq!(free_port_from(20_660, |port| port != 20_660), 20_661);
+    assert_eq!(free_port_from(20_660, |port| port > 20_662), 20_663);
+    assert_eq!(free_port_from(39_999, |port| port != 39_999), 20_000);
+    assert_eq!(free_port_from(20_660, |_| false), 20_660);
+}
+
 #[test]
 fn a_windows_simulator_port_is_20000_plus_the_workspace_hash_modulo_20000() {
     // `/work/plant` hashes to 4a5761d4… = 1,247,240,660, which leaves 660; the ports run from 20000
