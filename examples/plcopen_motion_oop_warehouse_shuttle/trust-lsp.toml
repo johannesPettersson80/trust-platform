@@ -5,6 +5,3 @@ stdlib = "iec"
 
 [dependencies]
 PLCopenMotionOop = { path = "../../libraries/plcopen_motion/oop", version = "0.1.0" }
-
-[runtime]
-control_endpoint = "unix:///tmp/trust-motion-oop-warehouse.sock"

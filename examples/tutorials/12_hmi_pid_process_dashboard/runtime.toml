@@ -6,7 +6,6 @@ name = "TutorialPidResource"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-tutorial-pid.sock"
 mode = "production"
 debug_enabled = false
 

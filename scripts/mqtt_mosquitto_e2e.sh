@@ -52,10 +52,8 @@ PY
 )"
 
 cp -R "${ROOT_DIR}/examples/communication/mqtt_traffic_light" "${project_dir}"
-control_socket="${temp_dir}/runtime.sock"
+control_socket="${project_dir}/.trust-runtime/control.sock"
 sed -i "s#127.0.0.1:1883#127.0.0.1:${broker_port}#" "${project_dir}/io.toml"
-sed -i "s#/tmp/trust-runtime-mqtt-traffic-light.sock#${control_socket}#" \
-  "${project_dir}/runtime.toml"
 
 : > "${broker_log}"
 : > "${runtime_log}"

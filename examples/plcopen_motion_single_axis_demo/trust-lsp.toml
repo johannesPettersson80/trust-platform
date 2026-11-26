@@ -5,6 +5,3 @@ stdlib = "iec"
 
 [dependencies]
 PLCopenMotionSingleAxis = { path = "../../libraries/plcopen_motion/single_axis_core", version = "0.1.0" }
-
-[runtime]
-control_endpoint = "unix:///tmp/trust-motion-demo.sock"

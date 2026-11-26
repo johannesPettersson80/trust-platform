@@ -6,7 +6,6 @@ name = "truST_ADS"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-ads-server-basic.sock"
 mode = "production"
 debug_enabled = true
 
