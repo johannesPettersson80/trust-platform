@@ -115,9 +115,14 @@ arbitrary-language conformance claim:
 - the reviewed EtherCAT, Mitsubishi GX Works3, PLCopen ST-complete, and Siemens
   SCL project examples parse, type-check, and lower;
 - every visual example companion/runtime pair builds into a program image for
-  this computer, and at least one such pair exists; and
+  this computer, and at least one such pair exists;
 - every tracked Structured Text example in the repository example corpus
-  parses without diagnostics.
+  parses without diagnostics; and
+- every example that is an editor project, with `trust-lsp.toml` and no
+  `runtime.toml` (`oscat_smoke`, `vendor_library_stubs`, the OSCAT classic
+  projects, tutorial 10, the control lessons' tests), checks with `trust-lsp
+  check` without an error; warnings may stay (26 November 2026: nothing built
+  or checked `oscat_smoke` and `vendor_library_stubs`).
 
 Fixture discovery, copying, and filesystem setup are test preconditions. The
 product oracle is the bounded tracked corpus and the named build, validation,
