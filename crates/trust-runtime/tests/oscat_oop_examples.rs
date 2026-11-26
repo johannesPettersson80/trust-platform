@@ -25,6 +25,19 @@ fn trust_dev_bin() -> PathBuf {
     debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX))
 }
 
+/// The trust-runtime binary that Cargo built for these tests, else the one beside them.
+fn trust_runtime_bin() -> PathBuf {
+    if let Some(path) = std::env::var_os("CARGO_BIN_EXE_trust-runtime") {
+        return path.into();
+    }
+    let exe = std::env::current_exe().expect("current test exe path");
+    let debug_dir = exe
+        .parent()
+        .and_then(|deps| deps.parent())
+        .expect("target debug dir");
+    debug_dir.join(format!("trust-runtime{}", std::env::consts::EXE_SUFFIX))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum ExampleGateEvent {
     Started {
@@ -746,4 +759,113 @@ fn the_oscat_manuals_worked_example_passes_its_st_tests() {
         assert_eq!(passed, expected, "{}", shown());
         assert_eq!(report["summary"]["total"], names.len(), "{}", shown());
     }
+}
+
+/// The tests that the OSCAT consumer example's README runs, `examples/oscat_smoke/src/Tests.st`.
+const OSCAT_CONSUMER_TESTS: [&str; 4] = [
+    "OscatConvertsTemperaturesAndSpeeds",
+    "OscatNamesMonthsAndDirectionsOnceItsConstantsAreLoaded",
+    "OscatReadsCalendarDates",
+    "OscatFormatsBytesAndText",
+];
+
+/// Copies the folder `from` into `to` with everything below it.
+fn copy_folder(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap_or_else(|err| panic!("create {}: {err}", to.display()));
+    for entry in
+        std::fs::read_dir(from).unwrap_or_else(|err| panic!("read {}: {err}", from.display()))
+    {
+        let entry = entry.unwrap_or_else(|err| panic!("read {}: {err}", from.display()));
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_folder(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), &target)
+                .unwrap_or_else(|err| panic!("copy {}: {err}", entry.path().display()));
+        }
+    }
+}
+
+#[test]
+fn the_oscat_consumer_example_builds_and_passes_its_st_tests_as_its_readme_says() {
+    // Specification 22: an example that a user runs as its README says is a test in CI. The OSCAT
+    // consumer example has no runtime.toml, so the build of the runnable examples leaves it out.
+    // Its README builds it from the repository's root, `trust-runtime build --project
+    // examples/oscat_smoke --sources src`, and runs its tests, `trust-dev test --project
+    // examples/oscat_smoke`, on a copy laid out as the repository is, so that its dependency
+    // `../../libraries/oscat` resolves. Catches a build that no longer finds OSCAT through
+    // `[dependencies]`, a test of the README that fails or is no longer found, and an empty run,
+    // which would pass on its exit status.
+    let copy = TempProject::new("oscat-consumer");
+    let repository = examples_root().join("..");
+    copy_folder(
+        &repository.join("examples").join("oscat_smoke"),
+        &copy.path().join("examples").join("oscat_smoke"),
+    );
+    copy_folder(
+        &repository.join("libraries").join("oscat"),
+        &copy.path().join("libraries").join("oscat"),
+    );
+
+    let build = Command::new(trust_runtime_bin())
+        .args([
+            "build",
+            "--project",
+            "examples/oscat_smoke",
+            "--sources",
+            "src",
+        ])
+        .current_dir(copy.path())
+        .output()
+        .expect("run trust-runtime build");
+    assert!(
+        build.status.success(),
+        "build: status {}\nstderr:\n{}",
+        build.status,
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let image = copy
+        .path()
+        .join("examples")
+        .join("oscat_smoke")
+        .join("program.tpi");
+    assert!(image.is_file(), "the build wrote no {}", image.display());
+
+    let output = Command::new(trust_dev_bin())
+        .args([
+            "test",
+            "--output",
+            "json",
+            "--project",
+            "examples/oscat_smoke",
+        ])
+        .current_dir(copy.path())
+        .output()
+        .expect("run trust-dev test");
+    let shown = || {
+        format!(
+            "status {}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        )
+    };
+    assert!(output.status.success(), "{}", shown());
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).unwrap_or_else(|_| panic!("{}", shown()));
+    let passed: std::collections::BTreeSet<&str> = report["tests"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{}", shown()))
+        .iter()
+        .filter(|test| test["status"] == "passed")
+        .filter_map(|test| test["name"].as_str())
+        .collect();
+    let expected: std::collections::BTreeSet<&str> = OSCAT_CONSUMER_TESTS.into_iter().collect();
+    assert_eq!(passed, expected, "{}", shown());
+    assert_eq!(
+        report["summary"]["total"],
+        OSCAT_CONSUMER_TESTS.len(),
+        "{}",
+        shown()
+    );
 }

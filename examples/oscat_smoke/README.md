@@ -1,207 +1,112 @@
-# OSCAT Smoke Example
+# OSCAT consumer
 
-Docs category: `docs/public/examples/libraries-and-motion.md`
+Use the OSCAT library from a project of your own: take it as a dependency, call its functions and
+function blocks, and check their results with Structured Text tests. You learn which of OSCAT's
+constants need loading before you use them, and how a test shows it.
 
-This example is the reference consumer for `libraries/oscat`.
+## What you learn
 
-Use it when you want to see how a normal truST project should consume the
-currently shipped OSCAT manual-aligned package through `[dependencies]`.
+- A project takes OSCAT through `[dependencies]` in `trust-lsp.toml`, with the library's folder and
+  version. The build and the editor find the library there; nothing is copied into the project.
+- OSCAT's scalar constants, `MATH.PI` and `PHYS.T0` among them, have their values from the start.
+  Its tables of names, the months, weekdays and compass points, and `MATH.FACTS` stay empty until
+  `OSCAT_BASIC_Constants()` fills them, so a program calls it once at its start, as `Main` does.
+- `trust-dev test` runs the `TEST_PROGRAM`s beside the program, each after a cold restart, and
+  names each assertion that fails with its expected and its actual value.
 
-## What The Example Covers
+## What you need
 
-The program intentionally exercises several different parts of the shipped
-library surface:
+- `trust-runtime` and `trust-dev`, from the truST extension for VS Code or a release archive, and
+  this repository, whose `libraries/oscat` the example depends on.
+- About 10 minutes.
 
-- `OSCAT_BASIC_Constants()` as the one-time loader for `MATH`, `PHYS`, and
-  `LANGUAGE`
-- scalar engineering conversions such as `C_TO_K`, `C_TO_F`, `KMH_TO_MS`,
-  `MS_TO_KMH`, `F_TO_OM`, `OM_TO_F`, `F_TO_PT`, and `PT_TO_F`
-- time conversion helpers `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, and
-  `SECOND_TO_TIME`
-- calendar/date helpers such as `DAY_OF_DATE`, `DAY_OF_YEAR`, `MONTH_BEGIN`,
-  `MONTH_END`, `YEAR_END`, `DATE_ADD`, `WORK_WEEK`, `LEAP_DAY`, and `EASTER`
-- date-time component helpers `HOUR_OF_DT`, `MINUTE_OF_DT`, `SECOND_OF_DT`,
-  plus the TOD/DT constructor helpers `HOUR`, `MINUTE`, `SECOND`,
-  `HOUR_TO_TOD`, and `SET_DT`
-- string/date-label helpers, case/predicate helpers, and formatting helpers
-  such as `MONTH_TO_STRING`, `WEEKDAY_TO_STRING`, `DT_TO_STRF`,
-  `DWORD_TO_STRF`, `CAPITALIZE`, `CLEAN`, `CODE`, `DEC_TO_BYTE`,
-  `DEC_TO_DWORD`, `DEC_TO_INT`, `BYTE_TO_STRB`, `BYTE_TO_STRH`,
-  `DWORD_TO_STRB`, `DWORD_TO_STRH`, `BIN_TO_BYTE`, `BIN_TO_DWORD`,
-  `HEX_TO_BYTE`, `HEX_TO_DWORD`, `OCT_TO_BYTE`, `OCT_TO_DWORD`,
-  `MIRROR`, `REPLACE_ALL`, `REPLACE_CHARS`, `REPLACE_UML`,
-  `CHARCODE`, `CHARNAME`, `TICKER`,
-  `DEL_CHARS`, `TO_UML`, `TRIM1`, `UPPERCASE`, `IS_ALPHA`, and `FINDP`
-- logic FBs `LTCH`, `COUNT_BR`, and `TOGGLE`
-- direction helpers and live direction-table access through `DEG_TO_DIR`,
-  `DIR_TO_DEG`, and `LANGUAGE.DIRS[...]`
-- OSCAT clock helpers `T_PLC_MS()` and `T_PLC_US()`
-- conversion FBs `ENERGY`, `SPEED`, and `TEMPERATURE`
+## Step by step
 
-This is still a smoke example, not a full catalog demo. Its job is to show the
-normal package-consumer wiring and the current recommended startup pattern.
+1. Open a terminal at the root of the repository and build the project:
 
-## Files To Study
+    ```text
+    trust-runtime build --project examples/oscat_smoke --sources src
+    ```
 
-- `trust-lsp.toml`: project settings and dependency on `libraries/oscat`
-- `src/Configuration.st`: minimal task/program wiring
-- `src/Main.st`: startup constants load plus direct helper and FB usage
+    It writes the program's image, here on an x86-64 Linux computer, and then names the image's
+    memory figure, the key that signed it and its 27 sources, the example's three and OSCAT's 24:
 
-## How The Example Works
+    ```text
+    Wrote examples/oscat_smoke/program.tpi
+    Wrote examples/oscat_smoke/build/install.x86_64-unknown-linux-gnu.bin for trust-runtime ctl install
+    Debug image 491716 bytes: code 324525, read-only data 8309, starting memory 7392
+    ```
 
-### 1. Project Dependency
+2. Open `trust-lsp.toml`. Its `[dependencies]` entry takes the library from the repository's
+   `libraries/oscat` folder:
 
-The project consumes the library exactly the same way an application project
-would:
+    ```toml
+    [project]
+    include_paths = ["src"]
+    stdlib = "iec"
 
-```toml
-[dependencies]
-OSCAT = { path = "../../libraries/oscat", version = "0.1.0" }
-```
+    [dependencies]
+    OSCAT = { path = "../../libraries/oscat", version = "0.1.0" }
+    ```
 
-### 2. One-Time Constant Loading
+3. Open `src/Main.st`. Its first statement loads the constants, and the rest calls OSCAT's helpers
+   and function blocks each scan, from temperature and speed conversions to dates, text and the
+   parsing of numbers:
 
-The first line of real work is:
+    ```st
+    ConstantsReady := OSCAT_BASIC_Constants();
+    Kelvin := C_TO_K(Celsius := Celsius);
+    Fahrenheit := C_TO_F(celsius := Celsius);
+    ```
 
-```st
-ConstantsReady := OSCAT_BASIC_Constants();
-```
+4. Run the tests of `src/Tests.st`:
 
-That call populates the shared OSCAT-style carriers:
+    ```text
+    trust-dev test --project examples/oscat_smoke
+    ```
 
-- `MATH`
-- `PHYS`
-- `LANGUAGE`
+    The four tests pass; the time differs from run to run:
 
-Call it before you read `LANGUAGE.DIRS` or use helpers that depend on the
-carrier values, such as `F_TO_OM`, `DEG_TO_DIR`, or `DIR_TO_DEG`.
+    ```text
+    Running 4 ST test(s) in examples/oscat_smoke
+    PASS [1/4] TEST_PROGRAM::OscatConvertsTemperaturesAndSpeeds (src/Tests.st) [0ms]
+    PASS [2/4] TEST_PROGRAM::OscatNamesMonthsAndDirectionsOnceItsConstantsAreLoaded (src/Tests.st) [0ms]
+    PASS [3/4] TEST_PROGRAM::OscatReadsCalendarDates (src/Tests.st) [0ms]
+    PASS [4/4] TEST_PROGRAM::OscatFormatsBytesAndText (src/Tests.st) [0ms]
+    4 passed, 0 failed, 0 errors (13168ms)
+    ```
 
-### 3. Scalar And Time Conversion Helpers
+## What happened
 
-`src/Main.st` then demonstrates several pure functions:
+**The dependency.** The build and `trust-dev` read `[dependencies]` and compile OSCAT's sources
+with the project's own, so the program calls `C_TO_K` or `EASTER` as if it had declared them.
+`include_paths = ["src"]` holds the project's sources, and the build's `--sources src` names the
+same folder.
 
-- temperature: `C_TO_K`, `C_TO_F`
-- speed: `KMH_TO_MS`, `MS_TO_KMH`, `MS_TO_BFT`
-- angular frequency: `F_TO_OM`, `OM_TO_F`
-- period/frequency bridge: `F_TO_PT`, `PT_TO_F`
-- geographic conversion: `GEO_TO_DEG`
-- duration helpers: `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`,
-  `SECOND_TO_TIME`
+**The constants.** `C_TO_K` subtracts `PHYS.T0`, absolute zero in degrees Celsius, which the type
+of `PHYS` gives the value -273.15 from the start. `MONTH_TO_STRING`, `DEG_TO_DIR` and
+`DIR_TO_DEG` read the tables that only `OSCAT_BASIC_Constants()` fills, in three languages:
+English is 1, German 2.
 
-Those values are stored in ordinary globals so you can inspect them in the
-debugger or in a runtime snapshot.
+**The tests.** Each test checks values worked out by hand: 25 °C are 298.15 K and 77 °F; 36 km/h
+are 10 m/s, which is Beaufort 5; 29 February 2024 is day 60 of a leap year, and Easter Sunday 2026
+is 5 April; 165 is `A5` in hexadecimal and `10100101` in binary. The tests need no resource and
+no I/O, so the same pattern checks the OSCAT calls of a project of your own.
 
-### 4. Direction Helpers And Live Carrier Access
+## Try it yourself
 
-The example also demonstrates both forms of the current direction surface:
+- Delete the two lines `Ready := OSCAT_BASIC_Constants();` and `ASSERT_TRUE(IN := Ready);` from
+  `OscatNamesMonthsAndDirectionsOnceItsConstantsAreLoaded` and run the tests again. Each test
+  starts cold, so the table of month names is empty, and the test fails with
+  `ASSERT_EQUAL failed: expected 'April', actual ''`. The temperature test still passes, as
+  `PHYS.T0` has its value from the start.
+- Add `ASSERT_EQUAL(EXPECTED := 'Mai', ACTUAL := MONTH_TO_STRING(MTH := INT#5, LANG := INT#2,
+  LX := INT#0));` to the months test and run the tests again: language 2 is German, and the test
+  passes.
 
-- helper-based lookup through `DEG_TO_DIR` and `DIR_TO_DEG`
-- direct table access through `LANGUAGE.DIRS[LANGUAGE.DEFAULT, 4]`
+## Reference
 
-That second form matters because the runtime/compiler work for nested
-`field[index]` access was part of what unblocked the live OSCAT
-`LANGUAGE.DIRS[...]` surface.
-
-### 5. Calendar And Date-Time Helpers
-
-The smoke example also exercises the shipped date-oriented surface:
-
-- `DAY_OF_DATE`, `DAY_OF_YEAR`
-- `MONTH_BEGIN`, `MONTH_END`, `YEAR_END`
-- `DATE_ADD`, `WORK_WEEK`
-- `LEAP_DAY`, `EASTER`
-- `HOUR_OF_DT`, `MINUTE_OF_DT`, `SECOND_OF_DT`
-- `HOUR`, `MINUTE`, `SECOND`
-- `HOUR_TO_TOD`, `SET_DT`
-
-This keeps the example aligned with the larger date/time surface now shipped in
-`libraries/oscat`.
-
-### 6. String Formatting And Cleanup Helpers
-
-The smoke example also covers the shipped label/formatting layer:
-
-- `MONTH_TO_STRING`, `WEEKDAY_TO_STRING`
-- `DT_TO_STRF`
-- `DWORD_TO_STRF`
-- `CAPITALIZE`, `CLEAN`, `DEL_CHARS`
-- `CODE`, `TO_UML`
-- `DEC_TO_BYTE`, `DEC_TO_DWORD`, `DEC_TO_INT`
-- `BYTE_TO_STRB`, `BYTE_TO_STRH`, `DWORD_TO_STRB`, `DWORD_TO_STRH`
-- `BIN_TO_BYTE`, `BIN_TO_DWORD`, `HEX_TO_BYTE`, `HEX_TO_DWORD`,
-  `OCT_TO_BYTE`, `OCT_TO_DWORD`
-- `MIRROR`, `REPLACE_ALL`, `REPLACE_CHARS`, `REPLACE_UML`
-- `CHARCODE`, `CHARNAME`, `TICKER`
-- `TRIM1`
-- `UPPERCASE`, `IS_ALPHA`
-- `FINDP`
-
-### 7. Logic FB Helpers
-
-The smoke example also drives a small part of the shipped OSCAT logic surface:
-
-- `LTCH`
-- `COUNT_BR`
-- `TOGGLE`
-
-The shipped library surface is larger than the smoke example here: the current
-port also includes selector/register FBs, the full current gate-logic helper
-surface, and the full current generator/memory/logic-others surfaces (`A_TRIG`,
-`B_TRIG`, `D_TRIG`, `CRC_GEN`, `MATRIX`, `PIN_CODE`, `FIFO_*`, `STACK_*`,
-`CLICK_*`, `CLK_*`, `GEN_*`, `SCHEDULER*`, `SEQUENCE_*`, `TONOF`, `TP_X`),
-the buffer/list helper surface, and the current geometry/`REAL2` math helpers.
-
-### 8. Clock Helpers
-
-The example reads both shipped OSCAT clock helpers:
-
-- `T_PLC_MS()`
-- `T_PLC_US()`
-
-The current `T_PLC_US()` implementation is a compatibility shim on top of the
-millisecond time bridge. It is useful for OSCAT compatibility, but it is not a
-claim of true microsecond runtime precision in this phase.
-
-### 9. Conversion Function Blocks
-
-The example instantiates three shipped FBs:
-
-- `ENERGY`
-- `SPEED`
-- `TEMPERATURE`
-
-Like upstream OSCAT-style conversion blocks, they accept one or more input-unit
-fields and emit normalized `Y*` outputs every scan.
-
-## Build And Validate
-
-Build the consumer example from repo root:
-
-```bash
-trust-runtime build --project examples/oscat_smoke --sources src
-```
-
-Validate the shipped OSCAT surface with the conformance fixture:
-
-```bash
-trust-dev test --project crates/trust-runtime/tests/fixtures/oscat/core
-```
-
-The example has no hardware dependency and no custom runtime backend
-requirement. It is intentionally small enough to use as a quick package-consumer
-sanity check.
-
-## Library Reference
-
-For the current public carriers, conversion/date helpers,
-clock-compatibility notes, and unit-conversion FB surface, see:
-
-- `docs/guides/OSCAT_LIBRARY_GUIDE.md`
-
-The library source of truth remains:
-
-- `libraries/oscat/`
-
-The upstream OSCAT BASIC reference material used for this port is:
-
-- `docs/internal/references/OSCAT/OSCAT_BASIC/`
+- The OSCAT manual in the documentation (Develop, Libraries, OSCAT) and
+  `docs/guides/OSCAT_LIBRARY_GUIDE.md`, which list the helpers and function blocks.
+- Specification 22, the test POUs and `trust-dev test`.
+- `trust-lsp.toml`'s `[dependencies]`, in the reference of the documentation.
