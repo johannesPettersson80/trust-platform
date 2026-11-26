@@ -1,0 +1,25 @@
+# The cell's configuration (specification 48 §14.2): truST writes it into
+# src/generated/trust/configuration.st, which the build runs.
+[rust]
+crate = "."
+
+[resource]
+name = "CellRes"
+
+[tasks.CellTask]
+interval = "10ms"
+priority = 1
+
+[programs.Cell]
+type = "PRESS_CELL"
+task = "CellTask"
+
+# The fixture's button, sensors, valves and lamp.
+[bindings]
+"Cell.start" = "%IX0.0"
+"Cell.part_present" = "%IX0.1"
+"Cell.clamp_closed" = "%IX0.2"
+"Cell.press_down" = "%IX0.3"
+"Cell.clamp" = "%QX0.0"
+"Cell.press" = "%QX0.1"
+"Cell.ready" = "%QX0.2"

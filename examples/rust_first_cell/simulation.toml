@@ -1,0 +1,17 @@
+# The fixture's clamp and press, simulated (specification 46): each sensor follows its valve after
+# the time its cylinder takes to move, closing and opening alike. The part sensor and the Start
+# button are yours to set, in Live Values or in a machine test.
+[simulation]
+enabled = true
+
+# The clamp closes and opens in 300 ms.
+[[couplings]]
+source = "%QX0.0"
+target = "%IX0.2"
+delay_ms = 300
+
+# The press goes down and up in 800 ms.
+[[couplings]]
+source = "%QX0.1"
+target = "%IX0.3"
+delay_ms = 800

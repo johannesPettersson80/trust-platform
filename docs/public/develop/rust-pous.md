@@ -405,6 +405,10 @@ refuses a project whose file is out of date, as it does for the declarations. `t
 `[globals]` and `[bindings]` (`"MainInstance.start" = "%IX0.0"`). `runtime.toml`, `io.toml` and the
 tools are the same as in every project.
 
+The example `examples/rust_first_cell` is a whole Rust-first project: a press cell whose program runs
+a sequence, bound to its button, sensors and valves in `trust.toml`, with machine tests in its own
+`tests/` that run the program and its simulated clamp and press under `cargo test`.
+
 ## Heartbeats of services
 
 A service is a program of its own beside the runtime, which reads and writes the runtime's variables

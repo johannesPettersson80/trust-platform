@@ -1,0 +1,15 @@
+# Simulated I/O so the project runs with no hardware or brokers, on any machine. Devices & Connections
+# ("Set up runtime…" → add a device) writes real drivers here when you wire one up.
+[io]
+driver = "simulated"
+params = {}
+
+# The safe state of a fault (`policy = "safe_halt"` in runtime.toml): the press's valve closes, so
+# the press lifts, and the Ready lamp goes out. The clamp keeps the part as it is.
+[[io.safe_state]]
+address = "%QX0.1"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.2"
+value = "FALSE"

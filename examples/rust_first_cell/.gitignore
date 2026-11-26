@@ -1,0 +1,8 @@
+# The runtime's endpoint file: it can hold a control token.
+/.trust-runtime/
+# What the build writes: its folder, the program's image and its deployment record.
+/build/
+/program.tpi
+/deployment-record.bin
+# Where your own cargo builds and tests the crate.
+/target/

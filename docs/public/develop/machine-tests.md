@@ -205,6 +205,9 @@ assert!(replayed.matched, "{replayed}");
   runs.
 - `examples/room_heating/machine-tests/tests/replay.rs` and `examples/room_heating/traces/`: the
   commissioning trace and its replay, which CI runs too.
+- `examples/rust_first_cell/tests/cell.rs`: the machine tests of a Rust-first project, in the
+  project's own crate, as specification 48 §14.1 lays it out: they open the crate's folder,
+  `Project::open(".")`, and test its press cell's sequence step by step.
 - Specification 48, RU-59 and RU-60: what a trace keeps and how a replay runs it.
 - [`trust-dev replay`](../reference/cli/trust-dev.md) and
   [`trust-runtime ctl record`](../reference/cli/trust-runtime.md).
