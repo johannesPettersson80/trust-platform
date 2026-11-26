@@ -7,7 +7,9 @@
 //! Every runtime keeps them with the same rules (RU-59, "Every runtime"); only where they are kept
 //! differs. A computer runs each resource's scans on a thread of its own, so each thread keeps its
 //! own readings. A chip runs its scans on its one thread without the standard library, so it keeps
-//! them in one place, under a critical section.
+//! them in one place, under a critical section. Only a computer replays (RU-60, in a simulator), so
+//! only a computer keeps the room of a replay's readings: a chip's static memory holds the
+//! recording's room alone.
 
 /// The readings kept between two takes.
 pub const ROOM: usize = 256;
@@ -21,12 +23,15 @@ struct State {
     /// How many readings there were since the last take, past the room too.
     count: usize,
     /// A replay plays its readings ([`play`]).
+    #[cfg(feature = "std")]
     playing: bool,
     /// The readings a replay gives the wall clock.
+    #[cfg(feature = "std")]
     playback: Playback,
 }
 
 /// The readings a replay gives the wall clock ([`play`]).
+#[cfg(feature = "std")]
 struct Playback {
     readings: [i64; ROOM],
     count: usize,
@@ -40,7 +45,9 @@ impl State {
             armed: false,
             readings: [0; ROOM],
             count: 0,
+            #[cfg(feature = "std")]
             playing: false,
+            #[cfg(feature = "std")]
             playback: Playback {
                 readings: [0; ROOM],
                 count: 0,
@@ -74,6 +81,7 @@ impl State {
         count
     }
 
+    #[cfg(feature = "std")]
     fn play(&mut self, readings: &[i64]) {
         let count = readings.len().min(ROOM);
         self.playback.readings[..count].copy_from_slice(&readings[..count]);
@@ -82,6 +90,7 @@ impl State {
         self.playing = true;
     }
 
+    #[cfg(feature = "std")]
     fn played(&mut self) -> Option<i64> {
         if !self.playing {
             return None;
@@ -95,6 +104,7 @@ impl State {
         playback.last
     }
 
+    #[cfg(feature = "std")]
     fn stop_playing(&mut self) {
         self.playing = false;
         self.playback.count = 0;
@@ -102,6 +112,11 @@ impl State {
         self.playback.last = None;
     }
 }
+
+// A chip's static memory holds the recording's room alone (the module's documentation): its
+// ROOM readings and a few words, never a replay's room beside them (2 KB of a C6's RAM).
+#[cfg(not(feature = "std"))]
+const _: () = assert!(core::mem::size_of::<State>() <= ROOM * core::mem::size_of::<i64>() + 16);
 
 /// A computer: each thread's own readings.
 #[cfg(feature = "std")]
@@ -151,7 +166,9 @@ pub fn kept() -> usize {
 
 /// Gives this thread's wall clock the readings of a recorded cycle, which a replay gives the build
 /// (specification 48 RU-60): [`played`] hands them out in order, then the last of them again when
-/// the build reads the clock more often. Readings past the room are not played.
+/// the build reads the clock more often. Readings past the room are not played. A computer's alone:
+/// a replay runs in a simulator.
+#[cfg(feature = "std")]
 pub fn play(readings: &[i64]) {
     with_state(|state| state.play(readings));
 }
@@ -159,12 +176,14 @@ pub fn play(readings: &[i64]) {
 /// The next reading a replay gives this thread's wall clock ([`play`]): the cycle's readings in
 /// order, then the last reading played again, from an earlier cycle when this one has none; `None`
 /// while no replay plays, or before it has played any.
+#[cfg(feature = "std")]
 #[must_use]
 pub fn played() -> Option<i64> {
     with_state(State::played)
 }
 
 /// Ends a replay's readings: this thread's wall clock is its own again.
+#[cfg(feature = "std")]
 pub fn stop_playing() {
     with_state(State::stop_playing);
 }
