@@ -74,6 +74,42 @@ fn the_curriculum_rule_names_gaps_repeats_and_late_prerequisites() {
 }
 
 #[test]
+fn the_learning_paths_page_lists_the_course_in_its_order() {
+    // The page "Learning Paths" lists the control course's lessons in the course's order, the
+    // catalog's, numbered 1, 2, 3 … as their sequences run, each by its id and linking to its
+    // folder (checklist G282c). Catches a lesson added to the catalog without its line, a renamed or
+    // moved lesson whose old line stays, and a number skipped: on 26 November 2026 the page listed
+    // 83 of 89 lessons, one by an id the catalog no longer has, and skipped 35.
+    let page = std::fs::read_to_string(repository().join("docs/public/examples/learning-paths.md"))
+        .expect("the page");
+    let prefix = "https://github.com/johannesPettersson80/trust-platform/tree/main/examples/";
+    let listed: Vec<&str> = page
+        .lines()
+        .filter(|line| {
+            line.split_once(". [`")
+                .is_some_and(|(number, _)| number.parse::<usize>().is_ok())
+        })
+        .collect();
+    let course: Vec<String> = control_entries()
+        .iter()
+        .enumerate()
+        .map(|(index, (id, path, ..))| format!("{}. [`{id}`]({prefix}{path})", index + 1))
+        .collect();
+    let first = listed
+        .iter()
+        .zip(&course)
+        .position(|(line, lesson)| line != lesson);
+    assert!(
+        first.is_none() && listed.len() == course.len(),
+        "the page lists {} lessons for the course's {}; the first that differs: {:?} for {:?}",
+        listed.len(),
+        course.len(),
+        first.map(|index| listed[index]),
+        first.map(|index| &course[index])
+    );
+}
+
+#[test]
 fn the_catalog_lessons_hold_their_contracts_and_form_the_course() {
     // Every control lesson of the catalog is available, and the catalog's order is the course.
     // Catches: a shipped lesson the gallery would refuse, or a broken course order.
