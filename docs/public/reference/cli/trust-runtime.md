@@ -21,6 +21,7 @@ them before `new` was added; the table below lists `new`.
 | `ctl` | send control requests to a running runtime |
 | `new` | create a project folder with the files a new project starts from |
 | `identify` | make a runtime show where it is by blinking its identify output |
+| `discover` | search for devices: truST runtimes, ADS, Modbus TCP, MQTT, OPC UA, EtherCAT and GPIO |
 | `check` | validate sources/config without writing a program image |
 | `build` | compile the project into the program image `program.tpi` |
 | `validate` | validate project config + program image |
@@ -31,16 +32,20 @@ them before `new` was added; the table below lists `new`.
 | `docs` | deprecated alias for `trust-dev docs` |
 | `ads` | Beckhoff ADS onboarding backend, symbol import, route artifacts, and validation |
 | `comm` | offline communication schema, configuration, discovery, topology, and symbol browsing |
+| `plant` | the plant configuration of a stopped project, for trusted local tools |
 | `plcopen` | PLCopen import/export/profile |
 | `registry` | package registry workflows |
+| `fleet` | offline fleet manifests and sibling runtimes |
 | `setup` | initialize system I/O config |
 | `ide` | serve the browser IDE |
+| `config-ui` | deprecated alias for `ide` |
 | `agent` | deprecated alias for `trust-dev agent serve` |
 | `commit` | deprecated alias for `trust-dev commit` |
 | `wizard` | create a new project folder |
 | `deploy` / `rollback` | versioned deployment and rollback |
 | `bench` | communication/runtime benchmark surfaces |
 | `conformance` | deterministic conformance suite runner |
+| `completions` | generate shell completions |
 | `toolchain` | the compiler toolchain that builds programs: `status`, `install`, `bundle` |
 | `firmware` | install truST's firmware on a chip through the chip's own boot loader: `install` |
 

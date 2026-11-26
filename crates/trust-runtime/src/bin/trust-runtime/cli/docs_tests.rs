@@ -9,16 +9,41 @@ mod docs_tests {
     //!
     //! The page "Create A New Project" lists the files of the project that `trust-runtime new` writes.
 
+    use std::collections::BTreeSet;
     use std::fs;
     use std::path::Path;
 
     use clap::error::ErrorKind;
-    use clap::Parser;
+    use clap::{CommandFactory, Parser};
     use trust_runtime::new_project::create_project;
-    use trust_test_support::doc_commands::{command_lines, pages, repository, words};
+    use trust_test_support::doc_commands::{
+        command_lines, pages, repository, table_commands, words,
+    };
     use trust_test_support::unique_temp_path;
 
     use super::Cli;
+
+    #[test]
+    fn the_reference_names_every_command_that_the_help_shows() {
+        // The CLI reference's table "Top-level Command Families" names every top-level command that
+        // `trust-runtime --help` shows, and no other (checklist G282c). Catches a new command left
+        // out of the reference, and a removed or renamed one that stays in it.
+        let root = repository(env!("CARGO_MANIFEST_DIR"));
+        let page = fs::read_to_string(root.join("docs/public/reference/cli/trust-runtime.md"))
+            .expect("the reference");
+        let listed = table_commands(&page, "## Top-level Command Families");
+        let shown: BTreeSet<String> = Cli::command()
+            .get_subcommands()
+            .filter(|command| !command.is_hide_set())
+            .map(|command| command.get_name().to_owned())
+            .collect();
+        let missing: Vec<&String> = shown.difference(&listed).collect();
+        let unknown: Vec<&String> = listed.difference(&shown).collect();
+        assert!(
+            missing.is_empty() && unknown.is_empty(),
+            "the table lacks {missing:?}, and names {unknown:?}, which --help does not show"
+        );
+    }
 
     #[test]
     fn every_command_line_in_the_docs_parses() {

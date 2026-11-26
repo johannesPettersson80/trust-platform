@@ -12,7 +12,8 @@ binary.
 | `commit` | summarize and commit project changes |
 | `docs` | generate API documentation from tagged ST comments |
 | `replay` | replay a cycle trace in a simulator of the project as it is now |
-| `service install`, `service uninstall` | put a service of the project under the computer's service manager, or remove it |
+| `rust declarations`, `rust audit`, `rust bench` | write the Structured Text declarations of the project's Rust POUs, check the crates its program is built from against the RustSec advisory database, and measure its Rust POUs for their time budgets |
+| `service bindings`, `service install`, `service uninstall` | write a service's bindings to the program's variables, put the service under the computer's service manager, or remove it |
 | `test` | discover and execute ST tests |
 
 ## Agent
