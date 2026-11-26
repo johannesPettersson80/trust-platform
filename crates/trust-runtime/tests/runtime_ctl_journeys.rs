@@ -8,7 +8,7 @@ mod runtime_process;
 
 use std::time::Duration;
 
-use runtime_process::{hold_for, stderr_text, ExampleRuntime, CLIMB, WAIT};
+use runtime_process::{hold_for, stderr_text, ExampleRuntime, Runtime, CLIMB, WAIT};
 
 /// The stable refusal in control/program_handlers.rs (STEP_REQUIRES_HOLD_MESSAGE).
 const STEP_REQUIRES_HOLD: &str =
@@ -532,4 +532,108 @@ fn ctl_holds_at_a_conditional_breakpoint_and_evaluates_a_debug_expression() {
         runtime.status().state == "running"
     });
     runtime.assert_running_without_fault();
+}
+
+/// `retain_counter`'s two counters as `ctl read` gives them: `TotalParts`, declared `RETAIN`, and
+/// `ShiftParts`, declared in a plain `VAR` section.
+fn parts(runtime: &Runtime) -> (u64, u64) {
+    let text = runtime.ctl_ok(&["read", "Main.TotalParts", "Main.ShiftParts"]);
+    let value = |name: &str| -> u64 {
+        text.lines()
+            .find_map(|line| line.strip_prefix(&format!("{name} : UDINT = ")))
+            .and_then(|value| value.trim().parse().ok())
+            .unwrap_or_else(|| panic!("{name} in the reply: {text}"))
+    };
+    (value("Main.TotalParts"), value("Main.ShiftParts"))
+}
+
+/// Reads the counters until `holds` reads true, at most `CLIMB` (the task counts one part a second),
+/// and gives the last reading.
+fn parts_when(runtime: &Runtime, what: &str, holds: impl Fn((u64, u64)) -> bool) -> (u64, u64) {
+    let mut last = (0, 0);
+    runtime.wait_until(CLIMB, what, || {
+        last = parts(runtime);
+        holds(last)
+    });
+    last
+}
+
+/// Stops the runtime as `ctl shutdown --exit` does and waits until its process has ended.
+fn stop(runtime: &mut Runtime) {
+    runtime.ctl_ok(&["shutdown", "--exit"]);
+    let status = runtime.wait_for_exit(WAIT);
+    assert!(
+        status.success(),
+        "the runtime ends with success after shutdown --exit: {status}"
+    );
+}
+
+#[test]
+fn the_retain_guide_keeps_the_total_over_a_warm_restart_and_a_stop() {
+    // Specification 10 (retain over a warm restart) and 11 (warm and cold startup), as the guide
+    // "Retain Across Restarts" (examples/retain_counter) runs them. Each run of the task counts one
+    // part in both counters. A warm restart keeps TotalParts and starts ShiftParts over, so their
+    // difference is at least the total before it; a cold restart starts both over, so they are
+    // equal; a stop saves the total to retain.bin and a warm start goes on from it; and a cold
+    // start reads no file, so that its own save replaces the file's total. Catches a warm restart
+    // that drops a retained variable or keeps a plain one, a cold restart that keeps a retained
+    // one, a stop that does not save, a warm start that does not read the file, and a cold start
+    // that reads it.
+    let mut runtime = ExampleRuntime::new("retain_counter").start();
+    let (total, shift) = parts_when(&runtime, "three runs", |(_, shift)| shift >= 3);
+    assert_eq!(
+        total, shift,
+        "both counters count from the first, cold start"
+    );
+
+    runtime.ctl_ok(&["restart", "warm"]);
+    let (warm_total, warm_shift) =
+        parts_when(&runtime, "a run after the warm restart", |(_, s)| {
+            s >= 1 && s < shift
+        });
+    assert!(
+        warm_total - warm_shift >= total,
+        "the warm restart keeps TotalParts ({total} before; {warm_total} with {warm_shift} runs after)"
+    );
+
+    runtime.ctl_ok(&["restart", "cold"]);
+    let (cold_total, cold_shift) =
+        parts_when(&runtime, "a run after the cold restart", |(t, s)| {
+            s >= 1 && t < warm_total
+        });
+    assert_eq!(
+        cold_total, cold_shift,
+        "the cold restart starts TotalParts over too"
+    );
+
+    let (saved, _) = parts_when(&runtime, "eight parts in all", |(total, _)| total >= 8);
+    stop(&mut runtime);
+    runtime.start_again(&["--restart", "warm"]);
+    let (total, shift) = parts_when(&runtime, "a run after the warm start", |(_, shift)| {
+        shift >= 1
+    });
+    assert!(
+        total - shift >= saved,
+        "the warm start goes on from the saved total ({saved} at the stop; {total} with {shift} runs after)"
+    );
+
+    stop(&mut runtime);
+    runtime.start_again(&["--restart", "cold"]);
+    let (cold, _) = parts_when(&runtime, "two runs after the cold start", |(_, shift)| {
+        shift >= 2
+    });
+    assert!(
+        cold < saved,
+        "the cold start reads no file: {cold} parts, {saved} saved"
+    );
+    let (cold, _) = parts(&runtime);
+    stop(&mut runtime);
+    runtime.start_again(&["--restart", "warm"]);
+    let (total, shift) = parts_when(&runtime, "a run after the last warm start", |(_, shift)| {
+        shift >= 1
+    });
+    assert!(
+        (cold..=cold + 1).contains(&(total - shift)),
+        "the cold run's save replaced the file's {saved}: {cold} at its stop; {total} with {shift} runs after"
+    );
 }

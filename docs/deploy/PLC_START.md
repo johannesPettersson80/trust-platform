@@ -81,7 +81,8 @@ Then point `trust-runtime ctl --endpoint tcp://127.0.0.1:9000`.
 
 See `docs/deploy/systemd/trust-runtime.service`. It runs
 `trust-runtime run --project /opt/trust/current --restart warm`: it starts the deployed project
-warm, so that its retained values come back after a power loss, a crash or a restart by systemd.
+warm, so that its retained values come back from its retain file (`[runtime.retain] mode = "file"`,
+as truST writes `runtime.toml`) after a power loss, a crash or a restart by systemd.
 
 ### Log Rotation / Retention (journald)
 

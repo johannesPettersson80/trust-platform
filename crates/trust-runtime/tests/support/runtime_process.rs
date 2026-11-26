@@ -396,6 +396,15 @@ impl Runtime {
         self.child = Some(child);
     }
 
+    /// Starts `play` on the same project again after its process ended, with the further arguments
+    /// `args`, such as `--restart warm`, and waits until it serves, as an operator starts a runtime
+    /// again after a stop or a power loss. For a runtime without its web interface.
+    pub fn start_again(&mut self, args: &[&str]) {
+        if let Err(taken) = self.start_once(false, args) {
+            panic!("the runtime did not start again: {taken}");
+        }
+    }
+
     /// Starts `play` with the further arguments `args` and waits until it is ready (`await_ready`).
     fn start_once(&mut self, web: bool, args: &[&str]) -> Result<(), String> {
         self.spawn_play(args);

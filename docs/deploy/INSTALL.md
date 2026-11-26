@@ -74,4 +74,4 @@ into a folder on your PATH.
 - Build your project folder: `trust-runtime build --project /path/to/project`
 - Deploy (versioned project folder): `trust-runtime deploy --project /path/to/project --root /opt/trust`
 - Start runtime: `trust-runtime run --project /opt/trust/current` (the service unit adds
-  `--restart warm`, so that retained values come back after a power loss)
+  `--restart warm`, so that retained values come back from the retain file after a power loss)
