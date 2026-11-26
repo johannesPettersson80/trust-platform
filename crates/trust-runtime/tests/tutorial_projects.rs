@@ -591,7 +591,7 @@ fn tutorial_23_records_its_allowlist_and_serves_metrics_as_its_readme_writes_it(
         }
     }
 
-    let runtime = ExampleRuntime::written("tutorial-23", files).web().start();
+    let mut runtime = ExampleRuntime::written("tutorial-23", files).web().start();
     for value in [true, false] {
         set(&runtime, "%IX0.0", value);
         runtime.wait_until(
@@ -607,7 +607,31 @@ fn tutorial_23_records_its_allowlist_and_serves_metrics_as_its_readme_writes_it(
         );
     }
 
+    let mut response = ureq::get(&format!("{}/metrics", runtime.web_base()))
+        .call()
+        .expect("step 7: GET /metrics");
+    let body = response.body_mut().read_to_string().expect("the metrics");
+    let value = |name: &str| {
+        body.lines()
+            .find_map(|line| line.strip_prefix(&format!("{name} ")))
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .unwrap_or_else(|| panic!("step 7: no {name} in\n{body}"))
+    };
+    assert!(value("trust_runtime_uptime_ms") > 0.0, "{body}");
+    assert_eq!(value("trust_runtime_faults_total"), 0.0, "{body}");
+    let total = value("trust_runtime_historian_samples_total");
+
+    // The historian appends a capture a line at a time, so its file is read whole once the runtime
+    // has stopped, with every capture complete.
+    runtime.ctl_ok(&["shutdown", "--exit"]);
+    runtime.wait_for_exit(STEP);
     let samples = historian_samples(runtime.project());
+    assert!(
+        total >= 2.0 && total <= samples.len() as f64,
+        "step 7: the historian's sample total ({total}) counts the samples persisted then, at least \
+         one capture and at most the {} in the file at the end\n{body}",
+        samples.len()
+    );
     let variables: std::collections::BTreeSet<&str> = samples
         .iter()
         .map(|(_, variable, _)| variable.as_str())
@@ -625,40 +649,30 @@ fn tutorial_23_records_its_allowlist_and_serves_metrics_as_its_readme_writes_it(
             .or_default()
             .push((variable.as_str(), value));
     }
+    // Each capture records the current snapshot of every allowlisted name at one time.
     for (time, sample) in &by_time {
+        let mut names: Vec<&str> = sample.iter().map(|(variable, _)| *variable).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            ["P1.LampOut", "P1.StartCmd"],
+            "the capture at {time} ms holds each allowlisted variable once"
+        );
         let of = |name: &str| {
             sample
                 .iter()
                 .find(|(variable, _)| *variable == name)
-                .map(|(_, v)| *v)
+                .map(|(_, value)| *value)
+                .expect("checked above")
         };
-        if let (Some(start), Some(lamp)) = (of("P1.StartCmd"), of("P1.LampOut")) {
-            assert_eq!(
-                start, lamp,
-                "the sample at {time} ms: LampOut copies StartCmd"
-            );
-            assert_eq!(
-                start["kind"], "bool",
-                "the sample at {time} ms keeps the BOOL's type"
-            );
-        }
+        let (start, lamp) = (of("P1.StartCmd"), of("P1.LampOut"));
+        assert_eq!(
+            start, lamp,
+            "the capture at {time} ms: LampOut copies StartCmd"
+        );
+        assert_eq!(
+            start["kind"], "bool",
+            "the capture at {time} ms keeps the BOOL's type"
+        );
     }
-
-    let mut response = ureq::get(&format!("{}/metrics", runtime.web_base()))
-        .call()
-        .expect("step 7: GET /metrics");
-    let body = response.body_mut().read_to_string().expect("the metrics");
-    let value = |name: &str| {
-        body.lines()
-            .find_map(|line| line.strip_prefix(&format!("{name} ")))
-            .and_then(|value| value.trim().parse::<f64>().ok())
-            .unwrap_or_else(|| panic!("step 7: no {name} in\n{body}"))
-    };
-    assert!(value("trust_runtime_uptime_ms") > 0.0, "{body}");
-    assert_eq!(value("trust_runtime_faults_total"), 0.0, "{body}");
-    assert!(
-        value("trust_runtime_historian_samples_total") >= samples.len() as f64,
-        "step 7: the historian's sample total counts at least the {} samples read before\n{body}",
-        samples.len()
-    );
 }

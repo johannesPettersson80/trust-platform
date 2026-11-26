@@ -71,11 +71,12 @@ how to read its file, and what the Prometheus endpoint reports.
     trust-runtime run --project .
     ```
 
-5. In the second terminal, in the same folder, turn the input on and, after two seconds, off
-   again:
+5. In the second terminal, in the same folder, turn the input on and, two seconds later, so that a
+   sample a second records it, off again:
 
     ```bash
     trust-runtime ctl --project . io-write %IX0.0 true
+    sleep 2
     trust-runtime ctl --project . io-write %IX0.0 false
     ```
 
