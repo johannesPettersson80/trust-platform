@@ -717,6 +717,9 @@ fn tutorial_15_configurations_build_and_validate() {
     }
 }
 
+#[path = "tutorial_projects/io_backends.rs"]
+mod io_backends;
+
 #[cfg(unix)]
 #[path = "tutorial_projects/deploy_and_rollback.rs"]
 mod deploy_and_rollback;
