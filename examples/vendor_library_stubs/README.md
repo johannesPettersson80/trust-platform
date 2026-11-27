@@ -22,18 +22,20 @@ not give.
 - VS Code with the truST extension, and `trust-runtime`, from the extension or a release archive.
 - This repository, whose `examples/vendor_library_stubs` you copy.
 - Linux or macOS, whose shell runs the commands below. On Windows, copy the folder in the
-  Explorer and run the build in PowerShell.
+  Explorer to a folder of your own, open that copy in VS Code, and run step 6's build in
+  PowerShell from that folder.
 - About 15 minutes.
 
 ## Step by step
 
 1. From the root of the repository, copy the example, so that your changes stay out of the
-   repository, and open the copy in VS Code:
+   repository, and open the copy in VS Code. The first command removes an earlier copy of this
+   example, with any changes you made in it:
 
     ```bash
-    rm -rf /tmp/vendor-stubs
-    cp -R examples/vendor_library_stubs /tmp/vendor-stubs
-    code /tmp/vendor-stubs
+    rm -rf /tmp/trust-vendor-stubs
+    cp -R examples/vendor_library_stubs /tmp/trust-vendor-stubs
+    code /tmp/trust-vendor-stubs
     ```
 
 2. Open `trust-lsp.toml`:
@@ -84,10 +86,11 @@ not give.
    Then, on a new line after `Engineering : REAL;` in the `VAR` block, type `Extra : NO` and
    press Ctrl+Space: completion offers `NORM_X`. Delete that line too.
 
-6. In a terminal, build the program with the stubs:
+6. In a terminal in the copy, build the program with the stubs. On Windows, run the second line
+   in PowerShell from the folder you copied the example to:
 
     ```bash
-    cd /tmp/vendor-stubs
+    cd /tmp/trust-vendor-stubs
     trust-runtime build --project . --sources src --sources vendor/siemens
     ```
 
