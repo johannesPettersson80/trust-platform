@@ -1,146 +1,149 @@
 # Tutorial 23: Observability (Historian + Prometheus Metrics)
 
-This tutorial enables runtime observability and verifies both persisted historian
-samples and Prometheus metrics export.
+Record a program's variables to a history file and serve the runtime's metrics to Prometheus, on
+tutorial 13's project. You learn how `[runtime.observability]` chooses what the historian records,
+how to read its file, and what the Prometheus endpoint reports.
 
-## Why this tutorial exists
+## What you learn
 
-Many teams enable runtime logic and I/O first, then postpone observability until
-late commissioning. That increases startup risk because trend/alert/metrics
-paths are never validated under real runtime behavior.
+- In `mode = "allowlist"`, the historian records exactly the variables that `include` names, a
+  program's variable by its full path: `P1.StartCmd` is the input of the program instance `P1`. It
+  takes a sample of each every `sample_interval_ms`.
+- The historian appends each sample to `history/historian.jsonl` in the project folder, one JSON
+  object a line, with the time and the value's type.
+- With the web interface on, `prometheus_path` serves the runtime's metrics in the Prometheus text
+  format, the historian's sample total among them.
 
-## What you will learn
+## What you need
 
-- how to enable `[runtime.observability]` safely
-- how to verify historian file output (`history/historian.jsonl`)
-- how to verify Prometheus endpoint export (`/metrics`)
-- how to scope recorded variables with allowlist mode
+- Tutorial 13's project in `/tmp/trust-tutorial-13`, as its README builds it, and
+  `trust-runtime`, from the truST extension for VS Code or a release archive.
+- `curl`, and two terminals.
+- About 15 minutes.
 
-## Prerequisites
+## Step by step
 
-- complete Tutorial 13 first
-- one shell for runtime, one shell for verification commands
+1. Copy tutorial 13's project, so that its own configuration stays as it is:
 
-## Step 1: Prepare isolated project copy
+    ```bash
+    rm -rf /tmp/trust-observability
+    cp -R /tmp/trust-tutorial-13 /tmp/trust-observability
+    cd /tmp/trust-observability
+    ```
 
-Why: observability tuning should not alter your baseline template project.
+2. Open `runtime.toml` and put these two sections in place of its `[runtime.web]` and
+   `[runtime.observability]` sections; tutorial 13's project has no `[runtime.observability]` yet,
+   so add it:
 
-```bash
-rm -rf /tmp/trust-observability
-cp -R /tmp/trust-tutorial-13 /tmp/trust-observability
-cd /tmp/trust-observability
-```
+    ```toml
+    [runtime.web]
+    enabled = true
+    listen = "127.0.0.1:18084"
+    auth = "local"
+    tls = false
 
-## Step 2: Enable web + observability in `runtime.toml`
+    [runtime.observability]
+    enabled = true
+    sample_interval_ms = 1000
+    mode = "allowlist"
+    include = ["P1.StartCmd", "P1.LampOut"]
+    history_path = "history/historian.jsonl"
+    max_entries = 20000
+    prometheus_enabled = true
+    prometheus_path = "/metrics"
+    ```
 
-Why: Prometheus export is served via web route and historian needs explicit
-recording policy.
+    Tutorial 13's configuration runs the program as `P1`, so its input and output are
+    `P1.StartCmd` and `P1.LampOut`.
 
-Set/update these sections:
+3. Build and check the project:
 
-```toml
-[runtime.web]
-enabled = true
-listen = "127.0.0.1:18084"
-auth = "local"
-tls = false
+    ```bash
+    trust-runtime build --project . --sources src
+    trust-runtime validate --project .
+    ```
 
-[runtime.observability]
-enabled = true
-sample_interval_ms = 1000
-mode = "allowlist"
-include = ["P1.StartCmd", "P1.LampOut"]
-history_path = "history/historian.jsonl"
-max_entries = 20000
-prometheus_enabled = true
-prometheus_path = "/metrics"
-```
+    The validation answers `Project ok`.
 
-Why these defaults:
+4. Start the runtime in this terminal:
 
-- `allowlist` avoids recording every symbol by accident.
-- explicit `include` makes retained telemetry intentional. The historian names a program's
-  variable by its full path: tutorial 13's configuration runs the program as `P1`, so its input
-  and output are `P1.StartCmd` and `P1.LampOut`.
-- local bind (`127.0.0.1`) keeps first-run exposure minimal.
+    ```bash
+    trust-runtime run --project .
+    ```
 
-## Step 3: Build and validate
+5. In the second terminal, in the same folder, turn the input on and, two seconds later, so that a
+   sample a second records it, off again:
 
-Why: `mode = "allowlist"` requires a non-empty `include`, and validation catches
-that class of mistakes before launch.
+    ```bash
+    trust-runtime ctl --project . io-write %IX0.0 true
+    sleep 2
+    trust-runtime ctl --project . io-write %IX0.0 false
+    ```
 
-```bash
-trust-runtime build --project . --sources src
-trust-runtime validate --project .
-```
+    Each write answers that it is queued, for the program's next cycle:
+    `{"audit_id":"audit-…","id":1,"ok":true,"result":{"status":"queued"}}`.
 
-## Step 4: Start runtime
+6. Read the last samples of the history:
 
-Why: runtime startup confirms historian path setup and web binding.
+    ```bash
+    tail -n 4 history/historian.jsonl
+    ```
 
-```bash
-trust-runtime run --project .
-```
+    The input and the output went on together, and off together:
 
-Leave this terminal running.
+    ```text
+    {"timestamp_ms":1795722702658,"source_time_ns":3200164309,"variable":"P1.StartCmd","value":{"kind":"bool","value":true}}
+    {"timestamp_ms":1795722702658,"source_time_ns":3200164309,"variable":"P1.LampOut","value":{"kind":"bool","value":true}}
+    {"timestamp_ms":1795722703758,"source_time_ns":4300206751,"variable":"P1.StartCmd","value":{"kind":"bool","value":false}}
+    {"timestamp_ms":1795722703758,"source_time_ns":4300206751,"variable":"P1.LampOut","value":{"kind":"bool","value":false}}
+    ```
 
-## Step 5: Generate runtime activity
+7. Read the metrics that a Prometheus server would scrape:
 
-Why: historian and metrics should reflect real signal changes, not idle state.
+    ```bash
+    curl -s http://127.0.0.1:18084/metrics | grep -E "^trust_runtime_(uptime_ms|faults_total|historian_samples_total)"
+    ```
 
-Use Live Values or the web UI and toggle mapped inputs (for example `%IX0.0`) for at
-least a few cycles so the values of `P1.StartCmd` and `P1.LampOut` change.
+    The values differ from run to run; here, about five seconds after the start:
 
-## Step 6: Verify historian file output
+    ```text
+    trust_runtime_uptime_ms 5472
+    trust_runtime_faults_total 0
+    trust_runtime_historian_samples_total 10
+    ```
 
-Why: persistent telemetry is the basis for post-event diagnostics.
+    Stop the runtime with `trust-runtime ctl --project . shutdown --exit`.
 
-In another terminal:
+## What happened
 
-```bash
-ls -l history/historian.jsonl
-tail -n 10 history/historian.jsonl
-```
+**The allowlist.** The historian sampled the program's copy that the scan publishes, the one that
+the HMI and the OPC UA server read, once a second, and kept the two variables that `include`
+names, so the history holds nothing else. Each sample of the two shares its time: `timestamp_ms` is the
+computer's clock, and `source_time_ns` is the runtime's logical time since its start.
 
-Expected result:
+**The values.** Each value keeps its type, `{"kind":"bool","value":true}`, and the program copies
+`StartCmd` to `LampOut`, so the two are equal in every sample.
 
-- file exists and grows over time,
-- lines are JSON objects with timestamped samples,
-- recorded variables match your allowlist scope.
+**The metrics.** `/metrics` answers in the Prometheus text format: the runtime's uptime, its fault
+and overrun totals, cycle and task times, and the historian's totals, here 10 samples, five of each
+variable. `auth = "local"` serves them to clients on this computer.
 
-## Step 7: Verify Prometheus endpoint
+**Before production.** Change the web interface's address, authentication and TLS to what the site
+requires before `/metrics` is reachable from the network, set `max_entries` to what the device's
+storage holds, keep the allowlist to the variables that operations need, and decide how the history
+file is archived.
 
-Why: this confirms metrics scraping contract before CI/monitoring integration.
+## Try it yourself
 
-```bash
-curl -s http://127.0.0.1:18084/metrics | head -n 40
-```
+- Set `include = []` and validate again. The runtime refuses an allowlist that names nothing:
+  `Error: invalid config 'runtime.toml: runtime.observability.include must not be empty when
+  mode='allowlist''`.
+- Set `include = ["P1.LampOut"]`, start the runtime again and toggle the input: the new samples
+  hold `P1.LampOut` alone.
 
-Expected result:
+## Reference
 
-- endpoint responds with text exposition format,
-- runtime metrics are present,
-- historian counters are present when observability is enabled.
-
-## Step 8: Harden for production
-
-Why: observability paths are part of security and storage posture.
-
-- change web listen/auth/TLS policy to production requirements,
-- set retention limits appropriate for device storage,
-- keep allowlist focused on operationally relevant symbols,
-- define archiving/rotation policy for historian file handling.
-
-## Common mistakes
-
-- enabling `mode = "allowlist"` with empty `include`
-- exposing `/metrics` broadly before network policy is ready
-- recording too many variables and exhausting storage budget
-- assuming observability works without testing non-idle signal changes
-
-## Completion checklist
-
-- [ ] observability enabled with explicit recording scope
-- [ ] historian file verified with live sample updates
-- [ ] `/metrics` endpoint verified locally
-- [ ] production storage/network hardening decisions captured
+- Specification 11, the runtime historian's recording and export contract.
+- `runtime.toml`'s `[runtime.observability]` and `[runtime.web]`, and the `trust-runtime ctl`
+  command `io-write`, in the reference of the documentation.
+- Tutorial 13, which builds the project this tutorial starts from.
