@@ -202,7 +202,6 @@
     "examples/tutorials/11_unit_testing_102/README.md",
     "examples/tutorials/12_hmi_pid_process_dashboard/README.md",
     "examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md",
-    "examples/tutorials/15_multi_plc_discovery_mesh/README.md",
     "examples/tutorials/16_secure_remote_access/README.md",
     "examples/tutorials/17_io_backends_and_multi_driver/README.md",
     "examples/tutorials/18_simulation_toml_fault_injection/README.md",
