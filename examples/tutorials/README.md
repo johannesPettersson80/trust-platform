@@ -340,7 +340,7 @@ and why it matters.
 2. `14_deploy_and_rollback/README.md`
     - practice versioned deployment and controlled rollback.
 3. `15_multi_plc_discovery_mesh/README.md`
-    - run two runtimes, verify discovery/pairing, and enable mesh sharing.
+    - run two runtimes, share a value over the mesh, and find the peer with a search.
 4. `16_secure_remote_access/README.md`
     - configure TCP control with auth token, pairing, and minimal firewall
       exposure.
