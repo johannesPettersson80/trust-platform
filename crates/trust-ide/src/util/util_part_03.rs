@@ -60,6 +60,17 @@ pub(crate) fn resolve_target_at_position_with_context(
             continue;
         };
         if name_node.kind() == SyntaxKind::Name {
+            if let Some(parameter_id) =
+                formal_parameter_target(db, file_id, source, root, symbols, &name_node, name)
+            {
+                return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                    symbols,
+                    file_id,
+                    root,
+                    parameter_id,
+                )));
+            }
+
             if let Some(program_id) = resolve_program_config_type(symbols, &name_node) {
                 return Some(ResolvedTarget::Symbol(canonical_symbol_id(
                     symbols, file_id, root, program_id,
@@ -296,6 +307,68 @@ fn field_target_for_symbol_declaration(
         _ => None,
     }
 }
+/// The parameter that a formal parameter name in a call names: `IN` in `Timer(IN := x)`, `Q` in
+/// `Timer(Q => y)`, `a` in `F(a := 1)` or `inst.M(a := 1)`, the callee's own parameter of that name
+/// or one its block inherits (IEC 61131-3 Ed.3 §6.6.1.4.2; specification 14 §6.3.2).
+fn formal_parameter_target(
+    db: &Database,
+    file_id: FileId,
+    source: &str,
+    root: &SyntaxNode,
+    symbols: &SymbolTable,
+    name_node: &SyntaxNode,
+    name: &str,
+) -> Option<SymbolId> {
+    let arg = name_node.parent().filter(|node| node.kind() == SyntaxKind::Arg)?;
+    let call = arg
+        .parent()
+        .filter(|node| node.kind() == SyntaxKind::ArgList)?
+        .parent()
+        .filter(|node| node.kind() == SyntaxKind::CallExpr)?;
+    let callee_offset = crate::signature_help::callee_name_offset(&call)?;
+    let ResolvedTarget::Symbol(callee_id) = resolve_target_at_position_with_context(
+        db,
+        file_id,
+        callee_offset,
+        source,
+        root,
+        symbols,
+    )?
+    else {
+        return None;
+    };
+    let callee = symbols.get(callee_id)?;
+    let owner = match callee.kind {
+        SymbolKind::Function { .. } | SymbolKind::Method { .. } => callee.id,
+        // An instance: the block its type names.
+        _ => {
+            let type_id = symbols.resolve_alias_type(callee.type_id);
+            symbols
+                .iter()
+                .find(|symbol| {
+                    symbol.type_id == type_id && matches!(symbol.kind, SymbolKind::FunctionBlock)
+                })?
+                .id
+        }
+    };
+    let mut visited = FxHashSet::default();
+    let mut pending = vec![owner];
+    while let Some(block) = pending.pop() {
+        if !visited.insert(block) {
+            continue;
+        }
+        if let Some(parameter) = symbols.iter().find(|symbol| {
+            symbol.parent == Some(block)
+                && matches!(symbol.kind, SymbolKind::Parameter { .. })
+                && symbol.name.eq_ignore_ascii_case(name)
+        }) {
+            return Some(parameter.id);
+        }
+        pending.extend(symbols.base_symbols(block));
+    }
+    None
+}
+
 fn name_node_at_token(token: &SyntaxToken) -> Option<SyntaxNode> {
     token
         .parent_ancestors()

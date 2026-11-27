@@ -321,6 +321,45 @@ fn find_references_to_symbol_in_file_by_identity(
         }
     }
 
+    // A formal parameter name names the callee's parameter outside any expression (specification 14
+    // §6.3.2): `:=` writes the input or in-out, `=>` reads the output.
+    for name_node in root.descendants().filter(|node| {
+        node.kind() == SyntaxKind::Name
+            && node
+                .parent()
+                .is_some_and(|arg| arg.kind() == SyntaxKind::Arg)
+    }) {
+        let Some(ident_token) = ident_token_in_name(&name_node) else {
+            continue;
+        };
+        if !ident_token.text().eq_ignore_ascii_case(target_name) {
+            continue;
+        }
+        if let Some(ResolvedTarget::Symbol(resolved_id)) = resolve_target_at_position_with_context(
+            db,
+            file_id,
+            ident_token.text_range().start(),
+            &source,
+            &root,
+            &symbols,
+        ) && symbol_identity(&symbols, resolved_id, file_id) == Some(identity)
+        {
+            let reads_output = name_node.parent().is_some_and(|arg| {
+                arg.children_with_tokens()
+                    .any(|element| element.kind() == SyntaxKind::Arrow)
+            });
+            references.push(Reference {
+                file_id,
+                range: ident_token.text_range(),
+                access: if reads_output {
+                    Access::Read
+                } else {
+                    Access::Write
+                },
+            });
+        }
+    }
+
     for reference in resolved_name_references(db, file_id, identity, &root) {
         if !references
             .iter()

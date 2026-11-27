@@ -130,7 +130,8 @@ fn is_execution_param_name(name: &str) -> bool {
     name.eq_ignore_ascii_case("EN") || name.eq_ignore_ascii_case("ENO")
 }
 
-fn callee_name_offset(call_expr: &SyntaxNode) -> Option<TextSize> {
+/// The offset of the name a call names: the function, the instance or the method.
+pub(crate) fn callee_name_offset(call_expr: &SyntaxNode) -> Option<TextSize> {
     let arg_list = call_expr
         .children()
         .find(|child| child.kind() == SyntaxKind::ArgList)?;

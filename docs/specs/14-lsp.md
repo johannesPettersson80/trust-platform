@@ -332,6 +332,12 @@ contract, including when a newer document or workspace request supersedes it.
   the incoming calls of a method of a function block or class include the calls of the same-named
   method of each interface the block implements, directly, through the blocks it extends, or
   through the interfaces those extend; the interface's own declaration is no reference of it.
+- A formal parameter name in a call names the callee's parameter: `IN` in `Timer(IN := Start)`, `Q` in
+  `Timer(Q => Done)`, `a` in `Limit(a := 1)` or `motor.Start(a := 1)` (IEC 61131-3 Ed.3 §6.6.1.4.2, Table 20).
+  It is a reference of that parameter, the block's own or one it inherits, so go to definition reaches the
+  parameter's declaration, hover shows it, and a rename of the parameter renames it in every call. Its access is
+  the parameter's side of the binding: `:=` writes the input or in-out, and `=>` reads the output. Until
+  27 November 2026 a rename of a parameter left the calls' formal names behind, naming no parameter.
 - Include/exclude declaration
 - Each reference has its access, by the one rule of specification 28 §6 (`trust_hir::access`): a
   write (an assignment's or a FOR loop's target, an argument that a call binds to an output or
