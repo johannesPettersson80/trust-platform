@@ -199,7 +199,6 @@
     "examples/tutorials/11_unit_testing_102/README.md",
     "examples/tutorials/12_hmi_pid_process_dashboard/README.md",
     "examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md",
-    "examples/tutorials/16_secure_remote_access/README.md",
     "examples/tutorials/18_simulation_toml_fault_injection/README.md",
     "examples/tutorials/21_ci_cd_project_pipeline/README.md",
     "examples/tutorials/22_neovim_zed_workflow/README.md",
