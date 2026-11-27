@@ -158,7 +158,6 @@
     "examples/communication/gpio/README.md",
     "examples/communication/mqtt/README.md",
     "examples/communication/mqtt_traffic_light/README.md",
-    "examples/communication/multi_driver/README.md",
     "examples/communication/opcua/README.md",
     "examples/control-cascade-commissioning/README.md",
     "examples/control-onoff-commissioning/README.md",

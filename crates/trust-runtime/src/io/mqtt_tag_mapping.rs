@@ -19,6 +19,14 @@ use crate::CompiledRuntime;
 
 use super::{IoAddress, IoSize, MqttIoDriver};
 
+/// Whether the I/O driver named `name` takes symbolic tag mappings, which its start resolves
+/// against the program before it builds the driver (specification 32 §5): the `mqtt` driver,
+/// under its canonical name or its alias.
+#[must_use]
+pub fn takes_tag_mappings(name: &str) -> bool {
+    name.eq_ignore_ascii_case("mqtt") || name.eq_ignore_ascii_case("mqtt-tcp")
+}
+
 /// The process image a mapping of `direction` uses: a `read` mapping takes the broker's value into
 /// the input image, a `write` mapping publishes the output image's value (specification 32 §5).
 fn direction_area(direction: MappingDirection) -> IoArea {

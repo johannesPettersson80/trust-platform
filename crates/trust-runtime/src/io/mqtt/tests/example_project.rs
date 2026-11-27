@@ -58,13 +58,13 @@ fn keeps_its_last_input(example: &str) {
 }
 
 #[test]
-fn the_mqtt_examples_keep_their_last_input_while_no_new_message_comes() {
+fn the_mqtt_example_keeps_its_last_input_while_no_new_message_comes() {
     // examples/communication/mqtt/README.md, step 4: the reader publishes one input image byte to
-    // `topic_in`, and the runtime keeps running while no new message comes; multi_driver's step 5
-    // runs its MQTT driver beside Modbus. Specification 32 §8: while the session is connected, a
-    // read that finds no new message keeps the input, under every policy. Catches a scan without a
-    // new message that fails or loses the input: before G239 the mqtt example's runtime faulted 28
-    // ms after it started ("mqtt input not fresh").
+    // `topic_in`, and the runtime keeps running while no new message comes. Specification 32 §8:
+    // while the session is connected, a read that finds no new message keeps the input, under
+    // every policy. Catches a scan without a new message that fails or loses the input: before
+    // G239 the mqtt example's runtime faulted 28 ms after it started ("mqtt input not fresh").
+    // The multi_driver example maps a variable instead of `topic_in`; its walkthrough's test in
+    // communication_examples_cli.rs runs the whole project and checks the same for its mapping.
     keeps_its_last_input("mqtt");
-    keeps_its_last_input("multi_driver");
 }

@@ -1022,9 +1022,7 @@ impl CompiledRuntime {
                 continue;
             }
             let mut params = driver.params.clone();
-            if driver.name.eq_ignore_ascii_case("mqtt")
-                || driver.name.eq_ignore_ascii_case("mqtt-tcp")
-            {
+            if crate::io::takes_tag_mappings(driver.name.as_str()) {
                 let (lowered, links) =
                     crate::io::resolve_compiled_mqtt_tag_mappings(self, &driver.params)?;
                 self.link_mqtt_tags(&links)?;

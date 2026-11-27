@@ -7,11 +7,16 @@ mod runtime_process;
 #[path = "support/modbus.rs"]
 mod modbus;
 
+#[allow(dead_code)]
+#[path = "support/mqtt.rs"]
+mod mqtt;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::{Arc, Mutex};
 
 use modbus::{start_modbus_server, ModbusTestState};
+use mqtt::MqttTestBroker;
 use runtime_process::{ExampleRuntime, WAIT};
 
 use serde_json::Value;
@@ -609,4 +614,91 @@ fn the_ethercat_example_maps_its_mock_input_to_its_output() {
         status.success(),
         "the runtime ends with success after shutdown --exit: {status}"
     );
+}
+
+#[test]
+fn the_multi_driver_example_runs_its_drive_from_modbus_and_its_start_from_mqtt() {
+    // The README of examples/communication/multi_driver (specification 11, composed drivers, each
+    // read in its order into the one input image; specification 32 §4 and §5, symbolic mappings,
+    // which fill only their variables): the drive's discrete input 0 is TRUE, so DriveReady
+    // (%IX0.0, the Modbus point) reads TRUE, while RemoteStart (%IX1.0, the MQTT mapping) stays
+    // FALSE and so does Run (%QX0.0) = DriveReady AND RemoteStart, which goes to coil 0 and, as
+    // `false`, to the running topic. A message `true` on the start topic sets RemoteStart, Run
+    // follows, coil 0 is written TRUE and the running topic carries `true`; RemoteStart keeps the
+    // message's value while no new message comes. At `shutdown --exit` the safe state reaches
+    // both drivers: coil 0 FALSE and `false` on the running topic. Catches a composition in which
+    // one driver overwrites the other's input (the example's raw MQTT topic overwrote the whole
+    // image with the message `true` until 27 November 2026, so DriveReady read FALSE), a mapping
+    // that does not reach its variable, and a stop that leaves the drive running.
+    let modbus = Arc::new(Mutex::new(ModbusTestState {
+        discrete_inputs: vec![true],
+        coils: vec![false],
+        ..ModbusTestState::default()
+    }));
+    let server = start_modbus_server(modbus.clone(), 1_000_000);
+    let broker = MqttTestBroker::start();
+    let address: &'static str = Box::leak(format!("address = \"{server}\"").into_boxed_str());
+    let endpoint: &'static str =
+        Box::leak(format!("broker = \"{}\"", broker.endpoint()).into_boxed_str());
+    let mut runtime = ExampleRuntime::new("communication/multi_driver")
+        .edit_source("io.toml", "address = \"127.0.0.1:1502\"", address)
+        .edit_source("io.toml", "broker = \"127.0.0.1:1883\"", endpoint)
+        .start();
+    runtime.wait_for_snapshot(WAIT, "DriveReady TRUE, RemoteStart and Run FALSE", |s| {
+        s.text("%IX0.0") == "Bool(true)"
+            && s.text("%IX1.0") == "Bool(false)"
+            && s.text("%QX0.0") == "Bool(false)"
+    });
+    runtime.wait_until(WAIT, "the subscription to the start topic", || {
+        broker
+            .subscriptions()
+            .iter()
+            .any(|topic| topic == "trust/examples/multi/start")
+    });
+
+    broker.deliver("trust/examples/multi/start", b"true");
+    let started = runtime.wait_for_snapshot(WAIT, "DriveReady, RemoteStart and Run TRUE", |s| {
+        s.text("%IX0.0") == "Bool(true)"
+            && s.text("%IX1.0") == "Bool(true)"
+            && s.text("%QX0.0") == "Bool(true)"
+    });
+    let coil = || modbus.lock().expect("the server's coils").coils[0];
+    runtime.wait_until(WAIT, "coil 0 written TRUE", coil);
+    let running = || broker.published("trust/examples/multi/running");
+    runtime.wait_until(WAIT, "the running topic carrying true", || {
+        running().last().is_some_and(|payload| payload == b"true")
+    });
+    let published = running();
+    let first_true = published
+        .iter()
+        .position(|payload| payload == b"true")
+        .expect("true on the running topic");
+    assert!(
+        published[..first_true]
+            .iter()
+            .any(|payload| payload == b"false"),
+        "the running topic carries false before the remote start: {published:?}"
+    );
+    let later = started.scan() + 5;
+    let kept =
+        runtime.wait_for_snapshot(WAIT, "five scans after the message", |s| s.scan() >= later);
+    assert_eq!(
+        kept.text("%IX1.0"),
+        "Bool(true)",
+        "RemoteStart keeps the message's value while no new message comes"
+    );
+
+    runtime.ctl_ok(&["shutdown", "--exit"]);
+    let status = runtime.wait_for_exit(WAIT);
+    assert!(
+        status.success(),
+        "the runtime ends with success after shutdown --exit: {status}"
+    );
+    assert!(
+        !coil(),
+        "the stop writes the safe state of %QX0.0 to coil 0"
+    );
+    runtime.wait_until(WAIT, "the safe state, false, on the running topic", || {
+        running().last().is_some_and(|payload| payload == b"false")
+    });
 }
