@@ -81,6 +81,13 @@ flow works without repository-root fallback. Success requires these paths to
 return without a compile, type-check, lowering, or validation error; this
 bounded fixture set does not certify arbitrary Structured Text programs.
 
+Tutorial 14 runs on tutorial 13's project as its README writes it, on Linux
+and macOS: revision A deployed with `trust-runtime deploy` runs on the store's
+`current` link and copies `%IX0.0` to `%QX0.0`; after revision B is deployed,
+the running program stays A until `shutdown` and `restart cold` load B, which
+inverts the input; after `trust-runtime rollback`, the same restart loads A
+again (specification 34 §11.2 and STATE-08).
+
 Three tutorials additionally define executable behavior locks:
 
 - `02_blinker.st` starts with `Lamp = FALSE`. After 250 ms and one cycle it is
