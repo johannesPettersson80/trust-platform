@@ -3410,6 +3410,15 @@ missing, cannot be read or parsed, or names another process is left alone and is
 request that is refused after the token was withdrawn, for example by a full scheduler queue,
 puts the token back.
 
+The shipped examples (`examples/**/runtime*.toml`) omit `[runtime.control] endpoint` and
+`auth_token`, so each platform uses its default and no example commits a token. An example keeps an
+explicit Unix socket only where its own instructions tell the reader that socket: its README or
+another Markdown file, or a start script, beside its runtime configuration. `hardware_8do` does so
+for its StateChart editor on a Raspberry Pi. A `trust-lsp.toml` that names the socket is
+configuration, not an instruction, and does not count. Until 27 November 2026 several examples'
+`trust-lsp.toml` files named `unix:///tmp/trust-debug.sock`, a socket that no runtime of theirs
+bound.
+
 ##### 6.8.1 Scriptable control client
 
 `trust-runtime ctl` exchanges one newline-delimited JSON request and response
