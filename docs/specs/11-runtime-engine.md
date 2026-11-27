@@ -2105,7 +2105,12 @@ inside the runtime named by `--endpoint`, with `--token` or else
 `--deadline-ms` fill the request; `--confirm-fieldbus ethercat[:<adapter>]`
 (repeatable) sets `confirm_fieldbus_scan` and adds the bus to `fieldbus`. The
 command prints each source's progress and each device when it is found or
-changes, and it ends when the search ends. With `--json` each line is one JSON
+changes, and it ends when the search ends. A device's line names it by its
+addresses, or without one by the name that a find's identity reports (a
+runtime's resource name) followed by the device's ID in parentheses, or else by
+its ID, and lists each find's protocol and confidence; each find's warnings
+follow on lines of their own. A device that the search lists again with the
+same line, such as one whose `last_seen_ms` alone changed, is not printed again. With `--json` each line is one JSON
 object whose `event` member names it: `source` (a source's progress), `device`
 (the device), `merged` (`id` and `into`), and last `end` (`search_id`, `origin`,
 `state`, `elapsed_ms`, the number of `devices`, and `warnings`). A refused
