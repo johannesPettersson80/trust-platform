@@ -44,6 +44,16 @@ fn report(output: &Output) -> serde_json::Value {
     })
 }
 
+/// `text` with its paths written with `/`, as the README's Linux and macOS write them (Windows
+/// writes `\`).
+fn portable(text: &str) -> String {
+    if cfg!(windows) {
+        text.replace('\\', "/")
+    } else {
+        text.to_string()
+    }
+}
+
 /// Replaces `from` with `to` once in the project's `file`, as step 6 has the reader edit it.
 fn edit(project: &Path, file: &str, from: &str, to: &str) {
     let path = project.join(file);
@@ -107,7 +117,11 @@ fn tutorial_21_steps_pass_and_each_failure_ends_with_its_exit_code() {
     let built = report(&build);
     assert_eq!(built["status"], "ok", "{built}");
     assert_eq!(built["source_count"], 2, "{built}");
-    assert_eq!(built["image"], "./program.tpi", "{built}");
+    assert_eq!(
+        built["image"].as_str().map(portable).as_deref(),
+        Some("./program.tpi"),
+        "{built}"
+    );
     assert_success(&validate, "step 3, validate --ci");
     let validated = report(&validate);
     assert_eq!(validated["resource"], "TankControlRes", "{validated}");
@@ -140,7 +154,7 @@ fn tutorial_21_steps_pass_and_each_failure_ends_with_its_exit_code() {
 
     assert_eq!(failed_test.status.code(), Some(12), "a failed test");
     let failure = r#"<failure message="ASSERT_EQUAL failed: expected 900, actual 800">"#;
-    let report_text = String::from_utf8_lossy(&failed_test.stdout).into_owned();
+    let report_text = portable(&String::from_utf8_lossy(&failed_test.stdout));
     for quoted in [failure, "at: src/tests.st:10"] {
         assert!(
             report_text.contains(quoted),
