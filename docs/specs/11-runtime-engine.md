@@ -3220,8 +3220,10 @@ time scale, and that the mode is not for live hardware. Production mode emits
 no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
-authentication and enabled I/O-driver configurations as startup, and admits the
-program image as the computer admits it at its start (specification 44 §10.2).
+authentication and enabled I/O-driver configurations as startup, each MQTT
+driver's tag mappings resolved against the program of the bundle as the start
+resolves them (specification 32 §5), and admits the program image as the
+computer admits it at its start (specification 44 §10.2).
 Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active

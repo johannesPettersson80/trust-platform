@@ -182,7 +182,9 @@ no subset may remain installed after one mapping fails.
 This ordering applies equally to a project launched by `trust-runtime` and to
 the local `trust-debug` simulator when it loads the project's `io.toml`.
 Neither launch path may construct an MQTT driver from unresolved symbolic
-mappings.
+mappings. `trust-runtime validate` resolves the mappings against the program of
+the bundle in the same way, so it refuses, with the same error, a project whose
+start would refuse a mapping.
 
 Existing compatible direct `%I` or `%Q` bindings are reused. Otherwise the
 startup adapter allocates deterministic non-overlapping process-image storage
