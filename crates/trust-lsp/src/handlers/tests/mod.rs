@@ -67,6 +67,7 @@ fn document_snapshot(state: &ServerState, uri: &tower_lsp::lsp_types::Url) -> Va
 
 mod code_actions_and_commands;
 mod completion_hover;
+mod configuration_change;
 mod core;
 mod formatting_and_navigation;
 mod hmi_pair_diagnostics;

@@ -157,7 +157,8 @@ each must fill only its own inputs, and what both get when the runtime stops.
 
     Read the image again with `trust-runtime ctl --project . io-read`: `P1.RemoteStart` and
     `P1.Run` now read `Bool(true)`, and `P1.DriveReady` still reads `Bool(true)`. The drive's
-    terminal prints `coil 0: True`, and the `mosquitto_sub` command of step 5 prints `true`.
+    terminal prints `coil 0: True`, and the `mosquitto_sub` command of step 5, which ends after one
+    message, now prints `true` when you run it again.
 
 7. Stop the runtime with `trust-runtime ctl --project . shutdown --exit`. The drive's terminal
    prints `coil 0: False` again, and the last message on `trust/examples/multi/running` is `false`:

@@ -3220,8 +3220,10 @@ time scale, and that the mode is not for live hardware. Production mode emits
 no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
-authentication and enabled I/O-driver configurations as startup, and admits the
-program image as the computer admits it at its start (specification 44 §10.2).
+authentication and enabled I/O-driver configurations as startup, each MQTT
+driver's tag mappings resolved against the program of the bundle as the start
+resolves them (specification 32 §5), and admits the program image as the
+computer admits it at its start (specification 44 §10.2).
 Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
@@ -3409,6 +3411,15 @@ per-user token file. Only files that name the runtime's own process are touched.
 missing, cannot be read or parsed, or names another process is left alone and is no error. A
 request that is refused after the token was withdrawn, for example by a full scheduler queue,
 puts the token back.
+
+The shipped examples (`examples/**/runtime*.toml`) omit `[runtime.control] endpoint` and
+`auth_token`, so each platform uses its default and no example commits a token. An example keeps an
+explicit Unix socket only where its own instructions tell the reader that socket: its README or
+another Markdown file, or a start script, beside its runtime configuration. `hardware_8do` does so
+for its StateChart editor on a Raspberry Pi. A `trust-lsp.toml` that names the socket is
+configuration, not an instruction, and does not count. Until 27 November 2026 several examples'
+`trust-lsp.toml` files named `unix:///tmp/trust-debug.sock`, a socket that no runtime of theirs
+bound.
 
 ##### 6.8.1 Scriptable control client
 
