@@ -27,7 +27,7 @@ impl IoDriver for LoopbackIoDriver {
     /// The input image from its start as far as the output image reaches, which it copies over
     /// the inputs (specification 42, §5 item 4); nothing without an output image.
     fn input_bytes_with_outputs(&self, outputs: usize) -> Vec<std::ops::Range<usize>> {
-        (outputs > 0).then_some(0..outputs).into_iter().collect()
+        crate::io::declared_inputs::loopback(outputs)
     }
 }
 

@@ -126,16 +126,7 @@ impl CanDriver {
     /// The driver of `params` over `port`, its exchange started now.
     fn new(params: CanParams, port: Box<dyn CanPort>) -> Self {
         let on_error = params.on_error;
-        let input_bytes = crate::io::joined_bytes(
-            params
-                .receive
-                .iter()
-                .filter_map(|receive| {
-                    let start = usize::try_from(receive.address.byte).ok()?;
-                    Some(start..start + usize::from(receive.length))
-                })
-                .collect(),
-        );
+        let input_bytes = crate::io::declared_inputs::can(&params);
         Self {
             port,
             exchange: CanExchange::new(params, 0),

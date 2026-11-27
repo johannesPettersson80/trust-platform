@@ -209,7 +209,9 @@ message was `false`. A safe state that a driver cannot confirm ends the stop in 
   takes either `io.driver` with `io.params` or the list `io.drivers`. Take the two lines out again.
 - Turn the mappings back into raw topics: in `io.toml`, replace the `mappings = [...]` list with
   `topic_in = "trust/examples/multi/start"` and `topic_out = "trust/examples/multi/running"`, and
-  start the runtime again. Its first line is the warning `"event":"io_inputs_overlap"` at
+  check the configuration again. `trust-runtime validate --project .` warns before `Project ok`:
+  `warning: modbus_tcp:0 and mqtt:1 both fill input byte 0; mqtt:1, the later, overwrites what modbus_tcp:0 read there at every cycle`.
+  Start the runtime again. Its first line is the same warning, `"event":"io_inputs_overlap"` at
   `"level":"warn"`, with `"earlier":"modbus_tcp:0"`, `"later":"mqtt:1"`, `"first_byte":0` and
   `"last_byte":0`: the raw topic fills the image from byte 0, the drive's point included, so what
   the broker sends overwrites the drive's ready signal. The runtime still runs it. Put the

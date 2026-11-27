@@ -108,14 +108,8 @@ fn log_input_overlaps(logger: &RuntimeLogger, program: &trust_runtime::CompiledR
     for overlap in program.io_input_overlaps() {
         logger.log(
             LogLevel::Warn,
-            "io_inputs_overlap",
-            json!({
-                "event_id": "TRUST-RT-IO-OVERLAP-001",
-                "earlier": overlap.earlier.as_str(),
-                "later": overlap.later.as_str(),
-                "first_byte": overlap.bytes.start,
-                "last_byte": overlap.bytes.end - 1,
-            }),
+            trust_runtime::io::INPUT_OVERLAP_EVENT,
+            overlap.event_data(),
         );
     }
 }
