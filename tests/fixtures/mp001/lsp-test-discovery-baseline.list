@@ -148,5 +148,9 @@ handlers::tests::nested_projects::each_project_of_a_folder_is_analyzed_on_its_ow
 handlers::tests::rename_trace_cases::editor_rename_local_trace_cases: test
 handlers::tests::rename_trace_cases::editor_rename_project_trace_cases: test
 handlers::tests::rust_sources::lsp_goto_definition_of_a_rust_pou_opens_its_rust_item: test
+handlers::tests::vendor_library_stubs::the_example_resolves_hovers_navigates_and_completes_as_its_readme_writes_it: test
+handlers::tests::vendor_library_stubs::the_libraries_entry_deleted_and_put_back_reports_and_clears_the_errors: test
+handlers::tests::vendor_library_stubs::the_try_its_report_a_misspelled_input_and_take_a_new_stub_file: test
+handlers::tests::vendor_library_stubs::without_its_libraries_entry_the_program_reports_each_block_and_call: test
 handlers::tests::workspace_deletion::deleting_a_project_directory_removes_its_imports_before_the_next_scaffold: test
 handlers::tests::workspace_deletion::reindex_removes_missing_sources_without_dropping_budget_skipped_live_files: test

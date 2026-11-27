@@ -150,7 +150,19 @@ arbitrary-language conformance claim:
 - the OSCAT consumer example, an editor project, builds as its README says,
   `trust-runtime build --project examples/oscat_smoke --sources src` from the
   repository's root, and its four tests pass under `trust-dev test`, each by
-  its name.
+  its name; and
+- the vendor library stubs example, an editor project, works in the language
+  server as its README writes it, on a copy of its folder indexed as the server
+  loads a workspace folder: with its `[[libraries]]` entry `src/Main.st` has no
+  diagnostic, the hover of `TCON` shows the stub's declaration, go to
+  definition reaches `vendor/siemens/tcon.st`, completion after `Connect.`
+  offers `DONE`, `ERROR`, `REQ` and `STATUS` (specification 14 §6.1.2) and
+  after `Extra : NO` offers `NORM_X`, a misspelled input reports E105, and a
+  stub file added to `vendor/siemens` resolves once the editor reports it;
+  without the entry the program reports E102 for each of its three vendor
+  blocks and E103 for each of their calls; and it builds with
+  `trust-runtime build --project . --sources src --sources vendor/siemens`
+  from its four sources.
 
 Fixture discovery, copying, and filesystem setup are test preconditions. The
 product oracle is the bounded tracked corpus and the named build, validation,

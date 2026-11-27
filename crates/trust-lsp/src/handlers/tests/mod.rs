@@ -78,6 +78,7 @@ mod nested_projects;
 mod rename_trace_cases;
 mod rust_sources;
 mod trace_support;
+mod vendor_library_stubs;
 
 mod mod_part_01;
 mod mod_part_02;

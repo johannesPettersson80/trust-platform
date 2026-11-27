@@ -197,6 +197,55 @@ fn the_topology_demos_projects_build_as_their_bootstrap_makes_them() {
 
 /// Launch selects the configured resource by name, compared case-insensitively, or the legacy
 /// placeholder the compiler gives sources that declare no resource (spec 11 §6.7.1).
+/// Specification 22, "Shipped project example corpus": the vendor library stubs example, an editor
+/// project without runtime.toml, builds as its README's step 6 writes it, in a copy of its folder:
+/// `trust-runtime build --project . --sources src --sources vendor/siemens`, from its four sources,
+/// the project's two and the stubs' two. Catches a build that no longer takes a second source
+/// folder, and a README step that names another command; the language server's side of the
+/// walkthrough is trust-lsp's `handlers::tests::vendor_library_stubs`.
+#[test]
+fn the_vendor_library_stubs_example_builds_with_its_stubs_as_its_readme_writes_it() {
+    let example = repository_root()
+        .join("examples")
+        .join("vendor_library_stubs");
+    let readme = fs::read_to_string(example.join("README.md")).expect("the README");
+    let command = "trust-runtime build --project . --sources src --sources vendor/siemens";
+    assert!(
+        readme.contains(command),
+        "the README's step 6 runs `{command}`"
+    );
+    let copy = TempRoot::new("vendor-library-stubs");
+    copy_tree(&example, copy.path()).expect("copy the example");
+
+    let output = trust_runtime()
+        .args(command.split_whitespace().skip(1))
+        .current_dir(copy.path())
+        .output()
+        .expect("run trust-runtime build");
+    assert!(output.status.success(), "{}", failure("build", &output));
+    assert!(
+        copy.path().join("program.tpi").is_file(),
+        "the build wrote no program.tpi"
+    );
+    let shown = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        stderr_text(&output)
+    );
+    assert!(shown.contains("Sources: 4 file(s)"), "{shown}");
+    let mut sources: Vec<&str> = shown
+        .lines()
+        .filter_map(|line| line.strip_prefix(" - "))
+        .filter_map(|path| Path::new(path).file_name()?.to_str())
+        .collect();
+    sources.sort_unstable();
+    assert_eq!(
+        sources,
+        ["Configuration.st", "Main.st", "norm_scale.st", "tcon.st"],
+        "{shown}"
+    );
+}
+
 #[test]
 fn every_example_configures_a_resource_its_sources_declare() {
     let repo = repository_root();
