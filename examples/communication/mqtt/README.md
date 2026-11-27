@@ -100,8 +100,8 @@ keeps a message's value, and what the runtime publishes when it stops.
     The input reads TRUE,
     `{"address":"%IX0.0","forced":false,"name":"P1.DI0","value":"Bool(true)","valueType":"BOOL"}`,
     and so does the output `%QX0.0` (`P1.DO0`) that the program copied from it. The `mosquitto_sub`
-    command of step 5 now prints `01`, and a few seconds later `io-read` still reads TRUE: no new
-    message came.
+    command of step 5, which ends after one message, now prints `01` when you run it again, and a
+    few seconds later `io-read` still reads TRUE: no new message came.
 
 7. Stop the runtime with `trust-runtime ctl --project . shutdown --exit`. The last message on
    `trust/examples/mqtt/out` is `00`: the runtime published the safe state of `%QX0.0`.
