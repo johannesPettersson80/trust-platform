@@ -68,17 +68,20 @@ trust-dev docs --project <project-folder> --format markdown --out-dir <project-f
 
 ## GitHub Actions template
 
-Copy and adapt:
+Copy `.github/workflows/templates/trust-runtime-project-ci.yml` to
+`.github/workflows/trust-runtime-project-ci.yml` in the project's repository, and set its
+`TRUST_VERSION` to the truST release the project is built with (specification 22, "Project CI
+template"). On each push or pull request that changes `src/`, a `.toml` file at the project's root
+or the workflow itself, it:
 
-`.github/workflows/templates/trust-runtime-project-ci.yml`
+1. installs that release's `trust-runtime-linux-x64.tar.gz`, checked against the release's
+   `SHA256SUMS` before it is unpacked, and the release's toolchain;
+2. runs `trust-runtime build --project . --ci`;
+3. runs `trust-runtime validate --project . --ci`;
+4. runs `trust-dev test --project . --ci --output junit`;
+5. uploads the JUnit report as the artifact `st-tests-junit`, after a failed step too.
 
-Template flow:
-
-1. Build `trust-runtime`.
-2. Run `build --ci`.
-3. Run `validate --ci`.
-4. Run `test --ci --output junit`.
-5. Upload JUnit artifact.
+The project's repository needs no Rust. Tutorial 21 walks through it.
 
 ## Docker image (deterministic runner)
 

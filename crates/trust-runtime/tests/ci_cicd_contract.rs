@@ -400,6 +400,14 @@ fn ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report() 
 
 #[test]
 fn ci_template_file_contains_expected_command_sequence() {
+    // Specification 22, "Project CI template": the workflow that a project's repository copies
+    // starts on its sources (`src/**`, the folder `build` takes by default) and its root
+    // configuration files, installs the release that TRUST_VERSION names from its archive, checked
+    // against the release's SHA256SUMS before it is unpacked, installs that release's toolchain,
+    // runs build, validate and the JUnit test in CI mode in that order, uploads the report also
+    // after a failed step, and builds nothing of truST from source. Catches the template that
+    // built the CLIs with `cargo build`, which only a truST checkout can, started only on
+    // `sources/**`, unpacked an unchecked archive, or dropped a failing test's report.
     let _shared = beside_measurements();
     let template = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -414,27 +422,51 @@ fn ci_template_file_contains_expected_command_sequence() {
         extension = "yml",
     )
     .expect("read CI template");
-    assert!(
-        text.contains(
-            "cargo build -p trust-runtime --bin trust-runtime -p trust-dev --bin trust-dev"
-        ),
-        "template must build both runtime and dev CLIs"
+    let at = |needle: &str| {
+        text.find(needle)
+            .unwrap_or_else(|| panic!("the template holds `{needle}`:\n{text}"))
+    };
+
+    let paths = "paths: ['src/**', '*.toml', '.github/workflows/trust-runtime-project-ci.yml']";
+    assert_eq!(
+        text.matches(paths).count(),
+        2,
+        "push and pull_request start on the sources and the root configuration files"
     );
     assert!(
-        text.contains("target/debug/trust-runtime build --project . --ci"),
-        "template must include build --ci step"
+        !text.contains("sources/**"),
+        "no folder that projects do not use"
     );
     assert!(
-        text.contains("target/debug/trust-runtime validate --project . --ci"),
-        "template must include validate --ci step"
+        !text.contains("cargo "),
+        "nothing of truST is built from source"
     );
+
+    let download = at("releases/download/v${TRUST_VERSION}");
+    let archive = at("curl -fsSLO \"$base/trust-runtime-linux-x64.tar.gz\"");
+    let sums = at("curl -fsSLO \"$base/SHA256SUMS\"");
+    let check = at("sha256sum --check --strict -");
+    let unpack = at("tar -xzf trust-runtime-linux-x64.tar.gz");
+    let on_path = at("echo \"$RUNNER_TEMP/trust\" >> \"$GITHUB_PATH\"");
     assert!(
-        text.contains("target/debug/trust-dev test --project . --ci --output junit"),
-        "template must include junit test step"
+        download < archive && archive < check && sums < check && check < unpack && unpack < on_path,
+        "the archive is checked against SHA256SUMS before it is unpacked and put on the PATH"
     );
+
+    let toolchain = at("run: trust-runtime toolchain install");
+    let build = at("run: trust-runtime build --project . --ci");
+    let validate = at("run: trust-runtime validate --project . --ci");
+    let test = at("run: trust-dev test --project . --ci --output junit > st-tests.junit.xml");
     assert!(
-        text.contains("Upload JUnit report"),
-        "template must keep junit artifact upload"
+        on_path < toolchain && toolchain < build && build < validate && validate < test,
+        "toolchain, build, validate and test run in that order, after the install"
+    );
+
+    let upload = at("- name: Upload JUnit report");
+    assert!(
+        test < upload
+            && text[upload..].starts_with("- name: Upload JUnit report\n        if: always()"),
+        "the report is uploaded also after a failed step"
     );
 }
 
@@ -785,3 +817,6 @@ fn ci_vscode_extension_job_contract_wires_failure_to_release_gate() {
         "release gate report must require MP-001 parity gate artifact"
     );
 }
+
+#[path = "ci_cicd_contract/tutorial_21.rs"]
+mod tutorial_21;
