@@ -207,7 +207,6 @@
     "examples/tutorials/24_hmi_alarms/README.md",
     "examples/tutorials/README.md",
     "examples/twincat-ads/README.md",
-    "examples/vendor_library_stubs/README.md",
     "examples/web_ui_complete_project/README.md"
   ]
 }
