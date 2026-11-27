@@ -653,3 +653,10 @@ fn tutorial_15_configurations_build_and_validate() {
         assert!(output.status.success(), "{what}: {}", describe(&output));
     }
 }
+
+#[cfg(unix)]
+#[path = "tutorial_projects/deploy_and_rollback.rs"]
+mod deploy_and_rollback;
+
+#[path = "tutorial_projects/observability.rs"]
+mod observability;

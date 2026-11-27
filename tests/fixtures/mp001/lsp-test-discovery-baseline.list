@@ -77,6 +77,7 @@ handlers::tests::core::core_part_07::lsp_inline_values_fetch_runtime_values_from
 handlers::tests::core::core_part_07::lsp_linked_editing_ranges: test
 handlers::tests::core::core_part_08::lsp_inline_values_editor_token_goes_to_the_editor_endpoint: test
 handlers::tests::core::core_part_08::lsp_inline_values_merge_instances_into_locals: test
+handlers::tests::core::core_part_08::lsp_inline_values_reach_the_simulator_a_launch_started_for_the_workspace: test
 handlers::tests::core::core_part_08::lsp_inline_values_repository_endpoint_never_receives_the_editor_token: test
 handlers::tests::core::core_part_08::lsp_inline_values_repository_endpoint_uses_its_own_token: test
 handlers::tests::core::core_part_08::lsp_inline_values_runtime_override_accepts_camel_case_client_settings: test
