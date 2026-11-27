@@ -306,6 +306,31 @@ server --> client
 ' INLINE VALUE SEQUENCE
 ' ============================================================
 
+== Simulator Control (a launch) ==
+
+client -> server : executeCommand trust-lsp.simulatorControl {create, workspace}
+server -> lsp : execute_command(params)
+activate lsp
+lsp -> handlers : simulator_control::answer(state, args)
+activate handlers
+handlers -> state : simulator_controls().name_and_record(workspace, name)
+activate state
+state --> handlers : endpoint + new token, kept for the folder
+deactivate state
+handlers --> lsp : {endpoint, authToken}
+deactivate handlers
+lsp --> server
+deactivate lsp
+server --> client
+
+note right of state
+    Linux/macOS: socket trust-debug-<h>.sock.
+    Windows: loopback port from 20000 + h mod 20000
+    up, passing over a port that does not bind or
+    that another folder holds; chosen and kept
+    under one lock (spec 25 §6.8).
+end note
+
 == Inline Values ==
 
 client -> server : inlineValue request
@@ -319,6 +344,8 @@ state -> project : database_snapshot()
 project --> state : db
 state --> handlers : inline targets
 deactivate state
+handlers -> state : simulator_controls().for_document(path)
+state --> handlers : the folder's simulator control, if any
 handlers -> runtimeCtl : debug.scopes / debug.variables
 runtimeCtl --> handlers : scope + variable values
 handlers --> lsp : InlineValue[]
@@ -328,9 +355,12 @@ deactivate lsp
 server --> client
 
 note right of runtimeCtl
-    Uses runtime control endpoint
-    from trust-lsp.toml or workspace
-    settings override.
+    Endpoint: trust-lsp.toml [runtime]
+    control_endpoint, else the editor's
+    runtime.controlEndpoint, else the
+    simulator a launch started for the
+    document's folder, with its own
+    token (spec 14 §7.1.2).
 end note
 
 ' ============================================================

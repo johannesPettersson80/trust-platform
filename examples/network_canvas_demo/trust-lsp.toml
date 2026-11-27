@@ -3,9 +3,6 @@ vendor_profile = "codesys"
 include_paths = ["src"]
 stdlib = "iec"
 
-[runtime]
-control_endpoint = "unix:///tmp/trust-debug.sock"
-
 # The HMI library, copied unchanged into this example so it stands on its own.
 [dependencies]
 Hmi = { path = "libraries/hmi", version = "0.1.0" }

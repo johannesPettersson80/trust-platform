@@ -29,6 +29,7 @@ mod documents;
 mod library_surface;
 mod path;
 mod projects;
+pub(crate) mod simulator_controls;
 
 pub(crate) use library_surface::library_holds;
 use library_surface::DiagnosticScope;
@@ -170,6 +171,8 @@ pub struct ServerState {
     /// cross-file types from un-indexed files are invisible to the analyzer, which
     /// would surface as false-positive `cannot resolve type` diagnostics.
     index_first_pass: watch::Sender<bool>,
+    /// The simulators that launches start, for runtime-assisted inline values.
+    simulator_controls: simulator_controls::SimulatorControls,
 }
 
 impl ServerState {
@@ -203,7 +206,13 @@ impl ServerState {
             devices: Arc::new(DevicesEngine::new()),
             request_limiter: RequestLimiter::new(BACKGROUND_REQUEST_LIMIT),
             index_first_pass: watch::channel(false).0,
+            simulator_controls: simulator_controls::SimulatorControls::default(),
         }
+    }
+
+    /// The simulators that launches start in this session.
+    pub(crate) fn simulator_controls(&self) -> &simulator_controls::SimulatorControls {
+        &self.simulator_controls
     }
 
     /// Marks the first workspace-index pass as complete. Idempotent.

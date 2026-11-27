@@ -105,14 +105,24 @@ pub fn inline_value(state: &ServerState, params: InlineValueParams) -> Option<Ve
     let repository = config.as_ref().map(|config| &config.runtime);
     let repository_endpoint = repository.and_then(|runtime| runtime.control_endpoint.as_deref());
     let repository_auth = repository.and_then(|runtime| runtime.control_auth_token.as_deref());
+    // Without either, the simulator that a launch started for the document's workspace folder,
+    // with the token the server named for it (specification 25 §6.8).
+    let simulator = uri
+        .to_file_path()
+        .ok()
+        .and_then(|path| state.simulator_controls().for_document(&path));
     // An endpoint from trust-lsp.toml is contacted only with the token configured next to it,
-    // so the editor's token never reaches an endpoint that the repository chose.
-    let (endpoint, auth) = match repository_endpoint {
-        Some(endpoint) => (Some(endpoint), repository_auth),
-        None => (
-            override_endpoint.as_deref(),
-            repository_auth.or(override_auth.as_deref()),
-        ),
+    // so the editor's token never reaches an endpoint that the repository chose, and neither
+    // configured token reaches the simulator.
+    let (endpoint, auth) = match (repository_endpoint, override_endpoint.as_deref()) {
+        (Some(endpoint), _) => (Some(endpoint), repository_auth),
+        (None, Some(endpoint)) => (Some(endpoint), repository_auth.or(override_auth.as_deref())),
+        (None, None) => simulator.as_ref().map_or((None, None), |control| {
+            (
+                Some(control.endpoint.as_str()),
+                Some(control.auth_token.as_str()),
+            )
+        }),
     };
     if let (Some(frame_id), Some(endpoint)) = (frame_id, endpoint) {
         debug!(

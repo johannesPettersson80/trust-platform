@@ -33,6 +33,6 @@
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
   "docs/diagrams/hir/hir-semantics.puml": "8c53c12ebe302c3c4b4cc119023e46305006e4b4170e12e80782541413c000aa",
   "docs/diagrams/lsp/compiled-binding-sources.puml": "d239446b9578abb6b71b07ac1ad450e4c89374464a284ae232787f28eb1909c5",
-  "docs/diagrams/lsp/lsp-request-flow.puml": "8c73f6e56e254d7ed745ce1a05580df9f7fb4ca527bd1d98a097c0d5041f1b3a",
+  "docs/diagrams/lsp/lsp-request-flow.puml": "2be7feae377e2a09a03a640987d3509e26a317e5681a2a233cbbffc77a7d2cd1",
   "docs/diagrams/syntax/syntax-pipeline.puml": "39672e333417f35ec69e272440da72aa4de3b9aefcd9075bc34b7dfc0eebfb01"
 }

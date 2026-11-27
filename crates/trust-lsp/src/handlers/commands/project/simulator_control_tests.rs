@@ -6,11 +6,20 @@ use super::*;
 use std::net::TcpListener;
 
 fn create_answer(workspace: Option<&str>) -> Value {
-    answer(json!({ "action": "create", "workspace": workspace })).expect("answer")
+    created(&ServerState::new(), workspace)
+}
+
+fn created(state: &ServerState, workspace: Option<&str>) -> Value {
+    answer(state, json!({ "action": "create", "workspace": workspace })).expect("answer")
 }
 
 fn problem(endpoint: &str) -> Value {
-    answer(json!({ "action": "check", "endpoint": endpoint })).expect("answer")["problem"].clone()
+    answer(
+        &ServerState::new(),
+        json!({ "action": "check", "endpoint": endpoint }),
+    )
+    .expect("answer")["problem"]
+        .clone()
 }
 
 /// A loopback address that was free a moment ago: its listener is closed at once.
@@ -114,6 +123,26 @@ fn on_windows_two_workspaces_whose_hashes_share_a_port_both_get_one() {
     drop(held);
 }
 
+#[cfg(not(unix))]
+#[test]
+fn on_windows_one_server_names_two_workspaces_whose_hashes_share_a_port_two_ports() {
+    // `C:\work\cell46` hashes to 0e41ac44… (239,184,964) and `C:\work\cell202` to 932524a4…
+    // (2,468,684,964): both leave 4964, port 24964, apart from the ports the other tests hold.
+    // Neither simulator runs yet, so the port binds for both, but the server named it for the
+    // first. Catches: one window's two workspaces named one port, so that the second launch
+    // cannot bind once the first runs, and a workspace that loses its own port when asked again.
+    let state = ServerState::new();
+    let endpoint = |workspace| {
+        created(&state, Some(workspace))["endpoint"]
+            .as_str()
+            .expect("an endpoint")
+            .to_owned()
+    };
+    assert_eq!(endpoint(r"C:\work\cell46"), "tcp://127.0.0.1:24964");
+    assert_eq!(endpoint(r"C:\work\cell202"), "tcp://127.0.0.1:24965");
+    assert_eq!(endpoint(r"C:\work\cell46"), "tcp://127.0.0.1:24964");
+}
+
 #[test]
 fn a_windows_port_that_does_not_bind_is_passed_over_for_the_next() {
     // Catches: a port that another simulator or program holds named again, a search that leaves
@@ -133,7 +162,7 @@ fn a_windows_simulator_port_is_20000_plus_the_workspace_hash_modulo_20000() {
     // the range of a u16.
     assert_eq!(workspace_port(0x4a57_61d4), 20_660);
     assert_eq!(
-        workspace_port(workspace_hash(Some("/work/plant".into()))),
+        workspace_port(workspace_hash(Some(Path::new("/work/plant")))),
         20_660
     );
     assert_eq!(workspace_port(0), 20_000);
@@ -180,4 +209,23 @@ fn other_endpoints_are_left_to_the_adapter() {
     assert_eq!(problem("unix:///tmp/trust-lsp-no-such.sock"), Value::Null);
     assert_eq!(problem("tcp://192.0.2.1:9901"), Value::Null);
     assert_eq!(problem("not an endpoint"), Value::Null);
+}
+
+#[test]
+fn the_server_keeps_what_it_named_for_the_inline_values_of_the_folders_documents() {
+    // Specification 14: without a configured endpoint, a document's inline values reach the
+    // simulator that a launch started for its workspace folder, with the token the server
+    // generated for it. Catches: a server that forgets the endpoint and token it named, so that
+    // inline values reach no simulator, or keeps the first of two simulators named for a folder.
+    let state = ServerState::new();
+    let first = created(&state, Some("/work/plant"));
+    let second = created(&state, Some("/work/plant"));
+    assert_ne!(first["authToken"], second["authToken"]);
+
+    let kept = state
+        .simulator_controls()
+        .for_document(Path::new("/work/plant/src/main.st"))
+        .expect("the folder's simulator");
+    assert_eq!(json!(kept.endpoint), second["endpoint"]);
+    assert_eq!(json!(kept.auth_token), second["authToken"]);
 }
