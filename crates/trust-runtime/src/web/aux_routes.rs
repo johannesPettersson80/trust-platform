@@ -327,6 +327,18 @@ pub(super) fn handle_aux_route(
         return AuxRouteOutcome::Handled;
     }
     if *method == Method::Get && url == "/api/setup/defaults" {
+        // The defaults read the project's configuration, so they pass the web authentication
+        // (specification 11 §6.9.7), as the setup's apply does.
+        if let Err(error) = check_auth(
+            &request,
+            ctx.auth_mode,
+            ctx.auth_token,
+            ctx.pairing,
+            AccessRole::Viewer,
+        ) {
+            let _ = request.respond(auth_error_response(error));
+            return AuxRouteOutcome::Handled;
+        }
         let defaults = setup_defaults(ctx.bundle_root);
         let body = serde_json::to_string(&defaults).unwrap_or_else(|_| "{}".to_string());
         let response = Response::from_string(body)

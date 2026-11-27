@@ -7513,6 +7513,20 @@ The accepted token value is forwarded to control dispatch. A server-owned
 internal control token is used only when the web request supplied no token; it
 must not replace an explicit token.
 
+Each route applies this contract in its own handler. A read of the project's
+files is a read of runtime state like any other: `GET /api/program` and
+`GET /api/source`, which list and read the project's sources in `src`, and
+`GET /api/setup/defaults`, which reads its `runtime.toml` and `io.toml`, require
+Viewer, and `POST /api/setup/apply` requires Engineer. Only what holds no
+runtime state answers without authentication: the pages with their scripts,
+styles, fonts and images, whose data comes through authenticated routes; the
+pairing claim, which carries its pairing code (section 6.9.6); `GET
+/api/ui/mode`, the interface's mode; and `GET /api/qr`, a QR code of the text
+that the request gives. The Web IDE's routes require the per-session token of
+`X-Trust-Ide-Session` instead, which only an authenticated `POST
+/api/ide/session` issues. (27 November 2026: the program, source and setup
+defaults routes answered without authentication.)
+
 The I/O configuration routes follow the same contract in every web server mode.
 `GET /api/io/config` requires Viewer and is an observation projection, not a
 credential retrieval surface: every driver parameter whose key is secret-valued
