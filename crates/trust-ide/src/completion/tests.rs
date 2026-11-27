@@ -535,24 +535,46 @@ END_PROGRAM
         assert_eq!(sorted_labels_at(&source), ["Cycles", "IsOpen", "Open", "Reset"]);
     }
 
-    /// Specification 14 §6.1.2: in a block derived from FB_Valve, `THIS^.` offers the base's in-out
-    /// and protected variable too, as the analysis accepts them there, beside the derived block's own
-    /// method. Catches member completion that drops a protected member where it may be named.
+    /// Specification 14 §6.1.2: in the body of a block derived from FB_Valve, `THIS^.` offers the
+    /// base's in-out and protected variable too, as the analysis accepts them there. Catches member
+    /// completion that drops a protected member where it may be named.
     #[test]
     fn member_completion_in_a_derived_block_offers_its_protected_members_too() {
         let source = format!(
             "{VALVE}
 FUNCTION_BLOCK FB_FastValve EXTENDS FB_Valve
-METHOD PUBLIC Check
     THIS^.|
-END_METHOD
 END_FUNCTION_BLOCK
 "
         );
         assert_eq!(
             sorted_labels_at(&source),
-            ["Check", "Counter", "Cycles", "IsOpen", "Open", "Reset", "travel"]
+            ["Counter", "Cycles", "IsOpen", "Open", "Reset", "travel"]
         );
+    }
+
+    /// Specification 14 §6.1.2: in a method of FB_Valve itself, `THIS^.` leaves out the block's in-out,
+    /// which belongs to its body and which the analysis rejects in its methods (Codex's review of
+    /// #842), and offers the rest, the protected variable among them. Catches the in-out offered.
+    #[test]
+    fn member_completion_in_a_method_of_the_block_leaves_out_its_in_outs() {
+        let source = r#"
+FUNCTION_BLOCK FB_Valve
+VAR_INPUT
+    Open : BOOL;
+END_VAR
+VAR_IN_OUT
+    Counter : INT;
+END_VAR
+VAR
+    travel : TIME;
+END_VAR
+METHOD PUBLIC Reset
+    THIS^.|
+END_METHOD
+END_FUNCTION_BLOCK
+"#;
+        assert_eq!(sorted_labels_at(source), ["Open", "Reset", "travel"]);
     }
 
     /// Specification 14 §6.1.1: completion asked again while a member's name is typed after the dot

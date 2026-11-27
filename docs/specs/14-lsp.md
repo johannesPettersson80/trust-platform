@@ -181,7 +181,8 @@ these are its inputs, which the separate input assignment `FB_INST.In := A` sets
 `B := FB_INST.Out` reads, and its public variables, properties and methods (IEC 61131-3 Ed.3 §6.6.3.4.2, Figure 13;
 §6.6.3.2 item 11). Its in-outs are not offered there, since Figure 13 (rows 5 and 6) does not allow them outside the
 block, nor are its protected or private members. Inside the block, and in a block derived from it, those are offered
-too. The rule that decides which accesses the analysis accepts also decides what is offered (§6.6.4), so a standard
+too, except in a method of the block itself: its in-outs and `VAR_TEMP` variables belong to the block's body, and the
+analysis rejects them in its methods, so completion leaves them out there. The rule that decides which accesses the analysis accepts also decides what is offered (§6.6.4), so a standard
 function block (`TON`: `IN`, `PT`, `Q`, `ET`) and a block of another file or of a library follow it alike. Completion
 asked again while a member's name is being typed, as an editor does while the user types, offers the same members.
 

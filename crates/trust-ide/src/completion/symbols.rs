@@ -176,6 +176,7 @@ fn member_symbols_for_type(
         return Vec::new();
     };
     let current_owner = current_owner_for_scope(symbols, scope_id);
+    let current_method = current_method_for_scope(symbols, scope_id);
     let current_namespace = namespace_path_for_scope(symbols, scope_id);
 
     filter
@@ -184,6 +185,7 @@ fn member_symbols_for_type(
         .filter(|symbol| {
             !symbol.modifiers.hidden
                 && is_member_visible(symbols, symbol, owner_id, current_owner, &current_namespace)
+                && !is_body_only_in(symbol, current_method)
         })
         .filter_map(|symbol| completion_item_for_symbol(symbol, symbols, stdlib_filter))
         .collect()
@@ -212,6 +214,48 @@ fn current_owner_for_scope(symbols: &SymbolTable, scope_id: ScopeId) -> Option<S
         current = scope.parent;
     }
     None
+}
+
+/// The method whose body holds `scope_id`: the innermost POU around it, when that is a method.
+fn current_method_for_scope(
+    symbols: &SymbolTable,
+    scope_id: ScopeId,
+) -> Option<&trust_hir::symbols::Symbol> {
+    let mut current = Some(scope_id);
+    while let Some(scope_id) = current {
+        let scope = symbols.get_scope(scope_id)?;
+        if let Some(symbol) = scope.owner.and_then(|owner_id| symbols.get(owner_id)) {
+            match symbol.kind {
+                SymbolKind::Method { .. } => return Some(symbol),
+                SymbolKind::Program
+                | SymbolKind::Function { .. }
+                | SymbolKind::FunctionBlock
+                | SymbolKind::Class
+                | SymbolKind::Property { .. }
+                | SymbolKind::Action => return None,
+                _ => {}
+            }
+        }
+        current = scope.parent;
+    }
+    None
+}
+
+/// Whether `member` is one of a block's body-only members, an in-out or a `VAR_TEMP`, which a
+/// method of the same block may not name: the analysis rejects it there (specification 14 §6.1.2).
+fn is_body_only_in(
+    member: &trust_hir::symbols::Symbol,
+    method: Option<&trust_hir::symbols::Symbol>,
+) -> bool {
+    method.is_some_and(|method| method.parent == member.parent)
+        && matches!(
+            member.kind,
+            SymbolKind::Parameter {
+                direction: ParamDirection::InOut
+            } | SymbolKind::Variable {
+                qualifier: trust_hir::symbols::VarQualifier::Temp
+            }
+        )
 }
 
 fn namespace_path_for_scope(symbols: &SymbolTable, scope_id: ScopeId) -> Vec<SmolStr> {
