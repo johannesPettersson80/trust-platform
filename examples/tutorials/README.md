@@ -348,7 +348,8 @@ and why it matters.
     - configure `loopback`, `simulated`, `gpio`, `modbus-tcp`, `mqtt`, and
       composed `io.drivers`.
 6. `18_simulation_toml_fault_injection/README.md`
-    - use deterministic `simulation.toml` couplings/disturbances/fault events.
+    - run a project as a simulation: a coupling, scheduled disturbances and a scheduled fault on
+      the simulation clock, and the same run at ten times the speed.
 7. `19_safety_commissioning/README.md`
     - verify safe-state outputs, watchdog/fault policy, and restart recovery.
 8. `21_ci_cd_project_pipeline/README.md`
