@@ -9,6 +9,9 @@ const MAPPINGS: &str = r#"mappings = [
   { tag = "P1.Run", topic = "trust/examples/multi/running", direction = "write" },
 ]"#;
 
+/// The example's safe state, as `io.toml` writes it.
+const SAFE_STATE: &str = "[[io.safe_state]]\naddress = \"%QX0.0\"\nvalue = \"FALSE\"\n";
+
 /// The raw topics that the example had in their place until 27 November 2026.
 const RAW_TOPICS: &str = r#"topic_in = "trust/examples/multi/start"
 topic_out = "trust/examples/multi/running""#;
@@ -64,7 +67,8 @@ fn a_raw_topic_composed_with_a_modbus_point_is_warned_about_at_start() {
     // the drive's TRUE: %IX0.0 reads FALSE. A reload from Stopped warns again. Catches no warning
     // for that composition, a warning for the shipped one, the drivers in the wrong order, the
     // topic's bytes not cut to the shared byte, a composition refused or whose later driver does
-    // not overwrite the earlier, and a warning at the launch alone.
+    // not overwrite the earlier, a warning at the launch alone, and a reload's warning at the
+    // project file's log level instead of the live one.
     let broker = MqttTestBroker::start();
     let shipped = start_multi_driver(&broker, &[]);
     // A scan has run, so the start, which logs any overlap before it, is complete.
@@ -78,7 +82,17 @@ fn a_raw_topic_composed_with_a_modbus_point_is_warned_about_at_start() {
     );
     drop(shipped);
 
-    let raw = start_multi_driver(&broker, &[(MAPPINGS, RAW_TOPICS)]);
+    // The Modbus/TCP test server takes one connection, which a reload cannot open again: with
+    // `on_error = "warn"` and no safe state to confirm at a stop, the reloaded program runs on
+    // without its drive and can be stopped and reloaded once more.
+    let raw = start_multi_driver(
+        &broker,
+        &[
+            (MAPPINGS, RAW_TOPICS),
+            ("on_error = \"fault\"", "on_error = \"warn\""),
+            (SAFE_STATE, ""),
+        ],
+    );
     raw.wait_until(WAIT, "a scan after the start", || raw.snapshot().is_some());
     assert_eq!(
         overlap_warnings(&raw),
@@ -116,5 +130,22 @@ fn a_raw_topic_composed_with_a_modbus_point_is_warned_about_at_start() {
     assert_eq!(
         warnings[1], warnings[0],
         "the reload warns as the launch did"
+    );
+
+    // The warning is logged at the live log level: with `log.level` set to `error` while the
+    // runtime runs, the next reload's start warns of nothing.
+    raw.ctl_ok(&["config-set", "log.level", "error"]);
+    raw.ctl_ok(&["shutdown"]);
+    raw.wait_until(WAIT, "the stopped state", || {
+        raw.status().state == "stopped"
+    });
+    raw.ctl_ok(&["restart", "cold"]);
+    raw.wait_until(WAIT, "the reloaded program's start", || {
+        raw.status().state != "stopped"
+    });
+    assert_eq!(
+        overlap_warnings(&raw).len(),
+        2,
+        "the live level `error` holds the reload's warning back"
     );
 }

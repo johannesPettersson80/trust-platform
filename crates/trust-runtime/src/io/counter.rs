@@ -77,6 +77,17 @@ impl IoDriver for CounterDriver {
     }
 
     /// A counter driver has no outputs.
+    /// The bytes of the input image its counts fill, each its `%ID` double word (specification
+    /// 42, §5 item 4).
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        crate::io::joined_bytes(
+            self.inputs
+                .iter()
+                .map(|channel| channel.byte..channel.byte + 4)
+                .collect(),
+        )
+    }
+
     fn write_outputs(&mut self, _outputs: &[u8]) -> Result<(), RuntimeError> {
         Ok(())
     }
@@ -629,5 +640,15 @@ mod tests {
         assert_eq!(read(&mut driver), [0xF4, 0xFF, 0xFF, 0xFF]);
         sysfs.set(&attribute("count"), "2\n");
         assert_eq!(read(&mut driver), [0xF8, 0xFF, 0xFF, 0xFF]);
+    }
+
+    /// Specification 42, §5 item 4: a count declares its `%ID` double word, four bytes: the count
+    /// at `%ID4` declares bytes 4..8, so a driver composed after it that fills them is warned
+    /// about (specification 11 §6.5). Catches a driver that declares nothing, which no overlap
+    /// warning would name, and a double word counted short.
+    #[test]
+    fn a_count_declares_its_double_word() {
+        let driver = open(&count("counter-declared", "0\n"), Edge::Rising);
+        assert_eq!(driver.input_bytes(), vec![4..8]);
     }
 }

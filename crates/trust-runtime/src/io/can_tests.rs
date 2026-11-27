@@ -469,3 +469,14 @@ fn frames_cross_the_socket_unchanged() {
     );
     assert!(socket_frame(&too_wide).is_none());
 }
+
+/// Specification 42, §5 item 4: a receive declares its `length` bytes from its `%IB` address and
+/// a transmit nothing: the receive of 4 bytes at `%IB0` declares bytes 0..4, so a driver composed
+/// after it that fills them is warned about (specification 11 §6.5). Catches a driver that
+/// declares nothing, which no overlap warning would name, and a transmit's bytes declared as
+/// inputs.
+#[test]
+fn a_receive_declares_its_bytes() {
+    let (driver, _bus) = driver(OnError::Fault);
+    assert_eq!(driver.input_bytes(), vec![0..4]);
+}
