@@ -242,16 +242,80 @@ async fn without_its_libraries_entry_the_program_reports_each_block_and_call() {
     assert!(readme.contains("the error E103, `'Connect' is not callable`"));
     let root = copied_example("vendor-stubs-without-libraries", false);
     let (state, uri, _) = opened(&root).await;
-    let mut expected = vec![
-        "E102: cannot resolve type 'TCON'",
-        "E102: cannot resolve type 'NORM_X'",
-        "E102: cannot resolve type 'SCALE_X'",
-        "E103: 'Connect' is not callable",
-        "E103: 'Normalizer' is not callable",
-        "E103: 'Scaler' is not callable",
-    ];
-    expected.sort_unstable();
-    assert_eq!(diagnostics(&state, &uri), expected);
+    assert_eq!(diagnostics(&state, &uri), WITHOUT_LIBRARIES);
+}
+
+/// Main.st's errors without the `[[libraries]]` entry, sorted: each vendor block's declaration
+/// reports E102 and each call E103.
+const WITHOUT_LIBRARIES: [&str; 6] = [
+    "E102: cannot resolve type 'NORM_X'",
+    "E102: cannot resolve type 'SCALE_X'",
+    "E102: cannot resolve type 'TCON'",
+    "E103: 'Connect' is not callable",
+    "E103: 'Normalizer' is not callable",
+    "E103: 'Scaler' is not callable",
+];
+
+/// Writes `config` to the copy's `trust-lsp.toml` and reports it as VS Code's file watcher reports
+/// a saved file; the server then indexes again in the background.
+async fn save_config(state: &Arc<ServerState>, root: &std::path::Path, config: &str) {
+    let file = root.join("trust-lsp.toml");
+    std::fs::write(&file, config).expect("trust-lsp.toml");
+    did_change_watched_files(
+        &test_client(),
+        state,
+        DidChangeWatchedFilesParams {
+            changes: vec![FileEvent {
+                uri: Url::from_file_path(&file).expect("trust-lsp.toml uri"),
+                typ: FileChangeType::CHANGED,
+            }],
+        },
+    )
+    .await;
+}
+
+/// Waits, while the background indexing runs, until Main.st's errors are `expected`.
+async fn wait_for_errors(state: &ServerState, uri: &Url, expected: &[&str]) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let now = diagnostics(state, uri);
+        if now == expected {
+            return;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "Main.st's errors stayed {now:?}, not {expected:?}"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+}
+
+/// The README's first experiment, on specification 14 §7.6: a changed configuration takes effect
+/// at once, so deleting the `[[libraries]]` entry and saving `trust-lsp.toml` reports the six
+/// errors, and putting it back clears them. Catches a configuration change that waits for a
+/// restart, and stub declarations that stay after their entry went.
+#[tokio::test]
+async fn the_libraries_entry_deleted_and_put_back_reports_and_clears_the_errors() {
+    let readme = readme();
+    assert!(readme.contains("Delete the `[[libraries]]` entry, its four lines,"));
+    assert!(readme.contains("six errors for `src/Main.st` at once"));
+    let root = copied_example("vendor-stubs-delete-libraries", true);
+    let (state, uri, _) = opened(&root).await;
+    assert_eq!(diagnostics(&state, &uri), Vec::<String>::new());
+    let original = std::fs::read_to_string(root.join("trust-lsp.toml")).expect("trust-lsp.toml");
+    let (project, entry) = original
+        .split_once("[[libraries]]")
+        .expect("the example's [[libraries]] entry");
+    assert_eq!(
+        entry.trim().lines().count() + 1,
+        4,
+        "the entry's four lines"
+    );
+
+    save_config(&state, &root, &format!("{}\n", project.trim_end())).await;
+    wait_for_errors(&state, &uri, &WITHOUT_LIBRARIES).await;
+    save_config(&state, &root, &original).await;
+    wait_for_errors(&state, &uri, &[]).await;
 }
 
 /// The README's two experiments. Catches a call whose misspelled input the stub's interface no

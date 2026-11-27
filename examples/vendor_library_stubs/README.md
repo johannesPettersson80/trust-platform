@@ -125,6 +125,10 @@ the build is its check.
 
 ## Try it yourself
 
+- Delete the `[[libraries]]` entry, its four lines, from `trust-lsp.toml` and save the file. The
+  Problems view shows six errors for `src/Main.st` at once: E102, `cannot resolve type`, for
+  `TCON`, `NORM_X` and `SCALE_X`, and E103, `is not callable`, for `Connect`, `Normalizer` and
+  `Scaler`. Put the entry back and save the file again: the errors go.
 - Misspell the input of the `TCON` call, `Connect(REQUEST := Request);`. The Problems view
   reports the error E105, `unknown parameter 'REQUEST'`, as the stub declares only `REQ`. Undo
   the change.
