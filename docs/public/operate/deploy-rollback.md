@@ -48,6 +48,6 @@ you operate so you know which flag set the runtime expects.
 - correct logic but wrong runtime config
 - rollout succeeded technically but operator behavior regressed
 
-## Worked tutorial
+## Worked tutorial: deploy and rollback
 
 --8<-- "examples/tutorials/14_deploy_and_rollback/README.md:3"

@@ -306,6 +306,11 @@ pub async fn did_change_watched_files(
 
         match change.typ {
             FileChangeType::CREATED | FileChangeType::CHANGED => {
+                // Only a file that a project folder holds is indexed, as the workspace indexing
+                // does, so a removed library's file that changes stays out (specification 14 §7.6).
+                if !state.project_folder_holds(&change.uri) {
+                    continue;
+                }
                 let Ok(content) = std::fs::read_to_string(&path) else {
                     continue;
                 };

@@ -116,6 +116,8 @@ pub async fn index_workspace(client: &Client, state: &ServerState) {
             }
         }
     }
+    // What the configurations no longer name leaves the project (specification 14 §7.6).
+    state.drop_sources_outside_project_folders();
     state.refresh_project_layout();
 
     info!(

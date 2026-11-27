@@ -22,6 +22,9 @@ handlers::tests::completion_hover::lsp_completion_returns_none_when_request_tick
 handlers::tests::completion_hover::lsp_completion_suggests_method_formal_parameters: test
 handlers::tests::completion_hover::lsp_hover_member_method_and_property: test
 handlers::tests::completion_hover::lsp_hover_respects_stdlib_filter: test
+handlers::tests::configuration_change::a_library_removed_from_the_configuration_leaves_the_project_and_returns_with_it: test
+handlers::tests::configuration_change::an_open_document_of_a_removed_library_stays_while_it_is_open: test
+handlers::tests::configuration_change::the_watcher_indexes_a_created_file_only_where_a_project_folder_holds_it: test
 handlers::tests::core::core_part_01::lsp_array_and_range_diagnostics_link_to_their_owning_iec_contracts: test
 handlers::tests::core::core_part_01::lsp_diagnostics_no_burst_baseline_reports_real_errors: test
 handlers::tests::core::core_part_01::lsp_hover_uses_utf16_position_and_range_after_supplementary_scalar: test
@@ -77,6 +80,7 @@ handlers::tests::core::core_part_07::lsp_inline_values_fetch_runtime_values_from
 handlers::tests::core::core_part_07::lsp_linked_editing_ranges: test
 handlers::tests::core::core_part_08::lsp_inline_values_editor_token_goes_to_the_editor_endpoint: test
 handlers::tests::core::core_part_08::lsp_inline_values_merge_instances_into_locals: test
+handlers::tests::core::core_part_08::lsp_inline_values_reach_the_simulator_a_launch_started_for_the_workspace: test
 handlers::tests::core::core_part_08::lsp_inline_values_repository_endpoint_never_receives_the_editor_token: test
 handlers::tests::core::core_part_08::lsp_inline_values_repository_endpoint_uses_its_own_token: test
 handlers::tests::core::core_part_08::lsp_inline_values_runtime_override_accepts_camel_case_client_settings: test

@@ -341,6 +341,12 @@ contract, including when a newer document or workspace request supersedes it.
   the incoming calls of a method of a function block or class include the calls of the same-named
   method of each interface the block implements, directly, through the blocks it extends, or
   through the interfaces those extend; the interface's own declaration is no reference of it.
+- A formal parameter name in a call names the callee's parameter: `IN` in `Timer(IN := Start)`, `Q` in
+  `Timer(Q => Done)`, `a` in `Limit(a := 1)` or `motor.Start(a := 1)` (IEC 61131-3 Ed.3 §6.6.1.4.2, Table 20).
+  It is a reference of that parameter, the block's own or one it inherits, so go to definition reaches the
+  parameter's declaration, hover shows it, and a rename of the parameter renames it in every call. Its access is
+  the parameter's side of the binding: `:=` writes the input or in-out, and `=>` reads the output. Until
+  27 November 2026 a rename of a parameter left the calls' formal names behind, naming no parameter.
 - Include/exclude declaration
 - Each reference has its access, by the one rule of specification 28 §6 (`trust_hir::access`): a
   write (an assignment's or a FOR loop's target, an argument that a call binds to an output or
@@ -636,8 +642,14 @@ count the same locations or symbols twice. Without a partial-result token, the
 complete result remains in the final response.
 
 Runtime-assisted inline values are an optional interactive enhancement, not a
-reason to block the editor. Connect, read, and write operations against the
-configured runtime control endpoint use a 250 ms I/O bound. An unavailable,
+reason to block the editor. Their endpoint is the `[runtime] control_endpoint`
+of `trust-lsp.toml`, else the editor's `runtime.controlEndpoint` setting, else
+the simulator that a launch started for the document's workspace folder: the
+endpoint and token that the language server named for that folder
+(`trust-lsp.simulatorControl`, specification 25 §6.8) and keeps for the
+session, the innermost folder when folders nest. A configured token never
+reaches the simulator. Connect, read, and write operations against the
+endpoint use a 250 ms I/O bound. An unavailable,
 silent, or malformed endpoint produces no runtime-derived inline values and
 returns within that bound; static inline values remain independently
 available. This timeout behavior is tooling policy, not IEC program semantics.
@@ -782,6 +794,15 @@ program execution or an IEC 61131-3 deviation.
   the language rules, which follow the workspace folders' configurations (below).
 - The server finds the projects when it indexes a workspace folder, and again when a config file is created,
   changed or deleted; a file it indexes or opens later is placed in its project before it is analyzed.
+- A changed configuration takes effect at once. When the server indexes again after a config file changed, a
+  document that is not open and that no project folder of the new configurations holds leaves the project, as a
+  closed document outside every project folder does (§7.2.1): the files of a `[[libraries]]` entry, a
+  `library_paths` folder or a dependency that the configuration no longer names. An open document stays while it is
+  open. The open documents' diagnostics are then refreshed, so a name that only the removed library declared is
+  reported, and it resolves again when the entry comes back. A file that the file watcher reports created or changed
+  is indexed only when a project folder holds it, as the workspace indexing does, so a removed library's file that
+  changes stays out. Until 27 November 2026 a removed library kept its
+  declarations until the server restarted.
 - `[project]` supports `include_paths` (the project's own source folders), `library_paths` (library folders, indexed like `[[libraries]]` entries named after their folder), `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
 - `vendor_profile` selects the language rules of the whole analysis (diagnostics, hover, completion, `trust-lsp check`), and the runtime build, the debugger and the runtime's web IDE take the same rules from the project's `vendor_profile`, with the conversion rules it selects (docs/specs/07-standard-functions.md section 2.10):
   - `iec`, `siemens`, `mitsubishi`, `gxworks3`, an empty name or none: IEC 61131-3 as truST reads it.
@@ -889,7 +910,7 @@ The stable resolver codes are:
 - `[indexing]` cache options: `cache` (default true) enables persistent index caching across sessions; `cache_dir` overrides the cache location. Cache reuse checks file metadata and stored content hashes.
 - `[indexing]` memory budget controls: `memory_budget_mb` caps closed-document index memory (MB) and `evict_to_percent` defines the LRU eviction target; evicted documents are reloaded on demand when accessed.
 - `[indexing]` adaptive throttling: `throttle_idle_ms`, `throttle_active_ms`, `throttle_max_ms`, and `throttle_active_window_ms` pace background indexing based on recent editor activity and observed per-file work.
-- `[runtime]` supports `control_endpoint` and optional `control_auth_token` for debug-assisted inline values; a repository `control_endpoint` is contacted only with the repository `control_auth_token` (never the editor's token), and the editor's `controlAuthToken` setting is sent only to the editor's own `controlEndpoint` setting.
+- `[runtime]` supports `control_endpoint` and optional `control_auth_token` for debug-assisted inline values; a repository `control_endpoint` is contacted only with the repository `control_auth_token` (never the editor's token), and the editor's `controlAuthToken` setting is sent only to the editor's own `controlEndpoint` setting. Without either endpoint, inline values reach the simulator of the document's workspace folder (§7.1.2), so a project names no endpoint for a debug session.
 - `[diagnostics]` toggles warning categories (`warn_unused`, `warn_unreachable`, `warn_missing_else`, `warn_implicit_conversion`, `warn_shadowed`, `warn_deprecated`, `warn_complexity`, `warn_nondeterminism`, `warn_numeric_hazards`) for vendor-dialect alignment (IEC 61131-3 Ed.3 §6.4.2; §7.3.3.3.3). Cyclomatic complexity warnings (W008) use a default threshold of 15; unused warnings (W001/W002/W009) cover variables, parameters, and top-level POUs; numeric hazard warnings (W013/W014) cover floating-point equality and literal zero divisors.
 - `[diagnostics].rule_pack` presets safety-focused defaults (e.g., `iec-safety`, `siemens-safety`, `codesys-safety`, `beckhoff-safety`, `twincat-safety`, `mitsubishi-safety`, `gxworks3-safety`); explicit `warn_*` keys override pack defaults. `[diagnostics].severity_overrides` can promote specific warning codes to error severity (W004 missing ELSE per IEC 61131-3 Ed.3 §7.3.3.3.3; W005 implicit conversion per §6.4.2; W010 TIME/DATE nondeterminism per §6.4.2; W011 direct variables per §6.5.5; W014 literal division/modulo by zero guard).
 - `[diagnostics].external_paths` lists JSON diagnostics payloads from external linters (optional per-diagnostic fix data yields quick-fix actions).

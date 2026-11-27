@@ -1146,11 +1146,7 @@ expression: output
       }
     },
     "didChangeWatchedFiles": {
-      "afterCreate": {
-        "content": "PROGRAM Watch\nEND_PROGRAM\n",
-        "isOpen": false,
-        "version": 0
-      },
+      "afterCreate": null,
       "afterDelete": null
     },
     "didClose": null,
