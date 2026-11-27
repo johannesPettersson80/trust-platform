@@ -6,3 +6,8 @@
   not name them, as IEC 61131-3 allows inputs to be set and outputs to be read outside the block but not its in-outs.
   Completion asked again while a member's name is being typed (`Timer.E`) keeps offering the members instead of every
   keyword and name in scope.
+- Completion after `.` on a namespace's name offers that namespace's declarations from every file of the project:
+  `Company.Project.` offers its types, function blocks, functions and nested namespaces, and a CODESYS global
+  variable list's name (`GVL_IO.`) offers its globals, while what an `INTERNAL` namespace holds stays out where code
+  may not name it. It used to offer nothing there, and nothing after an instance named through its namespace
+  (`GVL_IO.gPump.`), which now offers the instance's members.
