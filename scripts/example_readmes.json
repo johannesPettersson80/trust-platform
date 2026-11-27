@@ -195,7 +195,6 @@
     "examples/simulate_process/README.md",
     "examples/statecharts/README.md",
     "examples/tutorials/09_simulation_coupling/README.md",
-    "examples/tutorials/10_unit_testing_101/README.md",
     "examples/tutorials/11_unit_testing_102/README.md",
     "examples/tutorials/12_hmi_pid_process_dashboard/README.md",
     "examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md",
