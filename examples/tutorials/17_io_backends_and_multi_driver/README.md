@@ -1,9 +1,9 @@
 # Tutorial 17: I/O Backends and Composed Drivers
 
-Run one project on each kind of I/O driver, loopback, simulated, GPIO, Modbus/TCP and MQTT, and then
-on two drivers composed in one runtime. You learn what each driver does to the process image, how to
-check an `io.toml` before you start the runtime, and why a file takes one driver or a list. It starts
-from tutorial 13's project.
+Run one project on the two I/O drivers that need no hardware, loopback and simulated, and check its
+`io.toml` for GPIO, Modbus/TCP, MQTT and two drivers composed in one runtime. You learn what each
+driver does to the process image, how to check an `io.toml` before you start the runtime, and why a
+file takes one driver or a list. It starts from tutorial 13's project.
 
 ## What you learn
 
