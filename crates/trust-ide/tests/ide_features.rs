@@ -23,6 +23,8 @@ fn setup(source: &str) -> (Database, FileId) {
 // Completion Context Tests
 // =============================================================================
 
+#[path = "ide_features/formal_parameter_names.rs"]
+mod formal_parameter_names;
 #[path = "ide_features/ide_features_part_01.rs"]
 mod ide_features_part_01;
 #[path = "ide_features/ide_features_part_02.rs"]
