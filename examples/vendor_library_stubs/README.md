@@ -1,87 +1,154 @@
-# Vendor Library Stubs: User-Extensible Interop Pattern
+# Vendor library stubs
 
-Docs category: `docs/public/examples/vendor-profiles.md`
+Edit a program written for another vendor's PLC when truST does not ship that vendor's library
+blocks: declare the blocks in stub files, name their folder as a library in `trust-lsp.toml`, and
+the editor knows them. You learn what the stubs give the editor and the build, and what they do
+not give.
 
-This tutorial shows how to index vendor-specific symbols that are not covered by
-built-in shim mappings.
+## What you learn
 
-## Goal
+- A `[[libraries]]` entry in `trust-lsp.toml` names a folder of Structured Text that the editor
+  indexes beside the project's own sources. Here `vendor/siemens` declares Siemens' `TCON`,
+  `NORM_X` and `SCALE_X` as function blocks, with their inputs and outputs and no body.
+- With the stubs indexed, the editor checks the program against their interfaces: hover, go to
+  definition and completion know their names and members, and a call that names an input a stub
+  does not declare is an error.
+- A runtime build compiles only the folders that `--sources` names, so a build that takes the
+  stubs names their folder too. Their empty bodies compute nothing: the build checks names and
+  types, not the vendor's behaviour.
 
-Provide local ST library stubs so editor workflows stay productive during
-migration:
+## What you need
 
-- completion
-- hover
-- go-to-definition
-- missing-symbol diagnostic suppression for declared vendor blocks
+- VS Code with the truST extension, and `trust-runtime`, from the extension or a release archive.
+- This repository, whose `examples/vendor_library_stubs` you copy.
+- Linux or macOS, whose shell runs the commands below. On Windows, copy the folder in the
+  Explorer and run the build in PowerShell.
+- About 15 minutes.
 
-## Project Layout
+## Step by step
 
-- `src/Main.st`: program that uses vendor symbols (`TCON`, `NORM_X`, `SCALE_X`)
-- `src/Configuration.st`: minimal task/program wiring
-- `vendor/siemens/*.st`: local stub library declarations
-- `trust-lsp.toml`: `[[libraries]]` wiring for stub indexing
+1. From the root of the repository, copy the example, so that your changes stay out of the
+   repository, and open the copy in VS Code:
 
-## Step 1: Open This Example in VS Code
+    ```bash
+    rm -rf /tmp/vendor-stubs
+    cp -R examples/vendor_library_stubs /tmp/vendor-stubs
+    code /tmp/vendor-stubs
+    ```
 
-```bash
-code examples/vendor_library_stubs
-```
+2. Open `trust-lsp.toml`:
 
-## Step 2: Verify Library Wiring
+    ```toml
+    [project]
+    include_paths = ["src"]
+    vendor_profile = "siemens"
 
-Open `trust-lsp.toml`:
+    [[libraries]]
+    name = "siemens-stubs"
+    path = "vendor/siemens"
+    version = "0.1.0"
+    ```
 
-```toml
-[[libraries]]
-name = "siemens-stubs"
-path = "vendor/siemens"
-```
+    `include_paths` holds the project's own sources, `vendor_profile = "siemens"` analyses them
+    under the Siemens language rules, and the `[[libraries]]` entry adds the stub folder.
 
-This tells `trust-lsp` to index the vendor stub folder as a library source.
+3. Open `src/Main.st`. The Problems view lists nothing for it: the program's three vendor
+   blocks resolve to the stubs.
 
-## Step 3: Test LSP Features
+    ```st
+    Connect : TCON;
+    Normalizer : NORM_X;
+    Scaler : SCALE_X;
+    ```
 
-1. Open `src/Main.st`.
-2. Trigger completion on `TCON`, `NORM_X`, `SCALE_X` usage.
-3. Ctrl+Click `TCON` to navigate to `vendor/siemens/tcon.st`.
-4. Hover symbol names and parameter names to inspect type info.
+4. Hover `TCON` in `Connect : TCON;`. The hover shows the stub's declaration:
 
-## Step 4: Add a New Missing Vendor Block
+    ```st
+    FUNCTION_BLOCK TCON
+    VAR_INPUT
+        REQ : BOOL;
+    END_VAR
+    VAR_OUTPUT
+        DONE : BOOL;
+        ERROR : BOOL;
+        STATUS : WORD;
+    END_VAR
+    END_FUNCTION_BLOCK
+    ```
 
-1. Create `vendor/siemens/my_block.st`.
-2. Add a declaration, for example:
+    Ctrl+click `TCON`, or press F12 on it: `vendor/siemens/tcon.st` opens at
+    `FUNCTION_BLOCK TCON`.
 
-```st
-FUNCTION_BLOCK MY_VENDOR_FB
-VAR_INPUT
-    Enable : BOOL;
-END_VAR
-VAR_OUTPUT
-    Active : BOOL;
-END_VAR
-END_FUNCTION_BLOCK
-```
+5. On a new line after `Connect(REQ := Request);`, type `Connect.`. Completion offers the block's
+   members: `DONE`, `ERROR` and `REQ` as `BOOL`, and `STATUS` as `WORD`. Delete the line again.
+   Then, on a new line after `Engineering : REAL;` in the `VAR` block, type `Extra : NO` and
+   press Ctrl+Space: completion offers `NORM_X`. Delete that line too.
 
-3. Use `MY_VENDOR_FB` in `src/Main.st`.
-4. Save and verify completion/hover/definition support.
+6. In a terminal, build the program with the stubs:
 
-## Optional Runtime Build Check
+    ```bash
+    cd /tmp/vendor-stubs
+    trust-runtime build --project . --sources src --sources vendor/siemens
+    ```
 
-A runtime build compiles `<project>/src`, and `[[libraries]]` entries are for
-the editor's indexing only, so name both the project's sources and the stubs.
-`--sources` may be given more than once, and takes no other `.st` files that the
-project folder may hold:
+    It writes the program's image, here on an x86-64 Linux computer, and then names the image's
+    memory figure, the key that signed it and its four sources, the project's two and the
+    stubs' two:
 
-```bash
-trust-runtime build --project examples/vendor_library_stubs --sources src --sources vendor/siemens
-```
+    ```text
+    Wrote ./program.tpi
+    Wrote ./build/install.x86_64-unknown-linux-gnu.bin for trust-runtime ctl install
+    Debug image 4300 bytes: code 858, read-only data 16, starting memory 64
+    ```
 
-This example is for the editor, so it has no `runtime.toml` or `io.toml`. That is
-why `trust-runtime check`, which checks those files too, refuses it, and the
-build is the check here.
+## What happened
 
-## Limits
+**The library.** The editor reads `[[libraries]]` and indexes `vendor/siemens` beside `src`, so
+the program's `TCON`, `NORM_X` and `SCALE_X` are the stubs' function blocks. Their names resolve,
+and their inputs and outputs are known by name and type. Without the entry, each of the three
+declarations reports the error E102, `cannot resolve type 'TCON'` with its own block's name, and
+each of the three calls the error E103, `'Connect' is not callable` with its own instance's name.
+`vendor_profile = "siemens"` chooses the language rules; it supplies no Siemens library blocks,
+which is what the stubs are for.
 
-- These stubs provide type/symbol contracts, not vendor runtime semantics.
-- Real behavior still requires migration or implementation work.
+**The interface.** A stub declares what a vendor's library declares and no more: the block, its
+inputs and its outputs. A vendor's compiled library brings no source body either, and the editor
+needs none: hover, go to definition and completion read the declaration, and a call is checked
+against it.
+
+**The build.** `[[libraries]]` is the editor's. A build compiles the folders that `--sources`
+names and nothing else, so this build names `vendor/siemens` beside `src`. The stubs' blocks have
+empty bodies, so the program builds and `NORM_X` leaves its `Y` at 0.0: the build checks names
+and types, and the vendor's behaviour is still for the migration to supply. The example has no
+`runtime.toml` or `io.toml`, so `trust-runtime check`, which checks those files too, refuses it;
+the build is its check.
+
+## Try it yourself
+
+- Misspell the input of the `TCON` call, `Connect(REQUEST := Request);`. The Problems view
+  reports the error E105, `unknown parameter 'REQUEST'`, as the stub declares only `REQ`. Undo
+  the change.
+- Add a block of your own. Create `vendor/siemens/my_block.st` with this declaration and save it:
+
+  ```st
+  FUNCTION_BLOCK MY_VENDOR_FB
+  VAR_INPUT
+      Enable : BOOL;
+  END_VAR
+  VAR_OUTPUT
+      Active : BOOL;
+  END_VAR
+  END_FUNCTION_BLOCK
+  ```
+
+  Then add `Station : MY_VENDOR_FB;` after `Engineering : REAL;` in `src/Main.st`. The type
+  resolves, so the Problems view shows only the warning W001, `unused variable 'Station'`, until
+  the program uses it, and hovering `MY_VENDOR_FB` shows its declaration.
+
+## Reference
+
+- Specification 14 §7.6, `trust-lsp.toml`'s `[[libraries]]` and `vendor_profile`, and §6.1.2,
+  completion after `.`.
+- The pages Vendor Libraries and Vendor Profile Examples, under Migration While Programming in the
+  documentation.
+- The `trust-runtime build` command and its `--sources`, in the reference of the documentation.
