@@ -150,6 +150,12 @@ else changeType = Deleted
     handlers -> state : remove_document(uri)
     state -> project : remove_source(SourceKey)
 end
+opt a project config file changed
+    handlers -> handlers : index_workspace() in the background
+    handlers -> state : set_workspace_config(root, config)
+    handlers -> state : drop_sources_outside_project_folders()
+    state -> project : remove_source(SourceKey)\nof sources no project folder holds
+end
 handlers --> lsp
 deactivate handlers
 deactivate lsp
@@ -571,7 +577,10 @@ note right of handlers
     document and Project membership.
     Reindex reconciles sources proven missing
     on disk, preserving open unsaved buffers
-    and budget-truncated live sources.
+    and budget-truncated live sources, and
+    drops sources that no project folder of the
+    reloaded configs holds (a removed library),
+    keeping open documents.
     Text eviction retains URI and FileId membership.
     Deletion uses registered identity even after
     a symlink alias disappears or changes target.
