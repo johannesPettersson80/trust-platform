@@ -1,157 +1,157 @@
 # Tutorial 14: Deploy and Roll Back a PLC Project
 
-This tutorial teaches the operational release flow for PLC projects:
+Deploy a project into a versioned store, run the runtime on the store's `current` link, deploy a
+changed revision, and roll back to the one before with `trust-runtime rollback`, each time seeing
+which revision the runtime runs. It starts from tutorial 13's project.
 
-1. build and validate a known-good revision,
-2. deploy it to a versioned deployment root,
-3. deploy a newer revision,
-4. roll back safely.
+## What you learn
 
-## Why this tutorial exists
+- `trust-runtime deploy --root <store>` copies the built project into a new bundle of the store,
+  points the link `current` at it and `previous` at the bundle before, and writes a summary of what
+  changed to `deployments/last.txt`.
+- A runtime started on `<store>/current` keeps running the program it started with when a deploy
+  moves the link; stopping the program and starting it cold loads the bundle that `current` names.
+- `trust-runtime rollback --root <store>` points `current` back at `previous`.
 
-Development success is not enough for production. You need a predictable way to
-promote and revert versions when behavior changes or incidents happen.
+## What you need
 
-## What you will learn
+- Tutorial 13's project in `/tmp/trust-tutorial-13`, as its README builds it, and
+  `trust-runtime`, from the truST extension for VS Code or a release archive.
+- Linux or macOS, whose shell runs the commands below, and two terminals.
+- About 20 minutes.
 
-- when to use `build`, `validate`, `deploy`, and `rollback`
-- how to keep deploy artifacts in a dedicated root
-- how to verify which revision is currently active
+## Step by step
 
-## Prerequisites
+1. Copy tutorial 13's project and make an empty store for the deployments:
 
-- complete Tutorial 13 first
-- `trust-runtime` available on `PATH`
+    ```bash
+    rm -rf /tmp/trust-tutorial-14-project /tmp/trust-tutorial-14-deploy
+    cp -R /tmp/trust-tutorial-13 /tmp/trust-tutorial-14-project
+    mkdir -p /tmp/trust-tutorial-14-deploy
+    cd /tmp/trust-tutorial-14-project
+    ```
 
-## Step 1: Prepare a dedicated deploy playground
+2. Build and check revision A, which copies `%IX0.0` to `%QX0.0`:
 
-Why: never test deploy/rollback in your main project folder. Keep operations
-state separate so history and rollback targets are explicit.
+    ```bash
+    trust-runtime build --project . --sources src
+    trust-runtime validate --project .
+    ```
 
-```bash
-rm -rf /tmp/trust-tutorial-14-project /tmp/trust-tutorial-14-deploy
-cp -R /tmp/trust-tutorial-13 /tmp/trust-tutorial-14-project
-mkdir -p /tmp/trust-tutorial-14-deploy
-cd /tmp/trust-tutorial-14-project
-```
+    The validation answers `Project ok`.
 
-Expected result:
-- working copy at `/tmp/trust-tutorial-14-project`
-- deploy root at `/tmp/trust-tutorial-14-deploy`
+3. Deploy it and read the summary:
 
-## Step 2: Build and validate revision A
+    ```bash
+    trust-runtime deploy --project . --root /tmp/trust-tutorial-14-deploy
+    cat /tmp/trust-tutorial-14-deploy/deployments/last.txt
+    ```
 
-Why: deployment should only use validated artifacts. This is your preflight gate.
+    The summary names the new bundle and that there was none before:
 
-```bash
-trust-runtime build --project . --sources src
-trust-runtime validate --project .
-```
+    ```text
+    Deployment summary:
+    current project version: /tmp/trust-tutorial-14-deploy/bundles/project-<time>-<id>-1
+    previous project version: none
+    runtime.toml changes:
+      - new project version (no previous runtime.toml)
+    io.toml changes:
+      - new project version (no previous io.toml)
+    program.tpi: updated
+    sources added: Configuration.st, Main.st
+    ```
 
-Expected result:
-- build and validation pass
+4. Start the runtime on the store's `current` link in this terminal:
 
-## Step 3: Deploy revision A
+    ```bash
+    trust-runtime run --project /tmp/trust-tutorial-14-deploy/current
+    ```
 
-Why: `deploy` creates a managed deployment record instead of ad hoc file copies.
+    In the second terminal, set the input and read the image:
 
-```bash
-trust-runtime deploy --project . --root /tmp/trust-tutorial-14-deploy
-```
+    ```bash
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current io-write %IX0.0 true
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current io-read
+    ```
 
-Then inspect deployment summary:
+    `%IX0.0` and `%QX0.0` read `Bool(true)`: revision A copies the input.
 
-```bash
-cat /tmp/trust-tutorial-14-deploy/deployments/last.txt
-```
+5. Make revision B, which inverts the input. In the second terminal, in
+   `/tmp/trust-tutorial-14-project`, change the last statement of `src/Main.st` to:
 
-Expected result:
-- summary file exists
-- summary names the newly deployed bundle
+    ```st
+    LampOut := NOT StartCmd;
+    ```
 
-## Step 4: Run active deployment once
+    Then build, check and deploy it:
 
-Why: post-deploy smoke test proves the deployed artifact is runnable.
+    ```bash
+    trust-runtime build --project . --sources src
+    trust-runtime validate --project .
+    trust-runtime deploy --project . --root /tmp/trust-tutorial-14-deploy
+    cat /tmp/trust-tutorial-14-deploy/deployments/last.txt
+    ```
 
-Resolve the authoritative active deployment pointer:
+    The summary names the new bundle, revision A's as the previous one, and what changed:
+    `runtime.toml: unchanged`, `io.toml: unchanged`, `program.tpi: updated` and
+    `sources modified: Main.st`. The runtime still runs revision A: `io-read` shows `%QX0.0` at
+    `Bool(true)`.
 
-```bash
-readlink -f /tmp/trust-tutorial-14-deploy/current
-trust-runtime run --project "$(readlink -f /tmp/trust-tutorial-14-deploy/current)"
-```
+6. Stop the program and start it cold, so that it loads the bundle `current` names:
 
-Expected result:
-- runtime starts normally from deployed artifact
+    ```bash
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current shutdown
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current restart cold
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current io-write %IX0.0 true
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current io-read
+    ```
 
-## Step 5: Create revision B (intentional behavior change)
+    `%IX0.0` reads `Bool(true)` and `%QX0.0` `Bool(false)`: revision B runs.
 
-Why: rollback only matters when there is a meaningful delta between revisions.
+7. Roll back, and stop and start the program cold again:
 
-Edit `/tmp/trust-tutorial-14-project/src/Main.st`:
+    ```bash
+    trust-runtime rollback --root /tmp/trust-tutorial-14-deploy
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current shutdown
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current restart cold
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current io-write %IX0.0 true
+    trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current io-read
+    ```
 
-```st
-LampOut := NOT StartCmd;
-```
+    The rollback answers `Rolled back to project
+    /tmp/trust-tutorial-14-deploy/bundles/project-<time>-<id>-1`, revision A's bundle, and
+    `%QX0.0` reads `Bool(true)` again. Stop the runtime with
+    `trust-runtime ctl --project /tmp/trust-tutorial-14-deploy/current shutdown --exit`.
 
-Rebuild and validate:
+## What happened
 
-```bash
-trust-runtime build --project . --sources src
-trust-runtime validate --project .
-```
+**The store.** Each deploy copied the built project, its program image, configuration and sources,
+into a bundle of its own under `bundles/`, and moved two links: `current` to the new bundle and
+`previous` to the one `current` named before. The store keeps the bundles those two links name, so
+a rollback always has the revision before. The project folder you edit stays apart from what
+runs.
 
-Expected result:
-- revision B compiles and validates
+**The runtime on `current`.** It keeps its control endpoint and its files in the store folder, so
+`ctl --project <store>/current` reaches it whichever bundle `current` names. A deploy or a rollback
+only moves the link: the program that runs stays the one the runtime started with, so you choose
+when the new revision takes over. `shutdown` stops the program and keeps the runtime reachable, and
+`restart cold` then loads the bundle `current` names, as a new process would.
 
-## Step 6: Deploy revision B
+**Operating it.** Build and validate before every deploy, keep the store outside the source tree,
+read `last.txt` to see what a deploy changed, and practice the rollback before commissioning, not
+during an incident.
 
-Why: this simulates a normal upgrade path.
+## Try it yourself
 
-```bash
-trust-runtime deploy --project . --root /tmp/trust-tutorial-14-deploy
-cat /tmp/trust-tutorial-14-deploy/deployments/last.txt
-```
+- Deploy revision B again and run `ls /tmp/trust-tutorial-14-deploy/bundles`: the store holds two
+  bundles, the new one that `current` names and revision A's, which `previous` names. The deploy
+  removed revision B's earlier bundle, which neither link named any more.
+- Run `trust-runtime rollback --root /tmp/trust-tutorial-14-deploy` twice: the second rollback
+  swaps `current` and `previous` back, so a rollback is undone by another.
 
-Expected result:
-- `last.txt` now references the newer deployment
+## Reference
 
-## Step 7: Roll back
-
-Why: rollback is your safety action when the latest deployment misbehaves.
-
-```bash
-trust-runtime rollback --root /tmp/trust-tutorial-14-deploy
-readlink -f /tmp/trust-tutorial-14-deploy/current
-```
-
-Expected result:
-- active deployment moves back to the previous known-good revision
-
-## Step 8: Verify rollback behavior
-
-Why: command success alone is not enough; validate runtime behavior after rollback.
-
-Run from the now-active deployment path and test `%IX0.0` -> `%QX0.0` logic.
-
-- if revision A is active, output should match input
-- if revision B is active, output should invert input
-
-## Operational rules to keep
-
-- always `build` + `validate` before deploy
-- keep deploy root outside source tree
-- keep smoke-test checklist for each deployment
-- practice rollback before commissioning, not during incident response
-
-## Common mistakes
-
-- deploying directly from unvalidated edits
-- mixing manual file copies with `trust-runtime deploy`
-- running rollback without checking what is currently active
-
-## Completion checklist
-
-- [ ] revision A deployed and verified
-- [ ] revision B deployed and verified
-- [ ] rollback executed and verified
-- [ ] active deployment confirmed via the `current` symlink
+- Specification 34 §11.2, the program store, and STATE-08, stop and start.
+- The `trust-runtime` commands `deploy` and `rollback`, and the `ctl` commands `io-write`,
+  `io-read`, `shutdown` and `restart`, in the reference of the documentation.
+- Tutorial 13, which builds the project this tutorial starts from.

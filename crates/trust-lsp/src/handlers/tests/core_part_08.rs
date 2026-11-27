@@ -467,3 +467,44 @@ pub(super) fn lsp_inline_values_editor_token_goes_to_the_editor_endpoint() {
 
     assert_eq!(request["auth"], json!("editor-token"));
 }
+
+/// A workspace folder's path on this platform, for a document URI that maps to a file path.
+#[cfg(windows)]
+const SIMULATOR_WORKSPACE: &str = r"C:\workspace";
+/// A workspace folder's path on this platform, for a document URI that maps to a file path.
+#[cfg(not(windows))]
+const SIMULATOR_WORKSPACE: &str = "/workspace";
+
+#[test]
+pub(super) fn lsp_inline_values_reach_the_simulator_a_launch_started_for_the_workspace() {
+    // Specification 14: with no endpoint in trust-lsp.toml or the editor's settings, a document's
+    // inline values come from the simulator that a launch started for its workspace folder, with
+    // the token the server named for it (specification 25 §6.8). Catches: inline values that reach
+    // no debug session unless a pin names the session's endpoint (the examples' trust-debug.sock
+    // pins reached none), and the editor's token sent to the simulator.
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let state = ServerState::new();
+    state.set_config(json!({
+        "trust_lsp": { "runtime": { "control_auth_token": "editor-token" } }
+    }));
+    let folder = std::path::Path::new(SIMULATOR_WORKSPACE);
+    state
+        .simulator_controls()
+        .name_and_record(Some(folder.to_path_buf()), |_| {
+            crate::state::simulator_controls::SimulatorControl {
+                endpoint,
+                auth_token: "simulator-token".to_owned(),
+            }
+        });
+    let source = runtime_inline_values_source();
+    let uri =
+        tower_lsp::lsp_types::Url::from_file_path(folder.join("runtime.st")).expect("a file URI");
+    state.open_document(uri.clone(), 1, source.to_string());
+    inline_value(&state, runtime_inline_values_params(uri, source)).expect("inline values");
+
+    let request = requests
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("the simulator received a control request");
+    assert_eq!(request["type"], json!("debug.scopes"));
+    assert_eq!(request["auth"], json!("simulator-token"));
+}
