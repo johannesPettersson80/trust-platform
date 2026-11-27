@@ -741,3 +741,6 @@ mod deploy_and_rollback;
 
 #[path = "tutorial_projects/observability.rs"]
 mod observability;
+
+#[path = "tutorial_projects/mesh_sharing.rs"]
+mod mesh_sharing;

@@ -863,6 +863,18 @@ error. The following inheritance rules are part of the same contract:
 - a containing `INTERNAL` namespace or type restriction may prevent an
   otherwise `PUBLIC` call.
 
+### What a Function Block's Method May Name
+
+A method of a function block has no access to the block's `VAR_TEMP` and
+`VAR_IN_OUT` variables (IEC 61131-3 Ed.3 §6.6.7.2.3, rule 4): they belong to
+the block's body, and naming one in a method is an error (`InvalidOperation`,
+"function-block method cannot access body-only member"). The rule covers the
+variables a block inherits: a method of a block that extends another may not
+name the base block's `VAR_TEMP` or `VAR_IN_OUT` variables either, as they are
+the derived block's own. A method's own parameters, its `VAR_IN_OUT` among
+them, are its own and are not affected. Until 27 November 2026 the analysis
+rejected only the variables of the method's own block.
+
 ### THIS and SUPER Keywords
 
 ```
