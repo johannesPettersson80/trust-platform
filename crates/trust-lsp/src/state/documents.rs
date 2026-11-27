@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rustc_hash::{FxHashMap, FxHashSet};
 use tower_lsp::lsp_types::Url;
 
@@ -204,6 +206,51 @@ fn project_folder_holds(state: &ServerState, uri: &Url) -> bool {
         .read()
         .values()
         .any(|folders| folders.holds(&file))
+}
+
+/// Removes the sources that no project folder holds any more and that no open document holds,
+/// with their documents: after a configuration change, the files of a library or dependency that
+/// the configuration no longer names, as a closed document outside every project folder leaves the
+/// project (specification 14 §7.2.1, §7.6). Returns how many sources left.
+pub(super) fn drop_sources_outside_project_folders(state: &ServerState) -> usize {
+    let folders: Vec<_> = state.project_folders.read().values().cloned().collect();
+    let paths: Vec<PathBuf> = state
+        .project
+        .read()
+        .sources()
+        .iter()
+        .filter_map(|(key, _)| match key {
+            SourceKey::Path(path) => Some(path.clone()),
+            _ => None,
+        })
+        .collect();
+    // Resolved on disk before the membership locks are taken.
+    let outside: FxHashSet<PathBuf> = paths
+        .into_iter()
+        .filter(|path| {
+            let file = canonicalize_through_existing_ancestor(path);
+            !folders.iter().any(|folders| folders.holds(&file))
+        })
+        .collect();
+    if outside.is_empty() {
+        return 0;
+    }
+    remove_sources(state, |project, docs| {
+        let open: FxHashSet<FileId> = docs
+            .values()
+            .filter_map(DocumentEntry::resident)
+            .filter(|doc| doc.is_open)
+            .map(|doc| doc.file_id)
+            .collect();
+        project
+            .sources()
+            .iter()
+            .filter_map(|(key, id)| match key {
+                SourceKey::Path(path) if outside.contains(path) && !open.contains(&id) => Some(id),
+                _ => None,
+            })
+            .collect()
+    })
 }
 
 pub(super) fn remove_document(state: &ServerState, uri: &Url) -> Option<FileId> {

@@ -420,6 +420,13 @@ impl ServerState {
         documents::reconcile_missing_documents(self, config)
     }
 
+    /// Removes the sources that no project folder holds any more and no open document holds:
+    /// after a configuration change, those of a library it no longer names (specification 14
+    /// §7.6). Returns how many sources left.
+    pub(crate) fn drop_sources_outside_project_folders(&self) -> usize {
+        documents::drop_sources_outside_project_folders(self)
+    }
+
     /// Renames a document while preserving its open state and content.
     pub fn rename_document(&self, old_uri: &Url, new_uri: &Url) -> Option<FileId> {
         documents::rename_document(self, old_uri, new_uri)
