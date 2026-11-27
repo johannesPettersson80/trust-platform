@@ -32,6 +32,13 @@ VAR_INPUT
 END_VAR
 Limit := Value;
 END_FUNCTION
+
+TYPE ST_Bundle :
+STRUCT
+    Valve : FB_Valve;
+    Timer : TON;
+END_STRUCT
+END_TYPE
 "#;
 
 /// The program that calls them, with formal parameter names.
@@ -43,12 +50,15 @@ VAR
     Timer : TON;
     Done : BOOL;
     Level : INT;
+    Bundle : ST_Bundle;
 END_VAR
 Valve(Open := TRUE, IsOpen => Done);
 Fast(Open := Done);
 Fast.Prime(Speed := 3);
 Level := Limit(Value := 5);
 Timer(IN := Done, PT := T#1s);
+Bundle.Valve(Open := Done);
+Bundle.Timer(IN := Done, PT := T#2s);
 END_PROGRAM
 "#;
 
@@ -105,6 +115,9 @@ fn hovering_a_formal_parameter_name_shows_the_callees_parameter() {
         ("Value :=", 0, "```st\n(IN) Value : INT"),
         ("IN :=", 0, "```st\n(IN) IN : BOOL"),
         ("PT :=", 0, "```st\n(IN) PT : TIME"),
+        // Instances held in a structure's fields (Codex's review of #844).
+        ("Open :=", 2, "```st\n(IN) Open : BOOL"),
+        ("IN :=", 1, "```st\n(IN) IN : BOOL"),
     ] {
         let at = TextSize::from(offset(MAIN, needle, nth) + 1);
         let contents = hover(&db, MAIN_FILE, at)
@@ -125,6 +138,7 @@ fn go_to_definition_of_a_formal_parameter_name_reaches_the_parameter() {
         ("IsOpen =>", 0, "IsOpen : BOOL"),
         ("Speed :=", 0, "Speed : INT"),
         ("Value :=", 0, "Value : INT"),
+        ("Open :=", 2, "Open : BOOL"),
     ] {
         let at = TextSize::from(offset(MAIN, needle, nth) + 1);
         let definition = goto_definition(&db, MAIN_FILE, at)
@@ -155,6 +169,7 @@ fn references_of_a_parameter_include_every_calls_formal_name() {
         (0, offset(BLOCKS, "Open;", 0)),
         (1, offset(MAIN, "Open :=", 0)),
         (1, offset(MAIN, "Open :=", 1)),
+        (1, offset(MAIN, "Open :=", 2)),
     ]
     .into_iter()
     .collect();
@@ -162,7 +177,7 @@ fn references_of_a_parameter_include_every_calls_formal_name() {
     assert_eq!(positions(&from_declaration), open);
     let from_call = references(&db, MAIN_FILE, offset(MAIN, "Open :=", 1) + 1);
     assert_eq!(from_call, from_declaration);
-    for nth in [0, 1] {
+    for nth in [0, 1, 2] {
         let formal = (1, offset(MAIN, "Open :=", nth), write.clone());
         assert!(from_call.contains(&formal), "{formal:?} in {from_call:?}");
     }
@@ -194,6 +209,7 @@ fn renaming_a_parameter_renames_every_calls_formal_name() {
                 (0, offset(BLOCKS, "Open;", 0)),
                 (1, offset(MAIN, "Open :=", 0)),
                 (1, offset(MAIN, "Open :=", 1)),
+                (1, offset(MAIN, "Open :=", 2)),
             ],
         ),
         (

@@ -326,30 +326,24 @@ fn formal_parameter_target(
         .parent()
         .filter(|node| node.kind() == SyntaxKind::CallExpr)?;
     let callee_offset = crate::signature_help::callee_name_offset(&call)?;
-    let ResolvedTarget::Symbol(callee_id) = resolve_target_at_position_with_context(
+    let owner = match resolve_target_at_position_with_context(
         db,
         file_id,
         callee_offset,
         source,
         root,
         symbols,
-    )?
-    else {
-        return None;
-    };
-    let callee = symbols.get(callee_id)?;
-    let owner = match callee.kind {
-        SymbolKind::Function { .. } | SymbolKind::Method { .. } => callee.id,
-        // An instance: the block its type names.
-        _ => {
-            let type_id = symbols.resolve_alias_type(callee.type_id);
-            symbols
-                .iter()
-                .find(|symbol| {
-                    symbol.type_id == type_id && matches!(symbol.kind, SymbolKind::FunctionBlock)
-                })?
-                .id
+    )? {
+        ResolvedTarget::Symbol(callee_id) => {
+            let callee = symbols.get(callee_id)?;
+            match callee.kind {
+                SymbolKind::Function { .. } | SymbolKind::Method { .. } => callee.id,
+                // An instance: the block its type names.
+                _ => block_of_type(symbols, callee.type_id)?,
+            }
         }
+        // An instance held in a structure's field (`Bundle.Timer(IN := x)`).
+        ResolvedTarget::Field(field) => block_of_type(symbols, field_type(symbols, &field)?)?,
     };
     let mut visited = FxHashSet::default();
     let mut pending = vec![owner];
@@ -367,6 +361,15 @@ fn formal_parameter_target(
         pending.extend(symbols.base_symbols(block));
     }
     None
+}
+
+/// The function block that `type_id` names, through its aliases.
+fn block_of_type(symbols: &SymbolTable, type_id: TypeId) -> Option<SymbolId> {
+    let type_id = symbols.resolve_alias_type(type_id);
+    symbols
+        .iter()
+        .find(|symbol| symbol.type_id == type_id && matches!(symbol.kind, SymbolKind::FunctionBlock))
+        .map(|symbol| symbol.id)
 }
 
 fn name_node_at_token(token: &SyntaxToken) -> Option<SyntaxNode> {
