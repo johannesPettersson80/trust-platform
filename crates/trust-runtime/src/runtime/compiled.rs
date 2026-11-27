@@ -452,8 +452,9 @@ impl CompiledRuntime {
         // the alarms; then it calls the methods the commands asked for (§21.2) and publishes the alarm
         // records (specification 40 §5.2). A faulted scan does no HMI work.
         if result.is_ok() {
+            let outputs = self.driver_output_len();
             let drivers = process_io::lock_drivers(&self.io_drivers);
-            let links: Vec<_> = super::io_subsystem::link_ios(&drivers).collect();
+            let links: Vec<_> = super::io_subsystem::link_ios(&drivers, outputs).collect();
             let scan = super::hmi_subsystem::HmiScan {
                 cycle: self.cycle_counter,
                 links: &links,

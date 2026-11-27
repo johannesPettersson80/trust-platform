@@ -502,6 +502,22 @@ layout. An unresolved `%I*`, `%Q*`, or `%M*` binding must be resolved by a
 matching-area `VAR_CONFIG` entry before runtime construction and is rejected
 in disallowed declaration sections or on an area mismatch.
 
+Composed drivers may fill the same bytes of the input image. Each driver fills
+the bytes that it declares (specification 42 §5 item 4): an input point or
+channel fills its own bytes, a Modbus/TCP block or a raw MQTT input topic fills
+the image from its start, and the `loopback` driver, which copies the output
+image over the input image, fills it from its start as far as the output image
+reaches.
+Where the bytes of two enabled drivers overlap, both read into them in their
+order, so the later driver overwrites what the earlier one read there. A
+composition may mean this, so it is not refused. At each program start, the
+start of a reloaded program included, the runtime logs, at its live log level,
+the warning event `io_inputs_overlap` (`TRUST-RT-IO-OVERLAP-001`) for each two
+such drivers and each joined range of the bytes both fill: `earlier` and
+`later` name the drivers by their links (specification 42 §2), and `first_byte`
+and `last_byte` give the first and the last of those bytes within the input
+image that the drivers see. A driver that declares no bytes overlaps nothing.
+
 The built-in driver registry exposes the stable canonical names `analog`, `can`,
 `counter`, `ethercat`, `gpio`, `loopback`, `modbus-rtu`, `modbus-tcp`, `mqtt`, `pwm`,
 and `simulated` in sorted unique order. Accepted aliases resolve to the canonical name before
