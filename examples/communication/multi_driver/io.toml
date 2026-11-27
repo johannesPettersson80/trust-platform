@@ -1,7 +1,42 @@
-[io]
-drivers = [
-  { name = "modbus-tcp", params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "fault" } },
-  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "trust/examples/multi/in", topic_out = "trust/examples/multi/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false, on_error = "warn" } }
+# The drive: a Modbus/TCP device whose discrete input 0 says the drive is ready and whose coil 0
+# runs it. Its points fill %IX0.0 and write %QX0.0, and nothing else of the image.
+[[io.drivers]]
+name = "modbus-tcp"
+
+[io.drivers.params]
+address = "127.0.0.1:1502"
+unit_id = 1
+timeout_ms = 500
+on_error = "fault"
+
+[[io.drivers.params.input_points]]
+image_offset = 0
+image_bit = 0
+address = 0
+function = "read_discrete_inputs"
+data_type = "bool"
+
+[[io.drivers.params.output_points]]
+image_offset = 0
+image_bit = 0
+address = 0
+function = "write_single_coil"
+data_type = "bool"
+
+# The supervisory system: an MQTT broker. The mappings name the program's variables: the remote
+# start comes from one topic, and the run state goes to another. They fill RemoteStart's bit,
+# %IX1.0, and nothing else of the image.
+[[io.drivers]]
+name = "mqtt"
+
+[io.drivers.params]
+broker = "127.0.0.1:1883"
+reconnect_ms = 500
+keep_alive_s = 5
+on_error = "warn"
+mappings = [
+  { tag = "P1.RemoteStart", topic = "trust/examples/multi/start", direction = "read" },
+  { tag = "P1.Run", topic = "trust/examples/multi/running", direction = "write" },
 ]
 
 [[io.safe_state]]
