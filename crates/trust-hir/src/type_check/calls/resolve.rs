@@ -530,17 +530,23 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         let Some(current) = self.checker.symbols.get(current_id) else {
             return false;
         };
-        if !matches!(current.kind, SymbolKind::Method { .. }) || current.parent != member.parent {
+        if !matches!(current.kind, SymbolKind::Method { .. }) {
             return false;
         }
-        matches!(
-            member.kind,
-            SymbolKind::Parameter {
-                direction: ParamDirection::InOut
-            } | SymbolKind::Variable {
-                qualifier: VarQualifier::Temp
-            }
-        )
+        // The in-outs and VAR_TEMP of the method's block, its own or inherited, belong to the body
+        // (IEC 61131-3 Ed.3 §6.6.7.2.3 rule 4; specification 04 §7).
+        let (Some(block), Some(owner)) = (current.parent, member.parent) else {
+            return false;
+        };
+        self.is_same_or_derived(block, owner)
+            && matches!(
+                member.kind,
+                SymbolKind::Parameter {
+                    direction: ParamDirection::InOut
+                } | SymbolKind::Variable {
+                    qualifier: VarQualifier::Temp
+                }
+            )
     }
 
     fn inaccessible_internal_namespace(&self, symbol_id: SymbolId) -> Option<SymbolId> {

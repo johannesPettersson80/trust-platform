@@ -296,7 +296,7 @@ fn member_symbols_for_type(
         .filter(|symbol| {
             !symbol.modifiers.hidden
                 && is_member_visible(symbols, symbol, owner_id, current_owner, &current_namespace)
-                && !is_body_only_in(symbol, current_method)
+                && !is_body_only_in(symbols, symbol, current_method)
         })
         .filter_map(|symbol| completion_item_for_symbol(symbol, symbols, stdlib_filter))
         .collect()
@@ -352,13 +352,18 @@ fn current_method_for_scope(
     None
 }
 
-/// Whether `member` is one of a block's body-only members, an in-out or a `VAR_TEMP`, which a
-/// method of the same block may not name: the analysis rejects it there (specification 14 §6.1.2).
+/// Whether `member` is one of a block's body-only members, an in-out or a `VAR_TEMP` of the
+/// method's block or of a block it extends, which the method may not name: the analysis rejects it
+/// there (specification 04 §7, 14 §6.1.2).
 fn is_body_only_in(
+    symbols: &SymbolTable,
     member: &trust_hir::symbols::Symbol,
     method: Option<&trust_hir::symbols::Symbol>,
 ) -> bool {
-    method.is_some_and(|method| method.parent == member.parent)
+    method
+        .and_then(|method| method.parent)
+        .zip(member.parent)
+        .is_some_and(|(block, owner)| is_same_or_derived(symbols, block, owner))
         && matches!(
             member.kind,
             SymbolKind::Parameter {

@@ -577,6 +577,26 @@ END_FUNCTION_BLOCK
         assert_eq!(sorted_labels_at(source), ["Open", "Reset", "travel"]);
     }
 
+    /// Specification 14 §6.1.2, 04 §7: in a method of a block derived from FB_Valve, `THIS^.` leaves
+    /// out the base's in-out too, which IEC 61131-3 Ed.3 §6.6.7.2.3 rule 4 keeps from the methods of
+    /// the derived block as well. Catches the inherited in-out offered.
+    #[test]
+    fn member_completion_in_a_derived_blocks_method_leaves_out_the_inherited_in_outs() {
+        let source = format!(
+            "{VALVE}
+FUNCTION_BLOCK FB_FastValve EXTENDS FB_Valve
+METHOD PUBLIC Check
+    THIS^.|
+END_METHOD
+END_FUNCTION_BLOCK
+"
+        );
+        assert_eq!(
+            sorted_labels_at(&source),
+            ["Check", "Cycles", "IsOpen", "Open", "Reset", "travel"]
+        );
+    }
+
     /// Specification 14 §6.1.1: a dot of a qualified type name is no member access, so completion at
     /// `item : Company.Project.Mo|` stays type completion (Codex's review of #842): it offers the
     /// type keywords and the block. Catches the member rule taking the dot and answering nothing.
