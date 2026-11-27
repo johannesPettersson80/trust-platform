@@ -168,6 +168,69 @@ fn tutorial_13_runs_as_its_readme_writes_it() {
 }
 
 #[test]
+fn tutorial_13_try_its_bind_nothing_without_the_configuration_and_refuse_no_io_toml() {
+    // examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md, Try it yourself
+    // (specification 11 §6.5: the configuration's VAR_CONFIG binds the program's variables to
+    // addresses; the start and `validate` load the project's io.toml): without
+    // src/Configuration.st the project builds and runs, and `io-read` lists no input and no
+    // output; without io.toml, `validate` refuses the project with the README's error. Catches a
+    // run without a configuration that still binds the addresses, and a project without io.toml
+    // that validates.
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
+    )
+    .expect("the README");
+    let files = here_documents(&readme);
+    let unbound: Vec<(String, String)> = files
+        .iter()
+        .filter(|(file, _)| file != "src/Configuration.st")
+        .cloned()
+        .collect();
+    assert_eq!(unbound.len(), 3, "the files without the configuration");
+    let runtime = ExampleRuntime::written("tutorial-13-unbound", unbound).start();
+    runtime.wait_until(STEP, "a scan", || runtime.snapshot().is_some());
+    let image = runtime.ctl_result(&["io-read"])["snapshot"].clone();
+    drop(runtime);
+    assert_eq!(image["inputs"], serde_json::json!([]), "{image}");
+    assert_eq!(image["outputs"], serde_json::json!([]), "{image}");
+
+    let project = trust_test_support::unique_temp_path("tutorial-13-no-io");
+    for (file, text) in files.iter().filter(|(file, _)| file != "io.toml") {
+        let path = project.join(file);
+        std::fs::create_dir_all(path.parent().expect("a folder")).expect("the folder");
+        std::fs::write(&path, text).expect("the file");
+    }
+    let run = |args: &[&str]| {
+        trust_runtime_command()
+            .args(args)
+            .current_dir(&project)
+            .output()
+            .expect("run trust-runtime")
+    };
+    let built = run(&["build", "--project", ".", "--sources", "src"]);
+    let refused = run(&["validate", "--project", "."]);
+    let _ = std::fs::remove_dir_all(&project);
+    assert!(built.status.success(), "the build: {}", describe(&built));
+    assert!(
+        !refused.status.success(),
+        "a project without io.toml is refused"
+    );
+    let error = String::from_utf8_lossy(&refused.stderr).into_owned();
+    let quoted = "Error: invalid project folder 'missing io.toml at ./io.toml and no system io \
+                  config at /etc/trust/io.toml (run `trust-runtime setup` or `trust-runtime`)'";
+    assert!(readme.contains(quoted), "the README quotes `{quoted}`");
+    if cfg!(unix) {
+        assert!(error.contains(quoted), "validate's error: {error}");
+    } else {
+        // The project's own path prints with the system's separator.
+        assert!(
+            error.contains("missing io.toml at") && error.contains("no system io config at"),
+            "validate's error: {error}"
+        );
+    }
+}
+
+#[test]
 fn tutorial_12_scenarios_run_as_its_readme_describes_them() {
     // examples/tutorials/12_hmi_pid_process_dashboard/README.md, its scenario checks in order, read
     // through the outputs its step 4 maps (%QX0.0 PumpRunning, %QX0.1 HighPressureAlarm, %QX0.4
