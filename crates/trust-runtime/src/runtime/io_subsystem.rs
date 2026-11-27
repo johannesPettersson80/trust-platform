@@ -101,6 +101,21 @@ pub(super) fn link_ios(drivers: &[IoDriverEntry]) -> impl Iterator<Item = LinkIo
     })
 }
 
+/// Each driver whose link is not switched off, by its link or else its name, with the bytes of the
+/// input image it declares (specification 42, §5 item 4), in their order.
+pub(super) fn declared_inputs(
+    drivers: &[IoDriverEntry],
+) -> Vec<(SmolStr, Vec<std::ops::Range<usize>>)> {
+    drivers
+        .iter()
+        .filter(|entry| entry.enabled)
+        .map(|entry| {
+            let name = entry.link.clone().unwrap_or_else(|| entry.name.clone());
+            (name, entry.driver.input_bytes())
+        })
+        .collect()
+}
+
 /// Switches a linked driver off or on (specification 42, §4 item 6).
 pub(super) fn set_link_enabled(drivers: &mut [IoDriverEntry], link: &str, enabled: bool) {
     for entry in drivers {

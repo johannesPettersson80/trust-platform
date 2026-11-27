@@ -183,7 +183,7 @@ with `topic_in` with its newest message, and zero after its end, at every cycle.
 raw form overwrite each other: the one later in the list wins at every cycle, and the inputs of the
 other never reach the program. Points and mappings fill only their own bits, so the drive's input
 and the line's request cannot cover each other. Give each driver its own inputs in every project
-with more than one.
+with more than one: when two drivers fill the same bytes, the runtime warns at every start.
 
 **Levels, not changes.** The runtime publishes `Run` at every cycle, ten messages a second here,
 not only when it changes, and `RemoteStart` keeps the value of the last message until a new one
@@ -207,6 +207,13 @@ message was `false`. A safe state that a driver cannot confirm ends the stop in 
   `io.toml` and check the configuration again. `trust-runtime validate --project .` refuses it with
   `Error: invalid config 'io.toml: use either io.driver/io.params or io.drivers, not both'`: a file
   takes either `io.driver` with `io.params` or the list `io.drivers`. Take the two lines out again.
+- Turn the mappings back into raw topics: in `io.toml`, replace the `mappings = [...]` list with
+  `topic_in = "trust/examples/multi/start"` and `topic_out = "trust/examples/multi/running"`, and
+  start the runtime again. Its first line is the warning `"event":"io_inputs_overlap"` at
+  `"level":"warn"`, with `"earlier":"modbus_tcp:0"`, `"later":"mqtt:1"`, `"first_byte":0` and
+  `"last_byte":0`: the raw topic fills the image from byte 0, the drive's point included, so what
+  the broker sends overwrites the drive's ready signal. The runtime still runs it. Put the
+  mappings back.
 - Publish `false` instead of `true` in step 6; `0` and `off` mean the same, as `1` and `on` mean
   `true`. `P1.RemoteStart` and `P1.Run` read `Bool(false)` again, and the drive's terminal prints
   `coil 0: False`.

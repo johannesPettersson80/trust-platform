@@ -727,6 +727,16 @@ impl Runtime {
             read_log(&self.root.join("runtime.stderr.log"))
         )
     }
+
+    /// The events that the runtime has logged on its standard output so far, each a JSON line with
+    /// its `level`, `event` and `data`.
+    pub fn logged_events(&self) -> Vec<Value> {
+        read_log(&self.root.join("runtime.stdout.log"))
+            .lines()
+            .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+            .filter(|line| line.get("event").is_some())
+            .collect()
+    }
 }
 
 impl Drop for Runtime {

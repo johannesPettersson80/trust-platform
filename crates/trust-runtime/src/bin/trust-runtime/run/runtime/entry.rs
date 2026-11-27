@@ -112,13 +112,7 @@ pub fn run_runtime(
         .transpose()?
         .flatten();
 
-    let logger = RuntimeLogger::new(match &bundle {
-        // The configuration parser has checked the level's name.
-        Some(bundle) => {
-            LogLevel::parse(bundle.runtime.log_level.as_str()).unwrap_or(LogLevel::Info)
-        }
-        None => LogLevel::Info,
-    });
+    let logger = RuntimeLogger::for_bundle(bundle.as_ref());
     logger.log(
         LogLevel::Info,
         "execution_backend_selected",

@@ -37,6 +37,17 @@ impl RuntimeLogger {
         }
     }
 
+    /// The logger at the level of `bundle`'s `[runtime.log] level`, `info` without a bundle.
+    fn for_bundle(bundle: Option<&RuntimeBundle>) -> Self {
+        Self::new(match bundle {
+            // The configuration parser has checked the level's name.
+            Some(bundle) => {
+                LogLevel::parse(bundle.runtime.log_level.as_str()).unwrap_or(LogLevel::Info)
+            }
+            None => LogLevel::Info,
+        })
+    }
+
     /// Every clone names the place of a fault the program raised from now on.
     fn locate(&self, places: FaultPlaces) {
         let _ = self.places.set(places);
@@ -87,6 +98,25 @@ impl RuntimeLogger {
             "data": data,
         });
         outln!("{payload}");
+    }
+}
+
+/// Logs `io_inputs_overlap` for each two composed drivers of `program` that fill the same bytes of
+/// the input image: the earlier and the later driver by their links, and the first and the last of
+/// those bytes (specification 11 §6.5).
+fn log_input_overlaps(logger: &RuntimeLogger, program: &trust_runtime::CompiledRuntime) {
+    for overlap in program.io_input_overlaps() {
+        logger.log(
+            LogLevel::Warn,
+            "io_inputs_overlap",
+            json!({
+                "event_id": "TRUST-RT-IO-OVERLAP-001",
+                "earlier": overlap.earlier.as_str(),
+                "later": overlap.later.as_str(),
+                "first_byte": overlap.bytes.start,
+                "last_byte": overlap.bytes.end - 1,
+            }),
+        );
     }
 }
 

@@ -19,6 +19,9 @@ fn apply_bundle_services(
     // The safe outputs, then each enabled driver after the others under its link, an MQTT driver
     // with its tag mappings bound first (specification 44 §8.8, §13.3; specification 42 §2).
     program.add_io_config(&bundle.io)?;
+    // Each start, a reload's too, warns of composed drivers that fill the same input bytes
+    // (specification 11 §6.5).
+    log_input_overlaps(&RuntimeLogger::for_bundle(Some(bundle)), program);
 
     match bundle.runtime.retain_mode {
         trust_runtime::watchdog::RetainMode::File => {

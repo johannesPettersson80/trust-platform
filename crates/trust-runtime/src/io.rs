@@ -27,6 +27,7 @@ mod counter;
 mod fake_sysfs;
 mod gpio;
 mod identify;
+mod input_overlap;
 mod link_names;
 mod loopback;
 #[cfg(target_os = "linux")]
@@ -39,6 +40,7 @@ pub use identify::{
     host_identify, safe_outputs_hold_bit, safe_state_holds_bit, HostIdentify, HostIdentifyOutput,
     IdentifyHandle, ImageBit,
 };
+pub use input_overlap::{input_overlaps, InputOverlap};
 pub use link_names::{io_link_name, link_protocol};
 pub use loopback::LoopbackIoDriver;
 pub(crate) use registry::params_text;
