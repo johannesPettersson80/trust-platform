@@ -784,7 +784,9 @@ program execution or an IEC 61131-3 deviation.
   closed document outside every project folder does (§7.2.1): the files of a `[[libraries]]` entry, a
   `library_paths` folder or a dependency that the configuration no longer names. An open document stays while it is
   open. The open documents' diagnostics are then refreshed, so a name that only the removed library declared is
-  reported, and it resolves again when the entry comes back. Until 27 November 2026 a removed library kept its
+  reported, and it resolves again when the entry comes back. A file that the file watcher reports created or changed
+  is indexed only when a project folder holds it, as the workspace indexing does, so a removed library's file that
+  changes stays out. Until 27 November 2026 a removed library kept its
   declarations until the server restarted.
 - `[project]` supports `include_paths` (the project's own source folders), `library_paths` (library folders, indexed like `[[libraries]]` entries named after their folder), `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
 - `vendor_profile` selects the language rules of the whole analysis (diagnostics, hover, completion, `trust-lsp check`), and the runtime build, the debugger and the runtime's web IDE take the same rules from the project's `vendor_profile`, with the conversion rules it selects (docs/specs/07-standard-functions.md section 2.10):

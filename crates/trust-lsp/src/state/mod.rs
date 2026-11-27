@@ -429,6 +429,12 @@ impl ServerState {
         documents::reconcile_missing_documents(self, config)
     }
 
+    /// Whether a project folder of the workspace holds the file at `uri`: its own source folders,
+    /// library folders or dependencies (specification 14 §7.2.1, §7.6).
+    pub(crate) fn project_folder_holds(&self, uri: &Url) -> bool {
+        documents::project_folder_holds(self, uri)
+    }
+
     /// Removes the sources that no project folder holds any more and no open document holds:
     /// after a configuration change, those of a library it no longer names (specification 14
     /// §7.6). Returns how many sources left.

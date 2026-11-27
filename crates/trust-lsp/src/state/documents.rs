@@ -196,7 +196,7 @@ pub(super) fn close_document(state: &ServerState, uri: &Url) -> bool {
 
 /// Whether a project folder holds `uri`'s file: an own source folder or a library folder of a
 /// workspace folder's project, compared where both resolve on disk (specification 14 §7.2.1).
-fn project_folder_holds(state: &ServerState, uri: &Url) -> bool {
+pub(super) fn project_folder_holds(state: &ServerState, uri: &Url) -> bool {
     let Some(path) = uri_to_path(uri) else {
         return false;
     };

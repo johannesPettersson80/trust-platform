@@ -109,7 +109,8 @@ async fn wait_for_errors(state: &ServerState, uri: &Url, expected: &[&str]) {
 
 /// Catches a removed `[[libraries]]` entry whose files keep their declarations after the
 /// configuration changed (G331: until the server restarted, so a name only the library declared
-/// stayed resolved), and a restored entry whose files do not come back.
+/// stayed resolved), an edit of one of its files that the watcher brings back, and a restored entry
+/// whose files do not come back.
 #[tokio::test]
 async fn a_library_removed_from_the_configuration_leaves_the_project_and_returns_with_it() {
     let (state, root, uri) = opened_project("trust-lsp-config-change-library").await;
@@ -117,6 +118,27 @@ async fn a_library_removed_from_the_configuration_leaves_the_project_and_returns
 
     change_config(&state, &root, WITHOUT_LIBRARY).await;
     wait_for_errors(&state, &uri, &UNRESOLVED).await;
+
+    // An edit of the removed library's file, which the watcher reports, keeps it out (Codex's
+    // review of #843): no project folder holds it any more.
+    let valve = root.join("vendor").join("valve.st");
+    std::fs::write(&valve, format!("{VALVE}\n")).expect("valve.st");
+    did_change_watched_files(
+        &test_client(),
+        &state,
+        DidChangeWatchedFilesParams {
+            changes: vec![FileEvent {
+                uri: Url::from_file_path(&valve).expect("valve.st uri"),
+                typ: FileChangeType::CHANGED,
+            }],
+        },
+    )
+    .await;
+    assert_eq!(
+        errors(&state, &uri),
+        UNRESOLVED,
+        "the edited file stays out"
+    );
 
     change_config(&state, &root, WITH_LIBRARY).await;
     wait_for_errors(&state, &uri, &[]).await;
@@ -136,4 +158,51 @@ async fn an_open_document_of_a_removed_library_stays_while_it_is_open() {
 
     state.close_document(&valve.uri);
     assert_eq!(errors(&state, &uri), UNRESOLVED, "closed, it leaves");
+}
+
+/// Specification 14 §7.6: a file that the watcher reports created is indexed when a project folder
+/// holds it, here the `vendor` library folder, and not when none does, here a `scratch` folder
+/// beside `src` that the configuration does not name, as the workspace indexing leaves it out.
+/// Catches a watcher that indexes every reported file (the edited removed library came back that
+/// way), and one that indexes none.
+#[tokio::test]
+async fn the_watcher_indexes_a_created_file_only_where_a_project_folder_holds_it() {
+    let (state, root, _) = opened_project("trust-lsp-config-change-watcher").await;
+    let held = root.join("vendor").join("pump.st");
+    let loose = root.join("scratch").join("other.st");
+    for file in [&held, &loose] {
+        std::fs::create_dir_all(file.parent().expect("a folder")).expect("folders");
+        std::fs::write(file, "FUNCTION_BLOCK VendorPump\nEND_FUNCTION_BLOCK\n").expect("a file");
+    }
+    did_change_watched_files(
+        &test_client(),
+        &state,
+        DidChangeWatchedFilesParams {
+            changes: [&held, &loose]
+                .into_iter()
+                .map(|file| FileEvent {
+                    uri: Url::from_file_path(file).expect("a file uri"),
+                    typ: FileChangeType::CREATED,
+                })
+                .collect(),
+        },
+    )
+    .await;
+    let indexed_paths: Vec<String> = state
+        .documents()
+        .into_iter()
+        .map(|doc| doc.uri.path().to_string())
+        .collect();
+    assert!(
+        indexed_paths
+            .iter()
+            .any(|path| path.ends_with("vendor/pump.st")),
+        "the library's new file is indexed: {indexed_paths:?}"
+    );
+    assert!(
+        !indexed_paths
+            .iter()
+            .any(|path| path.ends_with("scratch/other.st")),
+        "a file no project folder holds is not: {indexed_paths:?}"
+    );
 }
