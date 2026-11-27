@@ -8,7 +8,7 @@ device, by pairing. It starts from tutorial 13's project.
 
 - `[runtime.web] auth = "token"` makes the web interface's API answer requests only with a token,
   the primary token from `runtime.toml` or a paired one; the pairing claim carries a pairing code
-  instead, and three routes need neither. `tls = true` with `[runtime.tls]` makes the interface
+  instead, and five routes need neither. `tls = true` with `[runtime.tls]` makes the interface
   speak only HTTPS.
 - The control endpoint stays local: a `tcp://` endpoint must be a loopback address, and
   `trust-runtime ctl` reads the primary token from `runtime.toml`.
@@ -148,12 +148,13 @@ device, by pairing. It starts from tutorial 13's project.
 **The token.** With `auth = "token"` each request to the web interface's API carries a token in its
 `X-Trust-Token` header, the primary token or a paired one, and its role decides what it may do. The
 pairing claim carries the pairing code instead, and the pages themselves, whose data comes through
-the API, need none. Three routes answer without a token too: `/api/ui/mode` gives the interface's
-mode, `/api/qr` draws a QR code of the text it is given, and `/api/setup/defaults` gives the setup
-page's defaults, among them the project's folder, resource name, cycle and first driver. Every other
-route of the API answers `unauthorized`, as `/api/io/config` and `/api/pairings` do. The setting
-requires `runtime.control.auth_token`. `ctl` reaches the control endpoint on the PLC itself and
-reads the same token from `runtime.toml`.
+the API, need none. Five routes answer without a token too: `/api/ui/mode` gives the interface's
+mode, `/api/qr` draws a QR code of the text it is given, `/api/setup/defaults` gives the setup
+page's defaults, among them the project's folder, resource name, cycle and first driver, and
+`/api/program` and `/api/source` list and read the project's sources in `src`. The other routes of
+the API answer `unauthorized`, as `/api/io/config`, `/api/pairings` and `/api/events` do. The
+setting requires `runtime.control.auth_token`. `ctl` reaches the control endpoint on the PLC
+itself and reads the same token from `runtime.toml`.
 
 **TLS.** `tls = true` with the certificate and key of `[runtime.tls]` makes the interface speak only
 HTTPS, so the token and the traffic stay encrypted on the network. `require_remote = true` makes the
