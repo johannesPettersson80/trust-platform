@@ -109,7 +109,7 @@ pub(super) fn execute(state: &ServerState, command: &str, arguments: Vec<Value>)
         MANIFEST_CHECK_COMMAND => manifest_check::answer(argument),
         EXAMPLES_CATALOG_COMMAND => examples::catalog_answer(argument),
         COPY_EXAMPLE_COMMAND => examples::copy_answer(argument),
-        SIMULATOR_CONTROL_COMMAND => simulator_control::answer(argument),
+        SIMULATOR_CONTROL_COMMAND => simulator_control::answer(state, argument),
         _ => Err(format!("{command} is not a project command.")),
     };
     answer.unwrap_or_else(|message| refused(&message))

@@ -9,12 +9,13 @@
 //!   new control token
 //!   (specification 11 §6.8.0a), which the simulator's control server requires on a TCP endpoint.
 //!   The extension asks once per workspace folder and session, so the launch and Devices &
-//!   Connections use the same endpoint and token.
+//!   Connections use the same endpoint and token. The server keeps them too, for the inline values
+//!   of the folder's documents ([`crate::state::simulator_controls`]).
 //! - `check`: whether a launch may bind its endpoint. A TCP endpoint where a program accepts a
 //!   connection within 300 ms is taken, and the launch is refused.
 
 use std::net::TcpStream;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -23,6 +24,8 @@ use sha2::{Digest, Sha256};
 use trust_runtime::control::ControlEndpoint;
 
 use super::decode;
+use crate::state::simulator_controls::SimulatorControl;
+use crate::state::ServerState;
 
 /// How long `check` waits for a connection to a launch's TCP endpoint.
 const PORT_PROBE: Duration = Duration::from_millis(300);
@@ -50,44 +53,53 @@ enum Args {
 
 /// `create`: `{ ok: true, endpoint, authToken }`. `check`:
 /// `{ ok: true, problem }`, `problem` the refusal of the launch or `null`.
-pub(super) fn answer(argument: Value) -> Result<Value, String> {
+pub(super) fn answer(state: &ServerState, argument: Value) -> Result<Value, String> {
     match decode(argument)? {
-        Args::Create { workspace } => create(workspace),
+        Args::Create { workspace } => create(state, workspace),
         Args::Check { endpoint } => Ok(json!({ "ok": true, "problem": check(&endpoint) })),
     }
 }
 
-fn create(workspace: Option<PathBuf>) -> Result<Value, String> {
+fn create(state: &ServerState, workspace: Option<PathBuf>) -> Result<Value, String> {
     let token = trust_runtime::control::endpoint::generate_control_token()
         .map_err(|error| format!("No control token for the simulator: {error}"))?;
+    let hash = workspace_hash(workspace.as_deref());
+    let control = state
+        .simulator_controls()
+        .name_and_record(workspace, |named_elsewhere| SimulatorControl {
+            endpoint: endpoint(hash, named_elsewhere),
+            auth_token: token,
+        });
     Ok(json!({
         "ok": true,
-        "endpoint": endpoint(workspace_hash(workspace)),
-        "authToken": token,
+        "endpoint": control.endpoint,
+        "authToken": control.auth_token,
     }))
 }
 
 /// The socket `trust-debug-<h>.sock` in the system temporary folder, `<h>` the 8 hexadecimal
 /// digits of `hash`.
 #[cfg(unix)]
-fn endpoint(hash: u32) -> String {
+fn endpoint(hash: u32, _named_elsewhere: &dyn Fn(&str) -> bool) -> String {
     let socket = std::env::temp_dir().join(format!("trust-debug-{hash:08x}.sock"));
     format!("unix://{}", socket.display())
 }
 
-/// The first loopback port from [`workspace_port`] up that binds now: a port that another
-/// workspace's simulator or another program holds is passed over.
+/// The first loopback port from [`workspace_port`] up that binds now and that this server has not
+/// named for another workspace folder (`named_elsewhere`): a port that another workspace's
+/// simulator, in this window or another, or another program holds is passed over.
 #[cfg(not(unix))]
-fn endpoint(hash: u32) -> String {
+fn endpoint(hash: u32, named_elsewhere: &dyn Fn(&str) -> bool) -> String {
     let port = free_port_from(workspace_port(hash), |port| {
-        std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).is_ok()
+        !named_elsewhere(&format!("tcp://127.0.0.1:{port}"))
+            && std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).is_ok()
     });
     format!("tcp://127.0.0.1:{port}")
 }
 
 /// The first 32 bits of the SHA-256 of `workspace`'s path (of `default` without one), whose
 /// hexadecimal digits are the first 8 of the digest's.
-fn workspace_hash(workspace: Option<PathBuf>) -> u32 {
+fn workspace_hash(workspace: Option<&Path>) -> u32 {
     let key = workspace.map_or_else(
         || "default".to_owned(),
         |folder| folder.to_string_lossy().into_owned(),
