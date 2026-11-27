@@ -35,7 +35,7 @@ Most projects start with `simulated` or `loopback`, then fail during integration
 4. `mqtt/README.md`
     - learn how the raw byte bridge carries the process image through a broker, and how long an input keeps a message.
 5. `mqtt_traffic_light/README.md`
-    - publish program-instance variables without manual `VAR_CONFIG` addresses.
+    - publish program variables by name with MQTT mappings, and give a mapped output a safe state.
 6. `opcua/README.md`
     - learn runtime wire exposure and feature-gated build behavior.
 7. `ethercat/README.md`

@@ -766,3 +766,79 @@ fn the_mqtt_example_carries_its_byte_through_the_broker_and_publishes_its_safe_s
             .is_some_and(|payload| payload.as_slice() == [0x00])
     });
 }
+
+#[test]
+fn the_mqtt_traffic_light_example_publishes_its_lamps_in_phase_order() {
+    // The README of examples/communication/mqtt_traffic_light (specification 32 §4 and §5, write
+    // mappings resolved against the program instance; §6, Boolean text payloads): the runtime
+    // publishes MainInstance.Green, Yellow and Red to traffic/north/green, yellow and red at every
+    // cycle, as `true` or `false`, and subscribes to nothing. The lamps follow the program's
+    // phases: red, red and yellow, green, yellow, and red again. Catches a mapping that does not
+    // reach its variable, a payload that is not the Boolean text, lamps that leave the program's
+    // order, and a write-only map that subscribes to a topic.
+    const RED: (bool, bool, bool) = (true, false, false);
+    const RED_YELLOW: (bool, bool, bool) = (true, true, false);
+    const GREEN: (bool, bool, bool) = (false, false, true);
+    const YELLOW: (bool, bool, bool) = (false, true, false);
+    let broker = MqttTestBroker::start();
+    let endpoint: &'static str =
+        Box::leak(format!("broker = \"{}\"", broker.endpoint()).into_boxed_str());
+    let mut runtime = ExampleRuntime::new("communication/mqtt_traffic_light")
+        .edit_source("io.toml", "broker = \"127.0.0.1:1883\"", endpoint)
+        .start();
+    // The lamps (red, yellow, green) of each published cycle, consecutive repeats removed: each
+    // cycle publishes the three topics, so their k-th messages belong to one cycle.
+    let phases = || {
+        let lamp = |topic: &str| broker.published(&format!("traffic/north/{topic}"));
+        let (red, yellow, green) = (lamp("red"), lamp("yellow"), lamp("green"));
+        let cycles = red.len().min(yellow.len()).min(green.len());
+        let mut seen: Vec<(bool, bool, bool)> = Vec::new();
+        for k in 0..cycles {
+            let lit = (red[k] == b"true", yellow[k] == b"true", green[k] == b"true");
+            if seen.last() != Some(&lit) {
+                seen.push(lit);
+            }
+        }
+        seen
+    };
+    runtime.wait_until(WAIT, "a whole round of phases on the broker", || {
+        phases().len() >= 6
+    });
+    let seen = phases();
+    let next = |phase: (bool, bool, bool)| match phase {
+        RED => RED_YELLOW,
+        RED_YELLOW => GREEN,
+        GREEN => YELLOW,
+        YELLOW => RED,
+        other => panic!("no phase lights {other:?}: {seen:?}"),
+    };
+    for pair in seen.windows(2) {
+        assert_eq!(
+            pair[1],
+            next(pair[0]),
+            "the phase after {:?}: {seen:?}",
+            pair[0]
+        );
+    }
+    for topic in ["green", "yellow", "red"] {
+        let payloads = broker.published(&format!("traffic/north/{topic}"));
+        assert!(
+            payloads
+                .iter()
+                .all(|payload| payload == b"true" || payload == b"false"),
+            "{topic}'s payloads are the Boolean text: {payloads:?}"
+        );
+    }
+    assert_eq!(
+        broker.subscriptions(),
+        Vec::<String>::new(),
+        "a write-only map subscribes to nothing"
+    );
+
+    runtime.ctl_ok(&["shutdown", "--exit"]);
+    let status = runtime.wait_for_exit(WAIT);
+    assert!(
+        status.success(),
+        "the runtime ends with success after shutdown --exit: {status}"
+    );
+}
