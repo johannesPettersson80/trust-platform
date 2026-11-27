@@ -109,7 +109,9 @@ device, by pairing. It starts from tutorial 13's project.
     the primary token has the Admin role. `ctl` reads the token from `runtime.toml` and answers
     `state=running fault=none rt_profile=disabled rt_active=false`. `-k` accepts the self-signed
     certificate; a client that trusts your site's certificate authority does not need it. Plain HTTP
-    gets nothing: `curl -s http://127.0.0.1:18084/` prints nothing and ends with exit status 1.
+    gets no answer: `curl -sS http://127.0.0.1:18084/` prints
+    `curl: (1) Received HTTP/0.9 when not allowed` and ends with exit status 1, as the listener
+    answers in TLS, which is no HTTP response.
 
 8. Pair another device. On the PLC, start a pairing with the primary token:
 
