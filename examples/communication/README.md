@@ -45,7 +45,7 @@ Most projects start with `simulated` or `loopback`, then fail during integration
 9. `gpio/README.md`
     - learn IEC bit mapping to GPIO lines, debounce, and safe-state defaults.
 10. `multi_driver/README.md`
-    - learn composed-driver commissioning and mutual-exclusion rules.
+    - learn how two drivers share one runtime, each filling only its own inputs, and what a stop writes through both.
 
 ## Common base layout in each example
 

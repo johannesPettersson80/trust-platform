@@ -4,7 +4,8 @@ RESOURCE CommMultiDriverRes ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.DI0 AT %IX0.0 : BOOL;
-    P1.DO0 AT %QX0.0 : BOOL;
+    P1.DriveReady AT %IX0.0 : BOOL;
+    P1.RemoteStart AT %IX1.0 : BOOL;
+    P1.Run AT %QX0.0 : BOOL;
 END_VAR
 END_CONFIGURATION

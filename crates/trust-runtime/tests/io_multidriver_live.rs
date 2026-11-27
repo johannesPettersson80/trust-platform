@@ -3,7 +3,11 @@
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use std::io::{self, ErrorKind, Read, Write};
+#[allow(dead_code)]
+#[path = "support/mqtt.rs"]
+mod mqtt;
+
+use std::io::{ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -12,6 +16,11 @@ use std::time::{Duration as StdDuration, Instant};
 use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoDriver, ModbusTcpDriver, MqttIoDriver};
 use trust_runtime::RestartMode;
+
+use mqtt::{
+    parse_publish, parse_subscribe, read_mqtt_packet, write_mqtt_connack, write_mqtt_pingresp,
+    write_mqtt_publish, write_mqtt_suback, MqttPublish,
+};
 
 /// `out` copies `in` on every scan.
 const COPY: &str = r#"
@@ -50,12 +59,6 @@ fn broker_lifetime_outlasts_test_phases() {
         is_retryable_mqtt_live_error("i/o freshness error 'mqtt input snapshot unavailable'"),
         "the live harness must retry the MQTT snapshot-startup race"
     );
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct MqttPublish {
-    topic: String,
-    payload: Vec<u8>,
 }
 
 #[derive(Debug, Default)]
@@ -149,9 +152,10 @@ fn handle_mqtt_client(
                         }
                     }
                     8 => {
-                        let Some((packet_id, topic_count)) = parse_subscribe(&packet) else {
+                        let Some((packet_id, topics)) = parse_subscribe(&packet) else {
                             break;
                         };
+                        let topic_count = topics.len();
                         if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
                             break;
                         }
@@ -210,138 +214,6 @@ fn is_retryable_composed_live_error(text: &str) -> bool {
         || text.contains("modbus input refresh pending")
         || text.contains("modbus input snapshot unavailable")
         || text.contains("modbus output handoff pending")
-}
-
-fn read_mqtt_packet(stream: &mut TcpStream) -> io::Result<(u8, Vec<u8>)> {
-    let mut header = [0u8; 1];
-    stream.read_exact(&mut header)?;
-    let idle_timeout = stream.read_timeout().ok().flatten();
-    stream.set_read_timeout(Some(StdDuration::from_secs(2)))?;
-    let result = read_mqtt_packet_after_header(stream, header[0]);
-    let _ = stream.set_read_timeout(idle_timeout);
-    result
-}
-
-fn read_mqtt_packet_after_header(stream: &mut TcpStream, header: u8) -> io::Result<(u8, Vec<u8>)> {
-    let len = read_remaining_length(stream)?;
-    let mut packet = vec![0u8; len];
-    stream.read_exact(&mut packet)?;
-    Ok((header, packet))
-}
-
-fn read_remaining_length(stream: &mut TcpStream) -> io::Result<usize> {
-    let mut multiplier = 1usize;
-    let mut value = 0usize;
-    for _ in 0..4 {
-        let mut byte = [0u8; 1];
-        stream.read_exact(&mut byte)?;
-        value += ((byte[0] & 0x7f) as usize) * multiplier;
-        if byte[0] & 0x80 == 0 {
-            return Ok(value);
-        }
-        multiplier *= 128;
-    }
-    Err(io::Error::new(
-        ErrorKind::InvalidData,
-        "invalid mqtt remaining length",
-    ))
-}
-
-fn encode_remaining_length(mut len: usize) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(4);
-    loop {
-        let mut byte = (len % 128) as u8;
-        len /= 128;
-        if len > 0 {
-            byte |= 0x80;
-        }
-        bytes.push(byte);
-        if len == 0 {
-            break;
-        }
-    }
-    bytes
-}
-
-fn write_mqtt_packet(stream: &mut TcpStream, header: u8, payload: &[u8]) -> io::Result<()> {
-    let mut frame = Vec::with_capacity(1 + 4 + payload.len());
-    frame.push(header);
-    frame.extend(encode_remaining_length(payload.len()));
-    frame.extend_from_slice(payload);
-    stream.write_all(&frame)?;
-    stream.flush()
-}
-
-fn write_mqtt_connack(stream: &mut TcpStream) -> io::Result<()> {
-    write_mqtt_packet(stream, 0x20, &[0x00, 0x00])
-}
-
-fn write_mqtt_pingresp(stream: &mut TcpStream) -> io::Result<()> {
-    write_mqtt_packet(stream, 0xD0, &[])
-}
-
-fn parse_subscribe(packet: &[u8]) -> Option<(u16, usize)> {
-    if packet.len() < 2 {
-        return None;
-    }
-    let packet_id = u16::from_be_bytes([packet[0], packet[1]]);
-    let mut idx = 2usize;
-    let mut count = 0usize;
-    while idx + 2 <= packet.len() {
-        let topic_len = u16::from_be_bytes([packet[idx], packet[idx + 1]]) as usize;
-        idx += 2;
-        if idx + topic_len + 1 > packet.len() {
-            return None;
-        }
-        idx += topic_len;
-        idx += 1;
-        count += 1;
-    }
-    if idx != packet.len() || count == 0 {
-        return None;
-    }
-    Some((packet_id, count))
-}
-
-fn write_mqtt_suback(stream: &mut TcpStream, packet_id: u16, topic_count: usize) -> io::Result<()> {
-    let mut payload = Vec::with_capacity(2 + topic_count);
-    payload.extend_from_slice(&packet_id.to_be_bytes());
-    payload.extend(std::iter::repeat_n(0u8, topic_count));
-    write_mqtt_packet(stream, 0x90, &payload)
-}
-
-fn parse_publish(header: u8, packet: &[u8]) -> Option<MqttPublish> {
-    if packet.len() < 2 {
-        return None;
-    }
-    let topic_len = u16::from_be_bytes([packet[0], packet[1]]) as usize;
-    if packet.len() < 2 + topic_len {
-        return None;
-    }
-    let topic = std::str::from_utf8(&packet[2..2 + topic_len])
-        .ok()?
-        .to_string();
-    let qos = (header >> 1) & 0x03;
-    let mut idx = 2 + topic_len;
-    if qos > 0 {
-        if packet.len() < idx + 2 {
-            return None;
-        }
-        idx += 2;
-    }
-    Some(MqttPublish {
-        topic,
-        payload: packet[idx..].to_vec(),
-    })
-}
-
-fn write_mqtt_publish(stream: &mut TcpStream, topic: &str, payload: &[u8]) -> io::Result<()> {
-    let topic_bytes = topic.as_bytes();
-    let mut packet = Vec::with_capacity(2 + topic_bytes.len() + payload.len());
-    packet.extend_from_slice(&(topic_bytes.len() as u16).to_be_bytes());
-    packet.extend_from_slice(topic_bytes);
-    packet.extend_from_slice(payload);
-    write_mqtt_packet(stream, 0x30, &packet)
 }
 
 fn start_modbus_server(regs: Arc<Mutex<Vec<u16>>>, requests: usize) -> SocketAddr {

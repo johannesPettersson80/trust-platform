@@ -1,8 +1,9 @@
 PROGRAM Main
 VAR
-    DI0 : BOOL;
-    DO0 : BOOL;
+    DriveReady : BOOL;
+    RemoteStart : BOOL;
+    Run : BOOL;
 END_VAR
 
-DO0 := DI0;
+Run := DriveReady AND RemoteStart;
 END_PROGRAM
