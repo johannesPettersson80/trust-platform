@@ -78,7 +78,7 @@ fn member_access_completions(
     stdlib_filter: &StdlibFilter,
 ) -> Vec<CompletionItem> {
     if let Some(items) =
-        namespace_member_completions(db, file_id, position, root, scope_id, stdlib_filter)
+        namespace_member_completions(db, file_id, position, root, symbols, scope_id, stdlib_filter)
     {
         return items;
     }
@@ -156,6 +156,7 @@ fn namespace_member_completions(
     file_id: trust_hir::db::FileId,
     position: TextSize,
     root: &SyntaxNode,
+    file_symbols: &SymbolTable,
     scope_id: ScopeId,
     stdlib_filter: &StdlibFilter,
 ) -> Option<Vec<CompletionItem>> {
@@ -169,11 +170,18 @@ fn namespace_member_completions(
         SyntaxKind::NameRef => vec![name_from_name_ref(&base)?],
         _ => qualified_name_from_field_expr(&base)?,
     };
-    // Every declaration of the project: the file need not name the one being typed yet.
-    let symbols = db.file_symbols_with_every_declaration(file_id);
-    if symbols.hides_global_head(&path[0], scope_id) {
+    // The file's analysis holds every namespace (specification 14 §10.2), so the base is looked up
+    // there, and an ordinary member access (`Timer.`) never pays for the merge of every file's
+    // declarations below, which only a namespace's members need.
+    let names_a_namespace = file_symbols
+        .resolve_qualified(&path)
+        .and_then(|id| file_symbols.get(id))
+        .is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Namespace));
+    if !names_a_namespace || file_symbols.hides_global_head(&path[0], scope_id) {
         return None;
     }
+    // Every declaration of the project: the file need not name the one being typed yet.
+    let symbols = db.file_symbols_with_every_declaration(file_id);
     let namespace = symbols
         .resolve_qualified(&path)
         .and_then(|id| symbols.get(id))
