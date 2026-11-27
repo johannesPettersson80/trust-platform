@@ -6,12 +6,13 @@ fn detect_context(root: &SyntaxNode, position: TextSize) -> CompletionContext {
     let Some(token) = token else {
         return CompletionContext::General;
     };
+    if member_access_dot(root, position).is_some() {
+        return CompletionContext::MemberAccess;
+    }
 
     // Check for trigger characters by looking at the previous non-trivia token
     if let Some(prev) = previous_non_trivia_token(&token) {
         match prev.kind() {
-            // Dot triggers member access completion
-            SyntaxKind::Dot => return CompletionContext::MemberAccess,
             // Colon triggers type annotation completion
             SyntaxKind::Colon => return CompletionContext::TypeAnnotation,
             // Comma in argument list
@@ -111,6 +112,21 @@ fn find_token_at_position(root: &SyntaxNode, position: TextSize) -> Option<Synta
 
     // If position is beyond file end, get the last token
     root.last_token()
+}
+
+/// The `.` whose members `position` completes: the dot just before it (`Timer.|`), or the dot
+/// before the member name being typed there (`Timer.E|`), as an editor asks again while the user
+/// types (specification 14 §6.1.1).
+fn member_access_dot(root: &SyntaxNode, position: TextSize) -> Option<SyntaxToken> {
+    let token = find_token_at_position(root, position)?;
+    if let Some(dot) = previous_non_trivia_token(&token).filter(|t| t.kind() == SyntaxKind::Dot) {
+        return Some(dot);
+    }
+    let typed = root
+        .token_at_offset(position)
+        .left_biased()
+        .filter(|t| t.kind() == SyntaxKind::Ident && t.text_range().end() == position)?;
+    previous_non_trivia_token(&typed).filter(|t| t.kind() == SyntaxKind::Dot)
 }
 
 /// Gets the previous non-trivia (non-whitespace, non-comment) token.

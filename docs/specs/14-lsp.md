@@ -158,7 +158,7 @@ workspace indexing.
 
 ##### 6.1.1 Trigger Points
 
-- After `.` - member completion
+- After `.` - member completion, also while a member's name is being typed after the dot (`Timer.E`)
 - After `:` - type completion
 - After `(` / inside call arguments - parameter-name completions for formal calls (`name :=` / `name =>`) with direction-aware binding (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50/71)
 - After typed literal prefixes (`T#`, `DATE#`, `TOD#`, `DT#`, etc.) - range-aware typed literal snippets with format hints (IEC 61131-3 Ed.3, 6.1.5; Tables 5-9)
@@ -169,12 +169,21 @@ workspace indexing.
 
 | Context | Suggestions |
 |---------|-------------|
-| After `.` on FB | Properties, methods |
+| After `.` on a function-block instance | Inputs, outputs, public variables, properties, methods (below) |
 | After `.` on STRUCT | Fields |
 | After `:` | Types in scope |
 | Call arguments | Formal parameter names + in-scope expressions (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50/71) |
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
 | Expression | Variables, literals, standard functions/FBs with IEC docs (IEC 61131-3 Ed.3, Tables 22-36, 43-46) |
+
+After `.` on a function-block instance, completion offers the members that code there may name. Outside the block
+these are its inputs, which the separate input assignment `FB_INST.In := A` sets, its outputs, which
+`B := FB_INST.Out` reads, and its public variables, properties and methods (IEC 61131-3 Ed.3 §6.6.3.4.2, Figure 13;
+§6.6.3.2 item 11). Its in-outs are not offered there, since Figure 13 (rows 5 and 6) does not allow them outside the
+block, nor are its protected or private members. Inside the block, and in a block derived from it, those are offered
+too. The rule that decides which accesses the analysis accepts also decides what is offered (§6.6.4), so a standard
+function block (`TON`: `IN`, `PT`, `Q`, `ET`) and a block of another file or of a library follow it alike. Completion
+asked again while a member's name is being typed, as an editor does while the user types, offers the same members.
 
 The names completion offers in a scope are every declaration of the project that the position reaches by name,
 whether the file names it yet or not. A file's analysis holds only the declarations the file names (§10.2), so

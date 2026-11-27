@@ -123,12 +123,7 @@ fn member_access_base_type(
     root: &SyntaxNode,
     symbols: &SymbolTable,
 ) -> Option<TypeId> {
-    let token = find_token_at_position(root, position)?;
-    let dot = if token.kind() == SyntaxKind::Dot {
-        Some(token)
-    } else {
-        previous_non_trivia_token(&token).filter(|t| t.kind() == SyntaxKind::Dot)
-    }?;
+    let dot = member_access_dot(root, position)?;
 
     if let Some(field_expr) = dot
         .parent_ancestors()
@@ -288,7 +283,7 @@ fn completion_item_for_symbol(
         CompletionKind::Constant
     } else {
         match symbol.kind {
-            SymbolKind::Variable { .. } => CompletionKind::Variable,
+            SymbolKind::Variable { .. } | SymbolKind::Parameter { .. } => CompletionKind::Variable,
             SymbolKind::Function { .. } => CompletionKind::Function,
             SymbolKind::Method { .. } => CompletionKind::Method,
             SymbolKind::Property { .. } => CompletionKind::Property,

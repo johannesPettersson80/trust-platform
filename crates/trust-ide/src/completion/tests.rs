@@ -469,6 +469,116 @@ END_PROGRAM
         }
     }
 
+    /// The labels offered at `|` in `source`, sorted.
+    fn sorted_labels_at(source: &str) -> Vec<String> {
+        let mut labels = labels_at(source);
+        labels.sort();
+        labels
+    }
+
+    /// A function block declaring a member of every kind, for the member completion tests below.
+    const VALVE: &str = r#"
+FUNCTION_BLOCK FB_Valve
+VAR_INPUT
+    Open : BOOL;
+END_VAR
+VAR_OUTPUT
+    IsOpen : BOOL;
+END_VAR
+VAR_IN_OUT
+    Counter : INT;
+END_VAR
+VAR
+    travel : TIME;
+END_VAR
+VAR PUBLIC
+    Cycles : DINT;
+END_VAR
+METHOD PUBLIC Reset
+END_METHOD
+END_FUNCTION_BLOCK
+"#;
+
+    /// Specification 14 §6.1.2: after `.` on an instance of the standard TON, completion offers its
+    /// inputs IN and PT and its outputs Q and ET (IEC 61131-3 Ed.3 Table 45), which code outside the
+    /// block may assign and read (§6.6.3.4.2, Figure 13). Catches member completion that keeps only
+    /// variables, methods and properties, which answered nothing for a TON.
+    #[test]
+    fn member_completion_offers_a_standard_blocks_inputs_and_outputs() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Timer : TON;
+END_VAR
+    Timer.|
+END_PROGRAM
+"#;
+        assert_eq!(sorted_labels_at(source), ["ET", "IN", "PT", "Q"]);
+    }
+
+    /// Specification 14 §6.1.2: outside a function block, `.` on its instance offers its inputs,
+    /// outputs, public variables and methods, and neither its in-out, which IEC 61131-3 Ed.3
+    /// §6.6.3.4.2 Figure 13 does not allow there, nor its protected internal variable. Catches an
+    /// input or output left out, and an in-out or a protected variable offered outside.
+    #[test]
+    fn member_completion_outside_a_block_offers_what_code_there_may_name() {
+        let source = format!(
+            "{VALVE}
+PROGRAM Main
+VAR
+    valve : FB_Valve;
+END_VAR
+    valve.|
+END_PROGRAM
+"
+        );
+        assert_eq!(sorted_labels_at(&source), ["Cycles", "IsOpen", "Open", "Reset"]);
+    }
+
+    /// Specification 14 §6.1.2: in a block derived from FB_Valve, `THIS^.` offers the base's in-out
+    /// and protected variable too, as the analysis accepts them there, beside the derived block's own
+    /// method. Catches member completion that drops a protected member where it may be named.
+    #[test]
+    fn member_completion_in_a_derived_block_offers_its_protected_members_too() {
+        let source = format!(
+            "{VALVE}
+FUNCTION_BLOCK FB_FastValve EXTENDS FB_Valve
+METHOD PUBLIC Check
+    THIS^.|
+END_METHOD
+END_FUNCTION_BLOCK
+"
+        );
+        assert_eq!(
+            sorted_labels_at(&source),
+            ["Check", "Counter", "Cycles", "IsOpen", "Open", "Reset", "travel"]
+        );
+    }
+
+    /// Specification 14 §6.1.1: completion asked again while a member's name is typed after the dot
+    /// (`Timer.E`, as VS Code asks while the user types) offers the members, not the statement list.
+    /// Catches the context taken from the token after the cursor, which answered keywords such as
+    /// PROGRAM and FUNCTION and every name in scope.
+    #[test]
+    fn member_completion_continues_while_a_members_name_is_typed() {
+        let source = r#"
+PROGRAM Main
+VAR
+    Timer : TON;
+END_VAR
+    Timer.E|
+END_PROGRAM
+"#;
+        let labels = sorted_labels_at(source);
+        assert!(labels.iter().any(|label| label == "ET"), "{labels:?}");
+        assert!(
+            labels
+                .iter()
+                .all(|label| ["ET", "IN", "PT", "Q"].contains(&label.as_str())),
+            "only TON's members: {labels:?}"
+        );
+    }
+
     /// Specification 14 §6.1.2: after `.` completion does not offer a member with `{attribute 'hide'}`, and offers the
     /// members beside it; code may still name the hidden one. A function block offers its methods (§6.1.2's table),
     /// and under the CODESYS profile its plain `VAR` members too, which are public there (DEV-028). Catches a hidden
