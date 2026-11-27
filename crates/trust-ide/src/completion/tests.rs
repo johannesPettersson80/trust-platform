@@ -577,6 +577,31 @@ END_FUNCTION_BLOCK
         assert_eq!(sorted_labels_at(source), ["Open", "Reset", "travel"]);
     }
 
+    /// Specification 14 §6.1.1: a dot of a qualified type name is no member access, so completion at
+    /// `item : Company.Project.Mo|` stays type completion (Codex's review of #842): it offers the
+    /// type keywords and the block. Catches the member rule taking the dot and answering nothing.
+    #[test]
+    fn a_qualified_type_name_keeps_type_completion() {
+        let source = r#"
+NAMESPACE Company
+NAMESPACE Project
+FUNCTION_BLOCK Motor
+END_FUNCTION_BLOCK
+END_NAMESPACE
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    item : Company.Project.Mo|
+END_VAR
+END_PROGRAM
+"#;
+        let labels = sorted_labels_at(source);
+        for offered in ["INT", "Motor"] {
+            assert!(labels.iter().any(|label| label == offered), "{offered} in {labels:?}");
+        }
+    }
+
     /// Specification 14 §6.1.1: completion asked again while a member's name is typed after the dot
     /// (`Timer.E`, as VS Code asks while the user types) offers the members, not the statement list.
     /// Catches the context taken from the token after the cursor, which answered keywords such as
