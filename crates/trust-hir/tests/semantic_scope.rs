@@ -266,3 +266,73 @@ END_FUNCTION_BLOCK
         DiagnosticCode::IncompatibleAssignment,
     );
 }
+
+/// The error messages of `source`, analyzed alone, in source order.
+fn error_messages(source: &str) -> Vec<String> {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    db.diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.is_error())
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect()
+}
+
+/// A block with an input, an in-out and a temporary, as the method tests below use it.
+const BASE_BLOCK: &str = r#"
+FUNCTION_BLOCK FB_Base
+VAR_INPUT
+    Open : BOOL;
+END_VAR
+VAR_IN_OUT
+    Counter : INT;
+END_VAR
+VAR_TEMP
+    Scratch : INT;
+END_VAR
+"#;
+
+/// The method body that names the in-out, the temporary and the input.
+const METHOD_USE: &str = r#"
+METHOD PUBLIC Use
+VAR
+    Seen : BOOL;
+END_VAR
+    Counter := 1;
+    Scratch := 2;
+    Seen := Open;
+END_METHOD
+"#;
+
+/// Specification 04 §7 (IEC 61131-3 Ed.3 §6.6.7.2.3 rule 4): a method of a function block names
+/// none of its block's in-outs and temporaries, while it reads the block's input. Catches an
+/// in-out or a temporary accepted in a method, and the rule reaching an input.
+#[test]
+fn a_method_names_none_of_its_blocks_in_outs_or_temporaries() {
+    let source = format!("{BASE_BLOCK}{METHOD_USE}END_FUNCTION_BLOCK\n");
+    assert_eq!(
+        error_messages(&source),
+        [
+            "function-block method cannot access body-only member 'Counter'",
+            "function-block method cannot access body-only member 'Scratch'",
+        ]
+    );
+}
+
+/// Specification 04 §7: a method of a block that extends FB_Base names none of the base's in-outs
+/// and temporaries either, as they are the derived block's own, while it reads the inherited input.
+/// Catches the inherited ones accepted, as they were until 27 November 2026.
+#[test]
+fn a_derived_blocks_method_names_none_of_the_inherited_in_outs_or_temporaries() {
+    let source = format!(
+        "{BASE_BLOCK}END_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_Derived EXTENDS FB_Base\n{METHOD_USE}END_FUNCTION_BLOCK\n"
+    );
+    assert_eq!(
+        error_messages(&source),
+        [
+            "function-block method cannot access body-only member 'Counter'",
+            "function-block method cannot access body-only member 'Scratch'",
+        ]
+    );
+}

@@ -577,6 +577,26 @@ END_FUNCTION_BLOCK
         assert_eq!(sorted_labels_at(source), ["Open", "Reset", "travel"]);
     }
 
+    /// Specification 14 §6.1.2, 04 §7: in a method of a block derived from FB_Valve, `THIS^.` leaves
+    /// out the base's in-out too, which IEC 61131-3 Ed.3 §6.6.7.2.3 rule 4 keeps from the methods of
+    /// the derived block as well. Catches the inherited in-out offered.
+    #[test]
+    fn member_completion_in_a_derived_blocks_method_leaves_out_the_inherited_in_outs() {
+        let source = format!(
+            "{VALVE}
+FUNCTION_BLOCK FB_FastValve EXTENDS FB_Valve
+METHOD PUBLIC Check
+    THIS^.|
+END_METHOD
+END_FUNCTION_BLOCK
+"
+        );
+        assert_eq!(
+            sorted_labels_at(&source),
+            ["Check", "Cycles", "IsOpen", "Open", "Reset", "travel"]
+        );
+    }
+
     /// Specification 14 §6.1.1: completion asked again while a member's name is typed after the dot
     /// (`Timer.E`, as VS Code asks while the user types) offers the members, not the statement list.
     /// Catches the context taken from the token after the cursor, which answered keywords such as
