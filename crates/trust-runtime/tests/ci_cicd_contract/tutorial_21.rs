@@ -59,10 +59,20 @@ fn tutorial_21_steps_pass_and_each_failure_ends_with_its_exit_code() {
     // failed test 12). On a copy of tutorial 11's project, steps 2 to 5 end with 0 and write the
     // reports the README quotes; step 6's failed test ends with 12 and its JUnit failure, the
     // misspelled driver with 10 and the quoted error, and the build failure with 11 and the issue
-    // E002. Catches CI exit codes that do not tell the kinds of failure apart, a report without
-    // what the README shows, and a README that quotes what the commands no longer print.
+    // E002. Catches CI exit codes that do not tell the kinds of failure apart, a project the steps
+    // refuse (tutorial 11 once had no runtime.toml or io.toml, and step 3 exited 10), a report
+    // without what the README shows, and a README that runs or quotes what the commands no longer
+    // do.
     let _shared = beside_measurements();
     let readme = readme();
+    for command in [
+        "trust-runtime build --project . --ci",
+        "trust-runtime validate --project . --ci",
+        "trust-dev test --project . --ci --output junit > /tmp/trust-tutorial-21-junit.xml",
+        "trust-dev test --project . --ci --output json > /tmp/trust-tutorial-21-report.json",
+    ] {
+        assert!(readme.contains(command), "the README runs `{command}`");
+    }
     let project = unique_temp_dir("tutorial-21");
     copy_dir_recursive(
         &repo_root().join("examples/tutorials/11_unit_testing_102"),
