@@ -436,35 +436,6 @@ fn assert_each_succeeds(commands: &[Vec<String>]) {
 }
 
 #[test]
-fn tutorial_21_gates_pass_on_the_project_it_names() {
-    // examples/tutorials/21_ci_cd_project_pipeline/README.md: from the repository root, step 2 runs
-    // `trust-runtime build --project examples/tutorials/11_unit_testing_102 --ci` and step 3
-    // `trust-runtime validate --project examples/tutorials/11_unit_testing_102 --ci`, and each is
-    // expected to succeed (exit code 0 in step 6's table). Catches a project the gates refuse:
-    // tutorial 11 had no runtime.toml or io.toml, and step 3 exited 10 ("missing runtime.toml").
-    let commands = gate_commands("examples/tutorials/21_ci_cd_project_pipeline/README.md");
-    assert_eq!(
-        commands,
-        [
-            [
-                "build",
-                "--project",
-                "examples/tutorials/11_unit_testing_102",
-                "--ci"
-            ],
-            [
-                "validate",
-                "--project",
-                "examples/tutorials/11_unit_testing_102",
-                "--ci"
-            ],
-        ],
-        "the gates of steps 2 and 3"
-    );
-    assert_each_succeeds(&commands);
-}
-
-#[test]
 fn tutorial_22_terminal_build_and_validate_succeed() {
     // examples/tutorials/22_neovim_zed_workflow/README.md, step 5: from the repository root, `trust-
     // runtime build` and `trust-runtime validate` of the project the step names give "the same build

@@ -1600,6 +1600,27 @@ unclassified message uses command fallback: `build` maps to 11, `test` to 12,
 substring classifier is a compatibility boundary; it does not imply that
 arbitrary prose containing one of its tokens is semantically typed.
 
+## Project CI template
+
+`.github/workflows/templates/trust-runtime-project-ci.yml` is the GitHub Actions
+workflow that a project's own repository copies to check each change. It starts
+on a push or a pull request that changes the project's sources (`src/**`, the
+folder `trust-runtime build` takes by default), a configuration file at the
+project's root (`*.toml`) or the workflow itself. On `ubuntu-24.04` it installs
+the truST release that `TRUST_VERSION` names: it downloads the release archive
+`trust-runtime-linux-x64.tar.gz` and the release's `SHA256SUMS`, checks the
+archive against its line there before unpacking it, and puts its `trust-runtime`
+and `trust-dev` on the `PATH`. It then installs the toolchain of that release
+(specification 44 §4.6) and runs `trust-runtime build --project . --ci`,
+`trust-runtime validate --project . --ci` and
+`trust-dev test --project . --ci --output junit`, in that order, each failing
+the job with its exit class above. The JUnit report is uploaded also when a
+step failed, so that a failing test's report is kept. Nothing of truST is built
+from source, so the project's repository needs no Rust and no truST checkout
+(27 November 2026: the template built the CLIs with `cargo build`, which only a
+truST checkout can, and started only on changes to `sources/**`, a folder that
+truST projects do not use).
+
 ## trust-dev output
 
 What a `trust-dev` command prints on the standard output ends quietly when its

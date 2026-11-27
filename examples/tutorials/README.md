@@ -352,7 +352,8 @@ and why it matters.
 7. `19_safety_commissioning/README.md`
     - verify safe-state outputs, watchdog/fault policy, and restart recovery.
 8. `21_ci_cd_project_pipeline/README.md`
-    - implement CI gates with machine-readable reports and stable exit codes.
+    - build, validate and test a project in CI mode, read its reports and exit codes, and copy the
+      workflow that runs them on every change.
 9. `22_neovim_zed_workflow/README.md`
     - run a complete non-VS-Code workflow with Neovim/Zed plus terminal gates.
 10. `23_observability_historian_prometheus/README.md`
