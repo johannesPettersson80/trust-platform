@@ -116,17 +116,27 @@ fn find_token_at_position(root: &SyntaxNode, position: TextSize) -> Option<Synta
 
 /// The `.` whose members `position` completes: the dot just before it (`Timer.|`), or the dot
 /// before the member name being typed there (`Timer.E|`), as an editor asks again while the user
-/// types (specification 14 §6.1.1).
+/// types (specification 14 §6.1.1). A dot of a qualified type name is none: in a declaration's type
+/// (`item : Company.Project.M|`), a base (`EXTENDS Company.B|`) or an interface
+/// (`IMPLEMENTS Lib.I|`), the position completes a type.
 fn member_access_dot(root: &SyntaxNode, position: TextSize) -> Option<SyntaxToken> {
     let token = find_token_at_position(root, position)?;
-    if let Some(dot) = previous_non_trivia_token(&token).filter(|t| t.kind() == SyntaxKind::Dot) {
-        return Some(dot);
-    }
-    let typed = root
-        .token_at_offset(position)
-        .left_biased()
-        .filter(|t| t.kind() == SyntaxKind::Ident && t.text_range().end() == position)?;
-    previous_non_trivia_token(&typed).filter(|t| t.kind() == SyntaxKind::Dot)
+    let dot = previous_non_trivia_token(&token)
+        .filter(|t| t.kind() == SyntaxKind::Dot)
+        .or_else(|| {
+            let typed = root
+                .token_at_offset(position)
+                .left_biased()
+                .filter(|t| t.kind() == SyntaxKind::Ident && t.text_range().end() == position)?;
+            previous_non_trivia_token(&typed).filter(|t| t.kind() == SyntaxKind::Dot)
+        })?;
+    let in_type = dot.parent_ancestors().any(|node| {
+        matches!(
+            node.kind(),
+            SyntaxKind::TypeRef | SyntaxKind::ExtendsClause | SyntaxKind::ImplementsClause
+        )
+    });
+    (!in_type).then_some(dot)
 }
 
 /// Gets the previous non-trivia (non-whitespace, non-comment) token.

@@ -171,6 +171,7 @@ workspace indexing.
 |---------|-------------|
 | After `.` on a function-block instance | Inputs, outputs, public variables, properties, methods (below) |
 | After `.` on STRUCT | Fields |
+| After `.` on a namespace's name | The namespace's declarations (below) |
 | After `:` | Types in scope |
 | Call arguments | Formal parameter names + in-scope expressions (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50/71) |
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
@@ -181,9 +182,19 @@ these are its inputs, which the separate input assignment `FB_INST.In := A` sets
 `B := FB_INST.Out` reads, and its public variables, properties and methods (IEC 61131-3 Ed.3 §6.6.3.4.2, Figure 13;
 §6.6.3.2 item 11). Its in-outs are not offered there, since Figure 13 (rows 5 and 6) does not allow them outside the
 block, nor are its protected or private members. Inside the block, and in a block derived from it, those are offered
-too. The rule that decides which accesses the analysis accepts also decides what is offered (§6.6.4), so a standard
+too, except in a method of the block itself: its in-outs and `VAR_TEMP` variables belong to the block's body, and the
+analysis rejects them in its methods, so completion leaves them out there. The rule that decides which accesses the analysis accepts also decides what is offered (§6.6.4), so a standard
 function block (`TON`: `IN`, `PT`, `Q`, `ET`) and a block of another file or of a library follow it alike. Completion
 asked again while a member's name is being typed, as an editor does while the user types, offers the same members.
+
+After `.` on a namespace's name (`Company.Project.`), completion offers the declarations of that namespace, from
+every file of the project, that code there may name: its nested namespaces, types and POUs, and the globals of a
+CODESYS GVL (`GVL_IO.`), since an element of a namespace is named from outside it through the namespace's name and a
+following `.` (IEC 61131-3 Ed.3 §6.9.3). Nothing below an `INTERNAL` namespace is offered outside it (specification
+03 §4). A local declaration named like the namespace hides it (specification 09 §1.3), and the members of that
+declaration are offered instead. Completion asked again while a declaration's name is being typed offers the same
+declarations, and an instance named through its namespace (`GVL_IO.gPump.`) offers its members as any instance
+does. A dot of a qualified type name (`item : Company.Project.`) completes a type, as after `:`.
 
 The names completion offers in a scope are every declaration of the project that the position reaches by name,
 whether the file names it yet or not. A file's analysis holds only the declarations the file names (§10.2), so
