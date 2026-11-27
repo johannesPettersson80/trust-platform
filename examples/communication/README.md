@@ -33,7 +33,7 @@ Most projects start with `simulated` or `loopback`, then fail during integration
 3. `modbus_tcp/README.md`
     - learn deterministic request/response register mapping and timeout policy.
 4. `mqtt/README.md`
-    - learn broker/topic boundaries and reconnect behavior.
+    - learn how the raw byte bridge carries the process image through a broker, and how long an input keeps a message.
 5. `mqtt_traffic_light/README.md`
     - publish program-instance variables without manual `VAR_CONFIG` addresses.
 6. `opcua/README.md`

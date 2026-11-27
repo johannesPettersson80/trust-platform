@@ -702,3 +702,67 @@ fn the_multi_driver_example_runs_its_drive_from_modbus_and_its_start_from_mqtt()
         running().last().is_some_and(|payload| payload == b"false")
     });
 }
+
+#[test]
+fn the_mqtt_example_carries_its_byte_through_the_broker_and_publishes_its_safe_state() {
+    // The README of examples/communication/mqtt (specification 32 §4, the raw byte bridge, and §8,
+    // a read without a new message keeps the input; specification 11, the safe state at a
+    // deliberate stop): the runtime publishes its output image, one byte, to `topic_out` at every
+    // cycle, 00 while DO0 is FALSE. The message 01 on `topic_in` fills the input image from its
+    // first byte, so %IX0.0 (DI0) reads TRUE, the program copies it to DO0 at %QX0.0, and
+    // `topic_out` carries 01; DI0 keeps the message's value while no new message comes. At
+    // `shutdown --exit` the runtime publishes the safe state, 00. Catches a bridge that leaves the
+    // input image unfilled or fills it from another bit, an output image that does not reach the
+    // broker, and a stop that leaves the output set.
+    let broker = MqttTestBroker::start();
+    let endpoint: &'static str =
+        Box::leak(format!("broker = \"{}\"", broker.endpoint()).into_boxed_str());
+    let mut runtime = ExampleRuntime::new("communication/mqtt")
+        .edit_source("io.toml", "broker = \"127.0.0.1:1883\"", endpoint)
+        .start();
+    runtime.wait_for_snapshot(WAIT, "%IX0.0 and %QX0.0 FALSE", |s| {
+        s.text("%IX0.0") == "Bool(false)" && s.text("%QX0.0") == "Bool(false)"
+    });
+    let out = || broker.published("trust/examples/mqtt/out");
+    runtime.wait_until(WAIT, "the byte 00 on topic_out", || {
+        out()
+            .last()
+            .is_some_and(|payload| payload.as_slice() == [0x00])
+    });
+    runtime.wait_until(WAIT, "the subscription to topic_in", || {
+        broker
+            .subscriptions()
+            .iter()
+            .any(|topic| topic == "trust/examples/mqtt/in")
+    });
+
+    broker.deliver("trust/examples/mqtt/in", &[0x01]);
+    let set = runtime.wait_for_snapshot(WAIT, "%IX0.0 and %QX0.0 TRUE", |s| {
+        s.text("%IX0.0") == "Bool(true)" && s.text("%QX0.0") == "Bool(true)"
+    });
+    runtime.wait_until(WAIT, "the byte 01 on topic_out", || {
+        out()
+            .last()
+            .is_some_and(|payload| payload.as_slice() == [0x01])
+    });
+    let later = set.scan() + 5;
+    let kept =
+        runtime.wait_for_snapshot(WAIT, "five scans after the message", |s| s.scan() >= later);
+    assert_eq!(
+        kept.text("%IX0.0"),
+        "Bool(true)",
+        "DI0 keeps the message's value while no new message comes"
+    );
+
+    runtime.ctl_ok(&["shutdown", "--exit"]);
+    let status = runtime.wait_for_exit(WAIT);
+    assert!(
+        status.success(),
+        "the runtime ends with success after shutdown --exit: {status}"
+    );
+    runtime.wait_until(WAIT, "the safe state, 00, on topic_out", || {
+        out()
+            .last()
+            .is_some_and(|payload| payload.as_slice() == [0x00])
+    });
+}

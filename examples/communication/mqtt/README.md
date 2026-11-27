@@ -1,168 +1,160 @@
-# Communication Example: MQTT
+# MQTT
 
-This example shows how to use `io.driver = "mqtt"` for broker-based I/O exchange.
+Connect a PLC project's inputs and outputs to an MQTT broker and watch one bit travel through it.
+You learn how the MQTT driver's raw form carries the process image in messages, how long an input
+keeps a message's value, and what the runtime publishes when it stops.
 
 ## What you learn
 
-- topic design for PLC input/output channels
-- reconnect and keep-alive tuning basics
-- why secure broker boundary decisions must be explicit
+- `io.driver = "mqtt"` with `topic_in` and `topic_out` is a raw byte bridge: the newest message on
+  `topic_in` fills the input image from its first byte, and the runtime publishes its output image
+  to `topic_out` at every cycle.
+- While the broker is connected, an input keeps the value of the last message until a new one
+  comes, unless `stale_after_ms` limits its age.
+- `[[io.safe_state]]` names the values the runtime publishes when it stops.
 
-## Files in this folder
+## What you need
 
-- `src/main.st`: minimal `%IX -> %QX` logic (`DO0 := DI0`)
-- `src/config.st`: task binding plus `VAR_CONFIG` mapping (`P1.DI0`/`P1.DO0`)
-- `io.toml`: MQTT backend profile
-- `runtime.toml`: runtime defaults
-- `trust-lsp.toml`: project settings
+- `trust-runtime`, from the truST extension for VS Code or a release archive, and two terminals.
+- An MQTT broker on `127.0.0.1:1883` with its command-line clients: Mosquitto (`mosquitto`,
+  `mosquitto_pub` and `mosquitto_sub`) from your system's packages, for example. Start the broker
+  with `mosquitto` if your system did not start it as a service when you installed it.
+- About 15 minutes.
 
-## Step 1: Build first
+## Step by step
 
-Why: separate compiler issues from transport issues.
+1. Open a terminal in `examples/communication/mqtt` and build the project:
 
-```bash
-cd examples/communication/mqtt
-trust-runtime build --project . --sources src
-```
+    ```text
+    trust-runtime build --project . --sources src
+    ```
 
-## Step 2: Review `io.toml`
+    It writes the program's image, here on an x86-64 Linux computer, and then names the image's
+    memory figure, the key that signed it and its two sources, `src/config.st` and `src/main.st`:
 
-Why: topic and reconnect policy directly shape reliability and security.
+    ```text
+    Wrote ./program.tpi
+    Wrote ./build/install.x86_64-unknown-linux-gnu.bin for trust-runtime ctl install
+    Debug image 1972 bytes: code 681, read-only data 0, starting memory 2
+    ```
 
-```toml
-[io]
-driver = "mqtt"
+    The program `Main` copies one input to one output, `DO0 := DI0;`, and `src/config.st` puts
+    `DI0` at `%IX0.0` and `DO0` at `%QX0.0`.
 
-[io.params]
-broker = "127.0.0.1:1883"
-topic_in = "trust/examples/mqtt/in"
-topic_out = "trust/examples/mqtt/out"
-reconnect_ms = 500
-keep_alive_s = 5
-allow_insecure_remote = false
-on_error = "warn"
-```
+2. Open `io.toml`. It selects the driver, its broker and its two topics, and the safe state of the
+   output:
 
-Field intent:
+    ```toml
+    [io]
+    driver = "mqtt"
 
-- `broker`: MQTT endpoint.
-- `topic_in`: messages consumed into `%I` image.
-- `topic_out`: messages published from `%Q` image.
-- `reconnect_ms`: backoff cadence for broken sessions.
-- `keep_alive_s`: session liveness interval.
-- `allow_insecure_remote`: blocks unsafe remote configuration.
-- `on_error = "warn"`: while the broker cannot be reached, the runtime keeps running and reports
-  the driver degraded; under the default `fault` a lost session faults the runtime. A scan that
-  finds no new message on `topic_in` keeps the last input under every policy, because a publisher
-  sends when a value changes, not every scan; `stale_after_ms` would make an input stale after
-  that long without a message (specification 32 §8).
+    [io.params]
+    broker = "127.0.0.1:1883"
+    topic_in = "trust/examples/mqtt/in"
+    topic_out = "trust/examples/mqtt/out"
+    reconnect_ms = 500
+    keep_alive_s = 5
+    allow_insecure_remote = false
+    on_error = "warn"
 
-By default, MQTT payloads are raw process-image bytes. If the broker uses typed
-scalar topics instead, add explicit point maps:
+    [[io.safe_state]]
+    address = "%QX0.0"
+    value = "FALSE"
+    ```
 
-```toml
-[[io.params.input_points]]
-topic = "trust/examples/mqtt/in/di0"
-image_offset = 0
-image_bit = 0
-data_type = "bool"
-payload_format = "json"
+3. Check the configuration before you start anything:
 
-[[io.params.output_points]]
-topic = "trust/examples/mqtt/out/do0"
-image_offset = 0
-image_bit = 0
-data_type = "bool"
-payload_format = "json"
-```
+    ```text
+    trust-runtime validate --project .
+    ```
 
-Point maps also support `u16`, `i16`, `u32`, `i32`, and `f32` values with
-`text`, `json`, `binary_le`, or `binary_be` payloads and optional
-`scale`/`offset`.
+    It answers `Project ok`.
 
-To map MQTT topics directly to named program-instance variables, use
-`mappings`. The direction is relative to the PLC, so `write` publishes a PLC
-value and `read` subscribes and writes the received value into the PLC:
+4. Make sure the broker runs, then start the runtime in the first terminal:
 
-```toml
-[[io.params.mappings]]
-tag = "MainInstance.Green"
-topic = "traffic/north/green"
-direction = "write"
-```
+    ```text
+    trust-runtime run --project .
+    ```
 
-Mappings are resolved when the runtime starts. An unknown tag, unsupported
-non-scalar type, invalid direction, or unknown MQTT parameter rejects startup
-before the MQTT worker starts. See `../mqtt_traffic_light` for a complete
-project based on the traffic-light tutorial.
+5. In the second terminal, take one message of the output image from the broker, as two hex
+   digits a byte:
 
-For Sparkplug B outbound node metrics, add a Sparkplug profile and stable metric
-names to typed output points:
+    ```text
+    mosquitto_sub -h 127.0.0.1 -t trust/examples/mqtt/out -F '%x' -C 1
+    ```
 
-```toml
-[io.params.sparkplug]
-enabled = true
-namespace = "spBv1.0"
-spec_version = "3.0.0"
-group_id = "trust-examples"
-edge_node_id = "mqtt-runtime"
+    It prints `00`: the output image is one byte, and `%QX0.0` is its bit 0.
 
-[[io.params.output_points]]
-topic = "trust/examples/mqtt/out/do0"
-metric_name = "do0"
-image_offset = 0
-image_bit = 0
-data_type = "bool"
-payload_format = "json"
-```
+6. Publish one input image byte, 1, to `topic_in`:
 
-This publishes NBIRTH on connect, NDEATH as the MQTT last will, and NDATA for
-typed output metrics. It does not subscribe to Sparkplug commands or publish
-device-level DBIRTH/DDATA topics.
+    ```text
+    printf '\001' | mosquitto_pub -h 127.0.0.1 -t trust/examples/mqtt/in -s
+    ```
 
-## Step 3: Validate config
+    Then read the process image:
 
-Why: detect missing mandatory fields and invalid values early.
+    ```text
+    trust-runtime ctl --project . io-read
+    ```
 
-```bash
-trust-runtime validate --project .
-```
+    The input reads TRUE,
+    `{"address":"%IX0.0","forced":false,"name":"P1.DI0","value":"Bool(true)","valueType":"BOOL"}`,
+    and so does the output `%QX0.0` (`P1.DO0`) that the program copied from it. The `mosquitto_sub`
+    command of step 5, which ends after one message, now prints `01` when you run it again, and a
+    few seconds later `io-read` still reads TRUE: no new message came.
 
-## Step 4: Run against a broker
+7. Stop the runtime with `trust-runtime ctl --project . shutdown --exit`. The last message on
+   `trust/examples/mqtt/out` is `00`: the runtime published the safe state of `%QX0.0`.
 
-Why: topic contract validation must happen with a real broker path.
+## What happened
 
-1. Start a broker on `127.0.0.1:1883`, for example Mosquitto: `mosquitto -p 1883`.
-2. Run runtime:
+**The bridge.** Each 100 ms, before the program runs, the driver takes the newest message that came
+on `topic_in` since the last cycle into the input image, from its first byte, and zero after the
+message's end. After the program it publishes the whole output image to `topic_out`, at every
+cycle, ten messages a second here, not only when a value changes. Bit 0 of the first byte is
+`%IX0.0`, bit 1 is `%IX0.1`, and so on:
 
-```bash
-trust-runtime run --project .
-```
+| Image | Message | Here |
+|---|---|---|
+| `%IX0.0` to `%IX0.7` | byte 0 on `topic_in` | 1 sets `DI0` |
+| `%IX1.0` to `%IX1.7` | byte 1 on `topic_in` | not used |
+| `%QX0.0` to `%QX0.7` | byte 0 on `topic_out` | `01` while `DO0` is TRUE |
 
-3. In another terminal, watch `topic_out`, publish one input image byte to `topic_in` (bit 0 is
-   `DI0`) and inspect the I/O:
+**The last message counts.** A cycle that finds no new message keeps the input image of the last
+one, under every `on_error`, because a publisher commonly sends a value when it changes, not at
+every cycle. `stale_after_ms` makes an input stale after that long without a message, which suits a
+publisher that sends cyclically.
 
-```bash
-mosquitto_sub -h 127.0.0.1 -t trust/examples/mqtt/out -F '%x' &
-printf '\001' | mosquitto_pub -h 127.0.0.1 -t trust/examples/mqtt/in -s
-trust-runtime ctl --project . io-read
-```
+**The errors.** `on_error = "warn"` keeps the runtime running while the broker cannot be reached,
+with the inputs of the last message. The default, `fault`, faults the resource instead, so that the
+program stops rather than run on inputs it no longer receives.
 
-Expected result: `%IX0.0` and `%QX0.0` read `Bool(true)`, `topic_out` carries `01`, and the runtime
-keeps running while no new message comes.
+**The stop.** At a deliberate stop the runtime writes the safe values of `[[io.safe_state]]` to the
+output image and publishes them, so the last message on `topic_out` was `00`. A safe state that
+the driver cannot confirm ends the stop in `Faulted`, not `Stopped`.
 
-## Step 5: Production hardening checklist
+The raw form carries whole bytes of the image. For values that a broker carries one to a topic, as
+text or JSON, use typed `input_points` and `output_points`, or `mappings` that name program
+variables, as `../multi_driver` and `../mqtt_traffic_light` do.
 
-Why: MQTT deployments often fail at boundary assumptions, not syntax.
+## Try it yourself
 
-- enforce broker auth/TLS according to site policy
-- keep input/output topics separate and explicit
-- define ACLs for publish/subscribe directions
-- confirm reconnect behavior under broker restart tests
+- Publish the byte 2, `printf '\002' | mosquitto_pub -h 127.0.0.1 -t trust/examples/mqtt/in -s`.
+  `%IX0.0` and `%QX0.0` read `Bool(false)`, and `topic_out` carries `00`: 2 is bit 1, `%IX0.1`,
+  which the program does not read.
+- Set `on_error = "fault"` and add `stale_after_ms = 2000` under `[io.params]`, start the runtime
+  again and publish the byte 1 once. Two seconds later the input is stale:
+  `trust-runtime ctl --project . status` answers
+  `state=faulted fault=i/o freshness error 'mqtt input not fresh'`. Put the two lines back.
+- Stop the broker while the runtime runs, after a message set `%IX0.0`. `%IX0.0` and `%QX0.0` keep
+  `Bool(true)` and `trust-runtime ctl --project . status` still answers `state=running fault=none`,
+  as `warn` says. Stop the runtime: it cannot publish the safe state, so it ends with
+  `runtime resource faulted: i/o driver error 'safe-state output unconfirmed for driver 'mqtt': ...'`.
+  Start the broker again.
 
-## Common mistakes
+## Reference
 
-- reusing same topic for both `topic_in` and `topic_out`
-- leaving broker ACLs open during rollout
-- treating successful `validate` as proof of runtime connectivity
-- dropping `safe_state` definitions for output-critical projects
+- Specification 32, the MQTT driver: its raw form, typed points and mappings, sessions and
+  freshness; specification 11, the safe state at a stop.
+- The MQTT page and `io.toml` in the reference of the documentation, with typed points, mappings
+  and Sparkplug B, and the `trust-runtime ctl` commands `io-read`, `status` and `shutdown`.
