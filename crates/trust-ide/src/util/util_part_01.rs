@@ -62,10 +62,14 @@ pub(crate) fn is_type_symbol_kind(kind: &SymbolKind) -> bool {
 }
 
 /// Checks if a symbol kind is a member of a type (field, method, property, etc.).
+/// Whether a symbol of `kind` is a member that `.` may name: a function block's inputs, outputs and
+/// in-outs are parameters, beside its variables, methods and properties (specification 14 §6.1.2);
+/// visibility then decides which of them a position may name.
 pub(crate) fn is_member_symbol_kind(kind: &SymbolKind) -> bool {
     matches!(
         kind,
         SymbolKind::Variable { .. }
+            | SymbolKind::Parameter { .. }
             | SymbolKind::Constant
             | SymbolKind::Method { .. }
             | SymbolKind::Property { .. }

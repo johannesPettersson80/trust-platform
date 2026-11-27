@@ -16,31 +16,7 @@ fn symbols_in_scope(
         {
             continue;
         }
-        let kind = if symbol_is_constant(symbol) {
-            CompletionKind::Constant
-        } else {
-            match symbol.kind {
-                SymbolKind::Variable { .. } => CompletionKind::Variable,
-                SymbolKind::Constant => CompletionKind::Constant,
-                SymbolKind::Function { .. } => CompletionKind::Function,
-                SymbolKind::FunctionBlock => CompletionKind::FunctionBlock,
-                SymbolKind::Class => CompletionKind::Type,
-                SymbolKind::Method { .. } => CompletionKind::Method,
-                SymbolKind::Property { .. } => CompletionKind::Property,
-                SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
-                SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
-                SymbolKind::Namespace => CompletionKind::Namespace,
-                SymbolKind::Program
-                | SymbolKind::ProgramInstance
-                | SymbolKind::Action
-                | SymbolKind::Parameter { .. }
-                | SymbolKind::Configuration
-                | SymbolKind::Resource
-                | SymbolKind::Task => CompletionKind::Variable,
-            }
-        };
-
-        let mut item = CompletionItem::new(symbol.name.clone(), kind);
+        let mut item = CompletionItem::new(symbol.name.clone(), symbol_completion_kind(symbol));
         if let Some(type_name) = TypeId::builtin_name(symbol.type_id) {
             item = item.with_detail(type_name);
         }
@@ -56,6 +32,32 @@ fn symbols_in_scope(
         stdlib_filter,
     ));
     items
+}
+
+/// The completion kind of a declaration offered by its name.
+fn symbol_completion_kind(symbol: &trust_hir::symbols::Symbol) -> CompletionKind {
+    if symbol_is_constant(symbol) {
+        return CompletionKind::Constant;
+    }
+    match symbol.kind {
+        SymbolKind::Variable { .. } => CompletionKind::Variable,
+        SymbolKind::Constant => CompletionKind::Constant,
+        SymbolKind::Function { .. } => CompletionKind::Function,
+        SymbolKind::FunctionBlock => CompletionKind::FunctionBlock,
+        SymbolKind::Class => CompletionKind::Type,
+        SymbolKind::Method { .. } => CompletionKind::Method,
+        SymbolKind::Property { .. } => CompletionKind::Property,
+        SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
+        SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
+        SymbolKind::Namespace => CompletionKind::Namespace,
+        SymbolKind::Program
+        | SymbolKind::ProgramInstance
+        | SymbolKind::Action
+        | SymbolKind::Parameter { .. }
+        | SymbolKind::Configuration
+        | SymbolKind::Resource
+        | SymbolKind::Task => CompletionKind::Variable,
+    }
 }
 
 fn type_symbols(filter: &SymbolFilter<'_>) -> Vec<CompletionItem> {
@@ -75,6 +77,11 @@ fn member_access_completions(
     scope_id: ScopeId,
     stdlib_filter: &StdlibFilter,
 ) -> Vec<CompletionItem> {
+    if let Some(items) =
+        namespace_member_completions(db, file_id, position, root, symbols, scope_id, stdlib_filter)
+    {
+        return items;
+    }
     let Some(base_type) = member_access_base_type(db, file_id, position, root, symbols) else {
         return Vec::new();
     };
@@ -123,12 +130,7 @@ fn member_access_base_type(
     root: &SyntaxNode,
     symbols: &SymbolTable,
 ) -> Option<TypeId> {
-    let token = find_token_at_position(root, position)?;
-    let dot = if token.kind() == SyntaxKind::Dot {
-        Some(token)
-    } else {
-        previous_non_trivia_token(&token).filter(|t| t.kind() == SyntaxKind::Dot)
-    }?;
+    let dot = member_access_dot(root, position)?;
 
     if let Some(field_expr) = dot
         .parent_ancestors()
@@ -145,6 +147,95 @@ fn member_access_base_type(
     Some(db.type_of(file_id, expr_id))
 }
 
+/// The declarations of the namespace whose name the dot at `position` follows
+/// (`Company.Project.|`), from every file of the project, each one that code there may name (IEC
+/// 61131-3 Ed.3 §6.9.3, specification 14 §6.1.2). `None` when the dot follows no namespace, or
+/// follows a local declaration named like one, which hides it (specification 09 §1.3).
+fn namespace_member_completions(
+    db: &Database,
+    file_id: trust_hir::db::FileId,
+    position: TextSize,
+    root: &SyntaxNode,
+    file_symbols: &SymbolTable,
+    scope_id: ScopeId,
+    stdlib_filter: &StdlibFilter,
+) -> Option<Vec<CompletionItem>> {
+    let dot = member_access_dot(root, position)?;
+    let base = dot
+        .parent_ancestors()
+        .find(|node| node.kind() == SyntaxKind::FieldExpr)?
+        .children()
+        .next()?;
+    let path = match base.kind() {
+        SyntaxKind::NameRef => vec![name_from_name_ref(&base)?],
+        _ => qualified_name_from_field_expr(&base)?,
+    };
+    // The file's analysis holds every namespace (specification 14 §10.2), so the base is looked up
+    // there, and an ordinary member access (`Timer.`) never pays for the merge of every file's
+    // declarations below, which only a namespace's members need.
+    let names_a_namespace = file_symbols
+        .resolve_qualified(&path)
+        .and_then(|id| file_symbols.get(id))
+        .is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Namespace));
+    if !names_a_namespace || file_symbols.hides_global_head(&path[0], scope_id) {
+        return None;
+    }
+    // Every declaration of the project: the file need not name the one being typed yet.
+    let symbols = db.file_symbols_with_every_declaration(file_id);
+    let namespace = symbols
+        .resolve_qualified(&path)
+        .and_then(|id| symbols.get(id))
+        .filter(|symbol| matches!(symbol.kind, SymbolKind::Namespace))?;
+    let here = namespace_path_for_scope(&symbols, scope_id);
+    let items = symbols
+        .iter()
+        .filter(|member| member.parent == Some(namespace.id) && !member.modifiers.hidden)
+        .filter(|member| namespace_member_is_reachable(&symbols, member, &here))
+        .map(|member| {
+            let mut item = CompletionItem::new(member.name.clone(), symbol_completion_kind(member))
+                .with_priority(10);
+            if let Some(type_name) = TypeId::builtin_name(member.type_id) {
+                item = item.with_detail(type_name);
+            }
+            attach_symbol_docs_simple(item, member, &symbols, stdlib_filter)
+        })
+        .collect();
+    Some(items)
+}
+
+/// Whether code in the namespace `here` may name `member`, a declaration of a namespace, as the
+/// analysis decides: nothing below an `INTERNAL` namespace, the member itself or one that contains
+/// it, from outside that namespace (specification 03 §4).
+fn namespace_member_is_reachable(
+    symbols: &SymbolTable,
+    member: &trust_hir::symbols::Symbol,
+    here: &[SmolStr],
+) -> bool {
+    let within = |path: &[SmolStr]| {
+        here.len() >= path.len()
+            && here
+                .iter()
+                .zip(path)
+                .all(|(part, name)| part.eq_ignore_ascii_case(name))
+    };
+    let mut current = Some(member.id);
+    while let Some(id) = current {
+        let Some(symbol) = symbols.get(id) else {
+            break;
+        };
+        if matches!(symbol.kind, SymbolKind::Namespace) && symbol.visibility == Visibility::Internal
+        {
+            let mut path = namespace_path_for_symbol(symbols, symbol);
+            path.push(symbol.name.clone());
+            if !within(&path) {
+                return false;
+            }
+        }
+        current = symbol.parent;
+    }
+    true
+}
+
 fn base_type_from_expr_node(
     db: &Database,
     file_id: trust_hir::db::FileId,
@@ -152,6 +243,21 @@ fn base_type_from_expr_node(
     root: &SyntaxNode,
     node: &SyntaxNode,
 ) -> Option<TypeId> {
+    // A declaration named through its namespace (`GVL_IO.gPump`, IEC 61131-3 Ed.3 §6.9.3), unless
+    // a local declaration named like the namespace hides it (specification 09 §1.3).
+    if node.kind() == SyntaxKind::FieldExpr
+        && let Some(path) = qualified_name_from_field_expr(node)
+        && !symbols.hides_global_head(
+            &path[0],
+            scope_at_position(symbols, root, node.text_range().start()),
+        )
+        && let Some(symbol) = symbols
+            .resolve_qualified(&path)
+            .and_then(|id| symbols.get(id))
+            .filter(|symbol| !matches!(symbol.kind, SymbolKind::Namespace))
+    {
+        return Some(symbol.type_id);
+    }
     if node.kind() == SyntaxKind::NameRef {
         let ident = node
             .descendants_with_tokens()
@@ -181,6 +287,7 @@ fn member_symbols_for_type(
         return Vec::new();
     };
     let current_owner = current_owner_for_scope(symbols, scope_id);
+    let current_method = current_method_for_scope(symbols, scope_id);
     let current_namespace = namespace_path_for_scope(symbols, scope_id);
 
     filter
@@ -189,6 +296,7 @@ fn member_symbols_for_type(
         .filter(|symbol| {
             !symbol.modifiers.hidden
                 && is_member_visible(symbols, symbol, owner_id, current_owner, &current_namespace)
+                && !is_body_only_in(symbol, current_method)
         })
         .filter_map(|symbol| completion_item_for_symbol(symbol, symbols, stdlib_filter))
         .collect()
@@ -217,6 +325,48 @@ fn current_owner_for_scope(symbols: &SymbolTable, scope_id: ScopeId) -> Option<S
         current = scope.parent;
     }
     None
+}
+
+/// The method whose body holds `scope_id`: the innermost POU around it, when that is a method.
+fn current_method_for_scope(
+    symbols: &SymbolTable,
+    scope_id: ScopeId,
+) -> Option<&trust_hir::symbols::Symbol> {
+    let mut current = Some(scope_id);
+    while let Some(scope_id) = current {
+        let scope = symbols.get_scope(scope_id)?;
+        if let Some(symbol) = scope.owner.and_then(|owner_id| symbols.get(owner_id)) {
+            match symbol.kind {
+                SymbolKind::Method { .. } => return Some(symbol),
+                SymbolKind::Program
+                | SymbolKind::Function { .. }
+                | SymbolKind::FunctionBlock
+                | SymbolKind::Class
+                | SymbolKind::Property { .. }
+                | SymbolKind::Action => return None,
+                _ => {}
+            }
+        }
+        current = scope.parent;
+    }
+    None
+}
+
+/// Whether `member` is one of a block's body-only members, an in-out or a `VAR_TEMP`, which a
+/// method of the same block may not name: the analysis rejects it there (specification 14 §6.1.2).
+fn is_body_only_in(
+    member: &trust_hir::symbols::Symbol,
+    method: Option<&trust_hir::symbols::Symbol>,
+) -> bool {
+    method.is_some_and(|method| method.parent == member.parent)
+        && matches!(
+            member.kind,
+            SymbolKind::Parameter {
+                direction: ParamDirection::InOut
+            } | SymbolKind::Variable {
+                qualifier: trust_hir::symbols::VarQualifier::Temp
+            }
+        )
 }
 
 fn namespace_path_for_scope(symbols: &SymbolTable, scope_id: ScopeId) -> Vec<SmolStr> {
@@ -288,7 +438,7 @@ fn completion_item_for_symbol(
         CompletionKind::Constant
     } else {
         match symbol.kind {
-            SymbolKind::Variable { .. } => CompletionKind::Variable,
+            SymbolKind::Variable { .. } | SymbolKind::Parameter { .. } => CompletionKind::Variable,
             SymbolKind::Function { .. } => CompletionKind::Function,
             SymbolKind::Method { .. } => CompletionKind::Method,
             SymbolKind::Property { .. } => CompletionKind::Property,
@@ -452,31 +602,8 @@ fn using_scope_symbol_completions(
                     continue;
                 }
 
-                let kind = if symbol_is_constant(symbol) {
-                    CompletionKind::Constant
-                } else {
-                    match symbol.kind {
-                        SymbolKind::Variable { .. } => CompletionKind::Variable,
-                        SymbolKind::Constant => CompletionKind::Constant,
-                        SymbolKind::Function { .. } => CompletionKind::Function,
-                        SymbolKind::FunctionBlock => CompletionKind::FunctionBlock,
-                        SymbolKind::Class => CompletionKind::Type,
-                        SymbolKind::Method { .. } => CompletionKind::Method,
-                        SymbolKind::Property { .. } => CompletionKind::Property,
-                        SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
-                        SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
-                        SymbolKind::Namespace => CompletionKind::Namespace,
-                        SymbolKind::Program
-                        | SymbolKind::ProgramInstance
-                        | SymbolKind::Action
-                        | SymbolKind::Parameter { .. }
-                        | SymbolKind::Configuration
-                        | SymbolKind::Resource
-                        | SymbolKind::Task => CompletionKind::Variable,
-                    }
-                };
-
-                let mut item = CompletionItem::new(symbol.name.clone(), kind);
+                let mut item =
+                    CompletionItem::new(symbol.name.clone(), symbol_completion_kind(symbol));
                 if let Some(type_name) = TypeId::builtin_name(symbol.type_id) {
                     item = item.with_detail(type_name);
                 }

@@ -107,6 +107,10 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
     // §10.2, §8.8).
     trust_runtime::native::admit_on_this_computer(&bundle.image)?;
     trust_runtime::native::check_resource(&bundle.image, &bundle.runtime.resource_name)?;
+    // An MQTT driver's tag mappings are part of its configuration, which the start resolves
+    // against the program before it builds the driver (specification 32 §5): `validate` validates
+    // the I/O-driver configurations as the start does (specification 11).
+    check_mqtt_tag_mappings(&bundle)?;
     // Launch's own identify check (spec 11, "Identify", load): a project that `validate` accepts is
     // a project that `run` accepts.
     check_bundle_identify_output(&bundle)?;
@@ -124,6 +128,33 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
         "io_driver": io_drivers.first().cloned().unwrap_or_default(),
         "io_drivers": io_drivers,
     }))
+}
+
+/// Resolves the tag mappings of each enabled MQTT driver against the bundle's program, as the start
+/// does (`CompiledRuntime::add_io_config`), so that a tag the start refuses fails validation with
+/// the start's error. A project without mappings loads no program.
+fn check_mqtt_tag_mappings(bundle: &RuntimeBundle) -> anyhow::Result<()> {
+    let mapped: Vec<_> = bundle
+        .io
+        .drivers
+        .iter()
+        .filter(|driver| {
+            driver.enabled
+                && trust_runtime::io::takes_tag_mappings(driver.name.as_str())
+                && driver.params.get("mappings").is_some()
+        })
+        .collect();
+    if mapped.is_empty() {
+        return Ok(());
+    }
+    let program = trust_runtime::CompiledRuntime::load(
+        bundle.image.clone(),
+        bundle.runtime.resource_name.clone(),
+    )?;
+    for driver in mapped {
+        trust_runtime::io::resolve_compiled_mqtt_tag_mappings(&program, &driver.params)?;
+    }
+    Ok(())
 }
 
 /// Why a project's runtime cannot run its program: runtime.toml names a resource the program's

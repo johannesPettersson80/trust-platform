@@ -377,8 +377,28 @@ expression: output
       }
     }
   ],
-  "completion": [],
-  "completionResolve": null,
+  "completion": [
+    {
+      "detail": "INT",
+      "documentation": {
+        "kind": "markdown",
+        "value": "Namespace: Lib"
+      },
+      "kind": 3,
+      "label": "Foo",
+      "sortText": "00010"
+    }
+  ],
+  "completionResolve": {
+    "detail": "INT",
+    "documentation": {
+      "kind": "markdown",
+      "value": "Namespace: Lib"
+    },
+    "kind": 3,
+    "label": "Foo",
+    "sortText": "00010"
+  },
   "declaration": {
     "range": {
       "end": {
@@ -1146,11 +1166,7 @@ expression: output
       }
     },
     "didChangeWatchedFiles": {
-      "afterCreate": {
-        "content": "PROGRAM Watch\nEND_PROGRAM\n",
-        "isOpen": false,
-        "version": 0
-      },
+      "afterCreate": null,
       "afterDelete": null
     },
     "didClose": null,

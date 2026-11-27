@@ -253,8 +253,11 @@ fn test_programs_live_beside_a_configuration_or_in_the_oscat_test_projects() {
 
 /// The shipped examples omit the control endpoint and token, so every platform uses its default
 /// and no example commits a token. An example keeps an explicit Unix socket only where its own
-/// instructions name that socket: its trust-lsp.toml, a Markdown file or a start script beside its
-/// runtime configuration (spec 11, section 6.8.0a).
+/// instructions name that socket: a Markdown file or a start script beside its runtime
+/// configuration; a trust-lsp.toml is configuration and does not count (spec 11, section 6.8.0a).
+/// Catches a committed token, an endpoint the platform default should give, and a socket pinned
+/// in an example's configuration files alone, as examples' trust-lsp.toml files pinned a socket
+/// that no runtime of theirs bound.
 #[test]
 fn every_example_omits_the_control_endpoint_and_token_or_names_its_socket_in_its_instructions() {
     let repo = repository_root();
@@ -304,7 +307,7 @@ fn every_example_omits_the_control_endpoint_and_token_or_names_its_socket_in_its
             .expect("an example configuration has a folder");
         if !instructions_name_socket(folder, socket) {
             failures.push(format!(
-                "{name}: names the socket {socket}, which no trust-lsp.toml, Markdown file or start script beside it names"
+                "{name}: names the socket {socket}, which no Markdown file or start script beside it names"
             ));
         }
     }
@@ -336,16 +339,15 @@ fn collect_runtime_configs(folder: &Path, configs: &mut Vec<PathBuf>) {
     }
 }
 
-/// Whether the example's own instructions in `folder` name `socket`: its trust-lsp.toml, a
-/// Markdown file or a shell script.
+/// Whether the example's own instructions in `folder` name `socket`: a Markdown file or a shell
+/// script.
 fn instructions_name_socket(folder: &Path, socket: &str) -> bool {
     let Ok(entries) = fs::read_dir(folder) else {
         return false;
     };
     entries.flatten().any(|entry| {
         let name = entry.file_name().to_string_lossy().into_owned();
-        let instructions =
-            name == "trust-lsp.toml" || name.ends_with(".md") || name.ends_with(".sh");
+        let instructions = name.ends_with(".md") || name.ends_with(".sh");
         instructions && fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(socket))
     })
 }

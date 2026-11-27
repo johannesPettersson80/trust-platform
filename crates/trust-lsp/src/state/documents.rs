@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rustc_hash::{FxHashMap, FxHashSet};
 use tower_lsp::lsp_types::Url;
 
@@ -152,7 +154,7 @@ pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, cont
 /// changed the project, because the document left it or its buffer differed from the file.
 pub(super) fn close_document(state: &ServerState, uri: &Url) -> bool {
     // Resolved on disk before the membership locks are taken.
-    let in_project = project_folder_holds(state, uri);
+    let in_project = state.project_folder_holds(uri);
     let mut project = state.project.write();
     let mut docs = state.documents.write();
     let Some(doc) = docs.get_mut(uri).and_then(DocumentEntry::resident_mut) else {
@@ -192,18 +194,67 @@ pub(super) fn close_document(state: &ServerState, uri: &Url) -> bool {
     changed
 }
 
-/// Whether a project folder holds `uri`'s file: an own source folder or a library folder of a
-/// workspace folder's project, compared where both resolve on disk (specification 14 §7.2.1).
-fn project_folder_holds(state: &ServerState, uri: &Url) -> bool {
-    let Some(path) = uri_to_path(uri) else {
-        return false;
-    };
-    let file = canonicalize_through_existing_ancestor(&path);
-    state
-        .project_folders
-        .read()
-        .values()
-        .any(|folders| folders.holds(&file))
+impl ServerState {
+    /// Whether a project folder holds `uri`'s file: an own source folder or a library folder of a
+    /// workspace folder's project, compared where both resolve on disk (specification 14 §7.2.1).
+    pub(crate) fn project_folder_holds(&self, uri: &Url) -> bool {
+        let Some(path) = uri_to_path(uri) else {
+            return false;
+        };
+        let file = canonicalize_through_existing_ancestor(&path);
+        self.project_folders
+            .read()
+            .values()
+            .any(|folders| folders.holds(&file))
+    }
+
+    /// Removes the sources that no project folder holds any more and that no open document
+    /// holds, with their documents: after a configuration change, the files of a library or
+    /// dependency that the configuration no longer names, as a closed document outside every
+    /// project folder leaves the project (specification 14 §7.2.1, §7.6). Returns how many sources
+    /// left.
+    pub(crate) fn drop_sources_outside_project_folders(&self) -> usize {
+        let folders: Vec<_> = self.project_folders.read().values().cloned().collect();
+        let paths: Vec<PathBuf> = self
+            .project
+            .read()
+            .sources()
+            .iter()
+            .filter_map(|(key, _)| match key {
+                SourceKey::Path(path) => Some(path.clone()),
+                _ => None,
+            })
+            .collect();
+        // Resolved on disk before the membership locks are taken.
+        let outside: FxHashSet<PathBuf> = paths
+            .into_iter()
+            .filter(|path| {
+                let file = canonicalize_through_existing_ancestor(path);
+                !folders.iter().any(|folders| folders.holds(&file))
+            })
+            .collect();
+        if outside.is_empty() {
+            return 0;
+        }
+        remove_sources(self, |project, docs| {
+            let open: FxHashSet<FileId> = docs
+                .values()
+                .filter_map(DocumentEntry::resident)
+                .filter(|doc| doc.is_open)
+                .map(|doc| doc.file_id)
+                .collect();
+            project
+                .sources()
+                .iter()
+                .filter_map(|(key, id)| match key {
+                    SourceKey::Path(path) if outside.contains(path) && !open.contains(&id) => {
+                        Some(id)
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+    }
 }
 
 pub(super) fn remove_document(state: &ServerState, uri: &Url) -> Option<FileId> {

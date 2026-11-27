@@ -158,7 +158,7 @@ workspace indexing.
 
 ##### 6.1.1 Trigger Points
 
-- After `.` - member completion
+- After `.` - member completion, also while a member's name is being typed after the dot (`Timer.E`)
 - After `:` - type completion
 - After `(` / inside call arguments - parameter-name completions for formal calls (`name :=` / `name =>`) with direction-aware binding (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50/71)
 - After typed literal prefixes (`T#`, `DATE#`, `TOD#`, `DT#`, etc.) - range-aware typed literal snippets with format hints (IEC 61131-3 Ed.3, 6.1.5; Tables 5-9)
@@ -169,12 +169,32 @@ workspace indexing.
 
 | Context | Suggestions |
 |---------|-------------|
-| After `.` on FB | Properties, methods |
+| After `.` on a function-block instance | Inputs, outputs, public variables, properties, methods (below) |
 | After `.` on STRUCT | Fields |
+| After `.` on a namespace's name | The namespace's declarations (below) |
 | After `:` | Types in scope |
 | Call arguments | Formal parameter names + in-scope expressions (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50/71) |
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
 | Expression | Variables, literals, standard functions/FBs with IEC docs (IEC 61131-3 Ed.3, Tables 22-36, 43-46) |
+
+After `.` on a function-block instance, completion offers the members that code there may name. Outside the block
+these are its inputs, which the separate input assignment `FB_INST.In := A` sets, its outputs, which
+`B := FB_INST.Out` reads, and its public variables, properties and methods (IEC 61131-3 Ed.3 §6.6.3.4.2, Figure 13;
+§6.6.3.2 item 11). Its in-outs are not offered there, since Figure 13 (rows 5 and 6) does not allow them outside the
+block, nor are its protected or private members. Inside the block, and in a block derived from it, those are offered
+too, except in a method of the block itself: its in-outs and `VAR_TEMP` variables belong to the block's body, and the
+analysis rejects them in its methods, so completion leaves them out there. The rule that decides which accesses the analysis accepts also decides what is offered (§6.6.4), so a standard
+function block (`TON`: `IN`, `PT`, `Q`, `ET`) and a block of another file or of a library follow it alike. Completion
+asked again while a member's name is being typed, as an editor does while the user types, offers the same members.
+
+After `.` on a namespace's name (`Company.Project.`), completion offers the declarations of that namespace, from
+every file of the project, that code there may name: its nested namespaces, types and POUs, and the globals of a
+CODESYS GVL (`GVL_IO.`), since an element of a namespace is named from outside it through the namespace's name and a
+following `.` (IEC 61131-3 Ed.3 §6.9.3). Nothing below an `INTERNAL` namespace is offered outside it (specification
+03 §4). A local declaration named like the namespace hides it (specification 09 §1.3), and the members of that
+declaration are offered instead. Completion asked again while a declaration's name is being typed offers the same
+declarations, and an instance named through its namespace (`GVL_IO.gPump.`) offers its members as any instance
+does. A dot of a qualified type name (`item : Company.Project.`) completes a type, as after `:`.
 
 The names completion offers in a scope are every declaration of the project that the position reaches by name,
 whether the file names it yet or not. A file's analysis holds only the declarations the file names (§10.2), so
@@ -785,6 +805,15 @@ program execution or an IEC 61131-3 deviation.
   the language rules, which follow the workspace folders' configurations (below).
 - The server finds the projects when it indexes a workspace folder, and again when a config file is created,
   changed or deleted; a file it indexes or opens later is placed in its project before it is analyzed.
+- A changed configuration takes effect at once. When the server indexes again after a config file changed, a
+  document that is not open and that no project folder of the new configurations holds leaves the project, as a
+  closed document outside every project folder does (§7.2.1): the files of a `[[libraries]]` entry, a
+  `library_paths` folder or a dependency that the configuration no longer names. An open document stays while it is
+  open. The open documents' diagnostics are then refreshed, so a name that only the removed library declared is
+  reported, and it resolves again when the entry comes back. A file that the file watcher reports created or changed
+  is indexed only when a project folder holds it, as the workspace indexing does, so a removed library's file that
+  changes stays out. Until 27 November 2026 a removed library kept its
+  declarations until the server restarted.
 - `[project]` supports `include_paths` (the project's own source folders), `library_paths` (library folders, indexed like `[[libraries]]` entries named after their folder), `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
 - `vendor_profile` selects the language rules of the whole analysis (diagnostics, hover, completion, `trust-lsp check`), and the runtime build, the debugger and the runtime's web IDE take the same rules from the project's `vendor_profile`, with the conversion rules it selects (docs/specs/07-standard-functions.md section 2.10):
   - `iec`, `siemens`, `mitsubishi`, `gxworks3`, an empty name or none: IEC 61131-3 as truST reads it.

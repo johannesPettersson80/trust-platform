@@ -1,3 +1,6 @@
+#[path = "support/runtime_process.rs"]
+mod runtime_process;
+
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -321,4 +324,50 @@ fn deprecated_config_ui_serve_warns_before_shared_project_validation() {
     );
 
     let _ = std::fs::remove_file(project);
+}
+
+/// Specification 11: `trust-runtime validate` validates the enabled I/O-driver configurations as
+/// the start does, and specification 32 §5: the start resolves each MQTT tag mapping against the
+/// program, so `validate` refuses a mapping whose tag names no variable of a program instance, with
+/// the start's error. The traffic-light example's `MainInstance.Red` becomes `MainInstance.Blue`.
+/// Catches a `validate` that accepts a project that the start refuses, as it did until 27 November
+/// 2026. The test needs the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN for the build.
+#[test]
+fn validate_refuses_an_mqtt_mapping_whose_tag_names_no_variable() {
+    let root = runtime_process::project_copy::copy_example("communication/mqtt_traffic_light");
+    let project = root.join("examples/communication/mqtt_traffic_light");
+    let io = project.join("io.toml");
+    let text = std::fs::read_to_string(&io).expect("io.toml");
+    assert!(text.contains("tag = \"MainInstance.Red\""));
+    std::fs::write(
+        &io,
+        text.replace("tag = \"MainInstance.Red\"", "tag = \"MainInstance.Blue\""),
+    )
+    .expect("io.toml");
+    let in_project =
+        |args: &[&str]| {
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
+            .current_dir(&project)
+            .args(args)
+            .output()
+            .expect("run trust-runtime in the project")
+        };
+    let built = in_project(&["build", "--project", ".", "--sources", "src"]);
+    assert!(built.status.success(), "build: {}", stderr(&built));
+
+    let validated = in_project(&["validate", "--project", "."]);
+    assert!(
+        !validated.status.success(),
+        "validate refuses the project that the start refuses"
+    );
+    assert!(
+        stderr(&validated).contains(
+            "io.params.mappings[2].tag: 'MainInstance.Blue' names no variable of a program instance"
+        ),
+        "stderr was:\n{}",
+        stderr(&validated)
+    );
+    let _ = std::fs::remove_dir_all(&root);
 }
