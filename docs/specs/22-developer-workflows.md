@@ -81,6 +81,13 @@ flow works without repository-root fallback. Success requires these paths to
 return without a compile, type-check, lowering, or validation error; this
 bounded fixture set does not certify arbitrary Structured Text programs.
 
+Tutorial 14 runs on tutorial 13's project as its README writes it, on Linux
+and macOS: revision A deployed with `trust-runtime deploy` runs on the store's
+`current` link and copies `%IX0.0` to `%QX0.0`; after revision B is deployed,
+the running program stays A until `shutdown` and `restart cold` load B, which
+inverts the input; after `trust-runtime rollback`, the same restart loads A
+again (specification 34 §11.2 and STATE-08).
+
 Three tutorials additionally define executable behavior locks:
 
 - `02_blinker.st` starts with `Lamp = FALSE`. After 250 ms and one cycle it is
@@ -95,6 +102,14 @@ Three tutorials additionally define executable behavior locks:
 - `05_motor_starter.st` starts stopped, latches `MotorRun` and
   `SealInContact` after `StartPb`, remains latched when `StartPb` is released,
   unlatches on `StopPb`, can start again, and unlatches on `OverloadTrip`.
+
+Tutorial 23 runs on tutorial 13's project as its README writes it: with its
+allowlist of `P1.StartCmd` and `P1.LampOut` and the input set on and off with
+`ctl io-write`, the history file `history/historian.jsonl` holds exactly those
+two variables, equal in every sample and of the BOOL kind, and the Prometheus
+path `/metrics` names the runtime's uptime, a fault total of 0 and a historian
+sample total of at least the samples in the file (specification 11, the
+runtime historian's recording and export contract).
 
 Every observed cycle in these behavior locks must complete without runtime
 errors. The exact delays and I/O sequences above describe the shipped tutorial

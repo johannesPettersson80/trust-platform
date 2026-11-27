@@ -597,6 +597,57 @@ END_FUNCTION_BLOCK
         );
     }
 
+    /// Specification 14 §6.1.1: a dot of a qualified type name is no member access, so completion at
+    /// `item : Company.Project.Mo|` stays type completion (Codex's review of #842): it offers the
+    /// type keywords and the block. Catches the member rule taking the dot and answering nothing.
+    #[test]
+    fn a_qualified_type_name_keeps_type_completion() {
+        let source = r#"
+NAMESPACE Company
+NAMESPACE Project
+FUNCTION_BLOCK Motor
+END_FUNCTION_BLOCK
+END_NAMESPACE
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    item : Company.Project.Mo|
+END_VAR
+END_PROGRAM
+"#;
+        let labels = sorted_labels_at(source);
+        for offered in ["INT", "Motor"] {
+            assert!(labels.iter().any(|label| label == offered), "{offered} in {labels:?}");
+        }
+    }
+
+    /// Specification 14 §6.1.1, as for a declaration's type: a dot of a qualified base name after
+    /// `EXTENDS` or of an interface name after `IMPLEMENTS` is no member access, so completion there
+    /// stays type completion and offers the namespace's class and interface (Codex's review of
+    /// #842). Catches the member rule taking the dot and answering nothing.
+    #[test]
+    fn a_qualified_base_or_interface_name_keeps_type_completion() {
+        let library = r#"
+NAMESPACE Company
+CLASS Base
+END_CLASS
+INTERFACE IRun
+END_INTERFACE
+END_NAMESPACE
+"#;
+        for (declaration, offered) in [
+            ("CLASS Derived EXTENDS Company.Ba|\nEND_CLASS\n", "Base"),
+            ("CLASS Runner IMPLEMENTS Company.IR|\nEND_CLASS\n", "IRun"),
+        ] {
+            let labels = sorted_labels_at(&format!("{library}\n{declaration}"));
+            assert!(
+                labels.iter().any(|label| label == offered),
+                "{offered} in {labels:?}"
+            );
+        }
+    }
+
     /// Specification 14 §6.1.1: completion asked again while a member's name is typed after the dot
     /// (`Timer.E`, as VS Code asks while the user types) offers the members, not the statement list.
     /// Catches the context taken from the token after the cursor, which answered keywords such as

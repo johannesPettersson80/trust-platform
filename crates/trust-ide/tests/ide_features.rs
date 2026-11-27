@@ -41,3 +41,5 @@ mod ide_features_part_07;
 mod ide_features_part_08;
 #[path = "ide_features/ide_features_part_09.rs"]
 mod ide_features_part_09;
+#[path = "ide_features/namespace_member_completion.rs"]
+mod namespace_member_completion;

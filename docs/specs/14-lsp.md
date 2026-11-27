@@ -171,6 +171,7 @@ workspace indexing.
 |---------|-------------|
 | After `.` on a function-block instance | Inputs, outputs, public variables, properties, methods (below) |
 | After `.` on STRUCT | Fields |
+| After `.` on a namespace's name | The namespace's declarations (below) |
 | After `:` | Types in scope |
 | Call arguments | Formal parameter names + in-scope expressions (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50/71) |
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
@@ -186,6 +187,15 @@ own and inherited, belong to its body, and the analysis rejects them in its meth
 completion leaves them out there. The rule that decides which accesses the analysis accepts also decides what is offered (§6.6.4), so a standard
 function block (`TON`: `IN`, `PT`, `Q`, `ET`) and a block of another file or of a library follow it alike. Completion
 asked again while a member's name is being typed, as an editor does while the user types, offers the same members.
+
+After `.` on a namespace's name (`Company.Project.`), completion offers the declarations of that namespace, from
+every file of the project, that code there may name: its nested namespaces, types and POUs, and the globals of a
+CODESYS GVL (`GVL_IO.`), since an element of a namespace is named from outside it through the namespace's name and a
+following `.` (IEC 61131-3 Ed.3 §6.9.3). Nothing below an `INTERNAL` namespace is offered outside it (specification
+03 §4). A local declaration named like the namespace hides it (specification 09 §1.3), and the members of that
+declaration are offered instead. Completion asked again while a declaration's name is being typed offers the same
+declarations, and an instance named through its namespace (`GVL_IO.gPump.`) offers its members as any instance
+does. A dot of a qualified type name (`item : Company.Project.`) completes a type, as after `:`.
 
 The names completion offers in a scope are every declaration of the project that the position reaches by name,
 whether the file names it yet or not. A file's analysis holds only the declarations the file names (§10.2), so
@@ -638,8 +648,14 @@ count the same locations or symbols twice. Without a partial-result token, the
 complete result remains in the final response.
 
 Runtime-assisted inline values are an optional interactive enhancement, not a
-reason to block the editor. Connect, read, and write operations against the
-configured runtime control endpoint use a 250 ms I/O bound. An unavailable,
+reason to block the editor. Their endpoint is the `[runtime] control_endpoint`
+of `trust-lsp.toml`, else the editor's `runtime.controlEndpoint` setting, else
+the simulator that a launch started for the document's workspace folder: the
+endpoint and token that the language server named for that folder
+(`trust-lsp.simulatorControl`, specification 25 §6.8) and keeps for the
+session, the innermost folder when folders nest. A configured token never
+reaches the simulator. Connect, read, and write operations against the
+endpoint use a 250 ms I/O bound. An unavailable,
 silent, or malformed endpoint produces no runtime-derived inline values and
 returns within that bound; static inline values remain independently
 available. This timeout behavior is tooling policy, not IEC program semantics.
@@ -891,7 +907,7 @@ The stable resolver codes are:
 - `[indexing]` cache options: `cache` (default true) enables persistent index caching across sessions; `cache_dir` overrides the cache location. Cache reuse checks file metadata and stored content hashes.
 - `[indexing]` memory budget controls: `memory_budget_mb` caps closed-document index memory (MB) and `evict_to_percent` defines the LRU eviction target; evicted documents are reloaded on demand when accessed.
 - `[indexing]` adaptive throttling: `throttle_idle_ms`, `throttle_active_ms`, `throttle_max_ms`, and `throttle_active_window_ms` pace background indexing based on recent editor activity and observed per-file work.
-- `[runtime]` supports `control_endpoint` and optional `control_auth_token` for debug-assisted inline values; a repository `control_endpoint` is contacted only with the repository `control_auth_token` (never the editor's token), and the editor's `controlAuthToken` setting is sent only to the editor's own `controlEndpoint` setting.
+- `[runtime]` supports `control_endpoint` and optional `control_auth_token` for debug-assisted inline values; a repository `control_endpoint` is contacted only with the repository `control_auth_token` (never the editor's token), and the editor's `controlAuthToken` setting is sent only to the editor's own `controlEndpoint` setting. Without either endpoint, inline values reach the simulator of the document's workspace folder (§7.1.2), so a project names no endpoint for a debug session.
 - `[diagnostics]` toggles warning categories (`warn_unused`, `warn_unreachable`, `warn_missing_else`, `warn_implicit_conversion`, `warn_shadowed`, `warn_deprecated`, `warn_complexity`, `warn_nondeterminism`, `warn_numeric_hazards`) for vendor-dialect alignment (IEC 61131-3 Ed.3 §6.4.2; §7.3.3.3.3). Cyclomatic complexity warnings (W008) use a default threshold of 15; unused warnings (W001/W002/W009) cover variables, parameters, and top-level POUs; numeric hazard warnings (W013/W014) cover floating-point equality and literal zero divisors.
 - `[diagnostics].rule_pack` presets safety-focused defaults (e.g., `iec-safety`, `siemens-safety`, `codesys-safety`, `beckhoff-safety`, `twincat-safety`, `mitsubishi-safety`, `gxworks3-safety`); explicit `warn_*` keys override pack defaults. `[diagnostics].severity_overrides` can promote specific warning codes to error severity (W004 missing ELSE per IEC 61131-3 Ed.3 §7.3.3.3.3; W005 implicit conversion per §6.4.2; W010 TIME/DATE nondeterminism per §6.4.2; W011 direct variables per §6.5.5; W014 literal division/modulo by zero guard).
 - `[diagnostics].external_paths` lists JSON diagnostics payloads from external linters (optional per-diagnostic fix data yields quick-fix actions).
