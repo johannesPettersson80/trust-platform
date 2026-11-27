@@ -156,7 +156,6 @@
     "examples/communication/ads_server_basic/README.md",
     "examples/communication/ethercat_field_validated_es/README.md",
     "examples/communication/gpio/README.md",
-    "examples/communication/mqtt_traffic_light/README.md",
     "examples/communication/opcua/README.md",
     "examples/control-cascade-commissioning/README.md",
     "examples/control-onoff-commissioning/README.md",
@@ -200,14 +199,12 @@
     "examples/tutorials/11_unit_testing_102/README.md",
     "examples/tutorials/12_hmi_pid_process_dashboard/README.md",
     "examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md",
-    "examples/tutorials/17_io_backends_and_multi_driver/README.md",
     "examples/tutorials/18_simulation_toml_fault_injection/README.md",
     "examples/tutorials/21_ci_cd_project_pipeline/README.md",
     "examples/tutorials/22_neovim_zed_workflow/README.md",
     "examples/tutorials/24_hmi_alarms/README.md",
     "examples/tutorials/README.md",
     "examples/twincat-ads/README.md",
-    "examples/vendor_library_stubs/README.md",
     "examples/web_ui_complete_project/README.md"
   ]
 }
