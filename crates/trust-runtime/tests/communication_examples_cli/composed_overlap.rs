@@ -16,6 +16,30 @@ const SAFE_STATE: &str = "[[io.safe_state]]\naddress = \"%QX0.0\"\nvalue = \"FAL
 const RAW_TOPICS: &str = r#"topic_in = "trust/examples/multi/start"
 topic_out = "trust/examples/multi/running""#;
 
+/// The example's Modbus/TCP drive, as `io.toml` writes it after its `[[io.drivers]]` header.
+const MODBUS_DRIVER: &str = r#"name = "modbus-tcp"
+
+[io.drivers.params]
+address = "127.0.0.1:1502"
+unit_id = 1
+timeout_ms = 500
+on_error = "fault"
+
+[[io.drivers.params.input_points]]
+image_offset = 0
+image_bit = 0
+address = 0
+function = "read_discrete_inputs"
+data_type = "bool"
+
+[[io.drivers.params.output_points]]
+image_offset = 0
+image_bit = 0
+address = 0
+function = "write_single_coil"
+data_type = "bool"
+"#;
+
 /// The data of each `io_inputs_overlap` event that `runtime` has logged, each at level `warn`.
 fn overlap_warnings(runtime: &runtime_process::Runtime) -> Vec<Value> {
     runtime
@@ -52,6 +76,67 @@ fn start_multi_driver(
         example = example.edit_source("io.toml", from, to);
     }
     example.start()
+}
+
+/// The multi_driver example with the `loopback` driver in place of its Modbus/TCP drive, started
+/// against `broker` with `edits` of its `io.toml`.
+fn start_with_loopback(
+    broker: &MqttTestBroker,
+    edits: &[(&'static str, &'static str)],
+) -> runtime_process::Runtime {
+    let endpoint: &'static str =
+        Box::leak(format!("broker = \"{}\"", broker.endpoint()).into_boxed_str());
+    let mut example = ExampleRuntime::new("communication/multi_driver")
+        .edit_source("io.toml", MODBUS_DRIVER, "name = \"loopback\"\n")
+        .edit_source("io.toml", "broker = \"127.0.0.1:1883\"", endpoint);
+    for (from, to) in edits {
+        example = example.edit_source("io.toml", from, to);
+    }
+    example.start()
+}
+
+#[test]
+fn a_loopback_is_warned_about_only_where_its_copy_of_the_outputs_reaches() {
+    // examples/communication/multi_driver with the `loopback` driver in place of its Modbus/TCP
+    // drive (specification 11 §6.5; specification 42 §5 item 4: the loopback driver copies the
+    // output image over the input image, from byte 0 as far as both reach). The output image is
+    // 1 byte (%QX0.0) and the input image 2 (%IX0.0 and %IX1.0), so the loopback fills byte 0
+    // and the MQTT mapping of P1.RemoteStart byte 1: the runtime starts without a warning. With
+    // the read mapping on P1.DriveReady, %IX0.0, instead, the mapping fills byte 0 after the
+    // loopback, and the start logs one `io_inputs_overlap` warning with `loopback:0` as the
+    // earlier driver, `mqtt:1` as the later, and byte 0 as the first and the last byte. Catches a
+    // loopback that declares the whole input image, which warns of byte 1 that it never writes,
+    // and one that declares nothing, which warns of no byte.
+    let broker = MqttTestBroker::start();
+    let separate = start_with_loopback(&broker, &[]);
+    separate.wait_until(WAIT, "a scan after the start", || {
+        separate.snapshot().is_some()
+    });
+    assert_eq!(
+        overlap_warnings(&separate),
+        Vec::<Value>::new(),
+        "the loopback's 1-byte copy stops before the mapping's byte"
+    );
+    drop(separate);
+
+    let shared = start_with_loopback(
+        &broker,
+        &[("tag = \"P1.RemoteStart\"", "tag = \"P1.DriveReady\"")],
+    );
+    shared.wait_until(WAIT, "a scan after the start", || {
+        shared.snapshot().is_some()
+    });
+    assert_eq!(
+        overlap_warnings(&shared),
+        vec![serde_json::json!({
+            "event_id": "TRUST-RT-IO-OVERLAP-001",
+            "earlier": "loopback:0",
+            "later": "mqtt:1",
+            "first_byte": 0,
+            "last_byte": 0,
+        })],
+        "one warning for the mapping on the loopback's byte"
+    );
 }
 
 #[test]

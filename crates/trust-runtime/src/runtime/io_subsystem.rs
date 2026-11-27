@@ -87,31 +87,37 @@ pub(super) fn all_drivers_simulated(drivers: &[IoDriverEntry]) -> bool {
     drivers.iter().all(|entry| entry.driver.is_simulated())
 }
 
-/// Each linked driver as its link reports it.
-pub(super) fn link_ios(drivers: &[IoDriverEntry]) -> impl Iterator<Item = LinkIo<'_>> + '_ {
-    drivers.iter().filter_map(|entry| {
+/// Each linked driver as its link reports it, with the input bytes it fills while the output image
+/// the drivers get is `outputs` bytes long.
+pub(super) fn link_ios(
+    drivers: &[IoDriverEntry],
+    outputs: usize,
+) -> impl Iterator<Item = LinkIo<'_>> + '_ {
+    drivers.iter().filter_map(move |entry| {
         entry.link.as_ref().map(|link| LinkIo {
             link,
             health: entry.driver.health(),
             enabled: entry.enabled,
             response: entry.read_time + entry.write_time,
             detail: entry.driver.detail(),
-            input_bytes: entry.driver.input_bytes(),
+            input_bytes: entry.driver.input_bytes_with_outputs(outputs),
         })
     })
 }
 
 /// Each driver whose link is not switched off, by its link or else its name, with the bytes of the
-/// input image it declares (specification 42, §5 item 4), in their order.
+/// input image it declares while the output image the drivers get is `outputs` bytes long
+/// (specification 42, §5 item 4), in their order.
 pub(super) fn declared_inputs(
     drivers: &[IoDriverEntry],
+    outputs: usize,
 ) -> Vec<(SmolStr, Vec<std::ops::Range<usize>>)> {
     drivers
         .iter()
         .filter(|entry| entry.enabled)
         .map(|entry| {
             let name = entry.link.clone().unwrap_or_else(|| entry.name.clone());
-            (name, entry.driver.input_bytes())
+            (name, entry.driver.input_bytes_with_outputs(outputs))
         })
         .collect()
 }
@@ -376,7 +382,7 @@ mod tests {
             (1, 1),
             "the other driver is read and written"
         );
-        let facts: Vec<(SmolStr, bool)> = link_ios(&drivers)
+        let facts: Vec<(SmolStr, bool)> = link_ios(&drivers, 1)
             .map(|io| (io.link.clone(), io.enabled))
             .collect();
         assert_eq!(
@@ -442,6 +448,72 @@ mod tests {
 
     fn linked(name: &str, link: &str, driver: impl IoDriver + 'static) -> IoDriverEntry {
         IoDriverEntry::new(name.into(), Some(link.into()), Box::new(driver))
+    }
+
+    #[test]
+    fn a_loopback_declares_the_input_bytes_its_copy_of_the_outputs_reaches() {
+        // Specification 42, §5 item 4, and specification 11 §6.5: the loopback driver copies the
+        // output image the drivers get over the input image, from byte 0 as far as both reach.
+        // Composed before a driver whose configuration fills input byte 1 of a 2-byte image,
+        // with a 1-byte output image it fills byte 0 alone: each link reports its own byte, the
+        // two share none, and nothing overlaps. With a 2-byte output image its copy reaches byte
+        // 1, and the overlap names that byte. Catches a loopback that declares the whole input
+        // image, which warns of, and marks stale, a byte it never writes.
+        let drivers = vec![
+            linked(
+                "loopback",
+                "loopback:0",
+                crate::io::LoopbackIoDriver::default(),
+            ),
+            linked("mqtt", "mqtt:1", DeclaringDriver(only(1..2))),
+        ];
+        let links: Vec<(SmolStr, Vec<std::ops::Range<usize>>)> = link_ios(&drivers, 1)
+            .map(|io| (io.link.clone(), io.input_bytes))
+            .collect();
+        assert_eq!(
+            links,
+            [
+                (SmolStr::new("loopback:0"), only(0..1)),
+                (SmolStr::new("mqtt:1"), only(1..2))
+            ],
+            "each link reports the bytes it fills"
+        );
+        assert_eq!(
+            crate::io::input_overlaps(&declared_inputs(&drivers, 1), 2),
+            Vec::new(),
+            "the 1-byte copy stops before byte 1"
+        );
+        assert_eq!(
+            crate::io::input_overlaps(&declared_inputs(&drivers, 2), 2),
+            vec![crate::io::InputOverlap {
+                earlier: "loopback:0".into(),
+                later: "mqtt:1".into(),
+                bytes: 1..2,
+            }],
+            "the 2-byte copy reaches byte 1"
+        );
+    }
+
+    /// The one range `range`, as a driver declares it.
+    fn only(range: std::ops::Range<usize>) -> Vec<std::ops::Range<usize>> {
+        std::iter::once(range).collect()
+    }
+
+    /// A driver whose configuration fills the input bytes it holds.
+    struct DeclaringDriver(Vec<std::ops::Range<usize>>);
+
+    impl IoDriver for DeclaringDriver {
+        fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn write_outputs(&mut self, _outputs: &[u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+            self.0.clone()
+        }
     }
 
     /// What a [`CountingDriver`] was asked.

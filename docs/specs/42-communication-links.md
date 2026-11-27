@@ -145,11 +145,12 @@ The Comm library (`libraries/comm`) holds the block:
    is not marked: the program decides what a failed link means, through its `Link` blocks. A
    driver that declares no bytes marks nothing. The runtime looks at each call of `Hmi.Display`
    (specification 39, §18 phase 5); a link it has never seen exchange data counts from when it
-   first saw it. A Modbus TCP block, a raw MQTT input topic and the `loopback` driver, which
-   copies the last output image over the input image, fill the image from its start and so
-   declare every byte (27 November 2026: the analog, counter, CAN and loopback drivers declared
-   nothing, so neither a stale value nor an overlap of composed drivers, specification 11 §6.5,
-   named them).
+   first saw it. A Modbus TCP block and a raw MQTT input topic fill the image from its start and
+   so declare every byte; the `loopback` driver, which copies the last output image over the
+   input image, declares the image from its start as far as the output image the drivers get
+   reaches (27 November 2026: the analog, counter, CAN and loopback drivers declared nothing,
+   so neither a stale value nor an overlap of composed drivers, specification 11 §6.5, named
+   them).
 
 ## 6. Tests
 
