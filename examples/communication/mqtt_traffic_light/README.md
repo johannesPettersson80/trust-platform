@@ -146,8 +146,7 @@ mapped lamp does not have until you give it one (Try it yourself).
     ```
 
 - Name a variable that the program does not declare: change `MainInstance.Red` to
-  `MainInstance.Blue`. `trust-runtime validate --project .` still answers `Project ok`, but
-  `trust-runtime run --project .` refuses to start with
+  `MainInstance.Blue`. `trust-runtime run --project .` refuses to start with
   `Error: invalid config 'io.params.mappings[2].tag: 'MainInstance.Blue' names no variable of a program instance'`.
   Change it back.
 - Give the red lamp a safe state: locate it with the lines below after `END_RESOURCE` in
