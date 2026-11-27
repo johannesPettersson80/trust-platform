@@ -83,17 +83,23 @@ or the workflow itself, it:
 
 The project's repository needs no Rust. Tutorial 21 walks through it.
 
-## Docker image (deterministic runner)
+## Docker image
 
-Build:
-
-```bash
-docker build -f docker/ci/trust-runtime-ci.Dockerfile -t trust-runtime-ci:local .
-```
-
-Run:
+`docker/ci/trust-runtime-ci.Dockerfile` builds an image with a pinned truST release, checked against its
+`SHA256SUMS`, and the release's toolchain, for a pipeline on any CI system that runs containers
+(specification 22, "Project CI image"). Build it from `docker/ci`:
 
 ```bash
-docker run --rm -v "$PWD":/workspace -w /workspace trust-runtime-ci:local \
-  cargo run -p trust-runtime --bin trust-runtime -- test --project . --ci --output junit
+docker build --build-arg TRUST_VERSION=0.44.1 -f trust-runtime-ci.Dockerfile -t trust-runtime-ci:0.44.1 .
 ```
+
+Run the CI steps in the project's folder:
+
+```bash
+docker run --rm -v "$PWD":/workspace trust-runtime-ci:0.44.1 trust-runtime build --project . --ci
+docker run --rm -v "$PWD":/workspace trust-runtime-ci:0.44.1 trust-runtime validate --project . --ci
+docker run --rm -v "$PWD":/workspace trust-runtime-ci:0.44.1 trust-dev test --project . --ci --output junit
+```
+
+The image runs as root, Docker's default user, whose data folder holds the toolchain, so the build writes
+`program.tpi` and `build/` into the project as root.
