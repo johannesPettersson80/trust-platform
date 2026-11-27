@@ -342,8 +342,8 @@ and why it matters.
 3. `15_multi_plc_discovery_mesh/README.md`
     - run two runtimes, verify discovery/pairing, and enable mesh sharing.
 4. `16_secure_remote_access/README.md`
-    - configure TCP control with auth token, pairing, and minimal firewall
-      exposure.
+    - open the web interface to the network with a token and TLS, keep the control endpoint local,
+      and pair another device.
 5. `17_io_backends_and_multi_driver/README.md`
     - configure `loopback`, `simulated`, `gpio`, `modbus-tcp`, `mqtt`, and
       composed `io.drivers`.
