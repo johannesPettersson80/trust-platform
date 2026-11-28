@@ -664,11 +664,14 @@ fn located_io(source: &str) -> Vec<(String, String, String)> {
 
 /// The rows of the "Integration map" table of `readme` whose address is a located address, as
 /// `(tag, address, direction)`; rows of local variables (address `local`) are left out.
+/// The rows of a README's integration map: the table under `## Integration map`, or under
+/// `### Integration map` in the `## Reference` of a README converted to the example standard.
 fn integration_map(readme: &str) -> Option<Vec<(String, String, String)>> {
-    let map = readme.split("## Integration map").nth(1)?;
+    let mut lines = readme.lines();
+    lines.find(|line| matches!(*line, "## Integration map" | "### Integration map"))?;
     Some(
-        map.lines()
-            .take_while(|line| !line.starts_with("## "))
+        lines
+            .take_while(|line| !line.starts_with("## ") && !line.starts_with("### "))
             .filter(|line| line.starts_with("| `"))
             .filter_map(|line| {
                 let cells: Vec<&str> = line.split('|').map(str::trim).collect();

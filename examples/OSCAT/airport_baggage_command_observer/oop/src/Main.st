@@ -191,7 +191,8 @@ END_GET
 END_PROPERTY
 END_FUNCTION_BLOCK
 
-(* Scan role: Main wires the example objects and exposes the PLC call path under test. *)
+(* Scan role: Main wires the diverter once, decides each bag once, when the scanner reports a new bag id,
+   and maps the last decision to the solenoids. *)
 PROGRAM Main
 VAR
     Diverter : BaggageDiverter;
@@ -200,9 +201,15 @@ VAR
     LeftOut : BOOL;
     RightOut : BOOL;
     RejectOut : BOOL;
+    Initialized : BOOL;
 END_VAR
-Diverter.Initialize();
-Diverter.ProcessBag(BagId := BagIdRaw, ScannerResult := ScannerResultRaw);
+IF NOT Initialized THEN
+    Diverter.Initialize();
+    Initialized := TRUE;
+END_IF;
+IF (BagIdRaw <> INT#0) AND (BagIdRaw <> Diverter.LastBagId) THEN
+    Diverter.ProcessBag(BagId := BagIdRaw, ScannerResult := ScannerResultRaw);
+END_IF;
 LeftOut := Diverter.LastCommandId = INT#1;
 RightOut := Diverter.LastCommandId = INT#2;
 RejectOut := Diverter.LastCommandId = INT#3;

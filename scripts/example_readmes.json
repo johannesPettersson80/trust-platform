@@ -4,11 +4,8 @@
   "pending": [
     "examples/OSCAT/README.md",
 
-    "examples/OSCAT/airport_baggage_command_observer/README.md",
 
-    "examples/OSCAT/airport_baggage_command_observer/non-oop/README.md",
 
-    "examples/OSCAT/airport_baggage_command_observer/oop/README.md",
 
     "examples/OSCAT/battery_energy_storage_facade/README.md",
 
