@@ -207,6 +207,13 @@ impl MeshService {
         }
     }
 
+    /// The runtimes of this mesh as its liveliness registry knows them, for a watch that outlives
+    /// no mesh (specification 11, "A mesh says which peers come, go or stay away").
+    #[must_use]
+    pub fn peers(&self) -> super::MeshPeers {
+        super::MeshPeers(Arc::downgrade(&self.peer_registry))
+    }
+
     #[must_use]
     pub fn liveliness_snapshot(&self) -> MeshLivelinessSnapshot {
         if let Ok(guard) = self.peer_registry.lock() {

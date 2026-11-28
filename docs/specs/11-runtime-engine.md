@@ -7906,6 +7906,17 @@ Rules:
 - **A mesh that does not start says so.** When its session does not open, the runtime runs on
   without the mesh, logs the warning event `mesh_unavailable` with the reason and reports the
   mesh as degraded with it in its fleet topology.
+- **A mesh says which peers come, go or stay away.** A runtime of the mesh joins it when it links
+  and declares itself, and leaves it when it stops or its link drops; the runtime logs the event
+  `mesh_peer_joined` (level `info`) and `mesh_peer_left` (level `warn`) with the peer's name, as it
+  names its peers ("Runtime Cloud sites"). Five seconds after the mesh started, the runtime logs the
+  warning event `mesh_peer_missing` once for each peer that its subscriptions name and that is not
+  in the mesh then, with `subscriptions`, the keys of the subscriptions that wait for it, `waited_ms` and a
+  `hint`: the peer may not run, no `connect` entry may reach it, the subscription may name it by
+  another name than its resource name, or the two meshes may have different `auth_token`s, and the
+  mesh cannot tell which, since a peer that refuses a link says nothing to the one it refuses. A
+  peer that joins later is logged as joined (27 November 2026: tutorial 15's runtime whose mesh
+  waited for a peer with another token, or for a misnamed one, logged nothing).
 
 ##### Realtime T0 transport and cycle contract
 
