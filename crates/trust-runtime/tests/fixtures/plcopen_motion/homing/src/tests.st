@@ -389,12 +389,16 @@ ASSERT_TRUE(ReadInfo.IsHomed);
 ASSERT_TRUE(ReadPosition.Position = REAL#106.0);
 END_TEST_PROGRAM
 
-TEST_PROGRAM plcopen_motion_homing_blocks_are_refused_while_disabled_and_in_errorstop
-(* PLCopen Part 1 §2.1, which the homing blocks of Part 5 follow as motion commands: in Disabled the
-   FBs do not move the axis, and in ErrorStop no further motion command is accepted until a reset.
-   Each homing block issued on a Disabled axis ends in Error with mcERR_NotPowered (16#0105), and in
-   ErrorStop with mcERR_InvalidState (16#0100), stays not Busy and starts no homing. Catches a
-   homing block that homes an unpowered or faulted axis (G348b). *)
+TEST_PROGRAM plcopen_motion_homing_step_blocks_are_refused_while_disabled_and_in_errorstop
+(* PLCopen Part 1 §2.1, which the homing step blocks of Part 5 follow as motion commands: in Disabled
+   the FBs do not move the axis, and in ErrorStop no further motion command is accepted until a
+   reset. Each of the five step blocks issued on a Disabled axis ends in Error with
+   mcERR_NotPowered (16#0105), and in ErrorStop with mcERR_InvalidState (16#0100), and neither
+   Busy, Active, Done nor CommandAborted, and starts no homing; when its Execute falls, its Error
+   clears on that scan (Part 1 §2.4.1). The static blocks MC_HomeDirect, MC_HomeAbsolute and
+   MC_FinishHoming are not refused without power: Part 5 §1.2 lets them home an axis 'without
+   having power-stage set in the drive'. Catches a step block that homes an unpowered or faulted
+   axis, a refusal that outlasts Execute, and a static block refused without power (G348b). *)
 VAR
     Axis : AXIS_REF;
     Seed : TRUST_MOTION_TestAxisSeed;
@@ -406,8 +410,6 @@ VAR
     StepReferencePulse : MC_StepReferencePulse;
     StepDistanceCoded : MC_StepDistanceCoded;
     HomeDirect : MC_HomeDirect;
-    HomeAbsolute : MC_HomeAbsolute;
-    FinishHoming : MC_FinishHoming;
     ReadStatus : MC_ReadStatus;
 END_VAR
 
@@ -418,44 +420,58 @@ StepAbsoluteSwitch(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#m
 ASSERT_TRUE(StepAbsoluteSwitch.Error);
 ASSERT_EQUAL(WORD#16#0105, StepAbsoluteSwitch.ErrorID);
 ASSERT_FALSE(StepAbsoluteSwitch.Busy);
+ASSERT_FALSE(StepAbsoluteSwitch.Active);
+ASSERT_FALSE(StepAbsoluteSwitch.Done);
+ASSERT_FALSE(StepAbsoluteSwitch.CommandAborted);
 StepLimitSwitch(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepLimitSwitch.Error);
 ASSERT_EQUAL(WORD#16#0105, StepLimitSwitch.ErrorID);
 ASSERT_FALSE(StepLimitSwitch.Busy);
+ASSERT_FALSE(StepLimitSwitch.Active);
+ASSERT_FALSE(StepLimitSwitch.Done);
+ASSERT_FALSE(StepLimitSwitch.CommandAborted);
 StepBlock(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepBlock.Error);
 ASSERT_EQUAL(WORD#16#0105, StepBlock.ErrorID);
 ASSERT_FALSE(StepBlock.Busy);
+ASSERT_FALSE(StepBlock.Active);
+ASSERT_FALSE(StepBlock.Done);
+ASSERT_FALSE(StepBlock.CommandAborted);
 StepReferencePulse(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepReferencePulse.Error);
 ASSERT_EQUAL(WORD#16#0105, StepReferencePulse.ErrorID);
 ASSERT_FALSE(StepReferencePulse.Busy);
+ASSERT_FALSE(StepReferencePulse.Active);
+ASSERT_FALSE(StepReferencePulse.Done);
+ASSERT_FALSE(StepReferencePulse.CommandAborted);
 StepDistanceCoded(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepDistanceCoded.Error);
 ASSERT_EQUAL(WORD#16#0105, StepDistanceCoded.ErrorID);
 ASSERT_FALSE(StepDistanceCoded.Busy);
-HomeDirect(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
-ASSERT_TRUE(HomeDirect.Error);
-ASSERT_EQUAL(WORD#16#0105, HomeDirect.ErrorID);
-ASSERT_FALSE(HomeDirect.Busy);
-HomeAbsolute(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
-ASSERT_TRUE(HomeAbsolute.Error);
-ASSERT_EQUAL(WORD#16#0105, HomeAbsolute.ErrorID);
-ASSERT_FALSE(HomeAbsolute.Busy);
-FinishHoming(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
-ASSERT_TRUE(FinishHoming.Error);
-ASSERT_EQUAL(WORD#16#0105, FinishHoming.ErrorID);
-ASSERT_FALSE(FinishHoming.Busy);
+ASSERT_FALSE(StepDistanceCoded.Active);
+ASSERT_FALSE(StepDistanceCoded.Done);
+ASSERT_FALSE(StepDistanceCoded.CommandAborted);
 ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.Disabled);
 StepAbsoluteSwitch(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(StepAbsoluteSwitch.Error);
+ASSERT_EQUAL(WORD#16#0000, StepAbsoluteSwitch.ErrorID);
 StepLimitSwitch(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(StepLimitSwitch.Error);
+ASSERT_EQUAL(WORD#16#0000, StepLimitSwitch.ErrorID);
 StepBlock(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(StepBlock.Error);
+ASSERT_EQUAL(WORD#16#0000, StepBlock.ErrorID);
 StepReferencePulse(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(StepReferencePulse.Error);
+ASSERT_EQUAL(WORD#16#0000, StepReferencePulse.ErrorID);
 StepDistanceCoded(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
-HomeDirect(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
-HomeAbsolute(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
-FinishHoming(Axis := Axis, Execute := FALSE, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(StepDistanceCoded.Error);
+ASSERT_EQUAL(WORD#16#0000, StepDistanceCoded.ErrorID);
+HomeDirect(Axis := Axis, Execute := TRUE, SetPosition := REAL#7.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(HomeDirect.Error);
+HomeDirect(Axis := Axis, Execute := FALSE, SetPosition := REAL#7.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Seed(Axis := Axis, ResetDefaults := TRUE);
 Power(Axis := Axis, Enable := TRUE);
 Faulted(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
 Seed(Axis := Axis, ResetDefaults := FALSE, ApplyAxisError := TRUE, AxisErrorID := WORD#16#0200);
@@ -466,34 +482,37 @@ StepAbsoluteSwitch(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#m
 ASSERT_TRUE(StepAbsoluteSwitch.Error);
 ASSERT_EQUAL(WORD#16#0100, StepAbsoluteSwitch.ErrorID);
 ASSERT_FALSE(StepAbsoluteSwitch.Busy);
+ASSERT_FALSE(StepAbsoluteSwitch.Active);
+ASSERT_FALSE(StepAbsoluteSwitch.Done);
+ASSERT_FALSE(StepAbsoluteSwitch.CommandAborted);
 StepLimitSwitch(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepLimitSwitch.Error);
 ASSERT_EQUAL(WORD#16#0100, StepLimitSwitch.ErrorID);
 ASSERT_FALSE(StepLimitSwitch.Busy);
+ASSERT_FALSE(StepLimitSwitch.Active);
+ASSERT_FALSE(StepLimitSwitch.Done);
+ASSERT_FALSE(StepLimitSwitch.CommandAborted);
 StepBlock(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepBlock.Error);
 ASSERT_EQUAL(WORD#16#0100, StepBlock.ErrorID);
 ASSERT_FALSE(StepBlock.Busy);
+ASSERT_FALSE(StepBlock.Active);
+ASSERT_FALSE(StepBlock.Done);
+ASSERT_FALSE(StepBlock.CommandAborted);
 StepReferencePulse(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepReferencePulse.Error);
 ASSERT_EQUAL(WORD#16#0100, StepReferencePulse.ErrorID);
 ASSERT_FALSE(StepReferencePulse.Busy);
+ASSERT_FALSE(StepReferencePulse.Active);
+ASSERT_FALSE(StepReferencePulse.Done);
+ASSERT_FALSE(StepReferencePulse.CommandAborted);
 StepDistanceCoded(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(StepDistanceCoded.Error);
 ASSERT_EQUAL(WORD#16#0100, StepDistanceCoded.ErrorID);
 ASSERT_FALSE(StepDistanceCoded.Busy);
-HomeDirect(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
-ASSERT_TRUE(HomeDirect.Error);
-ASSERT_EQUAL(WORD#16#0100, HomeDirect.ErrorID);
-ASSERT_FALSE(HomeDirect.Busy);
-HomeAbsolute(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
-ASSERT_TRUE(HomeAbsolute.Error);
-ASSERT_EQUAL(WORD#16#0100, HomeAbsolute.ErrorID);
-ASSERT_FALSE(HomeAbsolute.Busy);
-FinishHoming(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
-ASSERT_TRUE(FinishHoming.Error);
-ASSERT_EQUAL(WORD#16#0100, FinishHoming.ErrorID);
-ASSERT_FALSE(FinishHoming.Busy);
+ASSERT_FALSE(StepDistanceCoded.Active);
+ASSERT_FALSE(StepDistanceCoded.Done);
+ASSERT_FALSE(StepDistanceCoded.CommandAborted);
 ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.ErrorStop);
 END_TEST_PROGRAM

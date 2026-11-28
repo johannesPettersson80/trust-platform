@@ -149,6 +149,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
@@ -312,6 +315,9 @@ ELSIF LastExecute THEN
             g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcDisabled;
         END_IF;
         g_trust_motion_decelerating[AxisIndex] := FALSE;
+    ELSE
+        Error := FALSE;
+        ErrorID := WORD#16#0000;
     END_IF;
 ELSE
     Done := FALSE;
@@ -367,6 +373,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
@@ -525,6 +534,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF (Acceleration < REAL#0.0) OR (Deceleration < REAL#0.0) OR (Jerk < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -702,6 +714,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF (Acceleration < REAL#0.0) OR (Deceleration < REAL#0.0) OR (Jerk < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -877,6 +892,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
@@ -1055,6 +1073,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
@@ -1242,6 +1263,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
@@ -1431,6 +1455,9 @@ IF Execute AND (NOT LastExecute) THEN
     ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
         Error := TRUE;
         ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
