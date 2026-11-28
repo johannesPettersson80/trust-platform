@@ -68,7 +68,6 @@ Each example's README names what else it needs, as the table below does per cate
 ## Archive Policy
 
 - examples that are not strong public defaults belong in `examples/archive/`
-- currently, `examples/simulate_process/` is treated as archive-candidate material until it has a curated public entry README and narrower audience framing
 
 ## Recommended Learning Order
 

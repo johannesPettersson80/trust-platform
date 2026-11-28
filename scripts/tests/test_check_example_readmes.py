@@ -182,6 +182,20 @@ class ExampleReadmeStandardTests(unittest.TestCase):
                 ["scripts/example_readmes.json: lists 'examples/gone/README.md', which is no checked example README"],
             )
 
+    def test_no_readme_names_an_internal_document(self) -> None:
+        # Catches a README that sends the published examples' readers to a document they do not have, as the
+        # examples/simulate_process stub sent them to an internal checklist; a pending README is no exception.
+        stub = "# Stub\n\nSee `docs/internal/testing/checklists/example-catalog-audit.md`.\n"
+        holder, root = root_with({"examples/stub/README.md": stub}, pending=["examples/stub/README.md"])
+        with holder:
+            self.assertEqual(
+                check.findings(root),
+                [
+                    "examples/stub/README.md: names docs/internal/, which the readers of the published examples "
+                    "do not have"
+                ],
+            )
+
     def test_a_new_readme_must_follow_the_standard(self) -> None:
         # Catches a new example added in the old reference style: it is on no list, so it is checked.
         holder, root = root_with({"examples/new/README.md": "# New\n\nNotes.\n\n## Signals\n"})

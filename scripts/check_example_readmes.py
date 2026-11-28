@@ -11,7 +11,8 @@ an example's vendored libraries (`<example>/libraries/`) are not examples.
 
 `scripts/example_readmes.json` names the indexes and the pending READMEs, which are not converted
 yet. The pending list may only shrink: a listed README that passes fails here until it is taken
-off the list, and so does a listed path that does not exist.
+off the list, and so does a listed path that does not exist. No README, pending or not, names a
+path under `docs/internal/`: the published examples' readers do not have those documents.
 
 Usage: python3 scripts/check_example_readmes.py [--root DIR]
 """
@@ -33,6 +34,8 @@ SECTIONS = (
     "Reference",
 )
 LISTS = Path("scripts") / "example_readmes.json"
+# The repository's internal documents: ignored by git or kept for the project's own work, never published.
+INTERNAL = "docs/internal/"
 SECTION = re.compile(r"^## (.+?)\s*$", re.M)
 FENCE = re.compile(r"^(```|~~~).*?^\1", re.M | re.S)
 NUMBERED_STEP = re.compile(r"^\d+\. \S", re.M)
@@ -108,6 +111,8 @@ def findings(root: Path) -> list[str]:
         found.append(f"{LISTS.as_posix()}: lists '{listed}' as pending and as an index")
     for path in readmes:
         text = (root / path).read_text(encoding="utf-8")
+        if INTERNAL in text:
+            found.append(f"{path}: names {INTERNAL}, which the readers of the published examples do not have")
         problems = index_problems(text) if path in indexes else walkthrough_problems(text)
         if path in pending:
             if not problems:
