@@ -193,6 +193,121 @@ fn every_report_names_the_failing_statement() {
     );
 }
 
+/// `src/tests.st` of two statements written over several lines, its lines numbered by hand: the assertion of
+/// `SpreadOver` runs from line 6 to line 9; the `IF` of `DividesInACondition` from line 17 to line 21, its condition on
+/// lines 17 and 18, `THEN` on line 19 and the statement it holds on line 20.
+const SPREAD: &str = "TEST_PROGRAM SpreadOver
+VAR
+    Count : INT;
+END_VAR
+Count := Count + 1;
+ASSERT_EQUAL(
+    EXPECTED := INT#2,
+    ACTUAL := Count
+);
+END_TEST_PROGRAM
+
+TEST_PROGRAM DividesInACondition
+VAR
+    Divisor : DINT;
+    Flag : BOOL;
+END_VAR
+IF Flag
+    OR DINT#10 / Divisor > DINT#0
+THEN
+    Flag := FALSE;
+END_IF;
+END_TEST_PROGRAM
+";
+
+/// Specification 22: a statement written over several lines is reported with its whole own text, its lines trimmed
+/// and joined by one space, in every report. Worked by hand from [`SPREAD`]: `SpreadOver` fails at its assertion,
+/// line 6, `ASSERT_EQUAL( EXPECTED := INT#2, ACTUAL := Count );`, since `Count` is 1 after the cold restart;
+/// `DividesInACondition` ends in error at its `IF`, line 17, whose condition divides by `Divisor`, 0, and whose own text
+/// ends on line 19, before `Flag := FALSE;` on line 20: `IF Flag OR DINT#10 / Divisor > DINT#0 THEN`. Catches the
+/// first line alone, `ASSERT_EQUAL(` and `IF Flag`, and an `IF` reported with its body.
+#[test]
+fn a_statement_over_several_lines_is_reported_whole() {
+    let project = trust_test_support::unique_temp_path("trust-dev-failed-at-spread");
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(project.join("src/tests.st"), SPREAD).expect("write the tests");
+    let sources =
+        load_sources(&resolve_sources_root(&project, None).expect("sources")).expect("load");
+    let discovered = discover_tests(&sources);
+    let results =
+        execute_native_tests(&project, &discovered, &discovered, 5).expect("the compiled run");
+    let summary = summarize_results(&results);
+    let render = |output| {
+        render_output(output, &project, &results, summary, results.len(), None, 1)
+            .expect("the report")
+    };
+    let (human, tap, json, junit) = (
+        render(TestOutput::Human),
+        render(TestOutput::Tap),
+        render(TestOutput::Json),
+        render(TestOutput::Junit),
+    );
+    let _ = std::fs::remove_dir_all(&project);
+    let tests = relative("src/tests.st");
+    let assertion = "ASSERT_EQUAL( EXPECTED := INT#2, ACTUAL := Count );";
+    let condition = "IF Flag OR DINT#10 / Divisor > DINT#0 THEN";
+
+    let outcomes: Vec<_> = results
+        .iter()
+        .map(|result| (result.case.name.to_string(), result.outcome))
+        .collect();
+    assert_eq!(
+        outcomes,
+        [
+            ("SpreadOver".to_string(), TestOutcome::Failed),
+            ("DividesInACondition".to_string(), TestOutcome::Error),
+        ]
+    );
+    for (line, source, escaped) in [
+        (6, assertion, assertion),
+        (
+            17,
+            condition,
+            "IF Flag OR DINT#10 / Divisor &gt; DINT#0 THEN",
+        ),
+    ] {
+        assert!(human.contains(&format!(" {tests}:{line} [")), "{human}");
+        assert!(
+            human.contains(&format!("    source   : {source}\n")),
+            "{human}"
+        );
+        assert!(
+            human.contains(&format!("     source: {source}\n")),
+            "{human}"
+        );
+        assert!(
+            tap.contains(&format!(
+                "# file: {tests}\n# line: {line}\n# source: {source}\n"
+            )),
+            "{tap}"
+        );
+        assert!(
+            junit.contains(&format!("\nat: {tests}:{line}\nsource: {escaped}</")),
+            "{junit}"
+        );
+    }
+    let json: serde_json::Value = serde_json::from_str(&json).expect("the JSON report");
+    let failures: Vec<_> = json["tests"]
+        .as_array()
+        .expect("the tests")
+        .iter()
+        .map(|test| test["failure"].clone())
+        .collect();
+    assert_eq!(
+        failures,
+        [
+            json!({"file": tests, "line": 6, "source": assertion}),
+            json!({"file": tests, "line": 17, "source": condition}),
+        ],
+        "{json}"
+    );
+}
+
 /// The values of a failed `ASSERT_TRUE` as a device's step names them (specification 11 §6.8.1).
 fn assertion_true_failed() -> serde_json::Value {
     json!({
@@ -203,9 +318,10 @@ fn assertion_true_failed() -> serde_json::Value {
 }
 
 /// A device behind a TCP bridge that runs nothing and answers each test's steps as a device whose program raised the
-/// failures would (specification 11 §6.8.1): `FailsOnce` fails in its step at `src/tests.st` line 2, and
-/// `FailsInCycleTwo` passes its first cycle and fails in its second at line 10, each naming the statement in
-/// `error_at` and the failed `ASSERT_TRUE`'s values in `assertion`. Every other request succeeds, a status names the
+/// failures would (specification 11 §6.8.1): `FailsOnce` fails in its step at `src/tests.st` line 2, naming no
+/// `last_line`, as a runtime released before it does, and `FailsInCycleTwo` passes its first cycle and fails in its
+/// second at the statement of lines 10 to 12, each naming the statement in `error_at` and the failed `ASSERT_TRUE`'s
+/// values in `assertion`. Every other request succeeds, a status names the
 /// state that `restart` and `shutdown` set, and every reply writes `id` first, as a device does.
 fn failing_device() -> String {
     use std::io::{BufRead, Write as _};
@@ -218,10 +334,14 @@ fn failing_device() -> String {
         let (stream, _) = listener.accept().expect("the link connects");
         let mut replies = stream.try_clone().expect("the bridge's stream");
         let (mut state, mut cycle) = ("stopped", 0_u32);
-        let failed = |line: u32| {
+        let failed = |line: u32, last_line: Option<u32>| {
+            let mut at = json!({"file": "src/tests.st", "line": line});
+            if let Some(last_line) = last_line {
+                at["last_line"] = json!(last_line);
+            }
             json!({
                 "errors": ["assertion failed: ASSERT_TRUE expected TRUE, got FALSE"],
-                "error_at": {"file": "src/tests.st", "line": line},
+                "error_at": at,
                 "assertion": assertion_true_failed(),
                 "values": {},
             })
@@ -248,8 +368,8 @@ fn failing_device() -> String {
                         cycle + 1
                     };
                     match (params["run"].as_str().unwrap_or_default(), cycle) {
-                        ("FailsOnce", _) => failed(2),
-                        ("FailsInCycleTwo", 2) => failed(10),
+                        ("FailsOnce", _) => failed(2, None),
+                        ("FailsInCycleTwo", 2) => failed(10, Some(12)),
                         _ => json!({"errors": [], "values": {}}),
                     }
                 }
@@ -266,9 +386,11 @@ fn failing_device() -> String {
 
 /// Specification 22: a device's run names the failing statement and the failed assertion's values as this computer's
 /// does, from the statement its step names in `error_at` and the values in `assertion` (specification 11 §6.8.1). Worked
-/// by hand from the fake device's replies: `FailsOnce` fails at `src/tests.st` line 2, and `FailsInCycleTwo` fails in its
-/// second cycle at line 10, each an `ASSERT_TRUE` that expected TRUE and found FALSE. Catches a device run that drops the
-/// statement and reports the test's declaration, lines 1 and 5, and one that drops the values.
+/// by hand from the fake device's replies: `FailsOnce` fails at `src/tests.st` line 2, its last line taken as line 2,
+/// and `FailsInCycleTwo` fails in its second cycle at the statement of lines 10 to 12, reported as
+/// `ASSERT_TRUE( Cycles < 2 );`, each an `ASSERT_TRUE` that expected TRUE and found FALSE. Catches a device run that
+/// drops the statement and reports the test's declaration, lines 1 and 5, one that drops its last line or refuses a
+/// reply without one, and one that drops the values.
 #[test]
 fn a_device_run_names_the_statement_its_step_names() {
     let project = trust_test_support::unique_temp_path("trust-dev-device-failed-at");
@@ -276,7 +398,8 @@ fn a_device_run_names_the_statement_its_step_names() {
     std::fs::write(
         project.join("src/tests.st"),
         "TEST_PROGRAM FailsOnce\nASSERT_TRUE(FALSE);\nEND_TEST_PROGRAM\n\nTEST_PROGRAM FailsInCycleTwo\nVAR\n    Cycles : INT;\n\
-         END_VAR\nCycles := Cycles + 1;\nASSERT_TRUE(Cycles < 2);\nIF Cycles >= 3 THEN\n    TEST_FINISHED();\nEND_IF\nEND_TEST_PROGRAM\n",
+         END_VAR\nCycles := Cycles + 1;\nASSERT_TRUE(\n    Cycles < 2\n);\nIF Cycles >= 3 THEN\n    TEST_FINISHED();\nEND_IF\n\
+         END_TEST_PROGRAM\n",
     )
     .expect("write the tests");
     let sources =
@@ -292,6 +415,17 @@ fn a_device_run_names_the_statement_its_step_names() {
         None,
     )
     .expect("the run on the device");
+    let summary = summarize_results(&results);
+    let human = render_output(
+        TestOutput::Human,
+        &project,
+        &results,
+        summary,
+        results.len(),
+        None,
+        1,
+    )
+    .expect("the report");
     let _ = std::fs::remove_dir_all(&project);
 
     let places: Vec<_> = results
@@ -303,7 +437,7 @@ fn a_device_run_names_the_statement_its_step_names() {
                 result
                     .failed_at
                     .as_ref()
-                    .map(|at| (at.file.to_string(), at.line)),
+                    .map(|at| (at.file.to_string(), at.line, at.last_line)),
             )
         })
         .collect();
@@ -313,14 +447,18 @@ fn a_device_run_names_the_statement_its_step_names() {
             (
                 "FailsOnce".to_string(),
                 TestOutcome::Failed,
-                Some(("src/tests.st".to_string(), 2))
+                Some(("src/tests.st".to_string(), 2, 2))
             ),
             (
                 "FailsInCycleTwo".to_string(),
                 TestOutcome::Failed,
-                Some(("src/tests.st".to_string(), 10))
+                Some(("src/tests.st".to_string(), 10, 12))
             ),
         ]
+    );
+    assert!(
+        human.contains("    source   : ASSERT_TRUE( Cycles < 2 );\n"),
+        "{human}"
     );
     let values: Vec<_> = results
         .iter()

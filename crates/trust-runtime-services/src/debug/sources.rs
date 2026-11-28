@@ -10,6 +10,7 @@
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::native::image::StmtRecord;
 
 /// One statement of the table: its POU, its id and its 1-based source span.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,8 +48,8 @@ pub struct ResolvedStatement {
     pub end_column: u32,
 }
 
-/// Where a statement lies, as a client that holds the sources shows it: its file's label and its
-/// line.
+/// Where a statement lies, as a client that holds the sources shows it: its file's label and the
+/// lines of its own text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatementAt {
     /// The label of the statement's file: its source path relative to the project root with `/`
@@ -56,6 +57,29 @@ pub struct StatementAt {
     pub file: SmolStr,
     /// 1-based line of the statement's first byte.
     pub line: u32,
+    /// 1-based line where the statement's own text ends: its last line, or, for a statement that
+    /// holds others, such as an `IF`, the line before the first statement it holds, and never
+    /// before `line` (specification 22, "Test reporting and CI output").
+    pub last_line: u32,
+}
+
+/// The last line of `statement`'s own text, `next` being the statement after it in the table
+/// (specification 44 §5.9: ids in source order, so a statement that holds others is followed by
+/// the first one it holds): `statement`'s last line, or, when `next` begins inside it, the line
+/// before `next` begins, and never before `statement`'s first line.
+fn own_last_line(statement: &StmtRecord, next: Option<StmtRecord>) -> u32 {
+    let start = (statement.start_line, statement.start_column);
+    // The end column is the column after the statement's last character.
+    let end = (statement.end_line, statement.end_column);
+    let held = next.filter(|next| {
+        let begins = (next.start_line, next.start_column);
+        next.file == statement.file && start <= begins && begins < end
+    });
+    match held {
+        Some(next) => next.start_line.saturating_sub(1),
+        None => statement.end_line,
+    }
+    .max(statement.start_line)
 }
 
 /// Where statement `id` of `image` lies, from the image's statement table (specification 44 §5.9);
@@ -66,15 +90,18 @@ pub fn statement_at(
     image: &trust_runtime_core::native::image::Image<'_>,
     id: u32,
 ) -> Option<StatementAt> {
-    use trust_runtime_core::native::image::{FileRecord, StmtRecord};
-    let statement = image.table::<StmtRecord>().ok()?.get(id)?;
+    use trust_runtime_core::native::image::FileRecord;
+    let statements = image.table::<StmtRecord>().ok()?;
+    let statement = statements.get(id)?;
     let file = image
         .table::<FileRecord>()
         .ok()?
         .get(u32::from(statement.file))?;
+    let next = id.checked_add(1).and_then(|next| statements.get(next));
     Some(StatementAt {
         file: SmolStr::new(image.string(file.label)?),
         line: statement.start_line,
+        last_line: own_last_line(&statement, next),
     })
 }
 
@@ -115,7 +142,7 @@ impl LineSources {
     /// ids are in source order, so a statement comes before the statements nested in it.
     #[must_use]
     pub fn from_image(image: &trust_runtime_core::native::image::Image<'_>) -> Self {
-        use trust_runtime_core::native::image::{FileRecord, StmtRecord};
+        use trust_runtime_core::native::image::FileRecord;
         // Each list holds exactly its entries: the memory figure counts them (specification 44 §10.4).
         let mut labels = Vec::new();
         if let Ok(records) = image.table::<FileRecord>() {
@@ -367,5 +394,40 @@ mod tests {
             .resolve_breakpoint(0, 4, 9)
             .expect("the next statement");
         assert_eq!((next.line, next.column), (5, 5));
+    }
+
+    #[test]
+    fn a_statement_s_own_text_ends_before_the_first_statement_it_holds() {
+        // Specification 22, "Test reporting and CI output": a report shows the statement's own
+        // text. An assertion over lines 6 to 9 that holds nothing ends on line 9, whether the table
+        // ends after it or goes on with a statement after it; an `IF` from 17:1 to 21:8 whose first
+        // held statement begins at 20:5 ends on line 19; an `IF` from 3:1 to 5:8 whose held
+        // statement begins on line 3 ends on line 3; the `IF` of line 17 followed by a statement
+        // of another file at 18:1 holds nothing and ends on line 21; a statement from 1:1 to 3:10
+        // followed by one at 3:10, the column after its last character, holds nothing and ends on
+        // line 3. Wrong behaviour caught: an `IF` whose whole body is reported, a statement of
+        // another file taken as held, and the end column read as the last character's.
+        let record = |file, start_line, start_column, end_line, end_column| StmtRecord {
+            file,
+            pou: 0,
+            start_line,
+            start_column,
+            end_line,
+            end_column,
+        };
+        let assertion = record(0, 6, 1, 9, 3);
+        assert_eq!(own_last_line(&assertion, None), 9);
+        assert_eq!(own_last_line(&assertion, Some(record(0, 10, 1, 10, 20))), 9);
+        let branch = record(0, 17, 1, 21, 8);
+        assert_eq!(own_last_line(&branch, Some(record(0, 20, 5, 20, 19))), 19);
+        assert_eq!(own_last_line(&branch, Some(record(1, 18, 1, 18, 9))), 21);
+        assert_eq!(
+            own_last_line(&record(0, 3, 1, 5, 8), Some(record(0, 3, 11, 3, 18))),
+            3
+        );
+        assert_eq!(
+            own_last_line(&record(0, 1, 1, 3, 10), Some(record(0, 3, 10, 3, 20))),
+            3
+        );
     }
 }

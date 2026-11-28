@@ -3707,10 +3707,14 @@ watchdog bounds the scan as it bounds every scan. The result is
 `{"time_ns": t, "values": {...}, "direct": {...}, "errors": [...]}`: each value as a conformance
 artifact writes it (`{"type": "INT", "value": 7}`, a duration in `nanos`, a date in `ticks`), and in
 `errors` the text of the error the scan ended with, none for a scan that completed. When a statement
-of a debug image raised that error, the result adds `"error_at": {"file": "src/tests.st", "line": 7}`:
-the statement's file, by the label of specification 44 §5.9, and its line, from the image's statement
-table (specification 44 §8.6), so that a client with the sources, such as `trust-dev test --device`,
-shows the statement as it shows one of its own runs (specification 22). When a failed assertion ended
+of a debug image raised that error, the result adds
+`"error_at": {"file": "src/tests.st", "line": 7, "last_line": 9}`: the statement's file, by the label
+of specification 44 §5.9, its line and the last line of its own text, from the image's statement
+table (specification 44 §8.6): the statement's last line, or, for a statement that holds others,
+such as an `IF`, the line before the first one it holds. A client with the sources, such as
+`trust-dev test --device`, shows the statement as it shows one of its own runs (specification 22);
+it takes a reply without `last_line`, from a runtime released before it, as naming the first line
+alone. When a failed assertion ended
 the scan, the result adds its values as `"assertion": {"name": "ASSERT_EQUAL", "expected": {...},
 "actual": {...}}`, the object of specification 22, each value in the encoding above. When the
 program is a debug image with Rust POUs, the result adds `rust_pous`, each Rust POU's record after

@@ -385,11 +385,17 @@ the folder's whole path in the same form.
 A test that fails or ends in error at a statement is reported at that
 statement: the failed assertion, or the statement whose error ended the test,
 which may lie in a function or function block the test calls. Its file,
-relative to the project folder as above, its line and its source line, trimmed,
-come from the statement table of the program image (specification 44 §8.6), on
-this computer as on a device, whose `cycle.step` names the statement
-(specification 11 §6.8.1). The human output's and TAP's file, line and source
-then name that statement. JSON and JUnit keep naming the test by its
+relative to the project folder as above, its line and its source come from the
+statement table of the program image (specification 44 §5.9, §8.6), on this
+computer as on a device, whose `cycle.step` names the statement (specification
+11 §6.8.1). The source is the statement's own text, from its first line to its
+last, each line trimmed and the lines that are not empty joined by one space,
+so that an assertion written over several lines is shown whole; a statement
+that holds others, such as an `IF` or a `FOR`, ends before the line where the
+first statement it holds begins, so that a failure in its condition shows the
+condition and not the body (27 November 2026: the source was the first line
+alone, such as `ASSERT_EQUAL(`). The human output's and TAP's file, line and
+source then name that statement. JSON and JUnit keep naming the test by its
 declaration's file and line, by which the editor ties a result to its test, and
 add the statement: JSON as the test's `failure` object (`file`, `line`,
 `source`), JUnit as an `at: <file>:<line>` line and its `source:` line in the

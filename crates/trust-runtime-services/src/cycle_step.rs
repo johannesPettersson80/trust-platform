@@ -233,8 +233,8 @@ pub fn request<H: ResourcePort>(id: u64, params: Option<&JsonValue>, host: &H) -
 }
 
 /// The result of a step: `{"time_ns", "values", "direct", "errors"}`, the values in the encoding of
-/// [`encode_value`] and `errors` the text of the error the scan ended with; `error_at`, the file and
-/// line of the statement that raised it, and `assertion`, a failed assertion's values, when the
+/// [`encode_value`] and `errors` the text of the error the scan ended with; `error_at`, the file,
+/// line and last line of the statement that raised it, and `assertion`, a failed assertion's values, when the
 /// outcome names them; `rust_pous`, each Rust POU's record as `tasks.stats` lists it, when the
 /// program is a debug image with Rust POUs.
 #[must_use]
@@ -252,7 +252,8 @@ pub fn reply(time: Duration, outcome: &StepOutcome) -> JsonValue {
         "errors": outcome.error.iter().map(ToString::to_string).collect::<Vec<_>>(),
     });
     if let Some(at) = &outcome.error_at {
-        result["error_at"] = json!({"file": at.file.as_str(), "line": at.line});
+        result["error_at"] =
+            json!({"file": at.file.as_str(), "line": at.line, "last_line": at.last_line});
     }
     if let Some(assertion) = &outcome.assertion {
         result["assertion"] = assertion_json(assertion);
