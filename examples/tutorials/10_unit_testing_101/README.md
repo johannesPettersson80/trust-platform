@@ -126,14 +126,14 @@ and tutorial 21 runs the tests in CI.
     Running 3 ST test(s) in .
     FAIL [1/3] TEST_PROGRAM::LimitAddAndScaling src/tests.st:6 [0ms]
         reason   : ASSERT_EQUAL failed: expected 5, actual 7
-        source   : ASSERT_EQUAL(
+        source   : ASSERT_EQUAL( EXPECTED := INT#5, ACTUAL := LimitAdd(AddendA := INT#3, AddendB := INT#4, MaxValue := INT#5) );
     PASS [2/3] TEST_FUNCTION_BLOCK::StartStopSequence (src/tests.st) [0ms]
     PASS [3/3] TEST_PROGRAM::ComparisonAssertions (src/tests.st) [0ms]
 
     Failure summary:
       1. TEST_PROGRAM::LimitAddAndScaling @ src/tests.st:6
          ASSERT_EQUAL failed: expected 5, actual 7
-         source: ASSERT_EQUAL(
+         source: ASSERT_EQUAL( EXPECTED := INT#5, ACTUAL := LimitAdd(AddendA := INT#3, AddendB := INT#4, MaxValue := INT#5) );
     2 passed, 1 failed, 0 errors (279ms)
     Error: 1 ST test(s) failed
     exit 1
@@ -159,7 +159,7 @@ behind. A `TEST_PROGRAM` runs its body once, and so does a `TEST_FUNCTION_BLOCK`
 **Passed, failed, error.** A test passes when its body runs to its end with every assertion
 holding. A failed assertion ends its test at once as failed: without the limit, the `ASSERT_FALSE`
 on line 21 fails too, but in step 7 the test had ended at line 6. The report gives the file and
-line where the assertion begins, its first source line and its message, and `--output json` writes
+line where the assertion begins, the whole assertion with its lines joined, and its message, and `--output json` writes
 the same results for a program, with the assertion's values typed: `INT` 5 expected and 7 actual
 in step 7. Any other runtime error, such as a division by zero, ends the test as an error. The
 other tests run anyway, and the command ends with exit code 1 when a test failed or ended in
