@@ -835,3 +835,13 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - `INTERNAL` on an element outside any namespace is an error, since there is no namespace to limit it to.
 - Reason:
   - The examples are the standard's own use of the feature, and its grammar would refuse its own Example 1. One rule for elements and members, the exact declaring namespace, keeps a nested namespace from reaching what its parent kept to itself, which is the conservative reading of "within the namespace itself".
+
+## 2026-11-28 - The parent of an INTERNAL namespace
+
+- Area: namespaces (`NAMESPACE INTERNAL`)
+- IEC context: IEC 61131-3 Ed.3 Figure 29 ("Accessibility using namespaces (Rules)") gives, for a namespace with the specifier `INTERNAL`, separate columns for access from "All Namespaces except parent namespace" and from the "Parent namespace": a `PUBLIC` element is reached from the parent and from inside the namespace, and from no other namespace; an `INTERNAL` element only from inside. truST had reached an `INTERNAL` namespace's elements only from inside it, which refused the parent's access that the figure allows; the figure does not say whether a namespace nested in the parent counts as the parent.
+- Decision:
+  - An `INTERNAL` namespace's elements are reached from inside it and from its exact parent namespace, the global namespace for one at the top, and from no other namespace: a namespace nested in the parent beside it is not the parent.
+  - Completion offers what an `INTERNAL` namespace holds where code may name it, the parent included.
+- Reason:
+  - The figure is the standard's rule, and its separate column for the parent says that an `INTERNAL` namespace is internal to its parent, as a nested module that only its owner uses. Keeping a sibling out follows the figure's "All Namespaces except parent namespace" column literally.

@@ -863,3 +863,55 @@ END_FUNCTION_BLOCK
 "#,
     );
 }
+
+#[test]
+fn member_access_internal_namespace_public_member_from_its_parent_namespace() {
+    // IEC 61131-3 Ed.3 Figure 29: a PUBLIC element of an INTERNAL namespace is reached from its
+    // parent namespace: the global namespace for Hidden and for Outer, and Plant for Plant.Hidden.
+    // Catches the earlier reading that only the inside of the INTERNAL namespace reaches it, which
+    // refused the parent that the figure allows (docs/IEC_DECISIONS.md, 2026-11-28).
+    check_no_errors(
+        r#"
+NAMESPACE INTERNAL Hidden
+CLASS Device
+METHOD PUBLIC Read : INT
+Read := INT#1;
+END_METHOD
+END_CLASS
+END_NAMESPACE
+NAMESPACE INTERNAL Outer
+NAMESPACE Inner
+CLASS Device
+METHOD PUBLIC Read : INT
+Read := INT#2;
+END_METHOD
+END_CLASS
+END_NAMESPACE
+END_NAMESPACE
+NAMESPACE Plant
+NAMESPACE INTERNAL Hidden
+CLASS Device
+METHOD PUBLIC Read : INT
+Read := INT#3;
+END_METHOD
+END_CLASS
+END_NAMESPACE
+PROGRAM Line
+VAR
+    DeviceInstance : Hidden.Device;
+    ResultValue : INT;
+END_VAR
+ResultValue := DeviceInstance.Read();
+END_PROGRAM
+END_NAMESPACE
+PROGRAM Main
+VAR
+    First : Hidden.Device;
+    Second : Outer.Inner.Device;
+    ResultValue : INT;
+END_VAR
+ResultValue := First.Read() + Second.Read();
+END_PROGRAM
+"#,
+    );
+}

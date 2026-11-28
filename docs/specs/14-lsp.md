@@ -191,8 +191,10 @@ asked again while a member's name is being typed, as an editor does while the us
 After `.` on a namespace's name (`Company.Project.`), completion offers the declarations of that namespace, from
 every file of the project, that code there may name: its nested namespaces, types and POUs, and the globals of a
 CODESYS GVL (`GVL_IO.`), since an element of a namespace is named from outside it through the namespace's name and a
-following `.` (IEC 61131-3 Ed.3 §6.9.3). Nothing below an `INTERNAL` namespace is offered outside it (specification
-03 §4). A local declaration named like the namespace hides it (specification 09 §1.3), and the members of that
+following `.` (IEC 61131-3 Ed.3 §6.9.3). Nothing below an `INTERNAL` namespace is offered outside it and its parent
+namespace (specification 03 §4, IEC 61131-3 Ed.3 Figure 29), and an `INTERNAL` element of a namespace, a type or a
+POU, is offered only in its own namespace, after its namespace's name and `.` or by its name through a `USING`
+(specification 04, "Namespaces", rule 6). A local declaration named like the namespace hides it (specification 09 §1.3), and the members of that
 declaration are offered instead. Completion asked again while a declaration's name is being typed offers the same
 declarations, and an instance named through its namespace (`GVL_IO.gPump.`) offers its members as any instance
 does. A dot of a qualified type name (`item : Company.Project.`) completes a type, as after `:`.

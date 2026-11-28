@@ -576,9 +576,13 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             if matches!(symbol.kind, SymbolKind::Namespace)
                 && symbol.visibility == Visibility::Internal
             {
-                let mut required = self.namespace_path_for_symbol(current_id);
+                // IEC 61131-3 Ed.3 Figure 29: an INTERNAL namespace's elements are reached from
+                // inside it and from its parent namespace, the global one for a namespace at the
+                // top, and from no other (docs/IEC_DECISIONS.md, 2026-11-28).
+                let parent = self.namespace_path_for_symbol(current_id);
+                let mut required = parent.clone();
                 required.push(symbol.name.clone());
-                if !current_namespace.starts_with(&required) {
+                if !current_namespace.starts_with(&required) && current_namespace != parent {
                     return Some(current_id);
                 }
             }

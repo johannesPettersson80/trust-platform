@@ -388,7 +388,10 @@ function-block type itself has been resolved. It never makes an inaccessible
 type or an element of an `INTERNAL` containing namespace visible. IEC Figure
 29 requires every containing namespace/type restriction and the member
 restriction to be satisfied; an outer element can narrow access but cannot
-broaden it.
+broaden it. An `INTERNAL` namespace's elements are reached from inside it and
+from its parent namespace, the global namespace for one at the top, and from
+no other namespace, a namespace nested in the parent included (Figure 29;
+docs/IEC_DECISIONS.md, 2026-11-28).
 
 For ordinary `VAR` members of a `CLASS` or object-oriented
 `FUNCTION_BLOCK`:
