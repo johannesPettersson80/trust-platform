@@ -75,6 +75,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF (Velocity < REAL#0.0) OR (TorqueLimit < REAL#0.0) OR (DistanceLimit < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -210,6 +213,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF (Velocity < REAL#0.0) OR (TorqueLimit < REAL#0.0) OR (DistanceLimit < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -344,6 +350,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF (Velocity < REAL#0.0) OR (DetectionVelocityLimit < REAL#0.0) OR (TorqueLimit < REAL#0.0) OR (DistanceLimit < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -487,6 +496,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF (Velocity < REAL#0.0) OR (TorqueLimit < REAL#0.0) OR (DistanceLimit < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -611,6 +623,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF (Velocity < REAL#0.0) OR (TorqueLimit < REAL#0.0) OR (DistanceLimit < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -725,6 +740,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
@@ -819,6 +837,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
         Error := TRUE;
         ErrorID := WORD#16#0500;
@@ -918,6 +939,9 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
     ELSIF (Velocity < REAL#0.0) OR (Acceleration < REAL#0.0) OR (Deceleration < REAL#0.0) OR (Jerk < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;

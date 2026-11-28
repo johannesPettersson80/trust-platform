@@ -602,6 +602,182 @@ ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.Disabled);
 END_TEST_PROGRAM
 
+TEST_PROGRAM plcopen_motion_single_axis_motion_commands_are_refused_while_disabled
+(* PLCopen Part 1 §2.1: in Disabled "the movement of the axis is not influenced by the FBs". Each
+   motion block issued on a Disabled axis, before the power ever came on and again after it went
+   off, ends in Error with mcERR_NotPowered (16#0105), stays not Busy and leaves the axis where it
+   is and Disabled; with the power on, the same command is accepted. Catches a motion block that
+   moves an unpowered axis or takes it out of Disabled (G348b). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    Home : MC_Home;
+    Stop : MC_Stop;
+    Halt : MC_Halt;
+    MoveAbsolute : MC_MoveAbsolute;
+    MoveRelative : MC_MoveRelative;
+    MoveAdditive : MC_MoveAdditive;
+    MoveVelocity : MC_MoveVelocity;
+    MoveContinuousAbsolute : MC_MoveContinuousAbsolute;
+    MoveContinuousRelative : MC_MoveContinuousRelative;
+    ReadStatus : MC_ReadStatus;
+    ReadPosition : MC_ReadActualPosition;
+END_VAR
+
+Axis.AxisId := UDINT#1205;
+Axis.InternalIndex := UINT#10;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Home(Axis := Axis, Execute := TRUE, Position := REAL#5.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Home.Error);
+ASSERT_EQUAL(WORD#16#0105, Home.ErrorID);
+ASSERT_FALSE(Home.Busy);
+Stop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ASSERT_TRUE(Stop.Error);
+ASSERT_EQUAL(WORD#16#0105, Stop.ErrorID);
+ASSERT_FALSE(Stop.Busy);
+Halt(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Halt.Error);
+ASSERT_EQUAL(WORD#16#0105, Halt.ErrorID);
+ASSERT_FALSE(Halt.Busy);
+MoveAbsolute(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveAbsolute.Error);
+ASSERT_EQUAL(WORD#16#0105, MoveAbsolute.ErrorID);
+ASSERT_FALSE(MoveAbsolute.Busy);
+MoveRelative(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveRelative.Error);
+ASSERT_EQUAL(WORD#16#0105, MoveRelative.ErrorID);
+ASSERT_FALSE(MoveRelative.Busy);
+MoveAdditive(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveAdditive.Error);
+ASSERT_EQUAL(WORD#16#0105, MoveAdditive.ErrorID);
+ASSERT_FALSE(MoveAdditive.Busy);
+MoveVelocity(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveVelocity.Error);
+ASSERT_EQUAL(WORD#16#0105, MoveVelocity.ErrorID);
+ASSERT_FALSE(MoveVelocity.Busy);
+MoveContinuousAbsolute(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveContinuousAbsolute.Error);
+ASSERT_EQUAL(WORD#16#0105, MoveContinuousAbsolute.ErrorID);
+ASSERT_FALSE(MoveContinuousAbsolute.Busy);
+MoveContinuousRelative(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Distance := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveContinuousRelative.Error);
+ASSERT_EQUAL(WORD#16#0105, MoveContinuousRelative.ErrorID);
+ASSERT_FALSE(MoveContinuousRelative.Busy);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Disabled);
+ReadPosition(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadPosition.Position = REAL#0.0);
+Home(Axis := Axis, Execute := FALSE, Position := REAL#5.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Stop(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+Halt(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveAbsolute(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveRelative(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveAdditive(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveVelocity(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveContinuousAbsolute(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveContinuousRelative(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Distance := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Power(Axis := Axis, Enable := TRUE);
+MoveAbsolute(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(MoveAbsolute.Error);
+ASSERT_TRUE(MoveAbsolute.Busy);
+MoveAbsolute(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+Power(Axis := Axis, Enable := FALSE);
+MoveRelative(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveRelative.Error);
+ASSERT_EQUAL(WORD#16#0105, MoveRelative.ErrorID);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Disabled);
+END_TEST_PROGRAM
+
+TEST_PROGRAM plcopen_motion_single_axis_motion_commands_are_refused_in_errorstop
+(* PLCopen Part 1 §2.1: in ErrorStop "There is no further motion command accepted until a reset has
+   been done". Each motion block issued in ErrorStop ends in Error with mcERR_InvalidState
+   (16#0100), stays not Busy and leaves the axis in ErrorStop; after MC_Reset, with the power on, a
+   move is accepted. Catches a motion block that moves a faulted axis or takes it out of ErrorStop
+   without a reset (G348b). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    Faulted : MC_MoveAbsolute;
+    Home : MC_Home;
+    Stop : MC_Stop;
+    Halt : MC_Halt;
+    MoveAbsolute : MC_MoveAbsolute;
+    MoveRelative : MC_MoveRelative;
+    MoveAdditive : MC_MoveAdditive;
+    MoveVelocity : MC_MoveVelocity;
+    MoveContinuousAbsolute : MC_MoveContinuousAbsolute;
+    MoveContinuousRelative : MC_MoveContinuousRelative;
+    Reset : MC_Reset;
+    ReadStatus : MC_ReadStatus;
+END_VAR
+
+Axis.AxisId := UDINT#1206;
+Axis.InternalIndex := UINT#11;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Power(Axis := Axis, Enable := TRUE);
+Faulted(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyAxisError := TRUE, AxisErrorID := WORD#16#0200);
+Faulted(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+Home(Axis := Axis, Execute := TRUE, Position := REAL#5.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Home.Error);
+ASSERT_EQUAL(WORD#16#0100, Home.ErrorID);
+ASSERT_FALSE(Home.Busy);
+Stop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ASSERT_TRUE(Stop.Error);
+ASSERT_EQUAL(WORD#16#0100, Stop.ErrorID);
+ASSERT_FALSE(Stop.Busy);
+Halt(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Halt.Error);
+ASSERT_EQUAL(WORD#16#0100, Halt.ErrorID);
+ASSERT_FALSE(Halt.Busy);
+MoveAbsolute(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveAbsolute.Error);
+ASSERT_EQUAL(WORD#16#0100, MoveAbsolute.ErrorID);
+ASSERT_FALSE(MoveAbsolute.Busy);
+MoveRelative(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveRelative.Error);
+ASSERT_EQUAL(WORD#16#0100, MoveRelative.ErrorID);
+ASSERT_FALSE(MoveRelative.Busy);
+MoveAdditive(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveAdditive.Error);
+ASSERT_EQUAL(WORD#16#0100, MoveAdditive.ErrorID);
+ASSERT_FALSE(MoveAdditive.Busy);
+MoveVelocity(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveVelocity.Error);
+ASSERT_EQUAL(WORD#16#0100, MoveVelocity.ErrorID);
+ASSERT_FALSE(MoveVelocity.Busy);
+MoveContinuousAbsolute(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveContinuousAbsolute.Error);
+ASSERT_EQUAL(WORD#16#0100, MoveContinuousAbsolute.ErrorID);
+ASSERT_FALSE(MoveContinuousAbsolute.Busy);
+MoveContinuousRelative(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Distance := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveContinuousRelative.Error);
+ASSERT_EQUAL(WORD#16#0100, MoveContinuousRelative.ErrorID);
+ASSERT_FALSE(MoveContinuousRelative.Busy);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+Home(Axis := Axis, Execute := FALSE, Position := REAL#5.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Stop(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+Halt(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveAbsolute(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveRelative(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveAdditive(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Distance := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveVelocity(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveContinuousAbsolute(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveContinuousRelative(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Distance := REAL#10.0, EndVelocity := REAL#1.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Reset(Axis := Axis, Execute := TRUE);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Standstill);
+MoveAbsolute(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(MoveAbsolute.Error);
+ASSERT_TRUE(MoveAbsolute.Busy);
+END_TEST_PROGRAM
+
 TEST_PROGRAM plcopen_motion_single_axis_read_status_and_reset_state_paths
 VAR
     AxisStop : AXIS_REF;
