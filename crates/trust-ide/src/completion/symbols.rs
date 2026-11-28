@@ -206,11 +206,36 @@ fn namespace_member_completions(
 /// Whether code in the namespace `here` may name `member`, a declaration of a namespace, as the
 /// analysis decides: nothing below an `INTERNAL` namespace, the member itself or one that contains
 /// it, from outside that namespace (specification 03 §4).
+/// Whether the namespace paths `left` and `right` name one namespace, its names compared without
+/// regard to case.
+fn same_namespace(left: &[SmolStr], right: &[SmolStr]) -> bool {
+    left.len() == right.len()
+        && left
+            .iter()
+            .zip(right)
+            .all(|(left, right)| left.eq_ignore_ascii_case(right))
+}
+
+/// Whether an INTERNAL element of a namespace, a POU or a type, may be named `here`: only in its
+/// exact declaring namespace (IEC 61131-3 Ed.3 §6.9.2; specification 14 §6.1.2).
+fn internal_element_is_reachable(
+    symbols: &SymbolTable,
+    member: &trust_hir::symbols::Symbol,
+    here: &[SmolStr],
+) -> bool {
+    member.visibility != Visibility::Internal
+        || matches!(member.kind, SymbolKind::Namespace)
+        || same_namespace(here, &namespace_path_for_symbol(symbols, member))
+}
+
 fn namespace_member_is_reachable(
     symbols: &SymbolTable,
     member: &trust_hir::symbols::Symbol,
     here: &[SmolStr],
 ) -> bool {
+    if !internal_element_is_reachable(symbols, member, here) {
+        return false;
+    }
     let within = |path: &[SmolStr]| {
         here.len() >= path.len()
             && here
@@ -225,9 +250,11 @@ fn namespace_member_is_reachable(
         };
         if matches!(symbol.kind, SymbolKind::Namespace) && symbol.visibility == Visibility::Internal
         {
-            let mut path = namespace_path_for_symbol(symbols, symbol);
+            // IEC 61131-3 Ed.3 Figure 29: from inside the INTERNAL namespace or its parent.
+            let parent = namespace_path_for_symbol(symbols, symbol);
+            let mut path = parent.clone();
             path.push(symbol.name.clone());
-            if !within(&path) {
+            if !within(&path) && !same_namespace(here, &parent) {
                 return false;
             }
         }
@@ -580,6 +607,7 @@ fn using_scope_symbol_completions(
 ) -> Vec<CompletionItem> {
     let mut items = Vec::new();
     let mut known = seen.clone();
+    let here = namespace_path_for_scope(symbols, scope_id);
     let mut current = Some(scope_id);
     while let Some(scope_id) = current {
         let Some(scope) = symbols.get_scope(scope_id) else {
@@ -593,7 +621,10 @@ fn using_scope_symbol_completions(
                 .iter()
                 .filter(|sym| sym.parent == Some(namespace_id))
             {
-                if matches!(symbol.kind, SymbolKind::Namespace) || symbol.modifiers.hidden {
+                if matches!(symbol.kind, SymbolKind::Namespace)
+                    || symbol.modifiers.hidden
+                    || !internal_element_is_reachable(symbols, symbol, &here)
+                {
                     continue;
                 }
                 if matches!(symbol.kind, SymbolKind::FunctionBlock)

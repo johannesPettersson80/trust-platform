@@ -663,7 +663,11 @@ END_PROGRAM
 }
 
 #[test]
-fn member_access_internal_namespace_restricts_public_member_from_global_scope() {
+fn member_access_internal_namespace_restricts_public_member_from_a_sibling_namespace() {
+    // IEC 61131-3 Ed.3 Figure 29: a PUBLIC element of an INTERNAL namespace is reached from inside
+    // it and from its parent namespace only. Hidden's parent is the global namespace; the program
+    // in the sibling namespace Other is neither. Catches the parent's access widened to every
+    // namespace.
     assert_invalid(
         r#"
 NAMESPACE INTERNAL Hidden
@@ -673,6 +677,7 @@ Read := INT#1;
 END_METHOD
 END_CLASS
 END_NAMESPACE
+NAMESPACE Other
 PROGRAM Main
 VAR
     DeviceInstance : Hidden.Device;
@@ -680,30 +685,37 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Read();
 END_PROGRAM
+END_NAMESPACE
 "#,
     );
 }
 
 #[test]
-fn member_access_internal_outer_namespace_restricts_nested_public_member() {
+fn member_access_internal_namespace_restricts_public_member_from_a_namespace_nested_in_its_parent()
+{
+    // IEC 61131-3 Ed.3 Figure 29: the parent namespace Plant reaches its INTERNAL namespace Hidden,
+    // but Plant.Other, nested in Plant beside Hidden, is not the parent. Catches the parent's
+    // access widened to the namespaces nested in it.
     assert_invalid(
         r#"
-NAMESPACE INTERNAL Outer
-NAMESPACE Inner
+NAMESPACE Plant
+NAMESPACE INTERNAL Hidden
 CLASS Device
 METHOD PUBLIC Read : INT
 Read := INT#1;
 END_METHOD
 END_CLASS
 END_NAMESPACE
-END_NAMESPACE
+NAMESPACE Other
 PROGRAM Main
 VAR
-    DeviceInstance : Outer.Inner.Device;
+    DeviceInstance : Plant.Hidden.Device;
     ResultValue : INT;
 END_VAR
 ResultValue := DeviceInstance.Read();
 END_PROGRAM
+END_NAMESPACE
+END_NAMESPACE
 "#,
     );
 }

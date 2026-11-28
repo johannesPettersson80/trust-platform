@@ -4,11 +4,15 @@
 
 use super::*;
 
-/// A library's namespaces: a block and a type in `Plant.Line1`, and an `INTERNAL` namespace
-/// beside it.
+/// A library's namespaces: a block, a type and an `INTERNAL` function in `Plant.Line1`, and an
+/// `INTERNAL` namespace beside it.
 const LIBRARY: &str = r#"
 NAMESPACE Plant
 NAMESPACE Line1
+FUNCTION INTERNAL Tune : BOOL
+Tune := TRUE;
+END_FUNCTION
+
 FUNCTION_BLOCK Motor
 VAR_INPUT
     Run : BOOL;
@@ -143,4 +147,39 @@ Plant.|
 END_PROGRAM
 "#;
     assert_eq!(labels_at(source), ["Level"]);
+}
+
+/// Catches an `INTERNAL` element of a namespace offered where naming it is an error (IEC 61131-3
+/// Ed.3 §6.9.2, specification 14 §6.1.2): `Plant.Line1.` from the global namespace leaves out its
+/// function `Tune`, which a function of `Plant.Line1` is offered.
+#[test]
+fn an_internal_element_is_offered_only_inside_its_namespace() {
+    assert_eq!(
+        labels_at("PROGRAM Main\nPlant.Line1.|\nEND_PROGRAM\n"),
+        ["Mode", "Motor", "Start"]
+    );
+    let inside = "NAMESPACE Plant.Line1\nFUNCTION Probe : BOOL\nProbe := Plant.Line1.|;\nEND_FUNCTION\nEND_NAMESPACE\n";
+    assert_eq!(
+        labels_at(inside),
+        ["Mode", "Motor", "Probe", "Start", "Tune"]
+    );
+}
+
+/// Catches an `INTERNAL` element offered by its name through a `USING` outside its namespace: the
+/// global program that uses `Plant.Line1` is offered `Start` and not `Tune`.
+#[test]
+fn an_internal_element_is_not_offered_through_using_outside_its_namespace() {
+    let labels = labels_at(
+        "USING Plant.Line1;\nPROGRAM Main\nVAR\n    Ok : BOOL;\nEND_VAR\nOk := |;\nEND_PROGRAM\n",
+    );
+    assert!(labels.contains(&"Start".to_string()), "{labels:?}");
+    assert!(!labels.contains(&"Tune".to_string()), "{labels:?}");
+}
+
+/// Catches the parent of an `INTERNAL` namespace refused what it holds (IEC 61131-3 Ed.3 Figure
+/// 29): a function of `Plant`, the parent of `Plant.Service`, is offered its `Reset`.
+#[test]
+fn an_internal_namespace_offers_what_it_holds_to_its_parent() {
+    let source = "NAMESPACE Plant\nFUNCTION Probe : BOOL\nProbe := Plant.Service.|;\nEND_FUNCTION\nEND_NAMESPACE\n";
+    assert_eq!(labels_at(source), ["Reset"]);
 }
