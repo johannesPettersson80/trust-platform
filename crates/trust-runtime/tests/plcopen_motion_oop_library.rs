@@ -26,18 +26,23 @@ fn trust_dev_bin() -> PathBuf {
     debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX))
 }
 
-fn assert_trust_dev_test_passes(project: PathBuf) {
+/// Runs the ST tests of the fixture `project` with `trust-dev test` and asserts that all `tests` of
+/// them ran and passed. The count catches a fixture whose test programs are no longer found, which
+/// `trust-dev test` reports as a success too.
+fn assert_trust_dev_test_passes(project: PathBuf, tests: usize) {
     let output = Command::new(trust_dev_bin())
         .args(["test", "--project"])
         .arg(&project)
         .output()
         .expect("run trust-dev test");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let summary = format!("{tests} passed, 0 failed, 0 errors");
 
     assert!(
-        output.status.success(),
-        "expected ST fixture tests to pass for {}\nstdout:\n{}\nstderr:\n{}",
+        output.status.success() && stdout.lines().any(|line| line.starts_with(&summary)),
+        "expected all {tests} ST tests of {} to pass\nstdout:\n{}\nstderr:\n{}",
         project.display(),
-        String::from_utf8_lossy(&output.stdout),
+        stdout,
         String::from_utf8_lossy(&output.stderr)
     );
 }
@@ -124,7 +129,33 @@ fn assert_trust_dev_test_rejects_absent_surfaces(
 
 #[test]
 fn plcopen_motion_oop_single_axis_st_unit_tests_pass() {
-    assert_trust_dev_test_passes(fixture_path("oop_single_axis"));
+    assert_trust_dev_test_passes(fixture_path("oop_single_axis"), 14);
+}
+
+#[test]
+fn plcopen_motion_single_axis_st_unit_tests_pass() {
+    // The classic single-axis package of PLCopen Part 1 (docs/specs/coverage/
+    // plcopen-motion-coverage.md): power, homing, moves, buffering, stop, reset, readbacks and
+    // parameters on the virtual axis.
+    assert_trust_dev_test_passes(fixture_path("single_axis_core"), 50);
+}
+
+#[test]
+fn plcopen_motion_homing_st_unit_tests_pass() {
+    // The homing package of PLCopen Part 5.
+    assert_trust_dev_test_passes(fixture_path("homing"), 10);
+}
+
+#[test]
+fn plcopen_motion_coordinated_motion_st_unit_tests_pass() {
+    // The axes-group package of PLCopen Part 4.
+    assert_trust_dev_test_passes(fixture_path("coordinated_motion"), 19);
+}
+
+#[test]
+fn plcopen_motion_synchronization_st_unit_tests_pass() {
+    // The camming and gearing subset of PLCopen Part 1.
+    assert_trust_dev_test_passes(fixture_path("synchronization"), 14);
 }
 
 #[test]
