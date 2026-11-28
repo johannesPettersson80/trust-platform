@@ -143,7 +143,7 @@ fn plcopen_motion_single_axis_st_unit_tests_pass() {
 #[test]
 fn plcopen_motion_homing_st_unit_tests_pass() {
     // The homing package of PLCopen Part 5.
-    assert_trust_dev_test_passes(fixture_path("homing"), 11);
+    assert_trust_dev_test_passes(fixture_path("homing"), 13);
 }
 
 #[test]

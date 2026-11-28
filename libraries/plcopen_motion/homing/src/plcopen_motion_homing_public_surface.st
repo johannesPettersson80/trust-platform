@@ -797,7 +797,6 @@ IF Execute AND (NOT LastExecute) THEN
             Active := Request.ActiveNow;
             IF Request.ActiveNow THEN
                 WasActive := TRUE;
-                g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcHoming;
             END_IF;
         END_IF;
     END_IF;
@@ -817,7 +816,6 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             WasActive := TRUE;
             Busy := TRUE;
             Active := TRUE;
-            g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcHoming;
         END_IF;
         Busy := FALSE;
         Active := FALSE;
@@ -895,7 +893,6 @@ IF Execute AND (NOT LastExecute) THEN
             Active := Request.ActiveNow;
             IF Request.ActiveNow THEN
                 WasActive := TRUE;
-                g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcHoming;
             END_IF;
         END_IF;
     END_IF;
@@ -915,7 +912,6 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             WasActive := TRUE;
             Busy := TRUE;
             Active := TRUE;
-            g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcHoming;
         END_IF;
         Busy := FALSE;
         Active := FALSE;
@@ -983,6 +979,14 @@ IF Execute AND (NOT LastExecute) THEN
     IF g_trust_motion_grouped[AxisIndex] THEN
         Error := TRUE;
         ErrorID := WORD#16#0101;
+    ELSIF (Distance <> REAL#0.0) AND (TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000) THEN
+        (* Its relative move needs a powered axis without an error (Part 1 §2.1); without one it
+           only finishes the homing. *)
+        Error := TRUE;
+        ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+        TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     ELSIF (Velocity < REAL#0.0) OR (Acceleration < REAL#0.0) OR (Deceleration < REAL#0.0) OR (Jerk < REAL#0.0) THEN
         Error := TRUE;
         ErrorID := WORD#16#0001;
@@ -1003,7 +1007,6 @@ IF Execute AND (NOT LastExecute) THEN
             Active := Request.ActiveNow;
             IF Request.ActiveNow THEN
                 WasActive := TRUE;
-                g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcHoming;
                 g_trust_motion_resolved_acceleration[AxisIndex] := TRUST_MOTION_ResolveDynamicInput(RequestedValue := Acceleration, MaximumValue := g_trust_motion_max_acceleration_appl[AxisIndex]);
                 g_trust_motion_resolved_deceleration[AxisIndex] := TRUST_MOTION_ResolveDynamicInput(RequestedValue := Deceleration, MaximumValue := g_trust_motion_max_deceleration_appl[AxisIndex]);
                 g_trust_motion_resolved_jerk[AxisIndex] := TRUST_MOTION_ResolveDynamicInput(RequestedValue := Jerk, MaximumValue := g_trust_motion_max_jerk_appl[AxisIndex]);
@@ -1026,7 +1029,6 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             WasActive := TRUE;
             Busy := TRUE;
             Active := TRUE;
-            g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcHoming;
         END_IF;
         Busy := FALSE;
         Active := FALSE;

@@ -516,3 +516,116 @@ ASSERT_FALSE(StepDistanceCoded.CommandAborted);
 ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.ErrorStop);
 END_TEST_PROGRAM
+
+TEST_PROGRAM plcopen_motion_homing_static_blocks_home_an_unpowered_axis_and_keep_it_disabled
+(* PLCopen Part 5 §1.2: MC_HomeDirect, MC_HomeAbsolute and MC_FinishHoming take the axis from Homing to
+   Standstill if started in Homing, and 'can also be called in other states than Homing making a home
+   procedure possible without having power-stage set in the drive'. On a Disabled axis MC_HomeDirect
+   sets the position and the homed flag and leaves the axis Disabled, so a move stays refused;
+   MC_FinishHoming finishes without its relative move, and its move is refused with mcERR_NotPowered.
+   Catches a static homing block that takes an unpowered axis to Standstill, through which moves would
+   then be accepted, and a relative move made without power (G348g). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    HomeDirect : MC_HomeDirect;
+    Finish : MC_FinishHoming;
+    Move : MC_MoveAbsolute;
+    ReadStatus : MC_ReadStatus;
+    ReadInfo : MC_ReadAxisInfo;
+    ReadPosition : MC_ReadActualPosition;
+END_VAR
+
+Axis.AxisId := UDINT#217;
+Axis.InternalIndex := UINT#17;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+HomeDirect(Axis := Axis, Execute := TRUE, SetPosition := REAL#7.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+HomeDirect(Axis := Axis, Execute := TRUE, SetPosition := REAL#7.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(HomeDirect.Done);
+ASSERT_FALSE(HomeDirect.Error);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Disabled);
+ReadInfo(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadInfo.IsHomed);
+ReadPosition(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadPosition.Position = REAL#7.0);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Move.Error);
+ASSERT_EQUAL(WORD#16#0105, Move.ErrorID);
+Finish(Axis := Axis, Execute := TRUE, Distance := REAL#5.0, Velocity := REAL#2.0, Acceleration := REAL#1.0, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Finish.Error);
+ASSERT_EQUAL(WORD#16#0105, Finish.ErrorID);
+Finish(Axis := Axis, Execute := FALSE, Distance := REAL#5.0, Velocity := REAL#2.0, Acceleration := REAL#1.0, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Finish(Axis := Axis, Execute := TRUE, Distance := REAL#0.0, Velocity := REAL#2.0, Acceleration := REAL#1.0, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Finish(Axis := Axis, Execute := TRUE, Distance := REAL#0.0, Velocity := REAL#2.0, Acceleration := REAL#1.0, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Finish.Done);
+ASSERT_FALSE(Finish.Error);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Disabled);
+ReadPosition(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadPosition.Position = REAL#7.0);
+END_TEST_PROGRAM
+
+TEST_PROGRAM plcopen_motion_homing_static_blocks_keep_disabled_and_errorstop_only
+(* PLCopen Part 5 §1.2: the static homing blocks take the axis from Homing to Standstill and may run in
+   other states. On a powered axis MC_HomeAbsolute at Standstill homes it at Standstill, and
+   MC_HomeDirect with mcAborting during a velocity move aborts the move (CommandAborted) and ends at
+   Standstill with the new position. In ErrorStop MC_HomeDirect homes the axis, which stays in
+   ErrorStop until a reset, and MC_FinishHoming's relative move is refused with mcERR_InvalidState.
+   Catches a static block that leaves an aborted move's state behind with no command, takes an axis
+   out of ErrorStop without a reset, or moves a faulted axis (G348g). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    HomeAbsolute : MC_HomeAbsolute;
+    HomeDirect : MC_HomeDirect;
+    Finish : MC_FinishHoming;
+    Velocity : MC_MoveVelocity;
+    Move : MC_MoveAbsolute;
+    ReadStatus : MC_ReadStatus;
+    ReadInfo : MC_ReadAxisInfo;
+    ReadPosition : MC_ReadActualPosition;
+END_VAR
+
+Axis.AxisId := UDINT#218;
+Axis.InternalIndex := UINT#18;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Power(Axis := Axis, Enable := TRUE);
+HomeAbsolute(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
+HomeAbsolute(Axis := Axis, Execute := TRUE, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(HomeAbsolute.Done);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Standstill);
+ReadInfo(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadInfo.IsHomed);
+Velocity(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Velocity.Active);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ContinuousMotion);
+HomeDirect(Axis := Axis, Execute := TRUE, SetPosition := REAL#3.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+HomeDirect(Axis := Axis, Execute := TRUE, SetPosition := REAL#3.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(HomeDirect.Done);
+Velocity(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Velocity.CommandAborted);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Standstill);
+ReadPosition(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadPosition.Position = REAL#3.0);
+HomeDirect(Axis := Axis, Execute := FALSE, SetPosition := REAL#3.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyAxisError := TRUE, AxisErrorID := WORD#16#0200);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+HomeDirect(Axis := Axis, Execute := TRUE, SetPosition := REAL#4.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+HomeDirect(Axis := Axis, Execute := TRUE, SetPosition := REAL#4.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(HomeDirect.Done);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+ReadPosition(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadPosition.Position = REAL#4.0);
+Finish(Axis := Axis, Execute := TRUE, Distance := REAL#5.0, Velocity := REAL#2.0, Acceleration := REAL#1.0, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Finish.Error);
+ASSERT_EQUAL(WORD#16#0100, Finish.ErrorID);
+END_TEST_PROGRAM

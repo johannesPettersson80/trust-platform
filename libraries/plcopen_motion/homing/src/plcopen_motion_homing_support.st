@@ -141,14 +141,21 @@ VAR_INPUT
     AxisIndex : UINT;
     Position : REAL;
 END_VAR
+(* PLCopen Part 5 §1.2: the static homing blocks take the axis from Homing to Standstill, and may also
+   run in other states, 'making a home procedure possible without having power-stage set in the
+   drive'. On a Disabled axis or one in ErrorStop they set the position and the homed flag and leave
+   the state, which only MC_Power or MC_Reset changes; elsewhere the axis ends at Standstill, as after
+   Homing or after the motion command that the block aborted. *)
 TRUST_HOME_ApplyAxisPosition(AxisIndex := AxisIndex, Position := Position);
-g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcStandstill;
-g_trust_motion_commanded_velocity[AxisIndex] := REAL#0.0;
-g_trust_motion_set_velocity[AxisIndex] := REAL#0.0;
-g_trust_motion_actual_velocity[AxisIndex] := REAL#0.0;
-g_trust_motion_constant_velocity[AxisIndex] := FALSE;
-g_trust_motion_accelerating[AxisIndex] := FALSE;
-g_trust_motion_decelerating[AxisIndex] := FALSE;
+IF (g_trust_motion_state[AxisIndex] <> MC_AXIS_STATUS#mcDisabled) AND (g_trust_motion_state[AxisIndex] <> MC_AXIS_STATUS#mcErrorStop) THEN
+    g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcStandstill;
+    g_trust_motion_commanded_velocity[AxisIndex] := REAL#0.0;
+    g_trust_motion_set_velocity[AxisIndex] := REAL#0.0;
+    g_trust_motion_actual_velocity[AxisIndex] := REAL#0.0;
+    g_trust_motion_constant_velocity[AxisIndex] := FALSE;
+    g_trust_motion_accelerating[AxisIndex] := FALSE;
+    g_trust_motion_decelerating[AxisIndex] := FALSE;
+END_IF;
 g_trust_motion_is_homed[AxisIndex] := TRUE;
 TRUST_HOME_FinalizeHoming := TRUE;
 END_FUNCTION
