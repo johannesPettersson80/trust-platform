@@ -14,6 +14,9 @@ struct ProgramWiring {
     traces: trust_runtime::control::SharedTraces,
     /// The runtime's identity as `status` gives it, which a trace names; none without a project.
     runtime_id: Option<smol_str::SmolStr>,
+    /// The runtime's log, whose level is the live `log.level` once the settings exist, as every
+    /// clone's is, so that a reload's warnings follow `config.set` too.
+    logger: RuntimeLogger,
 }
 
 /// The cycle interval of a bundle's program, and the computer's default for a launch without one.
@@ -63,6 +66,9 @@ fn start_program(
     wiring.identify.set(identify_state(bundle)?);
     if let Some(bundle) = bundle {
         apply_bundle_services(program, bundle)?;
+        // Each start, a reload's too, warns of composed drivers that fill the same input bytes
+        // (specification 11 §6.5).
+        log_input_overlaps(&wiring.logger, program);
     }
     // The project's flight recorder, kept by every program start, a restart's reload among them
     // (specification 48 RU-59).

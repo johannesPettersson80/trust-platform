@@ -137,7 +137,8 @@ The Comm library (`libraries/comm`) holds the block:
 4. **Values of a link without data** (decided on 3 October 2026, when the user asked to finish
    the checklist): each `io.toml` driver declares the bytes of the input image it fills, from its
    own configuration (Modbus TCP its block or points, MQTT its input mappings, EtherCAT its input
-   image, GPIO its input lines). A page value whose variable is located at such an input address
+   image, GPIO its input lines, an analog input its `%IW` word, a counter's count its `%ID`
+   double word, a CAN receive its `length` bytes from its `%IB` address). A page value whose variable is located at such an input address
    (an `AT %I…` declaration or a `VAR_CONFIG` entry) is stale while that driver's link exchanges
    no data (`Failed` or `Disabled`), with the link's time since its last data as its age, and is
    shown as any stale value (§5.3 of specification 39). A value the program computes from inputs
@@ -145,7 +146,11 @@ The Comm library (`libraries/comm`) holds the block:
    driver that declares no bytes marks nothing. The runtime looks at each call of `Hmi.Display`
    (specification 39, §18 phase 5); a link it has never seen exchange data counts from when it
    first saw it. A Modbus TCP block and a raw MQTT input topic fill the image from its start and
-   so declare every byte.
+   so declare every byte; the `loopback` driver, which copies the last output image over the
+   input image, declares the image from its start as far as the output image the drivers get
+   reaches (27 November 2026: the analog, counter, CAN and loopback drivers declared nothing,
+   so neither a stale value nor an overlap of composed drivers, specification 11 §6.5, named
+   them).
 
 ## 6. Tests
 

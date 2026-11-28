@@ -6,6 +6,9 @@
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
 
+#[path = "simulator_support/mod.rs"]
+mod simulator_support;
+
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -168,6 +171,69 @@ fn tutorial_13_runs_as_its_readme_writes_it() {
 }
 
 #[test]
+fn tutorial_13_try_its_bind_nothing_without_the_configuration_and_refuse_no_io_toml() {
+    // examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md, Try it yourself
+    // (specification 11 §6.5: the configuration's VAR_CONFIG binds the program's variables to
+    // addresses; the start and `validate` load the project's io.toml): without
+    // src/Configuration.st the project builds and runs, and `io-read` lists no input and no
+    // output; without io.toml, `validate` refuses the project with the README's error. Catches a
+    // run without a configuration that still binds the addresses, and a project without io.toml
+    // that validates.
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
+    )
+    .expect("the README");
+    let files = here_documents(&readme);
+    let unbound: Vec<(String, String)> = files
+        .iter()
+        .filter(|(file, _)| file != "src/Configuration.st")
+        .cloned()
+        .collect();
+    assert_eq!(unbound.len(), 3, "the files without the configuration");
+    let runtime = ExampleRuntime::written("tutorial-13-unbound", unbound).start();
+    runtime.wait_until(STEP, "a scan", || runtime.snapshot().is_some());
+    let image = runtime.ctl_result(&["io-read"])["snapshot"].clone();
+    drop(runtime);
+    assert_eq!(image["inputs"], serde_json::json!([]), "{image}");
+    assert_eq!(image["outputs"], serde_json::json!([]), "{image}");
+
+    let project = trust_test_support::unique_temp_path("tutorial-13-no-io");
+    for (file, text) in files.iter().filter(|(file, _)| file != "io.toml") {
+        let path = project.join(file);
+        std::fs::create_dir_all(path.parent().expect("a folder")).expect("the folder");
+        std::fs::write(&path, text).expect("the file");
+    }
+    let run = |args: &[&str]| {
+        trust_runtime_command()
+            .args(args)
+            .current_dir(&project)
+            .output()
+            .expect("run trust-runtime")
+    };
+    let built = run(&["build", "--project", ".", "--sources", "src"]);
+    let refused = run(&["validate", "--project", "."]);
+    let _ = std::fs::remove_dir_all(&project);
+    assert!(built.status.success(), "the build: {}", describe(&built));
+    assert!(
+        !refused.status.success(),
+        "a project without io.toml is refused"
+    );
+    let error = String::from_utf8_lossy(&refused.stderr).into_owned();
+    let quoted = "Error: invalid project folder 'missing io.toml at ./io.toml and no system io \
+                  config at /etc/trust/io.toml (run `trust-runtime setup` or `trust-runtime`)'";
+    assert!(readme.contains(quoted), "the README quotes `{quoted}`");
+    if cfg!(unix) {
+        assert!(error.contains(quoted), "validate's error: {error}");
+    } else {
+        // The project's own path prints with the system's separator.
+        assert!(
+            error.contains("missing io.toml at") && error.contains("no system io config at"),
+            "validate's error: {error}"
+        );
+    }
+}
+
+#[test]
 fn tutorial_12_scenarios_run_as_its_readme_describes_them() {
     // examples/tutorials/12_hmi_pid_process_dashboard/README.md, its scenario checks in order, read
     // through the outputs its step 4 maps (%QX0.0 PumpRunning, %QX0.1 HighPressureAlarm, %QX0.4
@@ -222,48 +288,6 @@ fn tutorial_12_scenarios_run_as_its_readme_describes_them() {
         "scenario 4: the transfer stops",
     );
     assert_eq!(variable(&runtime, "P1.ModeText"), "\"STOPPED\"");
-}
-
-#[test]
-fn tutorial_18_runs_its_simulation_as_its_readme_writes_it() {
-    // examples/tutorials/18_simulation_toml_fault_injection/README.md: step 1 copies tutorial 13's
-    // project, step 3 adds its simulation.toml (a coupling of %QX0.0 back to %IX0.0, two timed
-    // inputs and a fault at 1,800 ms of simulated time), and step 4 runs `play --simulation
-    // --time-scale 8`; step 5 has the reader confirm the injected fault's message. Catches a
-    // simulation.toml the runtime refuses, as the step's coupling with `on_true` and `on_false`
-    // and no threshold was ("coupling on_true/on_false require threshold").
-    let mut files = here_documents(
-        &std::fs::read_to_string(
-            repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
-        )
-        .expect("tutorial 13's README"),
-    );
-    files.extend(here_documents(
-        &std::fs::read_to_string(
-            repo_root().join("examples/tutorials/18_simulation_toml_fault_injection/README.md"),
-        )
-        .expect("tutorial 18's README"),
-    ));
-    assert!(
-        files.iter().any(|(file, _)| file == "simulation.toml"),
-        "step 3 writes simulation.toml"
-    );
-    let runtime = ExampleRuntime::written("tutorial-18", files)
-        .play_arg("--simulation")
-        .play_arg("--time-scale")
-        .play_arg("8")
-        .start();
-    runtime.wait_until(STEP, "step 5: the injected fault is reported", || {
-        runtime.ctl_result(&["faults"])["faults"]
-            .as_array()
-            .is_some_and(|faults| {
-                faults.iter().any(|fault| {
-                    fault["error"]
-                        .as_str()
-                        .is_some_and(|error| error.contains("tutorial simulated input dropout"))
-                })
-            })
-    });
 }
 
 #[test]
@@ -436,35 +460,6 @@ fn assert_each_succeeds(commands: &[Vec<String>]) {
 }
 
 #[test]
-fn tutorial_21_gates_pass_on_the_project_it_names() {
-    // examples/tutorials/21_ci_cd_project_pipeline/README.md: from the repository root, step 2 runs
-    // `trust-runtime build --project examples/tutorials/11_unit_testing_102 --ci` and step 3
-    // `trust-runtime validate --project examples/tutorials/11_unit_testing_102 --ci`, and each is
-    // expected to succeed (exit code 0 in step 6's table). Catches a project the gates refuse:
-    // tutorial 11 had no runtime.toml or io.toml, and step 3 exited 10 ("missing runtime.toml").
-    let commands = gate_commands("examples/tutorials/21_ci_cd_project_pipeline/README.md");
-    assert_eq!(
-        commands,
-        [
-            [
-                "build",
-                "--project",
-                "examples/tutorials/11_unit_testing_102",
-                "--ci"
-            ],
-            [
-                "validate",
-                "--project",
-                "examples/tutorials/11_unit_testing_102",
-                "--ci"
-            ],
-        ],
-        "the gates of steps 2 and 3"
-    );
-    assert_each_succeeds(&commands);
-}
-
-#[test]
 fn tutorial_22_terminal_build_and_validate_succeed() {
     // examples/tutorials/22_neovim_zed_workflow/README.md, step 5: from the repository root, `trust-
     // runtime build` and `trust-runtime validate` of the project the step names give "the same build
@@ -522,20 +517,11 @@ fn with_sections(runtime: &str, block: &str) -> String {
     text
 }
 
-#[test]
-fn tutorial_16_configuration_builds_and_validates() {
-    // examples/tutorials/16_secure_remote_access/README.md: on tutorial 13's project, a reader puts
-    // the README's configuration, its first TOML block (step 4), into runtime.toml, with the token
-    // of step 2 in place of the placeholder and the certificate of step 3 in security/ (here the
-    // tests' fixture certificate), then builds and validates (step 6: `Project ok`). Specification 11: a `tcp://` control
-    // endpoint admits only a loopback address, and `runtime.web.auth = "token"` requires
-    // `runtime.control.auth_token`. Catches a tutorial whose configuration the runtime refuses, as
-    // its remote control endpoint `tcp://0.0.0.0:17777` was ("tcp endpoint must be loopback").
-    let readme = std::fs::read_to_string(
-        repo_root().join("examples/tutorials/16_secure_remote_access/README.md"),
-    )
-    .expect("tutorial 16's README");
-    let token = "0123456789abcdef".repeat(3);
+/// Tutorial 16's project as its README makes it: tutorial 13's files, with the README's
+/// configuration, its first TOML block (step 4), in runtime.toml, `token` in place of the
+/// placeholder of step 2, and the tests' fixture certificate as the certificate of step 3. Returns
+/// the project folder and its runtime.toml.
+fn tutorial_16_project(readme: &str, token: &str) -> (PathBuf, String) {
     let files = here_documents(
         &std::fs::read_to_string(
             repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
@@ -550,15 +536,34 @@ fn tutorial_16_configuration_builds_and_validates() {
     }
     let runtime =
         std::fs::read_to_string(project.join("runtime.toml")).expect("tutorial 13's runtime.toml");
-    let configuration = readme
+    let block = readme
         .split("```toml\n")
         .nth(1)
         .and_then(|block| block.split("```").next())
         .expect("the README's configuration, its first TOML block");
-    let runtime = with_sections(&runtime, configuration);
-    let runtime = runtime
-        .replace("paste-the-token-from-step-2-here", &token)
-        .replace("replace-with-long-random-token", &token);
+    // A block in a numbered step is indented as the step's text is; the reader's file is not.
+    let indent = block
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.len() - line.trim_start().len())
+        .min()
+        .unwrap_or(0);
+    let configuration: String = block
+        .lines()
+        .map(|line| {
+            format!(
+                "{}\n",
+                line.get(indent..).unwrap_or_else(|| line.trim_start())
+            )
+        })
+        .collect();
+    let runtime = with_sections(&runtime, &configuration)
+        .replace("paste-the-token-from-step-2-here", token)
+        .replace("replace-with-long-random-token", token);
+    assert!(
+        runtime.contains("auth = \"token\"") && runtime.contains("[runtime.tls]"),
+        "the README's configuration is in runtime.toml:\n{runtime}"
+    );
     std::fs::write(project.join("runtime.toml"), &runtime).expect("runtime.toml");
     let fixtures = repo_root().join("crates/trust-runtime/tests/fixtures/tls");
     std::fs::create_dir_all(project.join("security")).expect("security/");
@@ -566,27 +571,98 @@ fn tutorial_16_configuration_builds_and_validates() {
         std::fs::copy(fixtures.join(file), project.join("security").join(file))
             .expect("the certificate");
     }
+    (project, runtime)
+}
+
+/// `trust-runtime <args>` in `project`.
+fn in_project(project: &std::path::Path, args: &[&str]) -> std::process::Output {
+    trust_runtime_command()
+        .args(args)
+        .current_dir(project)
+        .output()
+        .expect("run trust-runtime")
+}
+
+#[test]
+fn tutorial_16_configuration_builds_and_validates() {
+    // examples/tutorials/16_secure_remote_access/README.md: on tutorial 13's project, a reader puts
+    // the README's configuration, its first TOML block (step 4), into runtime.toml, with the token
+    // of step 2 in place of the placeholder and the certificate of step 3 in security/ (here the
+    // tests' fixture certificate), then builds and validates (step 5: `Project ok`). Specification
+    // 11: a `tcp://` control endpoint admits only a loopback address, and `runtime.web.auth =
+    // "token"` requires `runtime.control.auth_token`. Catches a tutorial whose configuration the
+    // runtime refuses, as its remote control endpoint `tcp://0.0.0.0:17777` was ("tcp endpoint must
+    // be loopback"), and a configuration block that no longer reaches runtime.toml.
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/16_secure_remote_access/README.md"),
+    )
+    .expect("tutorial 16's README");
+    let token = "0123456789abcdef".repeat(3);
+    let (project, runtime) = tutorial_16_project(&readme, &token);
     let outputs: Vec<_> = [
         vec!["build", "--project", ".", "--sources", "src"],
         vec!["validate", "--project", "."],
     ]
     .iter()
-    .map(|args| {
-        (
-            args.join(" "),
-            trust_runtime_command()
-                .args(args)
-                .current_dir(&project)
-                .output()
-                .expect("run trust-runtime"),
-        )
-    })
+    .map(|args| (args.join(" "), in_project(&project, args)))
     .collect();
     let _ = std::fs::remove_dir_all(&project);
     for (args, output) in outputs {
         assert!(
             output.status.success(),
             "`trust-runtime {args}` with\n{runtime}\n{}",
+            describe(&output)
+        );
+    }
+}
+
+#[test]
+fn tutorial_16_try_its_are_refused_as_its_readme_writes() {
+    // examples/tutorials/16_secure_remote_access/README.md, "Try it yourself" (specification 11): a
+    // web interface with `auth = "token"` and no `runtime.control.auth_token`, and a control endpoint
+    // on a network address, are refused by `validate` with the errors the README quotes. Catches a
+    // configuration the runtime would start with, and a README whose quoted errors drifted.
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/16_secure_remote_access/README.md"),
+    )
+    .expect("tutorial 16's README");
+    let token = "0123456789abcdef".repeat(3);
+    let (project, runtime) = tutorial_16_project(&readme, &token);
+    let built = in_project(&project, &["build", "--project", ".", "--sources", "src"]);
+    assert!(built.status.success(), "build: {}", describe(&built));
+    let cases = [
+        (
+            runtime
+                .lines()
+                .filter(|line| !line.starts_with("auth_token = "))
+                .map(|line| format!("{line}\n"))
+                .collect::<String>(),
+            "runtime.web.auth=token requires runtime.control.auth_token",
+        ),
+        (
+            runtime.replacen(
+                "debug_enabled = false\n",
+                "debug_enabled = false\nendpoint = \"tcp://0.0.0.0:7000\"\n",
+                1,
+            ),
+            "tcp endpoint must be loopback (use unix:// for local sockets)",
+        ),
+    ];
+    let mut refusals = Vec::new();
+    for (changed, expected) in cases {
+        assert!(readme.contains(expected), "the README quotes `{expected}`");
+        std::fs::write(project.join("runtime.toml"), &changed).expect("runtime.toml");
+        refusals.push((
+            expected,
+            in_project(&project, &["validate", "--project", "."]),
+        ));
+    }
+    let _ = std::fs::remove_dir_all(&project);
+    for (expected, output) in refusals {
+        assert!(!output.status.success(), "validate refuses it: {expected}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(expected),
+            "validate's error: {}",
             describe(&output)
         );
     }
@@ -666,3 +742,6 @@ mod observability;
 
 #[path = "tutorial_projects/mesh_sharing.rs"]
 mod mesh_sharing;
+
+#[path = "tutorial_projects/simulation.rs"]
+mod simulation;

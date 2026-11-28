@@ -146,6 +146,20 @@ impl ModbusTcpDriver {
 
     /// The parameters of `value` by the shared rules, read from the JSON text of the table as a
     /// chip reads them.
+    /// The bytes of the input image that the driver of `value` fills, from its parameters alone
+    /// (specification 42, §5 item 4), as its `input_bytes` gives them once it runs.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of parameters that the driver refuses.
+    pub(crate) fn declared_input_bytes(
+        value: &toml::Value,
+    ) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+        Ok(crate::io::declared_inputs::modbus_tcp(&Self::read_params(
+            value,
+        )?))
+    }
+
     fn read_params(value: &toml::Value) -> Result<ModbusTcpParams, RuntimeError> {
         shared_params(NAME, value, ModbusTcpParams::from_json)
     }
@@ -191,21 +205,7 @@ impl IoDriver for ModbusTcpDriver {
     /// The bytes of the input image its configuration fills (specification 42, §5 item 4): each
     /// input point its own, and a block the image from its start.
     fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
-        let state = self.shared.lock();
-        let points = &state.exchange.params().input_points;
-        if points.is_empty() {
-            return std::iter::once(0..usize::MAX).collect();
-        }
-        crate::io::joined_bytes(
-            points
-                .iter()
-                .map(|point| {
-                    let start = usize::try_from(point.image_offset).unwrap_or(usize::MAX);
-                    let len = usize::try_from(point.data_type.image_bytes()).unwrap_or(usize::MAX);
-                    start..start.saturating_add(len)
-                })
-                .collect(),
-        )
+        crate::io::declared_inputs::modbus_tcp(self.shared.lock().exchange.params())
     }
 
     /// The server and unit it reads and, after an exception reply, its code and name

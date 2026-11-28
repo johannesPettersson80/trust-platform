@@ -83,6 +83,23 @@ impl GpioDriver {
         let _ = GpioConfig::parse(params)?;
         Ok(())
     }
+
+    /// The bytes of the input image that the driver of `params` fills, from its parameters alone
+    /// (specification 42, §5 item 4), as its `input_bytes` gives them once it runs.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of parameters that the driver refuses.
+    pub(crate) fn declared_input_bytes(
+        params: &toml::Value,
+    ) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+        let bytes = GpioConfig::parse(params)?
+            .inputs
+            .iter()
+            .map(|entry| map_bit(&entry.address).map(|(byte, _)| byte..byte + 1))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(crate::io::joined_bytes(bytes))
+    }
 }
 
 pub fn discover_gpio_lines() -> Result<Vec<GpioLine>, RuntimeError> {

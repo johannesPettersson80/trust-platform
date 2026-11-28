@@ -114,8 +114,8 @@ impl Toolchain {
     ///
     /// # Errors
     ///
-    /// [`NativeError::Toolchain`] when `TRUST_TOOLCHAIN` names a folder that lacks a part, or no
-    /// bundle is installed.
+    /// [`NativeError::Toolchain`] when `TRUST_TOOLCHAIN` names a folder that lacks a part, and
+    /// [`NativeError::ToolchainNotInstalled`] when no bundle is installed.
     pub fn find() -> Result<Self, NativeError> {
         Self::locate().map(|(toolchain, _)| toolchain)
     }
@@ -132,7 +132,7 @@ impl Toolchain {
         let folder = super::bundle::installed_folder()
             .filter(|folder| folder.join(super::bundle::MANIFEST_FILE).is_file())
             .ok_or_else(|| {
-                NativeError::Toolchain(format!(
+                NativeError::ToolchainNotInstalled(format!(
                     "the truST toolchain {} is not installed: `trust-runtime toolchain install` \
                      installs it, from the bundle beside the tools or downloaded (about 195 to 225 \
                      MB, once)",

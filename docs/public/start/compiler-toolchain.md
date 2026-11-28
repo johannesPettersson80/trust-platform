@@ -35,7 +35,7 @@ from the Command Palette. When an install fails, the extension offers
     On a computer without it, this prints:
 
     ```text
-    the Rust toolchain: the truST toolchain 0.44.1 is not installed: `trust-runtime toolchain install` installs it, from the bundle beside the tools or downloaded (about 195 to 225 MB, once)
+    the truST toolchain 0.44.1 is not installed: `trust-runtime toolchain install` installs it, from the bundle beside the tools or downloaded (about 195 to 225 MB, once)
     ```
 
 2. Install it:
