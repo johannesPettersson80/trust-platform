@@ -13,6 +13,11 @@ pub(super) fn handle_basic_route(
     let ide_state = ctx.ide_state;
 
     if *method == Method::Get && url == "/api/program" {
+        // A read of the project's sources passes the web authentication (specification 11 §6.9.7).
+        if let Err(error) = check_auth(&request, auth, auth_token, pairing, AccessRole::Viewer) {
+            let _ = request.respond(auth_error_response(error));
+            return IdeRouteOutcome::Handled;
+        }
         let project_root = default_bundle_root(bundle_root);
         let program_path = project_root.join(crate::native::PROGRAM_IMAGE_FILE);
         let updated_ms = program_path
@@ -34,6 +39,11 @@ pub(super) fn handle_basic_route(
         return IdeRouteOutcome::Handled;
     }
     if *method == Method::Get && url.starts_with("/api/source") {
+        // A read of the project's sources passes the web authentication (specification 11 §6.9.7).
+        if let Err(error) = check_auth(&request, auth, auth_token, pairing, AccessRole::Viewer) {
+            let _ = request.respond(auth_error_response(error));
+            return IdeRouteOutcome::Handled;
+        }
         let file = url.split('?').nth(1).and_then(|query| {
             query.split('&').find_map(|pair| {
                 let mut parts = pair.splitn(2, '=');

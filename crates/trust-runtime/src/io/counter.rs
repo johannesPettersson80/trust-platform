@@ -28,6 +28,8 @@ const COUNTERS: &str = "bus/counter/devices";
 /// The `counter` driver: its counts, in `io.toml` order, and its health.
 pub(super) struct CounterDriver {
     inputs: Vec<CountChannel>,
+    /// The bytes of the input image its counts fill (specification 42, §5 item 4).
+    input_bytes: Vec<std::ops::Range<usize>>,
     health: IoDriverHealth,
 }
 
@@ -46,6 +48,7 @@ impl CounterDriver {
     /// The driver of `params` over the sysfs tree at `sysfs`, each count set up and read once, so
     /// that its edges count from now.
     fn open(params: CounterParams, sysfs: &Path) -> Result<Self, RuntimeError> {
+        let input_bytes = crate::io::declared_inputs::counter(&params);
         let inputs = params
             .inputs
             .iter()
@@ -54,6 +57,7 @@ impl CounterDriver {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             inputs,
+            input_bytes,
             health: IoDriverHealth::Ok,
         })
     }
@@ -76,18 +80,13 @@ impl IoDriver for CounterDriver {
         result
     }
 
-    /// A counter driver has no outputs.
     /// The bytes of the input image its counts fill, each its `%ID` double word (specification
     /// 42, §5 item 4).
     fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
-        crate::io::joined_bytes(
-            self.inputs
-                .iter()
-                .map(|channel| channel.byte..channel.byte + 4)
-                .collect(),
-        )
+        self.input_bytes.clone()
     }
 
+    /// A counter driver has no outputs.
     fn write_outputs(&mut self, _outputs: &[u8]) -> Result<(), RuntimeError> {
         Ok(())
     }

@@ -58,13 +58,14 @@ pub fn build_toolchain() -> Result<Toolchain, NativeError> {
         Err(error) => error,
     };
     if !INSTALL_CONSENT.load(Ordering::Relaxed) && !agreed_in_terminal() {
-        let advice = match not_found {
-            NativeError::Toolchain(message) => message,
-            other => other.to_string(),
-        };
-        return Err(NativeError::Toolchain(format!(
-            "{advice}; or build again with `--install-toolchain`"
-        )));
+        let flag = "or build again with `--install-toolchain`";
+        return Err(match not_found {
+            NativeError::ToolchainNotInstalled(advice) => {
+                NativeError::ToolchainNotInstalled(format!("{advice}; {flag}"))
+            }
+            NativeError::Toolchain(message) => NativeError::Toolchain(format!("{message}; {flag}")),
+            other => NativeError::Toolchain(format!("{other}; {flag}")),
+        });
     }
     let mut progress = HumanProgress::default();
     let folder = bundle::install(&mut |event| progress.report(&event))?;

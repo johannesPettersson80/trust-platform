@@ -459,7 +459,9 @@ fn toolchain_failure(error: &anyhow::Error) -> Option<&str> {
     error
         .chain()
         .find_map(|cause| match cause.downcast_ref::<NativeError>() {
-            Some(NativeError::Toolchain(message)) => Some(message.as_str()),
+            Some(NativeError::Toolchain(message) | NativeError::ToolchainNotInstalled(message)) => {
+                Some(message.as_str())
+            }
             _ => None,
         })
 }

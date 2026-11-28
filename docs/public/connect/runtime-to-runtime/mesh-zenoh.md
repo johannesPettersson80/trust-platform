@@ -62,6 +62,12 @@ missing or different tokens cannot join the authenticated link. `tls = true` use
 certificate, key and CA configured under `[runtime.tls]` and negotiates TLS on mesh sockets;
 it does not fall back to plaintext. Certificates must cover the hostnames used to connect.
 
+A runtime logs every runtime that joins its mesh (`mesh_peer_joined`) or leaves it (the warning
+`mesh_peer_left`), and 5 s after its start it warns with `mesh_peer_missing` about each runtime that
+a subscription names and that is not in the mesh, with the subscriptions that wait for it. A runtime
+that refuses a peer with another token does not log it, so when a value does not arrive, look for
+`mesh_peer_missing` on the subscribing side, then check the peer's name, its address and the tokens.
+
 ## How to think about it
 
 - discovery lists the runtimes on the network; it links no mesh

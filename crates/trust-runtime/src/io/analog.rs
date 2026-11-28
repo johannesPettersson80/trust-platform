@@ -28,6 +28,8 @@ const IIO_DEVICES: &str = "bus/iio/devices";
 pub(super) struct AnalogDriver {
     inputs: Vec<InputChannel>,
     outputs: Vec<OutputChannel>,
+    /// The bytes of the input image its input channels fill (specification 42, §5 item 4).
+    input_bytes: Vec<std::ops::Range<usize>>,
     /// The outcome of the last input handoff.
     input: IoDriverHealth,
     /// The outcome of the last output handoff.
@@ -48,6 +50,7 @@ impl AnalogDriver {
     /// The driver of `params` over the sysfs tree at `sysfs`: each channel found with its offset
     /// and scale, and each output driven to its `initial` millivolts.
     fn open(params: AnalogParams, sysfs: &Path) -> Result<Self, RuntimeError> {
+        let input_bytes = crate::io::declared_inputs::analog(&params);
         let inputs = params
             .inputs
             .iter()
@@ -63,6 +66,7 @@ impl AnalogDriver {
         Ok(Self {
             inputs,
             outputs,
+            input_bytes,
             input: IoDriverHealth::Ok,
             output: IoDriverHealth::Ok,
         })
@@ -82,12 +86,7 @@ impl IoDriver for AnalogDriver {
     /// The bytes of the input image its input channels fill, each its `%IW` word (specification
     /// 42, §5 item 4).
     fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
-        crate::io::joined_bytes(
-            self.inputs
-                .iter()
-                .map(|channel| channel.byte..channel.byte + 2)
-                .collect(),
-        )
+        self.input_bytes.clone()
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {

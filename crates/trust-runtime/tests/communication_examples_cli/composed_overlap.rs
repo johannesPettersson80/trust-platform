@@ -53,6 +53,33 @@ fn overlap_warnings(runtime: &runtime_process::Runtime) -> Vec<Value> {
         .collect()
 }
 
+/// `trust-runtime validate` of `runtime`'s project: its plain answer, and the warnings of its
+/// `--ci` report. Both succeed, as an overlap is a warning.
+fn validated(runtime: &runtime_process::Runtime) -> (String, Vec<Value>) {
+    let validate = |args: &[&str]| {
+        let output = runtime_process::trust_runtime_command()
+            .arg("validate")
+            .args(args)
+            .arg("--project")
+            .arg(runtime.project())
+            .output()
+            .expect("run trust-runtime validate");
+        assert!(
+            output.status.success(),
+            "validate succeeds: {}",
+            runtime_process::describe(&output)
+        );
+        output
+    };
+    let plain = validate(&[]);
+    let report: Value =
+        serde_json::from_slice(&validate(&["--ci"]).stdout).expect("the CI report's JSON");
+    (
+        String::from_utf8_lossy(&plain.stdout).into_owned(),
+        report["warnings"].as_array().cloned().unwrap_or_default(),
+    )
+}
+
 /// The multi_driver example started against `broker` and a Modbus/TCP test server of its own,
 /// whose discrete input 0, the drive's ready signal, is TRUE, with `edits` of its `io.toml`. The
 /// test server takes one connection, so each runtime has its own.
@@ -104,9 +131,12 @@ fn a_loopback_is_warned_about_only_where_its_copy_of_the_outputs_reaches() {
     // and the MQTT mapping of P1.RemoteStart byte 1: the runtime starts without a warning. With
     // the read mapping on P1.DriveReady, %IX0.0, instead, the mapping fills byte 0 after the
     // loopback, and the start logs one `io_inputs_overlap` warning with `loopback:0` as the
-    // earlier driver, `mqtt:1` as the later, and byte 0 as the first and the last byte. Catches a
-    // loopback that declares the whole input image, which warns of byte 1 that it never writes,
-    // and one that declares nothing, which warns of no byte.
+    // earlier driver, `mqtt:1` as the later, and byte 0 as the first and the last byte.
+    // `trust-runtime validate` reads the same from the parameters: nothing for the first, and for
+    // the second the warning line before `Project ok` and the same data in its `--ci` report.
+    // Catches a loopback that declares the whole input image, which warns of byte 1 that it never
+    // writes, one that declares nothing, which warns of no byte, and a `validate` that tells
+    // otherwise than the start.
     let broker = MqttTestBroker::start();
     let separate = start_with_loopback(&broker, &[]);
     separate.wait_until(WAIT, "a scan after the start", || {
@@ -116,6 +146,11 @@ fn a_loopback_is_warned_about_only_where_its_copy_of_the_outputs_reaches() {
         overlap_warnings(&separate),
         Vec::<Value>::new(),
         "the loopback's 1-byte copy stops before the mapping's byte"
+    );
+    assert_eq!(
+        validated(&separate),
+        ("Project ok\n".to_string(), Vec::new()),
+        "validate reads the same from the parameters"
     );
     drop(separate);
 
@@ -137,6 +172,16 @@ fn a_loopback_is_warned_about_only_where_its_copy_of_the_outputs_reaches() {
         })],
         "one warning for the mapping on the loopback's byte"
     );
+    assert_eq!(
+        validated(&shared),
+        (
+            "warning: loopback:0 and mqtt:1 both fill input byte 0; mqtt:1, the later, overwrites \
+             what loopback:0 read there at every cycle\nProject ok\n"
+                .to_string(),
+            overlap_warnings(&shared)
+        ),
+        "validate warns as the start did"
+    );
 }
 
 #[test]
@@ -149,7 +194,10 @@ fn a_raw_topic_composed_with_a_modbus_point_is_warned_about_at_start() {
     // bytes (%IX0.0 and %IX1.0): at start the runtime logs one `io_inputs_overlap` warning with
     // `modbus_tcp:0` as the earlier driver, `mqtt:1` as the later, and byte 0 as the first and the
     // last byte. The composition still runs, and a one-byte message 0x00 on the topic overwrites
-    // the drive's TRUE: %IX0.0 reads FALSE. A reload from Stopped warns again. Catches no warning
+    // the drive's TRUE: %IX0.0 reads FALSE. `trust-runtime validate` finds the same from the
+    // parameters, before a start: nothing for the shipped example, and for the raw topics the
+    // warning line before `Project ok` and the logged event's data in its `--ci` report. A reload
+    // from Stopped warns again. Catches a `validate` that tells otherwise than the start, no warning
     // for that composition, a warning for the shipped one, the drivers in the wrong order, the
     // topic's bytes not cut to the shared byte, a composition refused or whose later driver does
     // not overwrite the earlier, a warning at the launch alone, and a reload's warning at the
@@ -164,6 +212,11 @@ fn a_raw_topic_composed_with_a_modbus_point_is_warned_about_at_start() {
         overlap_warnings(&shipped),
         Vec::<Value>::new(),
         "the shipped drivers fill separate bytes"
+    );
+    assert_eq!(
+        validated(&shipped),
+        ("Project ok\n".to_string(), Vec::new()),
+        "validate finds no overlap in the shipped example"
     );
     drop(shipped);
 
@@ -189,6 +242,27 @@ fn a_raw_topic_composed_with_a_modbus_point_is_warned_about_at_start() {
             "last_byte": 0,
         })],
         "one warning for the topic that fills the point's byte"
+    );
+    assert_eq!(
+        validated(&raw),
+        (
+            "warning: modbus_tcp:0 and mqtt:1 both fill input byte 0; mqtt:1, the later, \
+             overwrites what modbus_tcp:0 read there at every cycle\nProject ok\n"
+                .to_string(),
+            overlap_warnings(&raw)
+        ),
+        "validate warns as the start did, before the project starts"
+    );
+    let readme = std::fs::read_to_string(
+        runtime_process::repo_root().join("examples/communication/multi_driver/README.md"),
+    )
+    .expect("the example's README");
+    assert!(
+        readme.contains(
+            "`warning: modbus_tcp:0 and mqtt:1 both fill input byte 0; mqtt:1, the later, \
+             overwrites what modbus_tcp:0 read there at every cycle`"
+        ),
+        "the README quotes validate's warning"
     );
     raw.wait_until(WAIT, "the subscription to the raw input topic", || {
         broker

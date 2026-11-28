@@ -214,8 +214,11 @@ pub enum NativeError {
     /// [`NativeError::Unsupported`], in the order of their places: the build goes on after each
     /// one to find the others (specification 11 §6.8.1c).
     AllUnsupported(Vec<NativeError>),
-    /// The Rust toolchain is missing or failed.
+    /// The Rust toolchain is missing a part or failed.
     Toolchain(String),
+    /// This release's toolchain is not installed and `TRUST_TOOLCHAIN` names none (specification 44
+    /// §4.6): one sentence that names the toolchain and what installs it.
+    ToolchainNotInstalled(String),
     /// The project's Rust crate does not compile (specification 48 RU-44).
     Rust(RustFailure),
     /// The linked module has something a module must not have.
@@ -260,6 +263,7 @@ impl std::fmt::Display for NativeError {
                 Ok(())
             }
             Self::Toolchain(message) => write!(f, "the Rust toolchain: {message}"),
+            Self::ToolchainNotInstalled(advice) => f.write_str(advice),
             Self::Rust(failure) => write!(f, "the project's Rust crate: {}", failure.report),
             Self::Module(message) => write!(f, "the compiled module: {message}"),
             Self::Image(message) => write!(f, "the program image: {message}"),

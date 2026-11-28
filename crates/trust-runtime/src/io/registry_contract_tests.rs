@@ -30,6 +30,14 @@ fn registry_contract_validate(_params: &toml::Value) -> Result<(), RuntimeError>
     Ok(())
 }
 
+/// The contract's driver declares no input byte.
+fn registry_contract_input_bytes(
+    _params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    Ok(Vec::new())
+}
+
 fn registry_contract_empty_params() -> toml::Value {
     toml::Value::Table(toml::map::Map::new())
 }
@@ -109,6 +117,7 @@ fn registry_contract_validation_never_invokes_constructor() {
         "counting",
         registry_contract_create,
         registry_contract_validate,
+        registry_contract_input_bytes,
     );
 
     registry
@@ -131,6 +140,7 @@ fn registry_contract_build_validates_then_constructs_and_returns_canonical_name(
         " Counting ",
         registry_contract_create,
         registry_contract_validate,
+        registry_contract_input_bytes,
     );
     registry.register_alias("counter", "counting");
 
@@ -170,16 +180,23 @@ fn registry_contract_missing_alias_target_never_creates_entry() {
 #[test]
 fn registry_contract_empty_and_none_registration_do_not_enter_enumeration() {
     let mut registry = IoDriverRegistry::new();
-    registry.register("", registry_contract_create, registry_contract_validate);
+    registry.register(
+        "",
+        registry_contract_create,
+        registry_contract_validate,
+        registry_contract_input_bytes,
+    );
     registry.register(
         " none ",
         registry_contract_create,
         registry_contract_validate,
+        registry_contract_input_bytes,
     );
     registry.register(
         "valid",
         registry_contract_create,
         registry_contract_validate,
+        registry_contract_input_bytes,
     );
 
     assert_eq!(registry.canonical_driver_names(), vec!["valid".to_string()]);

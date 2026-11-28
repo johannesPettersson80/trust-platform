@@ -6,5 +6,6 @@ include!("runtime/settings.rs");
 include!("runtime/program.rs");
 include!("runtime/signals.rs");
 include!("runtime/endpoint_file.rs");
+include!("runtime/mesh_presence.rs");
 include!("runtime/entry.rs");
 include!("runtime/simulate.rs");

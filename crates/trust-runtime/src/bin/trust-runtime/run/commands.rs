@@ -78,8 +78,27 @@ pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
         outln!("{}", serde_json::to_string_pretty(&payload)?);
         return Ok(());
     }
+    // Each composed overlap, as the start warns of it (specification 11 §6.5), and then the
+    // verdict: the project still starts.
+    for warning in payload["warnings"].as_array().into_iter().flatten() {
+        outln!("{}", style::warning(overlap_warning(warning)));
+    }
     outln!("{}", style::success("Project ok"));
     Ok(())
+}
+
+/// The line of a composed overlap's warning, from the event's data.
+fn overlap_warning(data: &serde_json::Value) -> String {
+    let (earlier, later) = (data["earlier"].as_str().unwrap_or(""), data["later"].as_str().unwrap_or(""));
+    let (first, last) = (data["first_byte"].as_u64().unwrap_or(0), data["last_byte"].as_u64().unwrap_or(0));
+    let bytes = if first == last {
+        format!("input byte {first}")
+    } else {
+        format!("input bytes {first} to {last}")
+    };
+    format!(
+        "warning: {earlier} and {later} both fill {bytes}; {later}, the later, overwrites what {earlier} read there at every cycle"
+    )
 }
 
 pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_json::Value> {
@@ -109,8 +128,9 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
     trust_runtime::native::check_resource(&bundle.image, &bundle.runtime.resource_name)?;
     // An MQTT driver's tag mappings are part of its configuration, which the start resolves
     // against the program before it builds the driver (specification 32 §5): `validate` validates
-    // the I/O-driver configurations as the start does (specification 11).
-    check_mqtt_tag_mappings(&bundle)?;
+    // the I/O-driver configurations as the start does (specification 11), and finds the composed
+    // drivers that would fill the same input bytes, of which the start warns (§6.5).
+    let overlaps = composed_input_overlaps(&bundle)?;
     // Launch's own identify check (spec 11, "Identify", load): a project that `validate` accepts is
     // a project that `run` accepts.
     check_bundle_identify_output(&bundle)?;
@@ -127,34 +147,36 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
         ),
         "io_driver": io_drivers.first().cloned().unwrap_or_default(),
         "io_drivers": io_drivers,
+        "warnings": overlaps.iter().map(|overlap| overlap.event_data()).collect::<Vec<_>>(),
     }))
 }
 
-/// Resolves the tag mappings of each enabled MQTT driver against the bundle's program, as the start
-/// does (`CompiledRuntime::add_io_config`), so that a tag the start refuses fails validation with
-/// the start's error. A project without mappings loads no program.
-fn check_mqtt_tag_mappings(bundle: &RuntimeBundle) -> anyhow::Result<()> {
-    let mapped: Vec<_> = bundle
+/// The composed drivers of the bundle's `io.toml` that would fill the same input bytes, from their
+/// parameters, as the start warns of them (`CompiledRuntime::io_config_input_overlaps`,
+/// specification 11 §6.5). It resolves each enabled MQTT driver's tag mappings against the
+/// bundle's program as the start does, so that a tag the start refuses fails validation with the
+/// start's error. A project with one enabled driver and no tag mappings loads no program.
+fn composed_input_overlaps(
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<Vec<trust_runtime::io::InputOverlap>> {
+    let enabled: Vec<_> = bundle
         .io
         .drivers
         .iter()
-        .filter(|driver| {
-            driver.enabled
-                && trust_runtime::io::takes_tag_mappings(driver.name.as_str())
-                && driver.params.get("mappings").is_some()
-        })
+        .filter(|driver| driver.enabled)
         .collect();
-    if mapped.is_empty() {
-        return Ok(());
+    let mapped = enabled.iter().any(|driver| {
+        trust_runtime::io::takes_tag_mappings(driver.name.as_str())
+            && driver.params.get("mappings").is_some()
+    });
+    if enabled.len() < 2 && !mapped {
+        return Ok(Vec::new());
     }
-    let program = trust_runtime::CompiledRuntime::load(
+    let mut program = trust_runtime::CompiledRuntime::load(
         bundle.image.clone(),
         bundle.runtime.resource_name.clone(),
     )?;
-    for driver in mapped {
-        trust_runtime::io::resolve_compiled_mqtt_tag_mappings(&program, &driver.params)?;
-    }
-    Ok(())
+    Ok(program.io_config_input_overlaps(&bundle.io)?)
 }
 
 /// Why a project's runtime cannot run its program: runtime.toml names a resource the program's
