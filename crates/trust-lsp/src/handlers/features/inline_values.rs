@@ -105,24 +105,35 @@ pub fn inline_value(state: &ServerState, params: InlineValueParams) -> Option<Ve
     let repository = config.as_ref().map(|config| &config.runtime);
     let repository_endpoint = repository.and_then(|runtime| runtime.control_endpoint.as_deref());
     let repository_auth = repository.and_then(|runtime| runtime.control_auth_token.as_deref());
-    // Without either, the simulator that a launch started for the document's workspace folder,
-    // with the token the server named for it (specification 25 §6.8).
-    let simulator = uri
-        .to_file_path()
-        .ok()
-        .and_then(|path| state.simulator_controls().for_document(&path));
+    // Without either, the runtime that a debug session of the document's workspace folder
+    // attached to, with the token of the folder's own runtime when that is the attached one, else
+    // the simulator that a launch started for the folder, with the token the server named for it
+    // (specification 25 §6.8).
+    let path = uri.to_file_path().ok();
+    let controls = state.simulator_controls();
+    let attached = path
+        .as_deref()
+        .and_then(|path| controls.attached().for_document(path));
+    let attached_token = attached.as_ref().and_then(|runtime| {
+        (repository_endpoint.is_none() && override_endpoint.is_none())
+            .then(|| runtime.token())
+            .flatten()
+    });
+    let simulator = path.as_deref().and_then(|path| controls.for_document(path));
     // An endpoint from trust-lsp.toml is contacted only with the token configured next to it,
     // so the editor's token never reaches an endpoint that the repository chose, and neither
-    // configured token reaches the simulator.
+    // configured token reaches the attached runtime or the simulator.
     let (endpoint, auth) = match (repository_endpoint, override_endpoint.as_deref()) {
         (Some(endpoint), _) => (Some(endpoint), repository_auth),
         (None, Some(endpoint)) => (Some(endpoint), repository_auth.or(override_auth.as_deref())),
-        (None, None) => simulator.as_ref().map_or((None, None), |control| {
-            (
+        (None, None) => match (&attached, &simulator) {
+            (Some(runtime), _) => (Some(runtime.endpoint.as_str()), attached_token.as_deref()),
+            (None, Some(control)) => (
                 Some(control.endpoint.as_str()),
                 Some(control.auth_token.as_str()),
-            )
-        }),
+            ),
+            (None, None) => (None, None),
+        },
     };
     if let (Some(frame_id), Some(endpoint)) = (frame_id, endpoint) {
         debug!(

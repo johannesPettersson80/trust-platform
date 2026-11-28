@@ -26,6 +26,7 @@ export function run(): Promise<void> {
   mocha.suite.afterEach(() => setSpeech({}, "en"));
   require("./acceptance-crashes.test");
   require("./acceptance-download.test");
+  require("./attached-runtime.test");
   require("./debug-channel-lines.test");
   require("./control-studio-three-page.integration.test");
   require("./control-studio-three-page-native.integration.test");

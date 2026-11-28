@@ -2028,6 +2028,16 @@ the language server tries to connect to it for at most 300 ms; when a program
 accepts the connection, Start is refused with `The runtime port is already in
 use.`
 
+When a debug session attaches to a runtime, the extension names the session,
+its workspace folder and the endpoint it attached to to the language server
+(`trust-lsp.attachedRuntime` `{ session, folder, endpoint }`), and names the
+session with `endpoint: null` when it ends, so that inline values show the
+attached runtime's values while the session lasts (specification 14 §7.1.2);
+two sessions of one folder keep their own records, and the later serves the
+folder's documents.
+It names no token: the language server finds the token of the folder's own
+runtime itself.
+
 ### 6.9 Run targets and runtime requests
 
 The language server decides what the sidebar, the status bar, Live Values and

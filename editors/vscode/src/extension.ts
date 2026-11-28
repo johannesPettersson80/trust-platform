@@ -6,6 +6,7 @@ import {
   ServerOptions,
   Trace,
 } from "vscode-languageclient/node";
+import { registerAttachedRuntimeForwarding } from "./attachedRuntime";
 import { registerDebugAdapter } from "./debug";
 import { getBinaryPath } from "./binary";
 import { registerIoPanel } from "./ioPanel";
@@ -202,6 +203,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registerProcessScreen());
 
   registerDebugAdapter(context);
+  registerAttachedRuntimeForwarding(context);
   registerRuntimeLifecycle(context);
   initSelectedRuntimeStore(context);
   registerRuntimeAuth(context);

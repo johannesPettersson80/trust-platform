@@ -63,13 +63,7 @@ pub(super) fn nearest_manifest_folder(path: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
-/// The folder of a workspace folder's runtime project: the folder itself when it holds
-/// `runtime.toml`, else its `bundle` folder when that holds one.
-pub(super) fn runtime_project_folder(folder: &Path) -> Option<PathBuf> {
-    [folder.to_path_buf(), folder.join("bundle")]
-        .into_iter()
-        .find(|candidate| candidate.join("runtime.toml").is_file())
-}
+pub(super) use crate::state::runtime_project_folder;
 
 /// The innermost of `folders` that contains `path`, as VS Code names a file's workspace folder.
 pub(super) fn containing_folder<'a>(path: &Path, folders: &'a [PathBuf]) -> Option<&'a Path> {

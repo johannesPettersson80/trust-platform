@@ -34,6 +34,7 @@ use tower_lsp::lsp_types::{CodeActionOrCommand, CodeActionParams};
 
 use crate::state::{Document, ServerState};
 
+mod attached_runtime;
 mod compile_gate;
 mod examples;
 pub(crate) mod libraries;
@@ -67,11 +68,13 @@ pub const EXAMPLES_CATALOG_COMMAND: &str = "trust-lsp.examplesCatalog";
 pub const COPY_EXAMPLE_COMMAND: &str = "trust-lsp.copyExample";
 /// A launched simulator's control endpoint.
 pub const SIMULATOR_CONTROL_COMMAND: &str = "trust-lsp.simulatorControl";
+/// The runtime that a debug session attached to.
+pub const ATTACHED_RUNTIME_COMMAND: &str = "trust-lsp.attachedRuntime";
 
 /// The project commands, in the order the server advertises them. Each name is one camel-case
 /// segment after `trust-lsp.`, so it never collides with an extension command such as
 /// `trust-lsp.libraries.open`.
-pub const PROJECT_COMMANDS: [&str; 11] = [
+pub const PROJECT_COMMANDS: [&str; 12] = [
     RUN_ENTRY_COMMAND,
     SIMULATION_SPEED_COMMAND,
     PROJECT_LIBRARIES_COMMAND,
@@ -83,6 +86,7 @@ pub const PROJECT_COMMANDS: [&str; 11] = [
     EXAMPLES_CATALOG_COMMAND,
     COPY_EXAMPLE_COMMAND,
     SIMULATOR_CONTROL_COMMAND,
+    ATTACHED_RUNTIME_COMMAND,
 ];
 
 /// Whether `command` is a project command.
@@ -110,6 +114,7 @@ pub(super) fn execute(state: &ServerState, command: &str, arguments: Vec<Value>)
         EXAMPLES_CATALOG_COMMAND => examples::catalog_answer(argument),
         COPY_EXAMPLE_COMMAND => examples::copy_answer(argument),
         SIMULATOR_CONTROL_COMMAND => simulator_control::answer(state, argument),
+        ATTACHED_RUNTIME_COMMAND => attached_runtime::answer(state, argument),
         _ => Err(format!("{command} is not a project command.")),
     };
     answer.unwrap_or_else(|message| refused(&message))

@@ -656,11 +656,22 @@ complete result remains in the final response.
 Runtime-assisted inline values are an optional interactive enhancement, not a
 reason to block the editor. Their endpoint is the `[runtime] control_endpoint`
 of `trust-lsp.toml`, else the editor's `runtime.controlEndpoint` setting, else
-the simulator that a launch started for the document's workspace folder: the
-endpoint and token that the language server named for that folder
+the runtime that a debug session of the document's workspace folder attached
+to while that session lasts (`trust-lsp.attachedRuntime`, specification 25
+§6.8), else the simulator that a launch started for the folder: the endpoint
+and token that the language server named for that folder
 (`trust-lsp.simulatorControl`, specification 25 §6.8) and keeps for the
-session, the innermost folder when folders nest. A configured token never
-reaches the simulator. Connect, read, and write operations against the
+session; the innermost folder when folders nest, and of two attach sessions
+of one folder the later. The editor names only the attached endpoint. The
+language server finds the runtime of the folder's project, the folder or its
+`bundle` folder (specification 25 §6.7), as `trust-runtime ctl --project` does
+(specification 11 §6.8.0a: `TRUST_CTL_TOKEN`, its endpoint file, the token it
+publishes, or the control token of its `runtime.toml`) and sends that token
+only when that runtime's endpoint is the attached one; otherwise it asks
+without a token. No token crosses the
+protocol, and a configured token never reaches the simulator or the attached
+runtime (27 November 2026: an attach session showed no runtime values, since
+the language server had no endpoint for it). Connect, read, and write operations against the
 endpoint use a 250 ms I/O bound. An unavailable,
 silent, or malformed endpoint produces no runtime-derived inline values and
 returns within that bound; static inline values remain independently

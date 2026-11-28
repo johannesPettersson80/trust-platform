@@ -508,3 +508,114 @@ pub(super) fn lsp_inline_values_reach_the_simulator_a_launch_started_for_the_wor
     assert_eq!(request["type"], json!("debug.scopes"));
     assert_eq!(request["auth"], json!("simulator-token"));
 }
+
+/// A project folder whose `runtime.toml` names the control endpoint `endpoint` with the token
+/// `token`, and that has no endpoint file, so that `ctl --project` finds that endpoint and token.
+fn attached_project(endpoint: &str, token: &str) -> PathBuf {
+    let folder = trust_test_support::unique_temp_path("trust-lsp-attached-inline");
+    std::fs::create_dir_all(&folder).expect("the project folder");
+    let runtime = trust_runtime::bundle_template::render_runtime_toml(&"Attached".into(), 100)
+        .replacen(
+            "[runtime.control]\n",
+            &format!("[runtime.control]\nendpoint = \"{endpoint}\"\nauth_token = \"{token}\"\n"),
+            1,
+        );
+    std::fs::write(folder.join("runtime.toml"), runtime).expect("runtime.toml");
+    folder
+}
+
+/// The control request that a runtime inline-value request for a document of `folder` sent to the
+/// recording stub, the editor's settings holding a token of their own.
+fn attached_inline_request_sent(
+    folder: &std::path::Path,
+    attached: &str,
+    requests: &std::sync::mpsc::Receiver<Value>,
+) -> Value {
+    let state = ServerState::new();
+    state.set_config(json!({
+        "trust_lsp": { "runtime": { "control_auth_token": "editor-token" } }
+    }));
+    // A simulator that a launch started for the folder earlier; the attach session comes first.
+    state
+        .simulator_controls()
+        .name_and_record(Some(folder.to_path_buf()), |_| {
+            crate::state::simulator_controls::SimulatorControl {
+                endpoint: "tcp://127.0.0.1:9".to_owned(),
+                auth_token: "simulator-token".to_owned(),
+            }
+        });
+    state.simulator_controls().attached().record(
+        Some(folder.to_path_buf()),
+        "session-1",
+        Some(attached.to_owned()),
+    );
+    let source = runtime_inline_values_source();
+    let uri =
+        tower_lsp::lsp_types::Url::from_file_path(folder.join("runtime.st")).expect("a file URI");
+    state.open_document(uri.clone(), 1, source.to_string());
+    inline_value(&state, runtime_inline_values_params(uri, source)).expect("inline values");
+    requests
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("the attached runtime received a control request")
+}
+
+#[test]
+pub(super) fn lsp_inline_values_reach_the_runtime_a_session_attached_to_with_its_project_token() {
+    // Specification 14 §7.1.2: with no endpoint in trust-lsp.toml or the editor's settings, the
+    // runtime that a debug session of the document's folder attached to comes before the
+    // simulator a launch started for the folder, and gets the token of the folder's own runtime,
+    // here from the project's runtime.toml, which names the attached endpoint. Catches an attach
+    // session whose inline values reach the simulator, and the editor's or the simulator's token
+    // sent to the attached runtime.
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let token = trust_runtime::control::endpoint::generate_control_token().expect("a token");
+    let folder = attached_project(&endpoint, &token);
+
+    let request = attached_inline_request_sent(&folder, &endpoint, &requests);
+
+    assert_eq!(request["type"], json!("debug.scopes"));
+    assert_eq!(request["auth"], json!(token));
+    let _ = std::fs::remove_dir_all(&folder);
+}
+
+#[test]
+pub(super) fn lsp_inline_values_send_no_token_to_an_attached_runtime_that_is_not_the_project_s() {
+    // Specification 14 §7.1.2: the token of the folder's own runtime goes only to that runtime.
+    // The project's runtime.toml names tcp://127.0.0.1:9 with a token, and the session attached
+    // to another endpoint: the request carries no token. Catches the project's token, the
+    // editor's or the simulator's sent to a runtime that is not the project's.
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let token = trust_runtime::control::endpoint::generate_control_token().expect("a token");
+    let folder = attached_project("tcp://127.0.0.1:9", &token);
+
+    let request = attached_inline_request_sent(&folder, &endpoint, &requests);
+
+    assert_eq!(request["type"], json!("debug.scopes"));
+    assert_eq!(request.get("auth"), None, "{request}");
+    let _ = std::fs::remove_dir_all(&folder);
+}
+
+#[test]
+pub(super) fn lsp_inline_values_take_the_repository_endpoint_before_an_attach_session() {
+    // Specification 14 §7.1.2: trust-lsp.toml's endpoint comes before the runtime that a debug
+    // session of the folder attached to. With both, the request goes to the repository's endpoint
+    // with its own token. Catches an attach record placed before the endpoints that a person
+    // configured.
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let state = inline_value_state(
+        RuntimeConfig {
+            control_endpoint: Some(endpoint),
+            control_auth_token: Some("repository-token".to_string()),
+        },
+        json!({}),
+    );
+    state.simulator_controls().attached().record(
+        Some(PathBuf::from("/workspace")),
+        "session-1",
+        Some("tcp://127.0.0.1:9".to_owned()),
+    );
+
+    let request = runtime_inline_request_sent(&state, &requests);
+
+    assert_eq!(request["auth"], json!("repository-token"));
+}

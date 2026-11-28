@@ -33,7 +33,7 @@ pub(crate) mod simulator_controls;
 
 pub(crate) use library_surface::library_holds;
 use library_surface::DiagnosticScope;
-pub(crate) use path::{path_to_uri, uri_to_path};
+pub(crate) use path::{path_to_uri, runtime_project_folder, uri_to_path};
 
 /// A document managed by the server.
 #[derive(Debug, Clone)]
