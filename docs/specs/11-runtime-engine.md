@@ -517,6 +517,12 @@ such drivers and each joined range of the bytes both fill: `earlier` and
 `later` name the drivers by their links (specification 42 §2), and `first_byte`
 and `last_byte` give the first and the last of those bytes within the input
 image that the drivers see. A driver that declares no bytes overlaps nothing.
+`trust-runtime validate` finds the same overlaps before a start, from each
+driver's parameters, without constructing a driver: for a project with two or
+more enabled drivers it loads the program to know the images, prints a
+`warning:` line for each overlap before `Project ok`, and its `--ci` report
+lists each event's data under `warnings`, empty when there is none. The project
+still validates.
 
 The built-in driver registry exposes the stable canonical names `analog`, `can`,
 `counter`, `ethercat`, `gpio`, `loopback`, `modbus-rtu`, `modbus-tcp`, `mqtt`, `pwm`,
@@ -3248,7 +3254,8 @@ computer admits it at its start (specification 44 §10.2).
 Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
-runtime drivers.
+runtime drivers. Its `warnings` list the composed drivers that would fill the
+same input bytes (§6.5).
 
 Runtime structured logging accepts `error`, `warn` (`warning`), `info`,
 `debug`, and `trace`, case-insensitively. Empty or unknown configured levels are

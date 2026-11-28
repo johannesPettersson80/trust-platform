@@ -9,6 +9,7 @@ mod clients;
 mod debugger;
 pub(crate) mod flight;
 mod identify;
+mod io_config;
 mod methods;
 mod named;
 mod observer;
@@ -1000,43 +1001,6 @@ impl CompiledRuntime {
     /// Adds the `io.toml` driver `driver` named `name` after the others.
     pub fn add_io_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {
         self.cycle.process_io_mut().add_driver(name, driver);
-    }
-
-    /// Takes `io`, a project's `io.toml`, as trust-runtime starts a compiled program
-    /// (specification 44 §8.8): its safe outputs, and each enabled driver after the others, an MQTT
-    /// driver with its tag mappings bound to the program's variables first (§13.3).
-    ///
-    /// # Errors
-    ///
-    /// The error of a tag mapping or a driver that does not build.
-    pub fn add_io_config(&mut self, io: &crate::config::IoConfig) -> Result<(), RuntimeError> {
-        self.set_io_safe_state(io.safe_state.clone());
-        let registry = crate::io::IoDriverRegistry::default_registry();
-        for (position, driver) in io.drivers.iter().enumerate() {
-            // Each driver runs the link Devices & Connections names it by (specification 42, §2);
-            // a driver switched off in `io.toml` reads Disabled (§3 item 1).
-            let link = crate::io::io_link_name(driver.name.as_str(), position);
-            if !driver.enabled {
-                if let Some(link) = link {
-                    self.add_disabled_link(link);
-                }
-                continue;
-            }
-            let mut params = driver.params.clone();
-            if crate::io::takes_tag_mappings(driver.name.as_str()) {
-                let (lowered, links) =
-                    crate::io::resolve_compiled_mqtt_tag_mappings(self, &driver.params)?;
-                self.link_mqtt_tags(&links)?;
-                params = lowered;
-            }
-            if let Some(spec) = registry.build(driver.name.as_str(), &params)? {
-                match link {
-                    Some(link) => self.add_io_driver_with_link(spec.name, link, spec.driver),
-                    None => self.add_io_driver(spec.name, spec.driver),
-                }
-            }
-        }
-        Ok(())
     }
 
     /// Stops using every driver.

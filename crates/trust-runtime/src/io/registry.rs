@@ -37,12 +37,17 @@ pub struct IoDriverSpec {
 
 type IoDriverCreate = fn(&toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError>;
 type IoDriverValidate = fn(&toml::Value) -> Result<(), RuntimeError>;
+/// The bytes of the input image that a driver of these parameters fills while the output image
+/// the drivers get is the given number of bytes long (specification 42, §5 item 4).
+type IoDriverInputBytes =
+    fn(&toml::Value, usize) -> Result<Vec<std::ops::Range<usize>>, RuntimeError>;
 
 #[derive(Clone)]
 struct IoDriverRegistryEntry {
     canonical: SmolStr,
     create: IoDriverCreate,
     validate: IoDriverValidate,
+    input_bytes: IoDriverInputBytes,
 }
 
 impl IoDriverRegistry {
@@ -54,29 +59,54 @@ impl IoDriverRegistry {
 
     pub fn default_registry() -> Self {
         let mut registry = Self::new();
-        registry.register("simulated", create_simulated, validate_simulated);
+        registry.register(
+            "simulated",
+            create_simulated,
+            validate_simulated,
+            no_input_bytes,
+        );
         registry.register_alias("sim", "simulated");
         registry.register_alias("noop", "simulated");
-        registry.register("loopback", create_loopback, validate_simulated);
+        registry.register(
+            "loopback",
+            create_loopback,
+            validate_simulated,
+            loopback_input_bytes,
+        );
 
-        registry.register("gpio", create_gpio, validate_gpio);
+        registry.register("gpio", create_gpio, validate_gpio, gpio_input_bytes);
 
-        registry.register("modbus-tcp", create_modbus_tcp, validate_modbus_tcp);
+        registry.register(
+            "modbus-tcp",
+            create_modbus_tcp,
+            validate_modbus_tcp,
+            modbus_tcp_input_bytes,
+        );
         registry.register_alias("modbus_tcp", "modbus-tcp");
 
-        registry.register("mqtt", create_mqtt, validate_mqtt);
+        registry.register("mqtt", create_mqtt, validate_mqtt, mqtt_input_bytes);
         registry.register_alias("mqtt-tcp", "mqtt");
 
-        registry.register("ethercat", create_ethercat, validate_ethercat);
+        registry.register(
+            "ethercat",
+            create_ethercat,
+            validate_ethercat,
+            ethercat_input_bytes,
+        );
         registry.register_alias("ether-cat", "ethercat");
         registry.register_alias("ecat", "ethercat");
 
         // The drivers every runtime shares (specification 11 §6.5), with the parameter rules of
         // `trust_runtime_services::io_drivers`.
-        registry.register("analog", create_analog, validate_analog);
-        registry.register("can", create_can, validate_can);
-        registry.register("counter", create_counter, validate_counter);
-        registry.register("pwm", create_pwm, validate_pwm);
+        registry.register("analog", create_analog, validate_analog, analog_input_bytes);
+        registry.register("can", create_can, validate_can, can_input_bytes);
+        registry.register(
+            "counter",
+            create_counter,
+            validate_counter,
+            counter_input_bytes,
+        );
+        registry.register("pwm", create_pwm, validate_pwm, no_input_bytes);
         registry
     }
 
@@ -85,6 +115,7 @@ impl IoDriverRegistry {
         name: impl Into<SmolStr>,
         create: IoDriverCreate,
         validate: IoDriverValidate,
+        input_bytes: IoDriverInputBytes,
     ) {
         let canonical = normalize_name(name.into());
         if canonical.is_empty() || is_none_driver(canonical.as_str()) {
@@ -94,6 +125,7 @@ impl IoDriverRegistry {
             canonical: canonical.clone(),
             create,
             validate,
+            input_bytes,
         };
         self.entries.insert(canonical, entry);
     }
@@ -146,6 +178,32 @@ impl IoDriverRegistry {
         }))
     }
 
+    /// The bytes of the input image that the driver `driver` of `params` fills while the output
+    /// image the drivers get is `outputs` bytes long, from its parameters alone, without
+    /// constructing it (specification 42, §5 item 4; specification 11 §6.5); nothing for `none`.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of a driver the registry does not know or of parameters it refuses.
+    pub fn declared_inputs(
+        &self,
+        driver: &str,
+        params: &toml::Value,
+        outputs: usize,
+    ) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+        if is_none_driver(driver) {
+            return Ok(Vec::new());
+        }
+        let entry = self
+            .entries
+            .get(&normalize_name(SmolStr::new(driver)))
+            .ok_or_else(|| {
+                RuntimeError::InvalidConfig(format!("unsupported io.driver '{driver}'").into())
+            })?;
+        (entry.validate)(params)?;
+        (entry.input_bytes)(params, outputs)
+    }
+
     /// Return the canonical built-in driver names (stable sorted).
     pub fn canonical_driver_names(&self) -> Vec<String> {
         let mut names = BTreeSet::new();
@@ -178,6 +236,74 @@ pub fn is_nonphysical_driver(name: &str) -> bool {
 
 fn validate_simulated(_params: &toml::Value) -> Result<(), RuntimeError> {
     Ok(())
+}
+
+/// A driver that fills no input byte: the simulated driver and PWM, which has outputs alone.
+fn no_input_bytes(
+    _params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    Ok(Vec::new())
+}
+
+/// The loopback's: the input image as far as the output image reaches.
+fn loopback_input_bytes(
+    _params: &toml::Value,
+    outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    Ok(super::declared_inputs::loopback(outputs))
+}
+
+fn gpio_input_bytes(
+    params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    GpioDriver::declared_input_bytes(params)
+}
+
+fn modbus_tcp_input_bytes(
+    params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    ModbusTcpDriver::declared_input_bytes(params)
+}
+
+fn mqtt_input_bytes(
+    params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    MqttIoDriver::declared_input_bytes(params)
+}
+
+fn ethercat_input_bytes(
+    params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    EthercatIoDriver::declared_input_bytes(params)
+}
+
+fn analog_input_bytes(
+    params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    let params = shared_params("analog", params, AnalogParams::from_json)?;
+    Ok(super::declared_inputs::analog(&params))
+}
+
+fn can_input_bytes(
+    params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    let params = shared_params("can", params, CanParams::from_json)?;
+    Ok(super::declared_inputs::can(&params))
+}
+
+fn counter_input_bytes(
+    params: &toml::Value,
+    _outputs: usize,
+) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+    let params = shared_params("counter", params, CounterParams::from_json)?;
+    Ok(super::declared_inputs::counter(&params))
 }
 
 fn create_simulated(_params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
