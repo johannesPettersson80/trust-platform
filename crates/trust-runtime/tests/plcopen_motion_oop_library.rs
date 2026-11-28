@@ -137,13 +137,13 @@ fn plcopen_motion_single_axis_st_unit_tests_pass() {
     // The classic single-axis package of PLCopen Part 1 (docs/specs/coverage/
     // plcopen-motion-coverage.md): power, homing, moves, buffering, stop, reset, readbacks and
     // parameters on the virtual axis.
-    assert_trust_dev_test_passes(fixture_path("single_axis_core"), 56);
+    assert_trust_dev_test_passes(fixture_path("single_axis_core"), 60);
 }
 
 #[test]
 fn plcopen_motion_homing_st_unit_tests_pass() {
     // The homing package of PLCopen Part 5.
-    assert_trust_dev_test_passes(fixture_path("homing"), 10);
+    assert_trust_dev_test_passes(fixture_path("homing"), 11);
 }
 
 #[test]

@@ -257,6 +257,22 @@ TRUST_MOTION_FlushQueuedCommands(AxisIndex := AxisIndex, ErrorID := ErrorID);
 TRUST_MOTION_AbortAllCommands := TRUE;
 END_FUNCTION
 
+FUNCTION TRUST_MOTION_RefusedByAxisState : WORD
+VAR_INPUT
+    AxisIndex : UINT;
+END_VAR
+(* The error with which a motion command is refused in the axis's state, or 16#0000. PLCopen Part 1
+   §2.1: in Disabled the movement of the axis is not influenced by the FBs (mcERR_NotPowered), and in
+   ErrorStop no further motion command is accepted until a reset (mcERR_InvalidState). *)
+IF g_trust_motion_state[AxisIndex] = MC_AXIS_STATUS#mcDisabled THEN
+    TRUST_MOTION_RefusedByAxisState := WORD#16#0105;
+ELSIF g_trust_motion_state[AxisIndex] = MC_AXIS_STATUS#mcErrorStop THEN
+    TRUST_MOTION_RefusedByAxisState := WORD#16#0100;
+ELSE
+    TRUST_MOTION_RefusedByAxisState := WORD#16#0000;
+END_IF;
+END_FUNCTION
+
 FUNCTION TRUST_MOTION_EnterErrorStopAndFlushQueue : BOOL
 VAR_INPUT
     AxisIndex : UINT;
