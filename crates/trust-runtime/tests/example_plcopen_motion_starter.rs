@@ -2,12 +2,16 @@
 //! virtual axis once at start and then on each rising edge of its request, as its README's
 //! walkthrough says. The real `trust-runtime` runs a private copy of the example, and the test
 //! writes the request with `ctl io-write`, as Live Values' Write does (the simulated input keeps the
-//! value written). The starter's copy of the PLCopen motion library is the shipped library.
+//! value written). The starter's copy of the PLCopen motion library is the shipped library, and the
+//! single-axis demo runs as its README writes (`single_axis_demo`).
 //!
 //! The test needs the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
+
+#[path = "example_plcopen_motion_starter/single_axis_demo.rs"]
+mod single_axis_demo;
 
 use std::path::Path;
 use std::time::Duration;
