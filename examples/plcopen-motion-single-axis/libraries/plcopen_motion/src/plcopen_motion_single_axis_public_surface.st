@@ -233,9 +233,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             Busy := TRUE;
             Active := TRUE;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -465,9 +473,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             Busy := TRUE;
             Active := TRUE;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -646,9 +662,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
                 g_trust_motion_set_position[AxisIndex] := TargetPosition;
             END_IF;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -824,9 +848,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
                 g_trust_motion_set_position[AxisIndex] := TargetPosition;
             END_IF;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -1006,9 +1038,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
                 g_trust_motion_set_position[AxisIndex] := TargetPosition;
             END_IF;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -1192,10 +1232,19 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
                 g_trust_motion_actual_velocity[AxisIndex] := RequestedVelocity;
             END_IF;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
         InVelocity := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        InVelocity := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     InVelocity := FALSE;
@@ -1384,10 +1433,19 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
                 g_trust_motion_commanded_velocity[AxisIndex] := AcceptedEndVelocity;
             END_IF;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
         InEndVelocity := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        InEndVelocity := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     InEndVelocity := FALSE;
@@ -1577,10 +1635,19 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
                 g_trust_motion_commanded_velocity[AxisIndex] := AcceptedEndVelocity;
             END_IF;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
         InEndVelocity := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        InEndVelocity := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     InEndVelocity := FALSE;
@@ -2252,11 +2319,19 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         g_trust_motion_active_command_kind[AxisIndex] := TRUST_MOTION_COMMAND_KIND#trustMotionNone;
         g_trust_motion_active_buffer_mode[AxisIndex] := MC_BUFFER_MODE#mcAborting;
         AcceptedCommandID := UINT#0;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Done := FALSE;
         Error := FALSE;
         ErrorID := WORD#16#0000;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Done := FALSE;
+        Error := TRUE;
+        ErrorID := WORD#16#0100;
+        AcceptedCommandID := UINT#0;
     END_IF;
 ELSIF NOT Execute THEN
     Busy := FALSE;
@@ -2367,11 +2442,19 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         g_trust_motion_active_command_kind[AxisIndex] := TRUST_MOTION_COMMAND_KIND#trustMotionNone;
         g_trust_motion_active_buffer_mode[AxisIndex] := MC_BUFFER_MODE#mcAborting;
         AcceptedCommandID := UINT#0;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Done := FALSE;
         Error := FALSE;
         ErrorID := WORD#16#0000;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Done := FALSE;
+        Error := TRUE;
+        ErrorID := WORD#16#0100;
+        AcceptedCommandID := UINT#0;
     END_IF;
 ELSIF NOT Execute THEN
     Busy := FALSE;

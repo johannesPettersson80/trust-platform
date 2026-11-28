@@ -152,9 +152,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             Busy := TRUE;
             Active := TRUE;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -302,9 +310,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             Busy := TRUE;
             Active := TRUE;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -458,9 +474,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             Busy := TRUE;
             Active := TRUE;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -597,9 +621,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             Busy := TRUE;
             Active := TRUE;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -728,9 +760,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
             Busy := TRUE;
             Active := TRUE;
         END_IF;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -827,9 +867,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         TRUST_MOTION_ClearActiveCommandSlot(AxisIndex := AxisIndex);
         AcceptedCommandID := UINT#0;
         WasActive := FALSE;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -923,9 +971,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         TRUST_MOTION_ClearActiveCommandSlot(AxisIndex := AxisIndex);
         AcceptedCommandID := UINT#0;
         WasActive := FALSE;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;
@@ -1040,9 +1096,17 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         TRUST_MOTION_ClearActiveCommandSlot(AxisIndex := AxisIndex);
         AcceptedCommandID := UINT#0;
         WasActive := FALSE;
-    ELSE
+    ELSIF TRUST_MOTION_CommandIsQueued(AxisIndex := AxisIndex, CommandID := AcceptedCommandID) THEN
         Busy := TRUE;
         Active := FALSE;
+    ELSE
+        (* Neither active, queued nor recorded as aborted: the abort's record was lost while the
+           kernel's records were full, so the command ends as aborted. *)
+        Busy := FALSE;
+        Active := FALSE;
+        CommandAborted := TRUE;
+        AcceptedCommandID := UINT#0;
+        WasActive := FALSE;
     END_IF;
 ELSIF NOT Execute THEN
     Done := FALSE;

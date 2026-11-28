@@ -1181,6 +1181,45 @@ ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.Standstill);
 END_TEST_PROGRAM
 
+TEST_PROGRAM plcopen_motion_single_axis_a_lost_abort_record_still_ends_the_command
+(* The kernel keeps three records of aborted commands for their blocks to read on their next call.
+   Three moves, each aborted by the next and never called again, fill them; a power off then aborts
+   the active move and the move buffered behind it with no record left (PLCopen Part 1 §2.1: on-going
+   commands are aborted). Each of the two ends with CommandAborted when it is called, and neither
+   stays Busy. Catches a block that takes a command it finds neither active, queued nor recorded for
+   one still waiting in the queue, which would leave it Busy for ever (G348f). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    MoveA : MC_MoveAbsolute;
+    MoveB : MC_MoveAbsolute;
+    MoveC : MC_MoveAbsolute;
+    MoveD : MC_MoveAbsolute;
+    Queued : MC_MoveAbsolute;
+END_VAR
+
+Axis.AxisId := UDINT#1214;
+Axis.InternalIndex := UINT#19;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Power(Axis := Axis, Enable := TRUE);
+MoveA(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveB(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#11.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveC(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#12.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveD(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#13.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveD.Active);
+Queued(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#14.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
+ASSERT_TRUE(Queued.Busy);
+ASSERT_FALSE(Queued.Active);
+Power(Axis := Axis, Enable := FALSE);
+MoveD(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#13.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(MoveD.CommandAborted);
+ASSERT_FALSE(MoveD.Busy);
+Queued(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#14.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
+ASSERT_TRUE(Queued.CommandAborted);
+ASSERT_FALSE(Queued.Busy);
+END_TEST_PROGRAM
+
 TEST_PROGRAM plcopen_motion_single_axis_read_status_and_reset_state_paths
 VAR
     AxisStop : AXIS_REF;
