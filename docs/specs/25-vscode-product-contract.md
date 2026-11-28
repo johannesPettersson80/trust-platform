@@ -1890,6 +1890,12 @@ test checks each family.
 - Managed-runtime token import reads the runtime project's `runtime.toml` and
   imports the value to SecretStorage before attach, never to plaintext
   settings.
+- No output channel of the extension shows a credential. The "truST Debug"
+  channel names a debug session by its name, type and request, and a Debug
+  Adapter Protocol message by its kind, command or event, sequence number,
+  success and error text, never a configuration or a message's arguments or
+  body (28 November 2026: every attach session wrote its `authToken` there,
+  in the attach request that the channel logged in full).
 - The retired `trust-lsp.runtime.controlAuthToken` key is not contributed.
   The fallback key remains only with UI text that explicitly says legacy,
   fallback, and OS secret store.

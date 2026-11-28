@@ -13,8 +13,7 @@ fn run_init_bench(workload: InitBenchWorkload) -> anyhow::Result<BenchReport> {
     if sources.is_empty() {
         anyhow::bail!("no ST sources found under {}", workload.project.display());
     }
-    let toolchain = Toolchain::find()
-        .map_err(|error| anyhow::anyhow!("the native backend needs its toolchain: {error}"))?;
+    let toolchain = Toolchain::find()?;
     let target = Target::this_cpu()
         .ok_or_else(|| anyhow::anyhow!("this computer's CPU has no native target"))?;
     let debug = native::debug_hooks(&workload.project)?;

@@ -373,6 +373,15 @@ extension: `{"event": "download", "bytes": <n>, "total": <n or null>}`, `{"event
 or that none is installed (`--json`: `{"installed": <bool>, "folder": <path or null>, "source":
 "TRUST_TOOLCHAIN" or "installed" or null, "trust": <version or null>}`).
 
+**When none is installed.** `trust-runtime toolchain status`, and every command that needs the
+toolchain and finds none, `trust-dev test` among them, name it once, in one sentence with what
+installs it: ``the truST toolchain <version> is not installed: `trust-runtime toolchain install`
+installs it, from the bundle beside the tools or downloaded (about 195 to 225 MB, once)``. A build
+without a terminal ends the sentence with `` ; or build again with `--install-toolchain` ``
+(27 November 2026: `trust-dev test` said ``the tests need the toolchain: the Rust toolchain: the
+truST toolchain 0.44.1 is not installed: …``, and the build and `toolchain status` began with
+``the Rust toolchain: ``).
+
 **When.** `trust-runtime build`, and every command that builds as it does (`play`, `run` of a
 project without a program, `fleet start`), installs the bundle when it finds none, saying so on
 the standard error; a build whose install fails fails with its reason. The extension, before a
