@@ -21,15 +21,22 @@ pub(crate) struct AttachedRuntime {
 }
 
 impl AttachedRuntime {
-    /// The token to send to the attached runtime: that of the folder's own runtime, found as
-    /// `trust-runtime ctl --project` finds it (specification 11 §6.8.0a: the endpoint file, the
+    /// The token to send to the attached runtime: that of the runtime of the folder's project, the
+    /// folder or its `bundle` folder (specification 25 §6.7), found as `trust-runtime ctl
+    /// --project` finds it (specification 11 §6.8.0a: `TRUST_CTL_TOKEN`, the endpoint file, the
     /// token it publishes, or the control token of the project's `runtime.toml`), when that
     /// runtime's endpoint is the attached one; `None` otherwise, and without a folder.
     pub(crate) fn token(&self) -> Option<String> {
         let folder = self.folder.as_deref()?;
-        let target =
-            trust_runtime::control::endpoint::resolve_control_target(Some(folder), None, None)
-                .ok()?;
+        let project =
+            crate::state::runtime_project_folder(folder).unwrap_or_else(|| folder.to_path_buf());
+        let from_env = trust_runtime::control::endpoint::control_token_from_env();
+        let target = trust_runtime::control::endpoint::resolve_control_target(
+            Some(&project),
+            None,
+            from_env.as_deref(),
+        )
+        .ok()?;
         if same_endpoint(&target.endpoint_text, &self.endpoint) {
             target.auth_token
         } else {
@@ -52,41 +59,52 @@ fn same_endpoint(left: &str, right: &str) -> bool {
     }
 }
 
-/// The runtime attached for each workspace folder, and for a session without one.
+/// One attach session's record: its folder in the form this platform compares ([`compared`]), the
+/// session's identity, and the runtime it attached to.
+type Attached = (Option<PathBuf>, String, AttachedRuntime);
+
+/// The runtimes that attach sessions attached to, each kept by its session, in the order the
+/// sessions started.
 #[derive(Default)]
 pub(crate) struct AttachedRuntimes {
-    /// Each folder in the form this platform compares ([`compared`]), with its runtime.
-    attached: RwLock<Vec<(Option<PathBuf>, AttachedRuntime)>>,
+    attached: RwLock<Vec<Attached>>,
 }
 
 impl AttachedRuntimes {
-    /// Keeps that a debug session of `folder` attached to `endpoint` in place of an earlier one, or,
-    /// with `None`, that the folder's session ended.
-    pub(crate) fn record(&self, folder: Option<PathBuf>, endpoint: Option<String>) {
+    /// Keeps that the debug session `session` of `folder` attached to `endpoint`, or, with `None`,
+    /// that the session ended; the records of other sessions stay.
+    pub(crate) fn record(&self, folder: Option<PathBuf>, session: &str, endpoint: Option<String>) {
         let key = folder.as_deref().map(compared);
         let mut attached = self.attached.write();
-        attached.retain(|(existing, _)| *existing != key);
+        attached.retain(|(_, existing, _)| existing != session);
         if let Some(endpoint) = endpoint {
-            attached.push((key, AttachedRuntime { folder, endpoint }));
+            attached.push((
+                key,
+                session.to_owned(),
+                AttachedRuntime { folder, endpoint },
+            ));
         }
     }
 
     /// The runtime attached for the workspace folder that holds `document`, the innermost when
-    /// folders nest, else the one attached without a folder.
+    /// folders nest, else for a session without a folder; of several sessions of that folder, the
+    /// one that started last.
     pub(crate) fn for_document(&self, document: &Path) -> Option<AttachedRuntime> {
         let document = compared(document);
         let attached = self.attached.read();
         let in_folder = attached
             .iter()
-            .filter_map(|(folder, runtime)| Some((folder.as_ref()?, runtime)))
-            .filter(|(folder, _)| document.starts_with(folder))
-            .max_by_key(|(folder, _)| folder.components().count())
-            .map(|(_, runtime)| runtime.clone());
+            .enumerate()
+            .filter_map(|(order, (folder, _, runtime))| Some((order, folder.as_ref()?, runtime)))
+            .filter(|(_, folder, _)| document.starts_with(folder))
+            .max_by_key(|(order, folder, _)| (folder.components().count(), *order))
+            .map(|(_, _, runtime)| runtime.clone());
         in_folder.or_else(|| {
             attached
                 .iter()
-                .find(|(folder, _)| folder.is_none())
-                .map(|(_, runtime)| runtime.clone())
+                .rev()
+                .find(|(folder, _, _)| folder.is_none())
+                .map(|(_, _, runtime)| runtime.clone())
         })
     }
 }

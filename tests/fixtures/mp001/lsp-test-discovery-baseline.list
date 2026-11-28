@@ -89,6 +89,7 @@ handlers::tests::core::core_part_08::lsp_inline_values_runtime_override_accepts_
 handlers::tests::core::core_part_08::lsp_inline_values_runtime_override_prefers_camel_case_when_aliases_conflict: test
 handlers::tests::core::core_part_08::lsp_inline_values_send_no_token_to_an_attached_runtime_that_is_not_the_project_s: test
 handlers::tests::core::core_part_08::lsp_inline_values_silent_runtime_endpoint_returns_bounded_empty_result: test
+handlers::tests::core::core_part_08::lsp_inline_values_take_the_repository_endpoint_before_an_attach_session: test
 handlers::tests::core::core_part_09::lsp_inline_values_merge_instances_with_namespace: test
 handlers::tests::core::core_part_09::lsp_tutorial_examples_no_unexpected_diagnostics_snapshot: test
 handlers::tests::core::core_part_10::lsp_siemens_hash_prefixed_example_has_no_unexpected_diagnostics: test

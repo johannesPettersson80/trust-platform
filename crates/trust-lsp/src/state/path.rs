@@ -285,3 +285,11 @@ pub(crate) fn canonicalize_through_existing_ancestor(path: &Path) -> PathBuf {
     }
     path.to_path_buf()
 }
+
+/// The folder of a workspace folder's runtime project (specification 25 §6.7): the folder itself
+/// when it holds `runtime.toml`, else its `bundle` folder when that holds one.
+pub(crate) fn runtime_project_folder(folder: &Path) -> Option<PathBuf> {
+    [folder.to_path_buf(), folder.join("bundle")]
+        .into_iter()
+        .find(|candidate| candidate.join("runtime.toml").is_file())
+}

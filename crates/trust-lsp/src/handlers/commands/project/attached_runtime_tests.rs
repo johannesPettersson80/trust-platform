@@ -27,7 +27,7 @@ fn a_session_s_endpoint_is_kept_for_its_folder_until_the_session_ends() {
     let state = ServerState::new();
     let answered = answer(
         &state,
-        json!({ "folder": FOLDER, "endpoint": " tcp://127.0.0.1:43210 " }),
+        json!({ "folder": FOLDER, "session": "s1", "endpoint": " tcp://127.0.0.1:43210 " }),
     )
     .expect("answer");
     assert_eq!(answered, json!({ "ok": true }));
@@ -47,7 +47,11 @@ fn a_session_s_endpoint_is_kept_for_its_folder_until_the_session_ends() {
             .for_document(std::path::Path::new(elsewhere)),
         None
     );
-    answer(&state, json!({ "folder": FOLDER, "endpoint": null })).expect("answer");
+    answer(
+        &state,
+        json!({ "folder": FOLDER, "session": "s1", "endpoint": null }),
+    )
+    .expect("answer");
     assert_eq!(attached_for(&state, "main.st"), None);
 }
 
@@ -58,9 +62,15 @@ fn an_endpoint_that_is_not_a_control_endpoint_is_refused() {
     let state = ServerState::new();
     let refused = answer(
         &state,
-        json!({ "folder": FOLDER, "endpoint": "http://plc:8080" }),
+        json!({ "folder": FOLDER, "session": "s1", "endpoint": "http://plc:8080" }),
     )
     .expect_err("refused");
     assert!(refused.contains("is not a control endpoint"), "{refused}");
     assert_eq!(attached_for(&state, "main.st"), None);
+    let blank = answer(
+        &state,
+        json!({ "folder": FOLDER, "session": " ", "endpoint": "tcp://127.0.0.1:43210" }),
+    )
+    .expect_err("refused");
+    assert!(blank.contains("names no session"), "{blank}");
 }

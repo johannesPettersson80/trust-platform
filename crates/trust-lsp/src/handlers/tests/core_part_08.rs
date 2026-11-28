@@ -544,10 +544,11 @@ fn attached_inline_request_sent(
                 auth_token: "simulator-token".to_owned(),
             }
         });
-    state
-        .simulator_controls()
-        .attached()
-        .record(Some(folder.to_path_buf()), Some(attached.to_owned()));
+    state.simulator_controls().attached().record(
+        Some(folder.to_path_buf()),
+        "session-1",
+        Some(attached.to_owned()),
+    );
     let source = runtime_inline_values_source();
     let uri =
         tower_lsp::lsp_types::Url::from_file_path(folder.join("runtime.st")).expect("a file URI");
@@ -592,4 +593,29 @@ pub(super) fn lsp_inline_values_send_no_token_to_an_attached_runtime_that_is_not
     assert_eq!(request["type"], json!("debug.scopes"));
     assert_eq!(request.get("auth"), None, "{request}");
     let _ = std::fs::remove_dir_all(&folder);
+}
+
+#[test]
+pub(super) fn lsp_inline_values_take_the_repository_endpoint_before_an_attach_session() {
+    // Specification 14 §7.1.2: trust-lsp.toml's endpoint comes before the runtime that a debug
+    // session of the folder attached to. With both, the request goes to the repository's endpoint
+    // with its own token. Catches an attach record placed before the endpoints that a person
+    // configured.
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let state = inline_value_state(
+        RuntimeConfig {
+            control_endpoint: Some(endpoint),
+            control_auth_token: Some("repository-token".to_string()),
+        },
+        json!({}),
+    );
+    state.simulator_controls().attached().record(
+        Some(PathBuf::from("/workspace")),
+        "session-1",
+        Some("tcp://127.0.0.1:9".to_owned()),
+    );
+
+    let request = runtime_inline_request_sent(&state, &requests);
+
+    assert_eq!(request["auth"], json!("repository-token"));
 }

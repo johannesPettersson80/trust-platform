@@ -53,9 +53,17 @@ fn the_innermost_folder_s_session_serves_a_document_and_one_without_a_folder_the
     let outer = PathBuf::from(root);
     let inner = outer.join("inner");
     let runtimes = AttachedRuntimes::default();
-    runtimes.record(Some(outer.clone()), Some("tcp://127.0.0.1:1001".into()));
-    runtimes.record(Some(inner.clone()), Some("tcp://127.0.0.1:1002".into()));
-    runtimes.record(None, Some("tcp://127.0.0.1:1003".into()));
+    runtimes.record(
+        Some(outer.clone()),
+        "outer",
+        Some("tcp://127.0.0.1:1001".into()),
+    );
+    runtimes.record(
+        Some(inner.clone()),
+        "inner",
+        Some("tcp://127.0.0.1:1002".into()),
+    );
+    runtimes.record(None, "none", Some("tcp://127.0.0.1:1003".into()));
     let endpoint = |document: PathBuf| {
         runtimes
             .for_document(&document)
@@ -78,9 +86,60 @@ fn the_innermost_folder_s_session_serves_a_document_and_one_without_a_folder_the
         endpoint(PathBuf::from(elsewhere)),
         Some("tcp://127.0.0.1:1003".into())
     );
-    runtimes.record(Some(inner.clone()), None);
+    runtimes.record(Some(inner.clone()), "inner", None);
     assert_eq!(
         endpoint(inner.join("main.st")),
         Some("tcp://127.0.0.1:1001".into())
     );
+}
+
+#[test]
+fn two_sessions_of_one_folder_keep_their_own_records_and_the_later_one_serves() {
+    // Specification 25 §6.8: the extension names each session, so that two attach sessions of one
+    // folder keep their own records. Session A attaches, then B: B's endpoint serves the folder's
+    // documents; A ends and B's stays; B ends and none is left. Catches the end of one session
+    // clearing the record of another that still runs, and the first session winning over a later
+    // one.
+    let folder = PathBuf::from(if cfg!(windows) { r"C:\work" } else { "/work" });
+    let runtimes = AttachedRuntimes::default();
+    let endpoint = || {
+        runtimes
+            .for_document(&folder.join("main.st"))
+            .map(|runtime| runtime.endpoint)
+    };
+    runtimes.record(
+        Some(folder.clone()),
+        "a",
+        Some("tcp://127.0.0.1:2001".into()),
+    );
+    runtimes.record(
+        Some(folder.clone()),
+        "b",
+        Some("tcp://127.0.0.1:2002".into()),
+    );
+    assert_eq!(endpoint(), Some("tcp://127.0.0.1:2002".into()));
+    runtimes.record(Some(folder.clone()), "a", None);
+    assert_eq!(endpoint(), Some("tcp://127.0.0.1:2002".into()));
+    runtimes.record(Some(folder.clone()), "b", None);
+    assert_eq!(endpoint(), None);
+}
+
+#[test]
+fn the_token_of_a_project_in_the_folder_s_bundle_folder_is_found() {
+    // Specification 25 §6.7: a workspace folder's runtime project is the folder, or its `bundle`
+    // folder when only that holds runtime.toml, as the extension resolves the attach endpoint.
+    // Here bundle/runtime.toml names tcp://127.0.0.1:43220 and a token: attached to that endpoint,
+    // the session gets the token. Catches the token looked for in the workspace folder itself,
+    // which has no runtime.toml, so that the runtime refuses the inline values' requests.
+    let token = trust_runtime::control::endpoint::generate_control_token().expect("a token");
+    let bundle = project_with_control("tcp://127.0.0.1:43220", &token);
+    let folder = trust_test_support::unique_temp_path("trust-lsp-attached-bundle");
+    std::fs::create_dir_all(&folder).expect("the workspace folder");
+    std::fs::rename(&bundle, folder.join("bundle")).expect("the bundle folder");
+    let attached = AttachedRuntime {
+        folder: Some(folder.clone()),
+        endpoint: "tcp://127.0.0.1:43220".to_owned(),
+    };
+    assert_eq!(attached.token(), Some(token));
+    let _ = std::fs::remove_dir_all(&folder);
 }

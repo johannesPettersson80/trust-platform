@@ -344,6 +344,8 @@ state -> project : database_snapshot()
 project --> state : db
 state --> handlers : inline targets
 deactivate state
+handlers -> state : simulator_controls().attached().for_document(path)
+state --> handlers : the folder's attach session's endpoint, if any
 handlers -> state : simulator_controls().for_document(path)
 state --> handlers : the folder's simulator control, if any
 handlers -> runtimeCtl : debug.scopes / debug.variables
@@ -358,9 +360,14 @@ note right of runtimeCtl
     Endpoint: trust-lsp.toml [runtime]
     control_endpoint, else the editor's
     runtime.controlEndpoint, else the
+    runtime an attach session of the
+    document's folder attached to
+    (trust-lsp.attachedRuntime), with
+    the token of the folder's own runtime
+    only when it is that one, else the
     simulator a launch started for the
-    document's folder, with its own
-    token (spec 14 §7.1.2).
+    folder, with its own token
+    (spec 14 §7.1.2).
 end note
 
 ' ============================================================

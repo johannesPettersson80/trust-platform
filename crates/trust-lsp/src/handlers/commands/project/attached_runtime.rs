@@ -1,6 +1,6 @@
 //! The runtime that a debug session attached to (specification 25 §6.8): the extension names the
-//! session's workspace folder and the endpoint it attached to, and the folder with `endpoint:
-//! null` when the session ends. The server keeps it for the inline values of the folder's
+//! session, its workspace folder and the endpoint it attached to, and the session with `endpoint:
+//! null` when it ends. The server keeps it for the inline values of the folder's
 //! documents ([`crate::state::simulator_controls::attached_runtimes`]). No token crosses: the server
 //! finds the token of the folder's own runtime itself (specification 14 §7.1.2).
 
@@ -18,15 +18,25 @@ struct Args {
     /// The session's workspace folder, `None` for a session without one.
     #[serde(default)]
     folder: Option<PathBuf>,
+    /// The session's identity, which keeps two sessions of one folder apart.
+    session: String,
     /// The endpoint the session attached to, `None` when it ended.
     #[serde(default)]
     endpoint: Option<String>,
 }
 
-/// `{ ok: true }` once the endpoint that a session of `folder` attached to, or the session's end,
-/// is kept. An endpoint that is not a control endpoint is refused.
+/// `{ ok: true }` once the endpoint that the session `session` of `folder` attached to, or the
+/// session's end, is kept. An endpoint that is not a control endpoint is refused, and so is a
+/// blank session.
 pub(super) fn answer(state: &ServerState, argument: Value) -> Result<Value, String> {
-    let Args { folder, endpoint } = decode(argument)?;
+    let Args {
+        folder,
+        session,
+        endpoint,
+    } = decode(argument)?;
+    if session.trim().is_empty() {
+        return Err("trust-lsp.attachedRuntime names no session.".to_owned());
+    }
     let endpoint = endpoint
         .map(|text| text.trim().to_string())
         .filter(|text| !text.is_empty());
@@ -37,7 +47,7 @@ pub(super) fn answer(state: &ServerState, argument: Value) -> Result<Value, Stri
     state
         .simulator_controls()
         .attached()
-        .record(folder, endpoint);
+        .record(folder, session.trim(), endpoint);
     Ok(json!({ "ok": true }))
 }
 
