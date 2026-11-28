@@ -2,10 +2,14 @@
 //! `trust-lsp.simulatorControl` named for each workspace folder (specification 25 §6.8). The
 //! language server generated each token itself, so runtime-assisted inline values reach the
 //! simulator of a document's workspace folder without a secret crossing the protocol
-//! (specification 14, runtime-assisted inline values).
+//! (specification 14, runtime-assisted inline values). Beside them, the runtimes that debug
+//! sessions attached to ([`attached_runtimes`]).
 
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
+
+#[path = "attached_runtimes.rs"]
+pub(crate) mod attached_runtimes;
 
 /// The control endpoint and token of a launch's simulator.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -14,14 +18,21 @@ pub(crate) struct SimulatorControl {
     pub(crate) auth_token: String,
 }
 
-/// The simulator control named for each workspace folder, and for a launch without one.
+/// The simulator control named for each workspace folder, and for a launch without one, and the
+/// runtimes that debug sessions attached to.
 #[derive(Default)]
 pub(crate) struct SimulatorControls {
     /// Each folder in the form this platform compares ([`compared`]), with its control.
     named: RwLock<Vec<(Option<PathBuf>, SimulatorControl)>>,
+    attached: attached_runtimes::AttachedRuntimes,
 }
 
 impl SimulatorControls {
+    /// The runtimes that debug sessions attached to in this session (specification 25 §6.8).
+    pub(crate) fn attached(&self) -> &attached_runtimes::AttachedRuntimes {
+        &self.attached
+    }
+
     /// Names a control for `workspace` with `name` and keeps it in place of an earlier one, under
     /// one lock, so that two folders asked for at once never take one endpoint. `name` is given
     /// whether an endpoint is named for a folder other than `workspace`, which a new simulator of
