@@ -88,6 +88,9 @@ pub(super) struct CanDriver {
     input: IoDriverHealth,
     /// The output path's health: bus-off or a failed send.
     output: IoDriverHealth,
+    /// The bytes of the input image its receives fill, each from its `%IB` address for its length
+    /// (specification 42, §5 item 4).
+    input_bytes: Vec<std::ops::Range<usize>>,
 }
 
 impl CanDriver {
@@ -123,6 +126,7 @@ impl CanDriver {
     /// The driver of `params` over `port`, its exchange started now.
     fn new(params: CanParams, port: Box<dyn CanPort>) -> Self {
         let on_error = params.on_error;
+        let input_bytes = crate::io::declared_inputs::can(&params);
         Self {
             port,
             exchange: CanExchange::new(params, 0),
@@ -132,6 +136,7 @@ impl CanDriver {
             send_failure: None,
             input: IoDriverHealth::Ok,
             output: IoDriverHealth::Ok,
+            input_bytes,
         }
     }
 
@@ -239,6 +244,10 @@ impl IoDriver for CanDriver {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
         let now_ms = self.now_ms();
         self.exchange_inputs(inputs, now_ms)
+    }
+
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        self.input_bytes.clone()
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {

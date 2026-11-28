@@ -12,8 +12,7 @@ impl DeviceRun {
     /// scans ([`DeviceLink::prepare_steps`]).
     fn open(port: &str, target: &str) -> anyhow::Result<Self> {
         let target = crate::build::native_target(target)?;
-        let toolchain = Toolchain::find()
-            .map_err(|error| anyhow!("the native backend needs its toolchain: {error}"))?;
+        let toolchain = Toolchain::find()?;
         // A device whose settings set a control token takes it from `TRUST_CTL_TOKEN` (specification
         // 34 PORT-06): the conformance cases belong to no project that could name it.
         let token = trust_runtime::control::endpoint::control_token_from_env();

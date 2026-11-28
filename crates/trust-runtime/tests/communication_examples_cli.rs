@@ -11,6 +11,9 @@ mod modbus;
 #[path = "support/mqtt.rs"]
 mod mqtt;
 
+#[path = "communication_examples_cli/composed_overlap.rs"]
+mod composed_overlap;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::{Arc, Mutex};

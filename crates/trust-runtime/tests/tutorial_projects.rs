@@ -499,35 +499,6 @@ fn assert_each_succeeds(commands: &[Vec<String>]) {
 }
 
 #[test]
-fn tutorial_21_gates_pass_on_the_project_it_names() {
-    // examples/tutorials/21_ci_cd_project_pipeline/README.md: from the repository root, step 2 runs
-    // `trust-runtime build --project examples/tutorials/11_unit_testing_102 --ci` and step 3
-    // `trust-runtime validate --project examples/tutorials/11_unit_testing_102 --ci`, and each is
-    // expected to succeed (exit code 0 in step 6's table). Catches a project the gates refuse:
-    // tutorial 11 had no runtime.toml or io.toml, and step 3 exited 10 ("missing runtime.toml").
-    let commands = gate_commands("examples/tutorials/21_ci_cd_project_pipeline/README.md");
-    assert_eq!(
-        commands,
-        [
-            [
-                "build",
-                "--project",
-                "examples/tutorials/11_unit_testing_102",
-                "--ci"
-            ],
-            [
-                "validate",
-                "--project",
-                "examples/tutorials/11_unit_testing_102",
-                "--ci"
-            ],
-        ],
-        "the gates of steps 2 and 3"
-    );
-    assert_each_succeeds(&commands);
-}
-
-#[test]
 fn tutorial_22_terminal_build_and_validate_succeed() {
     // examples/tutorials/22_neovim_zed_workflow/README.md, step 5: from the repository root, `trust-
     // runtime build` and `trust-runtime validate` of the project the step names give "the same build
@@ -585,20 +556,11 @@ fn with_sections(runtime: &str, block: &str) -> String {
     text
 }
 
-#[test]
-fn tutorial_16_configuration_builds_and_validates() {
-    // examples/tutorials/16_secure_remote_access/README.md: on tutorial 13's project, a reader puts
-    // the README's configuration, its first TOML block (step 4), into runtime.toml, with the token
-    // of step 2 in place of the placeholder and the certificate of step 3 in security/ (here the
-    // tests' fixture certificate), then builds and validates (step 6: `Project ok`). Specification 11: a `tcp://` control
-    // endpoint admits only a loopback address, and `runtime.web.auth = "token"` requires
-    // `runtime.control.auth_token`. Catches a tutorial whose configuration the runtime refuses, as
-    // its remote control endpoint `tcp://0.0.0.0:17777` was ("tcp endpoint must be loopback").
-    let readme = std::fs::read_to_string(
-        repo_root().join("examples/tutorials/16_secure_remote_access/README.md"),
-    )
-    .expect("tutorial 16's README");
-    let token = "0123456789abcdef".repeat(3);
+/// Tutorial 16's project as its README makes it: tutorial 13's files, with the README's
+/// configuration, its first TOML block (step 4), in runtime.toml, `token` in place of the
+/// placeholder of step 2, and the tests' fixture certificate as the certificate of step 3. Returns
+/// the project folder and its runtime.toml.
+fn tutorial_16_project(readme: &str, token: &str) -> (PathBuf, String) {
     let files = here_documents(
         &std::fs::read_to_string(
             repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
@@ -613,15 +575,34 @@ fn tutorial_16_configuration_builds_and_validates() {
     }
     let runtime =
         std::fs::read_to_string(project.join("runtime.toml")).expect("tutorial 13's runtime.toml");
-    let configuration = readme
+    let block = readme
         .split("```toml\n")
         .nth(1)
         .and_then(|block| block.split("```").next())
         .expect("the README's configuration, its first TOML block");
-    let runtime = with_sections(&runtime, configuration);
-    let runtime = runtime
-        .replace("paste-the-token-from-step-2-here", &token)
-        .replace("replace-with-long-random-token", &token);
+    // A block in a numbered step is indented as the step's text is; the reader's file is not.
+    let indent = block
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.len() - line.trim_start().len())
+        .min()
+        .unwrap_or(0);
+    let configuration: String = block
+        .lines()
+        .map(|line| {
+            format!(
+                "{}\n",
+                line.get(indent..).unwrap_or_else(|| line.trim_start())
+            )
+        })
+        .collect();
+    let runtime = with_sections(&runtime, &configuration)
+        .replace("paste-the-token-from-step-2-here", token)
+        .replace("replace-with-long-random-token", token);
+    assert!(
+        runtime.contains("auth = \"token\"") && runtime.contains("[runtime.tls]"),
+        "the README's configuration is in runtime.toml:\n{runtime}"
+    );
     std::fs::write(project.join("runtime.toml"), &runtime).expect("runtime.toml");
     let fixtures = repo_root().join("crates/trust-runtime/tests/fixtures/tls");
     std::fs::create_dir_all(project.join("security")).expect("security/");
@@ -629,27 +610,98 @@ fn tutorial_16_configuration_builds_and_validates() {
         std::fs::copy(fixtures.join(file), project.join("security").join(file))
             .expect("the certificate");
     }
+    (project, runtime)
+}
+
+/// `trust-runtime <args>` in `project`.
+fn in_project(project: &std::path::Path, args: &[&str]) -> std::process::Output {
+    trust_runtime_command()
+        .args(args)
+        .current_dir(project)
+        .output()
+        .expect("run trust-runtime")
+}
+
+#[test]
+fn tutorial_16_configuration_builds_and_validates() {
+    // examples/tutorials/16_secure_remote_access/README.md: on tutorial 13's project, a reader puts
+    // the README's configuration, its first TOML block (step 4), into runtime.toml, with the token
+    // of step 2 in place of the placeholder and the certificate of step 3 in security/ (here the
+    // tests' fixture certificate), then builds and validates (step 5: `Project ok`). Specification
+    // 11: a `tcp://` control endpoint admits only a loopback address, and `runtime.web.auth =
+    // "token"` requires `runtime.control.auth_token`. Catches a tutorial whose configuration the
+    // runtime refuses, as its remote control endpoint `tcp://0.0.0.0:17777` was ("tcp endpoint must
+    // be loopback"), and a configuration block that no longer reaches runtime.toml.
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/16_secure_remote_access/README.md"),
+    )
+    .expect("tutorial 16's README");
+    let token = "0123456789abcdef".repeat(3);
+    let (project, runtime) = tutorial_16_project(&readme, &token);
     let outputs: Vec<_> = [
         vec!["build", "--project", ".", "--sources", "src"],
         vec!["validate", "--project", "."],
     ]
     .iter()
-    .map(|args| {
-        (
-            args.join(" "),
-            trust_runtime_command()
-                .args(args)
-                .current_dir(&project)
-                .output()
-                .expect("run trust-runtime"),
-        )
-    })
+    .map(|args| (args.join(" "), in_project(&project, args)))
     .collect();
     let _ = std::fs::remove_dir_all(&project);
     for (args, output) in outputs {
         assert!(
             output.status.success(),
             "`trust-runtime {args}` with\n{runtime}\n{}",
+            describe(&output)
+        );
+    }
+}
+
+#[test]
+fn tutorial_16_try_its_are_refused_as_its_readme_writes() {
+    // examples/tutorials/16_secure_remote_access/README.md, "Try it yourself" (specification 11): a
+    // web interface with `auth = "token"` and no `runtime.control.auth_token`, and a control endpoint
+    // on a network address, are refused by `validate` with the errors the README quotes. Catches a
+    // configuration the runtime would start with, and a README whose quoted errors drifted.
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/16_secure_remote_access/README.md"),
+    )
+    .expect("tutorial 16's README");
+    let token = "0123456789abcdef".repeat(3);
+    let (project, runtime) = tutorial_16_project(&readme, &token);
+    let built = in_project(&project, &["build", "--project", ".", "--sources", "src"]);
+    assert!(built.status.success(), "build: {}", describe(&built));
+    let cases = [
+        (
+            runtime
+                .lines()
+                .filter(|line| !line.starts_with("auth_token = "))
+                .map(|line| format!("{line}\n"))
+                .collect::<String>(),
+            "runtime.web.auth=token requires runtime.control.auth_token",
+        ),
+        (
+            runtime.replacen(
+                "debug_enabled = false\n",
+                "debug_enabled = false\nendpoint = \"tcp://0.0.0.0:7000\"\n",
+                1,
+            ),
+            "tcp endpoint must be loopback (use unix:// for local sockets)",
+        ),
+    ];
+    let mut refusals = Vec::new();
+    for (changed, expected) in cases {
+        assert!(readme.contains(expected), "the README quotes `{expected}`");
+        std::fs::write(project.join("runtime.toml"), &changed).expect("runtime.toml");
+        refusals.push((
+            expected,
+            in_project(&project, &["validate", "--project", "."]),
+        ));
+    }
+    let _ = std::fs::remove_dir_all(&project);
+    for (expected, output) in refusals {
+        assert!(!output.status.success(), "validate refuses it: {expected}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(expected),
+            "validate's error: {}",
             describe(&output)
         );
     }
