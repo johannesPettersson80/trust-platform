@@ -28,6 +28,15 @@ pub trait IoDriver: Send {
         Vec::new()
     }
 
+    /// The bytes of the input image it fills while the output image the drivers get is
+    /// `outputs` bytes long, which the runtime asks for the stale values and the overlap of
+    /// composed drivers (specification 42, §5 item 4; specification 11 §6.5): its
+    /// `input_bytes`, unless what it fills follows the output image, as the loopback driver's
+    /// copy of it does.
+    fn input_bytes_with_outputs(&self, _outputs: usize) -> Vec<std::ops::Range<usize>> {
+        self.input_bytes()
+    }
+
     /// The protocol's own state in words, beside the health (specification 42, §4 item 9).
     fn detail(&self) -> Option<SmolStr> {
         None

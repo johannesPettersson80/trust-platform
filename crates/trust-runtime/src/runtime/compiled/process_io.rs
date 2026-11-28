@@ -14,8 +14,9 @@ use trust_runtime_services::runner::ProcessIo;
 
 use super::super::io_subsystem::{self, publish_health, write_safe_outputs, IoDriverEntry};
 use super::tags::{lock, SharedExtraImages};
+use super::CompiledRuntime;
 use crate::error::RuntimeError;
-use crate::io::{IdentifyHandle, ImageBit, IoDriver, IoDriverStatus};
+use crate::io::{IdentifyHandle, ImageBit, InputOverlap, IoDriver, IoDriverStatus};
 
 /// The drivers of `io.toml`, in their order, which the process I/O reads and drives and the
 /// `Comm.Link` blocks switch off and test at the access point after the inputs (specification 42,
@@ -159,6 +160,35 @@ impl ProcessIo for HostIo {
                 health: entry.driver.health(),
             })
             .collect()
+    }
+}
+
+impl CompiledRuntime {
+    /// The composed drivers that fill the same bytes of the input image, within the image the
+    /// drivers see: the program's own image with the bytes that the MQTT tags bind after it
+    /// (specification 11 §6.5).
+    pub fn io_input_overlaps(&self) -> Vec<InputOverlap> {
+        let image_len = self.driver_input_len();
+        let outputs = self.driver_output_len();
+        crate::io::input_overlaps(
+            &io_subsystem::declared_inputs(
+                &lock_drivers(&self.cycle.process_io().drivers),
+                outputs,
+            ),
+            image_len,
+        )
+    }
+
+    /// The length of the input image the drivers see: the program's own with the bytes that the
+    /// MQTT tags bind after it.
+    pub(super) fn driver_input_len(&self) -> usize {
+        self.cycle.program().inputs.len() + lock(&self.cycle.process_io().extra).inputs.len()
+    }
+
+    /// The length of the output image the drivers get: the program's own with the bytes that the
+    /// MQTT tags bind after it.
+    pub(super) fn driver_output_len(&self) -> usize {
+        self.cycle.program().outputs.len() + lock(&self.cycle.process_io().extra).outputs.len()
     }
 }
 

@@ -28,6 +28,8 @@ const COUNTERS: &str = "bus/counter/devices";
 /// The `counter` driver: its counts, in `io.toml` order, and its health.
 pub(super) struct CounterDriver {
     inputs: Vec<CountChannel>,
+    /// The bytes of the input image its counts fill (specification 42, §5 item 4).
+    input_bytes: Vec<std::ops::Range<usize>>,
     health: IoDriverHealth,
 }
 
@@ -46,6 +48,7 @@ impl CounterDriver {
     /// The driver of `params` over the sysfs tree at `sysfs`, each count set up and read once, so
     /// that its edges count from now.
     fn open(params: CounterParams, sysfs: &Path) -> Result<Self, RuntimeError> {
+        let input_bytes = crate::io::declared_inputs::counter(&params);
         let inputs = params
             .inputs
             .iter()
@@ -54,6 +57,7 @@ impl CounterDriver {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             inputs,
+            input_bytes,
             health: IoDriverHealth::Ok,
         })
     }
@@ -74,6 +78,12 @@ impl IoDriver for CounterDriver {
             },
         };
         result
+    }
+
+    /// The bytes of the input image its counts fill, each its `%ID` double word (specification
+    /// 42, §5 item 4).
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        self.input_bytes.clone()
     }
 
     /// A counter driver has no outputs.
@@ -629,5 +639,15 @@ mod tests {
         assert_eq!(read(&mut driver), [0xF4, 0xFF, 0xFF, 0xFF]);
         sysfs.set(&attribute("count"), "2\n");
         assert_eq!(read(&mut driver), [0xF8, 0xFF, 0xFF, 0xFF]);
+    }
+
+    /// Specification 42, §5 item 4: a count declares its `%ID` double word, four bytes: the count
+    /// at `%ID4` declares bytes 4..8, so a driver composed after it that fills them is warned
+    /// about (specification 11 §6.5). Catches a driver that declares nothing, which no overlap
+    /// warning would name, and a double word counted short.
+    #[test]
+    fn a_count_declares_its_double_word() {
+        let driver = open(&count("counter-declared", "0\n"), Edge::Rising);
+        assert_eq!(driver.input_bytes(), vec![4..8]);
     }
 }

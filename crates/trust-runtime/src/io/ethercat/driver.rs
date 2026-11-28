@@ -26,6 +26,21 @@ impl EthercatIoDriver {
         Ok(())
     }
 
+    /// The bytes of the input image that the driver of `value` fills, from its parameters alone
+    /// (specification 42, §5 item 4), as its `input_bytes` gives them once it runs.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of parameters that the driver refuses.
+    pub(crate) fn declared_input_bytes(
+        value: &toml::Value,
+    ) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+        let config = EthercatConfig::from_params(value)?;
+        Ok(crate::io::declared_inputs::ethercat(
+            config.expected_input_bytes,
+        ))
+    }
+
     fn ensure_discovered(&mut self) -> Result<(), RuntimeError> {
         if self.discovered {
             return Ok(());
@@ -171,12 +186,7 @@ impl IoDriver for EthercatIoDriver {
     }
 
     fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
-        // The modules' input image, from the image's start.
-        if self.config.expected_input_bytes == 0 {
-            Vec::new()
-        } else {
-            std::iter::once(0..self.config.expected_input_bytes).collect()
-        }
+        crate::io::declared_inputs::ethercat(self.config.expected_input_bytes)
     }
 
     fn detail(&self) -> Option<SmolStr> {

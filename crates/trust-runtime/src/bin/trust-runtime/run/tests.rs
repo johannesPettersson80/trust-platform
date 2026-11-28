@@ -526,6 +526,7 @@ END_PROGRAM
         identify: trust_runtime::io::IdentifyHandle::new(),
         traces: trust_runtime::control::new_traces(),
         runtime_id: None,
+        logger: super::RuntimeLogger::new(super::LogLevel::Warn),
     };
     let mut cold = compiled_program(source);
     cold.set_retain_store(retain_file(), Some(Duration::from_millis(1)))

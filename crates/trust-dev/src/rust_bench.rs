@@ -74,8 +74,7 @@ pub fn run_bench(
         return Ok(());
     };
     let plan = bench::programs(&krate);
-    let toolchain = Toolchain::find()
-        .map_err(|error| anyhow::anyhow!("the bench needs the toolchain: {error}"))?;
+    let toolchain = Toolchain::find()?;
     let (target, found, measured_on) = match &device {
         None => {
             let host = Target::this_cpu().context("this computer's CPU has no native target")?;

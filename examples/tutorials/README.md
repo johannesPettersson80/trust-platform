@@ -342,8 +342,8 @@ and why it matters.
 3. `15_multi_plc_discovery_mesh/README.md`
     - run two runtimes, share a value over the mesh, and find the peer with a search.
 4. `16_secure_remote_access/README.md`
-    - configure TCP control with auth token, pairing, and minimal firewall
-      exposure.
+    - open the web interface to the network with a token and TLS, keep the control endpoint local,
+      and pair another device.
 5. `17_io_backends_and_multi_driver/README.md`
     - configure `loopback`, `simulated`, `gpio`, `modbus-tcp`, `mqtt`, and
       composed `io.drivers`.
@@ -352,7 +352,8 @@ and why it matters.
 7. `19_safety_commissioning/README.md`
     - verify safe-state outputs, watchdog/fault policy, and restart recovery.
 8. `21_ci_cd_project_pipeline/README.md`
-    - implement CI gates with machine-readable reports and stable exit codes.
+    - build, validate and test a project in CI mode, read its reports and exit codes, and copy the
+      workflow that runs them on every change.
 9. `22_neovim_zed_workflow/README.md`
     - run a complete non-VS-Code workflow with Neovim/Zed plus terminal gates.
 10. `23_observability_historian_prometheus/README.md`

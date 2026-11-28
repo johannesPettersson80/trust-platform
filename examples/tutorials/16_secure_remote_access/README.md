@@ -1,213 +1,200 @@
-# Tutorial 16: Secure Remote Access (Token, TLS, Pairing, Firewall)
+# Tutorial 16: Secure Remote Access
 
-This tutorial opens a runtime to other computers without dropping basic security
-controls.
+Open a runtime's web interface to the network safely: a long random token that its API requires, TLS
+for the traffic, the control endpoint kept on the PLC itself, and a token of its own for each other
+device, by pairing. It starts from tutorial 13's project.
 
-## Why this tutorial exists
+## What you learn
 
-Remote access is where many PLC systems become unsafe. The goal is not only
-"make it reachable" but "make it reachable with explicit authorization and
-minimal exposed surface".
+- `[runtime.web] auth = "token"` makes the web interface's API answer requests only with a token,
+  the primary token from `runtime.toml` or a paired one; the pairing claim carries a pairing code
+  instead, and two routes need neither. `tls = true` with `[runtime.tls]` makes the interface
+  speak only HTTPS.
+- The control endpoint stays local: a `tcp://` endpoint must be a loopback address, and
+  `trust-runtime ctl` reads the primary token from `runtime.toml`.
+- Pairing gives another device its own token with the Operator role, which the PLC lists and can
+  revoke.
 
-In truST, remote tools and browsers reach a runtime through its web interface.
-The control endpoint that `trust-runtime ctl` uses stays on the PLC itself: a
-local socket, or a TCP port on a loopback address. The runtime refuses a control
-endpoint on any other address.
+## What you need
 
-## What you will learn
+- Tutorial 13's project in `/tmp/trust-tutorial-13`, as its README builds it, and
+  `trust-runtime`, from the truST extension for VS Code or a release archive.
+- `openssl` and `curl`, Linux or macOS, whose shell runs the commands below, and two terminals.
+- About 20 minutes.
 
-- why the control endpoint stays local and the web interface carries remote access
-- how a token protects the web interface
-- how to enable and verify TLS
-- how pairing gives another device its own token and role
-- how firewall rules reduce exposure
+## Step by step
 
-## Prerequisites
+1. Copy tutorial 13's project, so that the network settings stay out of it:
 
-- complete Tutorial 13 first
-- `openssl` and `curl`
-- optionally, a second device on the same network for the remote check
+    ```bash
+    rm -rf /tmp/trust-remote-secure
+    cp -R /tmp/trust-tutorial-13 /tmp/trust-remote-secure
+    cd /tmp/trust-remote-secure
+    ```
 
-## Step 1: Create an isolated tutorial copy
+2. Make the primary token:
 
-Why: do not modify your baseline project while testing network settings.
+    ```bash
+    openssl rand -hex 24
+    ```
 
-```bash
-rm -rf /tmp/trust-remote-secure
-cp -R /tmp/trust-tutorial-13 /tmp/trust-remote-secure
-cd /tmp/trust-remote-secure
-```
+    It prints 48 hexadecimal digits. The primary token grants the Admin role, on the web interface
+    and on the control endpoint alike, so it never goes into git.
 
-## Step 2: Generate the primary token
+3. Make a certificate for TLS:
 
-Why: the primary token grants the Admin role, on the web interface and on the
-control endpoint alike. It must be long and random, and it never goes into git.
+    ```bash
+    mkdir -p security
+    openssl req -x509 -newkey rsa:2048 -sha256 -nodes \
+      -keyout security/server-key.pem \
+      -out security/server-cert.pem \
+      -days 365 \
+      -subj "/CN=trust-remote-secure"
+    ```
 
-```bash
-openssl rand -hex 24
-```
+    It writes `security/server-key.pem` and `security/server-cert.pem`. A self-signed certificate
+    is for testing; a production PLC uses one from your site's certificate authority.
 
-## Step 3: Create a certificate for TLS
+4. Edit `runtime.toml`: replace its `[runtime.control]` and `[runtime.web]` sections with these, add
+   `[runtime.tls]`, and put the token of step 2 in place of the placeholder:
 
-Why: the token protects authorization, and TLS protects the token and the
-traffic on the network. This self-signed certificate is for testing; a
-production PLC uses one from your site's certificate authority.
+    ```toml
+    [runtime.control]
+    mode = "production"
+    debug_enabled = false
+    auth_token = "paste-the-token-from-step-2-here"
 
-```bash
-mkdir -p security
-openssl req -x509 -newkey rsa:2048 -sha256 -nodes \
-  -keyout security/server-key.pem \
-  -out security/server-cert.pem \
-  -days 365 \
-  -subj "/CN=trust-remote-secure"
-```
+    [runtime.web]
+    enabled = true
+    listen = "0.0.0.0:18084"
+    auth = "token"
+    tls = true
 
-## Step 4: Configure the runtime
+    [runtime.tls]
+    mode = "self-managed"
+    cert_path = "security/server-cert.pem"
+    key_path = "security/server-key.pem"
+    require_remote = true
+    ```
 
-Why: each setting closes one door.
+5. Build and check the project:
 
-Edit `runtime.toml`. Replace its `[runtime.control]` and `[runtime.web]`
-sections with these, and add `[runtime.tls]`. Put the token from step 2 in
-place of the placeholder:
+    ```bash
+    trust-runtime build --project . --sources src
+    trust-runtime validate --project .
+    ```
 
-```toml
-[runtime.control]
-mode = "production"
-debug_enabled = false
-auth_token = "paste-the-token-from-step-2-here"
+    The validation answers `Project ok`.
 
-[runtime.web]
-enabled = true
-listen = "0.0.0.0:18084"
-auth = "token"
-tls = true
+6. Start the runtime:
 
-[runtime.tls]
-mode = "self-managed"
-cert_path = "security/server-cert.pem"
-key_path = "security/server-key.pem"
-require_remote = true
-```
+    ```bash
+    trust-runtime run --project .
+    ```
 
-What each setting does:
+7. In the second terminal, in the project folder, keep the token in a shell variable and ask the
+   runtime for its status without it, then with it:
 
-- `[runtime.control]` names no `endpoint`, so the control endpoint stays at the
-  platform's local default. `auth_token` is the primary token; `trust-runtime
-  ctl` and `trust-runtime ui` read it from this file.
-- `listen = "0.0.0.0:18084"` opens the web interface on every network
-  interface; name one address instead to open only that network.
-- `auth = "token"`: every request needs a token in its `X-Trust-Token` header,
-  the primary token or a paired one. It requires `runtime.control.auth_token`.
-- `tls = true` with `[runtime.tls]`: the web interface speaks only HTTPS.
+    ```bash
+    TOKEN=paste-the-token-from-step-2-here
+    curl -k -s -X POST https://127.0.0.1:18084/api/control -H 'Content-Type: application/json' \
+      -d '{"id":1,"type":"status"}'
+    curl -k -s -X POST https://127.0.0.1:18084/api/control -H 'Content-Type: application/json' \
+      -H "X-Trust-Token: $TOKEN" -d '{"id":2,"type":"status"}'
+    trust-runtime ctl --project . status
+    ```
 
-## Step 5: Keep network exposure minimal
+    Without the token the answer is `{"error":"unauthorized","ok":false}`, with HTTP status 401.
+    With it the answer is the runtime's status, which begins
+    `{"id":2,"ok":true,"result":{"access":{"io":{"force":true,"release":true,"write":true},"reason":null,"role":"admin"}`:
+    the primary token has the Admin role. `ctl` reads the token from `runtime.toml` and answers
+    `state=running fault=none rt_profile=disabled rt_active=false`. `-k` accepts the self-signed
+    certificate; a client that trusts your site's certificate authority does not need it. Plain HTTP
+    gets no answer: `curl -sS http://127.0.0.1:18084/` prints
+    `curl: (1) Received HTTP/0.9 when not allowed` and ends with exit status 1, as the listener
+    answers in TLS, which is no HTTP response.
 
-Why: if every host can reach every port, a token alone is not enough.
+8. Pair another device. On the PLC, start a pairing with the primary token:
 
-Open only TCP `18084` for the web interface, and only to the networks that need
-it. The control endpoint needs no open port: it is local. Keep UDP `5353`
-(discovery) and the mesh port closed unless you use them.
+    ```bash
+    curl -k -s -X POST https://127.0.0.1:18084/api/pair/start -H "X-Trust-Token: $TOKEN"
+    ```
 
-Prefer a VPN or an SSH tunnel to opening WAN ports directly.
+    The answer is a six-digit code and the second at which it expires, five minutes later, such as
+    `{"code":"123456","expires_at":1795778190}`. On the other device, claim it with the code; the
+    claim needs no token. Replace `<plc-address>` and the code:
 
-## Step 6: Build and validate before launch
+    ```bash
+    curl -k -s -X POST https://<plc-address>:18084/api/pair/claim -H 'Content-Type: application/json' \
+      -d '{"code":"123456"}'
+    ```
 
-Why: catch configuration errors before the runtime opens network services.
+    The answer, `{"token":"..."}`, holds the device's own token, 43 characters. It has the Operator
+    role: a status request with it answers `"role":"operator"`, with the reason `Operator role —
+    connect with an engineer token to write or force.`, and an Admin request such as `pair/start`
+    answers `{"error":"forbidden","ok":false}`, with HTTP status 403. On the PLC, list the pairings:
 
-```bash
-trust-runtime build --project . --sources src
-trust-runtime validate --project .
-```
+    ```bash
+    curl -k -s https://127.0.0.1:18084/api/pairings -H "X-Trust-Token: $TOKEN"
+    ```
 
-Expected result:
-- `Project ok`
+    Each pairing shows its `id`, such as `pair-1795777890-tgLJLhEq`, its `role`, whether it is
+    `enabled`, when it expires, and only the last four characters of its token, as `"tail":"…lMLw"`.
 
-## Step 7: Start the runtime
+9. Stop the runtime with `trust-runtime ctl --project . shutdown --exit`.
 
-```bash
-trust-runtime run --project .
-```
+## What happened
 
-Expected result:
-- the runtime starts without bind or TLS errors
+**The token.** With `auth = "token"` each request to the web interface's API carries a token in its
+`X-Trust-Token` header, the primary token or a paired one, and its role decides what it may do. The
+pairing claim carries the pairing code instead, and the pages themselves, whose data comes through
+the API, need none. Two routes answer without a token too, as neither reads the runtime's state:
+`/api/ui/mode` gives the interface's mode, and `/api/qr` draws a QR code of the text it is given.
+The other routes of the API answer `unauthorized`, as `/api/io/config`, `/api/pairings`,
+`/api/events` and `/api/source`, which reads the project's sources, do. The setting requires
+`runtime.control.auth_token`. `ctl` reaches the control endpoint on the PLC itself and reads the
+same token from `runtime.toml`.
 
-## Step 8: Verify that the token is required
+**TLS.** `tls = true` with the certificate and key of `[runtime.tls]` makes the interface speak only
+HTTPS, so the token and the traffic stay encrypted on the network. `require_remote = true` makes the
+configuration refuse a web interface or a mesh that listens on a network address without TLS.
 
-Why: secure configuration must refuse unauthorized requests, not only accept
-authorized ones.
+**The control endpoint.** `[runtime.control]` names no `endpoint`, so it stays at the platform's
+local default, a socket in the project folder; a `tcp://` endpoint is admitted only on a loopback
+address. Remote access goes through the web interface.
 
-In another terminal, in the project folder, keep the token in a shell variable
-and ask the runtime for its status without it, then with it:
+**Pairing.** A pairing code is six digits, valid for five minutes, and claimed without a token. The
+claim returns a new random token with the Operator role, valid for 30 days, which the PLC lists by its
+ID and last four characters and can revoke. Each device then has a token of its own, instead of
+everyone sharing the primary token.
 
-```bash
-TOKEN=paste-the-token-from-step-2-here
-curl -k -s -X POST https://127.0.0.1:18084/api/control -H 'Content-Type: application/json' \
-  -d '{"id":1,"type":"status"}'
-curl -k -s -X POST https://127.0.0.1:18084/api/control -H 'Content-Type: application/json' \
-  -H "X-Trust-Token: $TOKEN" -d '{"id":2,"type":"status"}'
-trust-runtime ctl --project . status
-```
+**The network.** Open only TCP port 18084, for the web interface, and only to the networks that need
+it. The control endpoint needs no open port. Keep UDP port 5353 (discovery) and the mesh port closed
+unless you use them, and prefer a VPN or an SSH tunnel to opening a port to the internet. `listen =
+"0.0.0.0:18084"` opens every network interface; name one address to open only that network.
 
-Expected result:
-- without the token: `{"error":"unauthorized","ok":false}` (HTTP 401)
-- with the token: `"ok":true` and the runtime's status, with the role `admin`
-- `ctl` reads the token from `runtime.toml` and prints the state locally
-- `http://127.0.0.1:18084/` answers nothing: the interface speaks only HTTPS
+**Production.** Keep `mode = "production"` and `debug_enabled = false`, rotate the primary token,
+never commit a `runtime.toml` that holds a token, and use a certificate from your site's certificate
+authority that covers the name or address the clients use.
 
-`-k` accepts the self-signed certificate; a client that trusts your site's
-certificate authority does not need it.
+## Try it yourself
 
-## Step 9: Pair another device
+- Revoke the paired device. Take its `id` from the list and send `pair.revoke` with the primary
+  token: `curl -k -s -X POST https://127.0.0.1:18084/api/control -H 'Content-Type: application/json'
+  -H "X-Trust-Token: $TOKEN" -d '{"id":4,"type":"pair.revoke","params":{"id":"<pairing-id>"}}'`. The answer
+  ends `"status":"revoked"`; the device's token now gets `{"error":"unauthorized","ok":false}`
+  (HTTP status 401), and the list shows the pairing with `"enabled":false`.
+- Remove `auth_token` from `[runtime.control]` and check the project again:
+  `trust-runtime validate --project .` refuses it with
+  `Error: invalid config 'runtime.toml: runtime.web.auth=token requires runtime.control.auth_token'`.
+  Put it back.
+- Give the control endpoint a network address: add `endpoint = "tcp://0.0.0.0:7000"` under
+  `[runtime.control]`. `validate` refuses it with
+  `Error: control error 'tcp endpoint must be loopback (use unix:// for local sockets)'`. Take it out
+  again.
 
-Why: each device gets its own token and role, which you can list and take away,
-instead of everyone sharing the primary token.
+## Reference
 
-On the PLC, start a pairing with the primary token. The answer is a six-digit
-code, valid for five minutes:
-
-```bash
-curl -k -s -X POST https://127.0.0.1:18084/api/pair/start -H "X-Trust-Token: $TOKEN"
-```
-
-On the other device, claim it with the code (no token needed; replace
-`<plc-address>` and the code):
-
-```bash
-curl -k -s -X POST https://<plc-address>:18084/api/pair/claim -H 'Content-Type: application/json' \
-  -d '{"code":"123456"}'
-```
-
-The answer is the device's own token. It has the Operator role: it reads the
-status, and an Admin request such as `pair/start` answers `{"error":"forbidden"}`
-(HTTP 403). On the PLC, list the pairings:
-
-```bash
-curl -k -s https://127.0.0.1:18084/api/pairings -H "X-Trust-Token: $TOKEN"
-```
-
-## Step 10: Harden for production
-
-Why: remote debugging is a common accidental risk.
-
-- keep `mode = "production"` and `debug_enabled = false`
-- rotate the primary token, and never commit `runtime.toml` with a token to git
-- use a certificate from your site's certificate authority, which covers the
-  name or address that clients use
-
-## Common mistakes
-
-- a control `endpoint` on a network address: the runtime refuses it; remote
-  access goes through the web interface
-- `auth = "token"` without `runtime.control.auth_token`: validation refuses it
-- `auth = "local"` on a network address: every remote request is refused, as only
-  the PLC itself is trusted in `local` mode
-- opening the web port to the internet instead of a VPN or a tunnel
-- sharing the primary token with every device instead of pairing them
-
-## Completion checklist
-
-- [ ] the control endpoint is local and `ctl` works with the token from `runtime.toml`
-- [ ] the web interface speaks only HTTPS
-- [ ] a request without a token is refused, one with it is accepted
-- [ ] another device is paired with its own token and role
-- [ ] firewall rules allow only the web port, only to the networks that need it
+- Specification 11: the web interface's authentication and TLS, the default control endpoint
+  (§6.8.0a), and pairing with its roles (§6.9.5, runtime control authorization).
+- Tutorial 15, a mesh's `auth_token`.

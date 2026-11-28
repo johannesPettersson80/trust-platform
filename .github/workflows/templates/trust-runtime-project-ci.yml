@@ -1,45 +1,57 @@
-name: truST Project CI Template
+# truST project CI. Copy this file to .github/workflows/trust-runtime-project-ci.yml in the
+# project's repository and set TRUST_VERSION to the truST release the project is built with.
+# It installs that release, checked against its SHA256SUMS, so the repository needs no Rust, and
+# builds, validates and tests the project in CI mode (specification 22, "Project CI template").
+name: truST project CI
 
 on:
   push:
-    paths:
-      - "sources/**"
-      - "runtime.toml"
-      - "io.toml"
-      - ".github/workflows/trust-runtime-project-ci.yml"
+    paths: ['src/**', '*.toml', '.github/workflows/trust-runtime-project-ci.yml']
   pull_request:
-    paths:
-      - "sources/**"
-      - "runtime.toml"
-      - "io.toml"
+    paths: ['src/**', '*.toml', '.github/workflows/trust-runtime-project-ci.yml']
+
+permissions:
+  contents: read
+
+env:
+  TRUST_VERSION: '0.44.1'
 
 jobs:
   plc-ci:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.99.0
+      - name: Install truST
+        run: |
+          base="https://github.com/johannesPettersson80/trust-platform/releases/download/v${TRUST_VERSION}"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/trust-runtime-linux-x64.tar.gz"
+          curl -fsSLO "$base/SHA256SUMS"
+          expected=$(awk '$2 ~ /(^|\/)trust-runtime-linux-x64\.tar\.gz$/ { print $1 }' SHA256SUMS)
+          echo "$expected  trust-runtime-linux-x64.tar.gz" | sha256sum --check --strict -
+          mkdir trust
+          tar -xzf trust-runtime-linux-x64.tar.gz -C trust
+          echo "$RUNNER_TEMP/trust" >> "$GITHUB_PATH"
 
-      - name: Build truST CLIs
-        run: cargo build -p trust-runtime --bin trust-runtime -p trust-dev --bin trust-dev
+      - name: Install the truST toolchain (specification 44 §4.6)
+        run: trust-runtime toolchain install
 
-      - name: Install the truST toolchain (compiles the project, specification 44 §4.6)
-        run: target/debug/trust-runtime toolchain install
+      - name: Build the program image (CI mode)
+        run: trust-runtime build --project . --ci
 
-      - name: Build the project's program image (CI mode)
-        run: target/debug/trust-runtime build --project . --ci
+      - name: Validate the project (CI mode)
+        run: trust-runtime validate --project . --ci
 
-      - name: Validate project bundle (CI mode)
-        run: target/debug/trust-runtime validate --project . --ci
-
-      - name: Run ST tests (JUnit output)
-        run: target/debug/trust-dev test --project . --ci --output junit > st-tests.junit.xml
+      - name: Run the ST tests (JUnit report)
+        run: trust-dev test --project . --ci --output junit > st-tests.junit.xml
 
       - name: Upload JUnit report
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: st-tests-junit
           path: st-tests.junit.xml
+          if-no-files-found: ignore

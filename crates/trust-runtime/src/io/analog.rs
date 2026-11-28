@@ -28,6 +28,8 @@ const IIO_DEVICES: &str = "bus/iio/devices";
 pub(super) struct AnalogDriver {
     inputs: Vec<InputChannel>,
     outputs: Vec<OutputChannel>,
+    /// The bytes of the input image its input channels fill (specification 42, §5 item 4).
+    input_bytes: Vec<std::ops::Range<usize>>,
     /// The outcome of the last input handoff.
     input: IoDriverHealth,
     /// The outcome of the last output handoff.
@@ -48,6 +50,7 @@ impl AnalogDriver {
     /// The driver of `params` over the sysfs tree at `sysfs`: each channel found with its offset
     /// and scale, and each output driven to its `initial` millivolts.
     fn open(params: AnalogParams, sysfs: &Path) -> Result<Self, RuntimeError> {
+        let input_bytes = crate::io::declared_inputs::analog(&params);
         let inputs = params
             .inputs
             .iter()
@@ -63,6 +66,7 @@ impl AnalogDriver {
         Ok(Self {
             inputs,
             outputs,
+            input_bytes,
             input: IoDriverHealth::Ok,
             output: IoDriverHealth::Ok,
         })
@@ -77,6 +81,12 @@ impl IoDriver for AnalogDriver {
             .try_for_each(|channel| channel.read_into(inputs));
         self.input = health_after(&result);
         result
+    }
+
+    /// The bytes of the input image its input channels fill, each its `%IW` word (specification
+    /// 42, §5 item 4).
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        self.input_bytes.clone()
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
@@ -741,5 +751,27 @@ mod tests {
         driver.read_inputs(&mut image).expect("read again");
         assert_eq!(image, [0x72, 0x06]);
         assert_eq!(driver.health(), IoDriverHealth::Ok);
+    }
+
+    /// Specification 42, §5 item 4: each input channel declares its `%IW` word, two bytes, and
+    /// nothing else of the image: inputs at `%IW2` and `%IW6` declare bytes 2..4 and 6..8, so a
+    /// driver composed after them that fills those bytes is warned about (specification 11
+    /// §6.5). Catches a driver that declares nothing, which no overlap warning would name, and a
+    /// word counted as one byte.
+    #[test]
+    fn the_input_channels_declare_their_words() {
+        let sysfs = FakeSysfs::new("analog-declared");
+        sysfs.set(&attribute("in_voltage1_raw"), "0\n");
+        sysfs.set(&attribute("in_voltage2_raw"), "0\n");
+        sysfs.set(&attribute("in_voltage_scale"), SCALE_12_BIT);
+        let driver = AnalogDriver::open(
+            reading(vec![
+                input("iio:device0/in_voltage1", "%IW2"),
+                input("iio:device0/in_voltage2", "%IW6"),
+            ]),
+            sysfs.root(),
+        )
+        .expect("open the analog inputs");
+        assert_eq!(driver.input_bytes(), vec![2..4, 6..8]);
     }
 }

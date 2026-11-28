@@ -74,6 +74,7 @@ pub fn run_runtime(
     // The slot of the cycle traces that the control link reads, which the flight recorder reports
     // its fault's trace into (specification 11 §6.8.1, "Cycle traces").
     let traces = trust_runtime::control::new_traces();
+    let logger = RuntimeLogger::for_bundle(bundle.as_ref());
     let wiring = ProgramWiring {
         debug: debug.clone(),
         metrics: metrics.clone(),
@@ -81,6 +82,7 @@ pub fn run_runtime(
         identify: identify.clone(),
         traces: traces.clone(),
         runtime_id: runtime_identity.as_ref().map(|identity| identity.id.clone()),
+        logger: logger.clone(),
     };
     let io_snapshot = Arc::new(Mutex::new(None));
     let io_snapshot_seen_ms = Arc::new(std::sync::atomic::AtomicU64::new(0));
@@ -112,13 +114,6 @@ pub fn run_runtime(
         .transpose()?
         .flatten();
 
-    let logger = RuntimeLogger::new(match &bundle {
-        // The configuration parser has checked the level's name.
-        Some(bundle) => {
-            LogLevel::parse(bundle.runtime.log_level.as_str()).unwrap_or(LogLevel::Info)
-        }
-        None => LogLevel::Info,
-    });
     logger.log(
         LogLevel::Info,
         "execution_backend_selected",
@@ -437,6 +432,10 @@ pub fn run_runtime(
     // A mesh that does not start says so; the runtime runs on without it (specification 11).
     if let Some(reason) = _mesh.as_ref().and_then(|mesh| mesh.degraded_reason()) {
         logger.log(LogLevel::Warn, "mesh_unavailable", json!({ "reason": reason }));
+    }
+    // A mesh says which peers come, go or stay away (specification 11).
+    if let (Some(mesh), Some(bundle)) = (_mesh.as_ref(), &bundle) {
+        log_mesh_presence(mesh.peers(), &bundle.runtime.mesh.subscribe, logger.clone());
     }
     if let Some(bundle) = &bundle
         && bundle.runtime.mesh.enabled

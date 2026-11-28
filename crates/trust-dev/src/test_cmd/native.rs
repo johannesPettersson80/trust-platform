@@ -123,8 +123,7 @@ fn build_test_image(
 fn check_project(project_root: &Path) -> anyhow::Result<()> {
     use trust_runtime::native::{Target, Toolchain};
 
-    let toolchain = Toolchain::find()
-        .map_err(|error| anyhow::anyhow!("the tests need the toolchain: {error}"))?;
+    let toolchain = Toolchain::find()?;
     let host = Target::this_cpu().context("this computer's CPU has no native target")?;
     build_test_image(project_root, &[], host, &toolchain).map(|_| ())
 }
@@ -142,8 +141,7 @@ fn execute_native_tests(
     use trust_runtime::native::{load, this_computer, Device, Target, Toolchain};
     use trust_runtime::value::Duration;
 
-    let toolchain = Toolchain::find()
-        .map_err(|error| anyhow::anyhow!("the tests need the toolchain: {error}"))?;
+    let toolchain = Toolchain::find()?;
     let host = Target::this_cpu().context("this computer's CPU has no native target")?;
     let built = build_test_image(project_root, discovered, host, &toolchain)?;
     let device = Device {
@@ -383,8 +381,7 @@ fn execute_native_tests_on_device(
 
     let target =
         target_named(target).ok_or_else(|| anyhow::anyhow!("unknown target '{target}'"))?;
-    let toolchain = Toolchain::find()
-        .map_err(|error| anyhow::anyhow!("the tests need the toolchain: {error}"))?;
+    let toolchain = Toolchain::find()?;
     let mut built = build_test_image(project_root, discovered, target, &toolchain)?;
     // The device admits what a key it trusts signed: the project's (specification 44 §5.11).
     trust_runtime::native::sign(

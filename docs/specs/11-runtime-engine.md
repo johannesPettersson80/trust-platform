@@ -502,6 +502,28 @@ layout. An unresolved `%I*`, `%Q*`, or `%M*` binding must be resolved by a
 matching-area `VAR_CONFIG` entry before runtime construction and is rejected
 in disallowed declaration sections or on an area mismatch.
 
+Composed drivers may fill the same bytes of the input image. Each driver fills
+the bytes that it declares (specification 42 §5 item 4): an input point or
+channel fills its own bytes, a Modbus/TCP block or a raw MQTT input topic fills
+the image from its start, and the `loopback` driver, which copies the output
+image over the input image, fills it from its start as far as the output image
+reaches.
+Where the bytes of two enabled drivers overlap, both read into them in their
+order, so the later driver overwrites what the earlier one read there. A
+composition may mean this, so it is not refused. At each program start, the
+start of a reloaded program included, the runtime logs, at its live log level,
+the warning event `io_inputs_overlap` (`TRUST-RT-IO-OVERLAP-001`) for each two
+such drivers and each joined range of the bytes both fill: `earlier` and
+`later` name the drivers by their links (specification 42 §2), and `first_byte`
+and `last_byte` give the first and the last of those bytes within the input
+image that the drivers see. A driver that declares no bytes overlaps nothing.
+`trust-runtime validate` finds the same overlaps before a start, from each
+driver's parameters, without constructing a driver: for a project with two or
+more enabled drivers it loads the program to know the images, prints a
+`warning:` line for each overlap before `Project ok`, and its `--ci` report
+lists each event's data under `warnings`, empty when there is none. The project
+still validates.
+
 The built-in driver registry exposes the stable canonical names `analog`, `can`,
 `counter`, `ethercat`, `gpio`, `loopback`, `modbus-rtu`, `modbus-tcp`, `mqtt`, `pwm`,
 and `simulated` in sorted unique order. Accepted aliases resolve to the canonical name before
@@ -3232,7 +3254,8 @@ computer admits it at its start (specification 44 §10.2).
 Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
-runtime drivers.
+runtime drivers. Its `warnings` list the composed drivers that would fill the
+same input bytes (§6.5).
 
 Runtime structured logging accepts `error`, `warn` (`warning`), `info`,
 `debug`, and `trace`, case-insensitively. Empty or unknown configured levels are
@@ -7513,6 +7536,20 @@ The accepted token value is forwarded to control dispatch. A server-owned
 internal control token is used only when the web request supplied no token; it
 must not replace an explicit token.
 
+Each route applies this contract in its own handler. A read of the project's
+files is a read of runtime state like any other: `GET /api/program` and
+`GET /api/source`, which list and read the project's sources in `src`, and
+`GET /api/setup/defaults`, which reads its `runtime.toml` and `io.toml`, require
+Viewer, and `POST /api/setup/apply` requires Engineer. Only what holds no
+runtime state answers without authentication: the pages with their scripts,
+styles, fonts and images, whose data comes through authenticated routes; the
+pairing claim, which carries its pairing code (section 6.9.6); `GET
+/api/ui/mode`, the interface's mode; and `GET /api/qr`, a QR code of the text
+that the request gives. The Web IDE's routes require the per-session token of
+`X-Trust-Ide-Session` instead, which only an authenticated `POST
+/api/ide/session` issues. (27 November 2026: the program, source and setup
+defaults routes answered without authentication.)
+
 The I/O configuration routes follow the same contract in every web server mode.
 `GET /api/io/config` requires Viewer and is an observation projection, not a
 credential retrieval surface: every driver parameter whose key is secret-valued
@@ -7869,6 +7906,17 @@ Rules:
 - **A mesh that does not start says so.** When its session does not open, the runtime runs on
   without the mesh, logs the warning event `mesh_unavailable` with the reason and reports the
   mesh as degraded with it in its fleet topology.
+- **A mesh says which peers come, go or stay away.** A runtime of the mesh joins it when it links
+  and declares itself, and leaves it when it stops or its link drops; the runtime logs the event
+  `mesh_peer_joined` (level `info`) and `mesh_peer_left` (level `warn`) with the peer's name, as it
+  names its peers ("Runtime Cloud sites"). Five seconds after the mesh started, the runtime logs the
+  warning event `mesh_peer_missing` once for each peer that its subscriptions name and that is not
+  in the mesh then, with `subscriptions`, the keys of the subscriptions that wait for it, `waited_ms` and a
+  `hint`: the peer may not run, no `connect` entry may reach it, the subscription may name it by
+  another name than its resource name, or the two meshes may have different `auth_token`s, and the
+  mesh cannot tell which, since a peer that refuses a link says nothing to the one it refuses. A
+  peer that joins later is logged as joined (27 November 2026: tutorial 15's runtime whose mesh
+  waited for a peer with another token, or for a misnamed one, logged nothing).
 
 ##### Realtime T0 transport and cycle contract
 
