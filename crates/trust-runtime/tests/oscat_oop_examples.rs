@@ -92,6 +92,9 @@ impl ExampleGateEvent {
 
 include!("oscat_oop_examples/structural_expectations.rs");
 
+#[path = "oscat_oop_examples/readme_walkthroughs.rs"]
+mod readme_walkthroughs;
+
 fn examples_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -459,6 +462,10 @@ fn oscat_examples_use_grouped_oop_non_oop_layout() {
         root.display()
     );
 
+    // A converted README follows the example standard instead (specification 25 §3.5), which
+    // scripts/check_example_readmes.py checks, and readme_walkthroughs runs what it quotes of both
+    // projects; the reference style's markers below hold for the families not converted yet.
+    let converted = readme_walkthroughs::converted_families();
     for example_dir in example_dirs {
         let readme = example_dir.join("README.md");
         let readme_text = repository_source_tree_read_to_string!(
@@ -467,14 +474,24 @@ fn oscat_examples_use_grouped_oop_non_oop_layout() {
             extension = "md",
         )
         .unwrap_or_else(|err| panic!("read {}: {err}", readme.display()));
-        for marker in [
-            "## Folder Layout",
-            "## What This Example Teaches",
-            "OOP pattern:",
-            "## How The Pair Teaches OOP",
-            "`non-oop/`",
-            "`oop/`",
-        ] {
+        let family = example_dir
+            .file_name()
+            .expect("a family")
+            .to_string_lossy()
+            .into_owned();
+        let markers: &[&str] = if converted.contains(&family) {
+            &["non-oop/", "oop/"]
+        } else {
+            &[
+                "## Folder Layout",
+                "## What This Example Teaches",
+                "OOP pattern:",
+                "## How The Pair Teaches OOP",
+                "`non-oop/`",
+                "`oop/`",
+            ]
+        };
+        for marker in markers {
             assert!(
                 readme_text.contains(marker),
                 "expected {} to contain {marker:?}",
