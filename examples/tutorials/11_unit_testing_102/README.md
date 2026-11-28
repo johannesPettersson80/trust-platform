@@ -1,105 +1,228 @@
-# Unit Testing 102: Mock I/O and Failure Triage
+# Tutorial 11: Testing Control Logic Without Hardware
 
-This tutorial shows the production pattern you should use in truST:
+Test a tank's control logic with the inputs a plant would give, find a bug from the failure it
+causes, and run the same logic in the runtime with its inputs written by hand. You learn to keep
+the logic in a function block that a test can drive, the addresses in the configuration and the
+program as wiring between them, so that every decision is tested before a plant is connected.
 
-1. keep physical I/O mapping (`%I`, `%Q`, `%M`) in `CONFIGURATION` via `VAR_CONFIG`,
-2. keep control logic inside a `FUNCTION_BLOCK` with plain inputs/outputs,
-3. keep the `PROGRAM` as wiring between mapped variables and control FB logic,
-4. unit test the function block with simulated values (mock I/O).
+## What you learn
 
-This gives fast tests, deterministic behavior, and easier debugging.
+- The logic goes in a `FUNCTION_BLOCK` with plain inputs and outputs, the addresses in the
+  configuration's `VAR_CONFIG`, and the `PROGRAM` only wires the two together. A test calls the
+  block with the values a plant would give, mock I/O, so it needs neither hardware nor addresses.
+- A failure names the assertion, its line and its values, and the scenario around that line leads
+  to the branch of the logic that is wrong.
+- The block that the tests check is the code the runtime runs: inputs written with
+  `trust-runtime ctl` give the outputs that the tests expect.
 
-## What you will build
+## What you need
 
-- A production `PROGRAM` (`TankProgram`) with plain variables and wiring logic.
-- A `CONFIGURATION` (`TankControlConfig`) that binds `%I/%Q` addresses with `VAR_CONFIG`.
-- A logic block (`TankControl`) that can be tested without hardware.
-- Tests that simulate low/high/stop conditions and verify outputs.
+- This repository, whose `examples/tutorials/11_unit_testing_102` you copy, and `trust-runtime`
+  and `trust-dev`, from the truST extension for VS Code or a release archive, on the `PATH`, with
+  the truST toolchain (tutorial 10, "What you need").
+- Linux or macOS, whose shell runs the commands below, and two terminals. About 20 minutes.
 
-## Project layout
+## Step by step
 
-- `src/main.st`: production code (I/O mapping + logic FB)
-- `src/tests.st`: unit tests
-- `trust-lsp.toml`: project config
-- `runtime.toml` and `io.toml`: the runtime's settings and its I/O driver (`simulated`, which keeps
-  each input as you set it), so that `trust-runtime validate` accepts the project and
-  `trust-runtime run` can run it (tutorial 21 validates it in its CI pipeline)
+1. From the root of the repository, copy the project:
 
-## Step 1: Understand the architecture
+    ```bash
+    rm -rf /tmp/trust-tutorial-11
+    cp -R examples/tutorials/11_unit_testing_102 /tmp/trust-tutorial-11
+    cd /tmp/trust-tutorial-11
+    ```
 
-Open `src/main.st`:
+    `src/main.st` holds the logic, the program and the configuration, and `src/tests.st` the
+    tests. `runtime.toml` and `io.toml` set up the runtime and its `simulated` driver, which keeps
+    each input as it is written.
 
-- `TankControl` contains decision logic.
-- `PROGRAM TankProgram` wires process variables into the FB and copies outputs back.
-- `CONFIGURATION TankControlConfig` performs `%IX/%IW/%QX/%QW` mapping via `VAR_CONFIG`.
+2. Read the logic, the function block `TankControl` in `src/main.st`. The stop command turns
+   everything off. With the start command, a level below 300 opens the fill valve with the pump at
+   800, a level above 700 opens the drain valve with the pump at 600, and a level in between holds
+   with the pump at 500. Without the start command, everything is off:
 
-This separation is the key to mockable tests.
+    ```st
+    IF StopCmd THEN
+        FillValveCmd := FALSE;
+        DrainValveCmd := FALSE;
+        PumpSpeedCmd := INT#0;
+    ELSIF StartCmd THEN
+        IF LevelRaw < INT#300 THEN
+            FillValveCmd := TRUE;
+            DrainValveCmd := FALSE;
+            PumpSpeedCmd := INT#800;
+        ELSIF LevelRaw > INT#700 THEN
+            FillValveCmd := FALSE;
+            DrainValveCmd := TRUE;
+            PumpSpeedCmd := INT#600;
+        ELSE
+            FillValveCmd := FALSE;
+            DrainValveCmd := FALSE;
+            PumpSpeedCmd := INT#500;
+        END_IF;
+    ELSE
+        FillValveCmd := FALSE;
+        DrainValveCmd := FALSE;
+        PumpSpeedCmd := INT#0;
+    END_IF;
+    ```
 
-## Step 2: Review the tests
+3. Read the wiring. The program `TankProgram` calls its instance `Ctrl` of the block with its own
+   variables and copies the block's outputs to its own, and the configuration puts those variables
+   at the addresses of the I/O:
 
-Open `src/tests.st`:
+    ```st
+    VAR_CONFIG
+        P1.StartCmd AT %IX0.0 : BOOL;
+        P1.StopCmd AT %IX0.1 : BOOL;
+        P1.LevelRaw AT %IW2 : INT;
+        P1.FillValveOut AT %QX0.0 : BOOL;
+        P1.DrainValveOut AT %QX0.1 : BOOL;
+        P1.PumpSpeedOut AT %QW2 : INT;
+    END_VAR
+    ```
 
-- `TEST_PROGRAM TankControlWithMockIo`:
-  - instantiates the FB directly (`VAR Dut : TankControl;`)
-  - drives input scenarios (`StartCmd`, `StopCmd`, `LevelRaw`)
-  - verifies expected outputs with `ASSERT_*`
-- `TEST_FUNCTION_BLOCK TankControlBand`:
-  - checks normal operating band behavior in a separate test case
+    Neither makes a decision, so testing the block tests every decision.
 
-No physical addresses are needed in tests.
+4. Read the tests in `src/tests.st`. The `TEST_PROGRAM TankControlWithMockIo` holds its own
+   instance of the block, `Dut`, and calls it with three states of the plant: a low level with the
+   start command, a high level, and both commands with a low level. After each call it checks the
+   valves and the pump:
 
-## Step 3: Run tests
+    ```st
+    (* Low level -> fill tank fast. *)
+    Dut(StartCmd := TRUE, StopCmd := FALSE, LevelRaw := INT#200);
+    ASSERT_TRUE(IN := Dut.FillValveCmd);
+    ASSERT_FALSE(IN := Dut.DrainValveCmd);
+    ASSERT_EQUAL(EXPECTED := INT#800, ACTUAL := Dut.PumpSpeedCmd);
+    ```
 
-From repository root:
+    The `TEST_FUNCTION_BLOCK TankControlBand` checks a level in the band, 500.
 
-```bash
-cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102
-```
+5. Run the tests:
 
-## Step 4: Triage a failure (red-green-refactor)
+    ```bash
+    trust-dev test --project .
+    ```
 
-1. Introduce a bug on purpose:
-   - in `TankControl`, change `PumpSpeedCmd := INT#800;` to `INT#700;`
-2. Run tests again.
-3. Read failure details:
-   - test name (`TEST_PROGRAM::...`)
-   - file and line of the assertion that failed, also when it lies in a function block the test
-     calls
-   - `reason` (`ASSERT_EQUAL failed ...`)
-   - `source` line (the assertion that failed)
-4. Fix code.
-5. Re-run until green.
+    ```text
+    Running 2 ST test(s) in .
+    PASS [1/2] TEST_PROGRAM::TankControlWithMockIo (src/tests.st) [0ms]
+    PASS [2/2] TEST_FUNCTION_BLOCK::TankControlBand (src/tests.st) [0ms]
+    2 passed, 0 failed, 0 errors (404ms)
+    ```
 
-## Step 5: Debug one test while iterating
+6. Triage a failure. In `src/main.st`, write `PumpSpeedCmd := INT#700;` in place of
+   `PumpSpeedCmd := INT#800;`, as a mistyped speed would be, and run the tests again:
 
-```bash
-cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --filter BAND
-```
+    ```text
+    Running 2 ST test(s) in .
+    FAIL [1/2] TEST_PROGRAM::TankControlWithMockIo src/tests.st:10 [0ms]
+        reason   : ASSERT_EQUAL failed: expected 800, actual 700
+        source   : ASSERT_EQUAL(EXPECTED := INT#800, ACTUAL := Dut.PumpSpeedCmd);
+    PASS [2/2] TEST_FUNCTION_BLOCK::TankControlBand (src/tests.st) [0ms]
 
-## Step 6: List tests and set timeout
+    Failure summary:
+      1. TEST_PROGRAM::TankControlWithMockIo @ src/tests.st:10
+         ASSERT_EQUAL failed: expected 800, actual 700
+         source: ASSERT_EQUAL(EXPECTED := INT#800, ACTUAL := Dut.PumpSpeedCmd);
+    1 passed, 1 failed, 0 errors (358ms)
+    Error: 1 ST test(s) failed
+    ```
 
-```bash
-cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --list
-```
+    Line 10 belongs to the low-level scenario, and the pump's speed in that scenario comes from
+    the fill branch, `LevelRaw < INT#300`, which now gives 700. The band's test still passes, as
+    its branch is untouched. Put `INT#800` back, and both pass.
 
-```bash
-cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --timeout 5
-```
+7. Run the logic in the runtime. Build the program with
+   `trust-runtime build --project . --sources src`, start the runtime in the second terminal with
+   `trust-runtime run --project .`, and in the first give the start command and a low level:
 
-`--timeout` is per test case in seconds. `--timeout 0` disables timeout.
+    ```bash
+    trust-runtime ctl --project . io-write %IX0.0 true
+    trust-runtime ctl --project . io-write %IW2 200
+    trust-runtime ctl --project . io-read
+    ```
 
-## Step 7: Export machine-readable output for CI
+    In the answer of `io-read`, the outputs read as the first scenario's assertions expect:
+    `%QX0.0` (`P1.FillValveOut`) `Bool(true)`, `%QX0.1` (`P1.DrainValveOut`) `Bool(false)` and
+    `%QW2` (`P1.PumpSpeedOut`) `Int(800)`. Write the level `850` to `%IW2`, and the drain valve
+    opens with the pump at `Int(600)`; write `true` to `%IX0.1`, the stop, and all three outputs go
+    off, the pump at `Int(0)`. Stop the runtime with
+    `trust-runtime ctl --project . shutdown --exit`.
 
-```bash
-cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --output junit
-```
+## What happened
 
-```bash
-cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --output json
-```
+**Logic, wiring and addresses.** The function block makes every decision and knows no address,
+the program connects the block to its own variables, and the configuration puts those variables at
+the I/O addresses. A change of the I/O, another card or another address, touches the configuration;
+a change of behaviour touches the block, and the tests follow the block. Logic that is hard to test
+usually sits in the program: moving it into a block, and keeping the program as wiring, makes it
+testable.
 
-JSON includes per-test and summary `duration_ms` fields.
+**Mock I/O.** A test uses the block as the program does: it calls the block with the values a
+plant would give and checks what the block commands, one call per scan. The block's inputs come
+from the test, not from a driver, so the tests need no hardware, run in a fraction of a second and
+run the same way on every computer. Each test starts from a cold start (tutorial 10), and each holds
+its own instance of the block.
 
-## Rule of thumb
+**From a failure to the fault.** The failure names the assertion's file and line, its message and
+its values. The scenario around the line says which state of the plant the block handled wrongly,
+and so which branch to read: the low level and the pump's speed lead to the fill branch.
 
-If logic is hard to unit test, move more logic from `PROGRAM` into an FB/function and keep `PROGRAM` as wiring only.
+**The tested block runs in the PLC.** The runtime runs the program, which calls the same block.
+With the simulated driver, the inputs are those written with `ctl`, and the outputs are the ones the
+tests expect; with a real I/O driver, the same addresses connect the block to the plant.
+
+## Try it yourself
+
+- Test the band's edges. The tests check the levels 200, 850, 100 and 500, but not 300 and 700,
+  where the band begins and ends. Write the test:
+
+  ```bash
+  cat > src/boundaries.st <<'ST'
+  TEST_FUNCTION_BLOCK TankControlBoundaries
+  VAR
+      Dut : TankControl;
+  END_VAR
+
+  (* 300 and 700 are the band's own edges: hold. *)
+  Dut(StartCmd := TRUE, StopCmd := FALSE, LevelRaw := INT#300);
+  ASSERT_EQUAL(EXPECTED := INT#500, ACTUAL := Dut.PumpSpeedCmd);
+  Dut(StartCmd := TRUE, StopCmd := FALSE, LevelRaw := INT#700);
+  ASSERT_EQUAL(EXPECTED := INT#500, ACTUAL := Dut.PumpSpeedCmd);
+  END_TEST_FUNCTION_BLOCK
+  ST
+  ```
+
+  The three tests pass. Now write `LevelRaw <= INT#300` in place of `LevelRaw < INT#300` in
+  `src/main.st`, a slip that the shipped tests miss: the new test fails,
+  `FAIL [1/3] TEST_FUNCTION_BLOCK::TankControlBoundaries src/boundaries.st:8` with
+  `ASSERT_EQUAL failed: expected 500, actual 800`. Put `<` back.
+- Write a test that never ends:
+
+  ```bash
+  cat > src/endless.st <<'ST'
+  TEST_PROGRAM EndlessLoop
+  VAR
+      Count : DINT;
+  END_VAR
+  WHILE TRUE DO
+      Count := Count + 1;
+  END_WHILE;
+  END_TEST_PROGRAM
+  ST
+  ```
+
+  Run it with `trust-dev test --project . --filter Endless`: within a fraction of a second it ends
+  as an error, `ERROR [1/1] TEST_PROGRAM::EndlessLoop src/endless.st:6` with
+  `reason   : execution timed out: work limit 100000000, used 100000000, requested 1`. The runner
+  limits the work each test may do, so an endless loop cannot hang the run. Delete it with
+  `rm src/endless.st`.
+
+## Reference
+
+- Specification 22, "Test case execution" and "Test reporting and CI output"; specification 18,
+  configurations, resources and tasks, and `VAR_CONFIG`.
+- Tutorial 10, unit tests and their results; tutorial 13, `trust-runtime ctl`; tutorial 21, which
+  runs this project's steps in CI.

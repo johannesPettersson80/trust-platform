@@ -405,3 +405,5 @@ END_PROGRAM
 mod readme_steps;
 #[path = "st_test_cli_command/tutorial_10.rs"]
 mod tutorial_10;
+#[path = "st_test_cli_command/tutorial_11.rs"]
+mod tutorial_11;
