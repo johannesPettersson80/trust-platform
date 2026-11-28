@@ -400,3 +400,8 @@ END_PROGRAM
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[path = "st_test_cli_command/readme_steps.rs"]
+mod readme_steps;
+#[path = "st_test_cli_command/tutorial_10.rs"]
+mod tutorial_10;
