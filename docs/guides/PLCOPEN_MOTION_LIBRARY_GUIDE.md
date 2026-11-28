@@ -393,7 +393,7 @@ Type: `FUNCTION_BLOCK`
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
-Usage notes: Keep the block enabled while you want the override factors applied.
+Usage notes: Keep the block enabled while you want the override factors applied. It changes no axis state: a velocity factor of 0.0 stops the axis without bringing it to Standstill, and its state and its active command stay.
 
 ### `MC_ReadActualPosition`
 Read the actual position from the library axis state.

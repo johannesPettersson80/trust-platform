@@ -1038,6 +1038,58 @@ ASSERT_EQUAL(WORD#16#0000, Stop.ErrorID);
 ASSERT_FALSE(Stop.Done);
 END_TEST_PROGRAM
 
+TEST_PROGRAM plcopen_motion_single_axis_override_zero_stops_the_axis_in_its_state
+(* PLCopen Part 1 §3.18: 'The value 0.0 set to the VelFactor stops the axis without bringing it to the
+   state Standstill' (Note 5), and 'The Function Block does not influence the state diagram of the
+   axis' (Note 7). A factor of 0.0 stops a velocity move at once and leaves the axis in
+   ContinuousMotion with its move active, and leaves a Disabled axis Disabled and one in ErrorStop in
+   ErrorStop. Catches an override that writes Stopping into a moving, an unpowered or a faulted axis
+   (G348e). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    Move : MC_MoveVelocity;
+    Faulted : MC_MoveAbsolute;
+    SpeedOverride : MC_SetOverride;
+    ReadStatus : MC_ReadStatus;
+    ReadVelocity : MC_ReadActualVelocity;
+    ReadMotion : MC_ReadMotionState;
+END_VAR
+
+Axis.AxisId := UDINT#1211;
+Axis.InternalIndex := UINT#16;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+SpeedOverride(Axis := Axis, Enable := TRUE, VelFactor := REAL#0.0, AccFactor := REAL#1.0, JerkFactor := REAL#1.0);
+ASSERT_TRUE(SpeedOverride.Enabled);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Disabled);
+Power(Axis := Axis, Enable := TRUE);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Move.Active);
+SpeedOverride(Axis := Axis, Enable := TRUE, VelFactor := REAL#0.0, AccFactor := REAL#1.0, JerkFactor := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ContinuousMotion);
+ASSERT_FALSE(ReadStatus.Stopping);
+ReadVelocity(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadVelocity.Velocity = REAL#0.0);
+ReadMotion(Axis := Axis, Enable := TRUE, Source := MC_SOURCE#mcSetValue);
+ASSERT_FALSE(ReadMotion.Decelerating);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Move.Active);
+ASSERT_FALSE(Move.CommandAborted);
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Power(Axis := Axis, Enable := TRUE);
+Faulted(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyAxisError := TRUE, AxisErrorID := WORD#16#0200);
+Faulted(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+SpeedOverride(Axis := Axis, Enable := TRUE, VelFactor := REAL#0.0, AccFactor := REAL#1.0, JerkFactor := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+END_TEST_PROGRAM
+
 TEST_PROGRAM plcopen_motion_single_axis_read_status_and_reset_state_paths
 VAR
     AxisStop : AXIS_REF;
@@ -1369,7 +1421,9 @@ Seed(Axis := Axis, ResetDefaults := TRUE, ApplyState := TRUE, State := MC_AXIS_S
 SetOverride(Axis := Axis, Enable := TRUE, VelFactor := REAL#0.0, AccFactor := REAL#1.0, JerkFactor := REAL#1.0);
 ASSERT_TRUE(SetOverride.Enabled);
 ReadStatus(Axis := Axis, Enable := TRUE);
-ASSERT_TRUE(ReadStatus.Stopping);
+(* PLCopen Part 1 §3.18 Notes 5 and 7: the axis stops without reaching Standstill, and its state stays. *)
+ASSERT_TRUE(ReadStatus.ContinuousMotion);
+ASSERT_FALSE(ReadStatus.Stopping);
 ASSERT_FALSE(ReadStatus.Standstill);
 SetOverride(Axis := Axis, Enable := TRUE, VelFactor := REAL#0.0 - REAL#1.0, AccFactor := REAL#1.0, JerkFactor := REAL#1.0);
 ASSERT_TRUE(SetOverride.Error);

@@ -1692,14 +1692,15 @@ ELSE
         g_trust_motion_acc_factor[AxisIndex] := AccFactor;
         g_trust_motion_jerk_factor[AxisIndex] := JerkFactor;
         IF VelFactor = REAL#0.0 THEN
-            g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcStopping;
+            (* PLCopen Part 1 §3.18 Notes 5 and 7: a velocity factor of 0.0 stops the axis without
+               bringing it to Standstill, and the block does not influence the state diagram. The
+               virtual axis stops at once, with no deceleration ramp. *)
             g_trust_motion_actual_velocity[AxisIndex] := REAL#0.0;
             g_trust_motion_set_velocity[AxisIndex] := REAL#0.0;
             g_trust_motion_commanded_velocity[AxisIndex] := REAL#0.0;
             g_trust_motion_constant_velocity[AxisIndex] := FALSE;
-        g_trust_motion_accelerating[AxisIndex] := FALSE;
-        g_trust_motion_decelerating[AxisIndex] := FALSE;
-            g_trust_motion_decelerating[AxisIndex] := TRUE;
+            g_trust_motion_accelerating[AxisIndex] := FALSE;
+            g_trust_motion_decelerating[AxisIndex] := FALSE;
         END_IF;
     END_IF;
 END_IF;
