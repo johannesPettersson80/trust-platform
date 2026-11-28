@@ -245,13 +245,15 @@ END_FUNCTION
 FUNCTION TRUST_MOTION_AbortAllCommands : BOOL
 VAR_INPUT
     AxisIndex : UINT;
+    ErrorID : WORD;
 END_VAR
-(* Every on-going command of the axis ends with CommandAborted: the active one and the queued ones. *)
+(* Every on-going command of the axis ends, the active one and the queued ones: with CommandAborted
+   when ErrorID is 16#0000, and with Error and ErrorID otherwise. *)
 IF g_trust_motion_active_command_id[AxisIndex] <> UINT#0 THEN
-    TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_active_command_id[AxisIndex], ErrorID := WORD#16#0000);
+    TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_active_command_id[AxisIndex], ErrorID := ErrorID);
 END_IF;
 TRUST_MOTION_ClearActiveCommandSlot(AxisIndex := AxisIndex);
-TRUST_MOTION_FlushQueuedCommands(AxisIndex := AxisIndex, ErrorID := WORD#16#0000);
+TRUST_MOTION_FlushQueuedCommands(AxisIndex := AxisIndex, ErrorID := ErrorID);
 TRUST_MOTION_AbortAllCommands := TRUE;
 END_FUNCTION
 

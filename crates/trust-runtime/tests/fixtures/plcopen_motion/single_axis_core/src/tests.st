@@ -473,9 +473,13 @@ VAR
     Move : MC_MoveVelocity;
     ReadStatus : MC_ReadStatus;
     ReadVelocity : MC_ReadActualVelocity;
+    ReadMotion : MC_ReadMotionState;
+    ReadParameter : MC_ReadParameter;
+    Constants : MC_Constants;
     Probe : TRUST_MOTION_TestAxisQueueProbe;
 END_VAR
 
+Constants();
 Axis.AxisId := UDINT#1201;
 Axis.InternalIndex := UINT#6;
 Seed(Axis := Axis, ResetDefaults := TRUE);
@@ -484,6 +488,11 @@ Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#
 ASSERT_TRUE(Move.Active);
 ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.ContinuousMotion);
+ReadMotion(Axis := Axis, Enable := TRUE, Source := MC_SOURCE#mcSetValue);
+ASSERT_TRUE(ReadMotion.ConstantVelocity);
+ASSERT_TRUE(ReadMotion.DirectionPositive);
+ReadParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_CommandedVelocity);
+ASSERT_TRUE(ReadParameter.Value = REAL#10.0);
 Power(Axis := Axis, Enable := FALSE);
 ASSERT_FALSE(Power.Status);
 Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
@@ -495,14 +504,23 @@ ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.Disabled);
 ReadVelocity(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadVelocity.Velocity = REAL#0.0);
+ReadMotion(Axis := Axis, Enable := TRUE, Source := MC_SOURCE#mcSetValue);
+ASSERT_FALSE(ReadMotion.ConstantVelocity);
+ASSERT_FALSE(ReadMotion.Accelerating);
+ASSERT_FALSE(ReadMotion.Decelerating);
+ASSERT_FALSE(ReadMotion.DirectionPositive);
+ReadMotion(Axis := Axis, Enable := TRUE, Source := MC_SOURCE#mcCommandedValue);
+ASSERT_FALSE(ReadMotion.DirectionPositive);
+ReadParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_CommandedVelocity);
+ASSERT_TRUE(ReadParameter.Value = REAL#0.0);
 Probe(Axis := Axis);
 ASSERT_TRUE(Probe.ActiveCommandID = UINT#0);
 END_TEST_PROGRAM
 
 TEST_PROGRAM plcopen_motion_single_axis_power_off_aborts_the_queued_commands
 (* PLCopen Part 1 §2.1: any on-going motion command is aborted when the power goes off, the active
-   move and the move buffered behind it alike. Catches a queued move that stays Busy, or that a
-   later power on would still start. *)
+   move and the move buffered behind it alike, and a later power on starts neither. Catches a queued
+   move that stays Busy, or that the next power on would still start. *)
 VAR
     Axis : AXIS_REF;
     Seed : TRUST_MOTION_TestAxisSeed;
@@ -534,6 +552,16 @@ ASSERT_TRUE(Probe.ActiveCommandID = UINT#0);
 ASSERT_TRUE(Probe.QueueDepth = UINT#0);
 ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.Disabled);
+Power(Axis := Axis, Enable := TRUE);
+MoveActive(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveQueued(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#20.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
+ASSERT_FALSE(MoveActive.Busy);
+ASSERT_FALSE(MoveQueued.Busy);
+ASSERT_FALSE(MoveQueued.Active);
+Probe(Axis := Axis);
+ASSERT_TRUE(Probe.ActiveCommandID = UINT#0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Standstill);
 END_TEST_PROGRAM
 
 TEST_PROGRAM plcopen_motion_single_axis_power_off_in_errorstop_keeps_errorstop
@@ -569,6 +597,70 @@ Reset(Axis := Axis, Execute := TRUE);
 ASSERT_TRUE(Reset.Done);
 ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.Disabled);
+END_TEST_PROGRAM
+
+TEST_PROGRAM plcopen_motion_single_axis_power_off_with_a_pending_axis_error_enters_errorstop
+(* PLCopen Part 1 Figure 2 Notes 1 and 2: Enable FALSE takes the axis to Disabled only when there is no
+   error in the axis; an error in the axis takes it to ErrorStop from any state. An axis error that
+   the active move has not reported yet, when the power goes off, takes the axis to ErrorStop, the
+   move ends with Error and that error, and MC_Reset with the power off then takes the axis to
+   Disabled. Catches a power off that hides a pending axis error behind Disabled and CommandAborted,
+   where MC_Reset could not clear it. *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    Move : MC_MoveAbsolute;
+    Reset : MC_Reset;
+    ReadStatus : MC_ReadStatus;
+END_VAR
+
+Axis.AxisId := UDINT#1207;
+Axis.InternalIndex := UINT#12;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Power(Axis := Axis, Enable := TRUE);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Move.Active);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyAxisError := TRUE, AxisErrorID := WORD#16#0200);
+Power(Axis := Axis, Enable := FALSE);
+ASSERT_FALSE(Power.Status);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Move.Error);
+ASSERT_EQUAL(WORD#16#0200, Move.ErrorID);
+ASSERT_FALSE(Move.CommandAborted);
+ASSERT_FALSE(Move.Busy);
+Reset(Axis := Axis, Execute := TRUE);
+ASSERT_TRUE(Reset.Done);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Disabled);
+END_TEST_PROGRAM
+
+TEST_PROGRAM plcopen_motion_single_axis_stop_on_an_unpowered_axis_leaves_it_disabled
+(* PLCopen Part 1 §2.1: Disabled is the state of an axis with its power off, and MC_Power with Enable
+   TRUE takes it from Disabled to Standstill. MC_Stop pressed and released on an axis whose power is
+   off leaves it Disabled, so that a later power on brings it to Standstill. Catches an MC_Stop that
+   strands an unpowered axis in Stopping, which no power on leaves. *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    Stop : MC_Stop;
+    ReadStatus : MC_ReadStatus;
+END_VAR
+
+Axis.AxisId := UDINT#1208;
+Axis.InternalIndex := UINT#13;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Stop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+Stop(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Disabled);
+Power(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(Power.Status);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Standstill);
 END_TEST_PROGRAM
 
 TEST_PROGRAM plcopen_motion_single_axis_stop_does_not_hold_a_powered_off_axis

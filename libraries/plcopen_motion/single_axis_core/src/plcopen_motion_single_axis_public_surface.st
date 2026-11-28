@@ -84,10 +84,15 @@ ELSE
     Valid := FALSE;
     IF g_trust_motion_power_stage[AxisIndex] THEN
         (* The virtual axis is its own drive, so its power stage goes off at once, as it came on.
-           PLCopen Part 1 §2.1: every on-going motion command is aborted (CommandAborted), and the
-           axis goes to Disabled, except from ErrorStop, which it keeps while the error is pending. *)
+           PLCopen Part 1 §2.1 and Figure 2 Notes 1 and 2: every on-going motion command is aborted
+           (CommandAborted) and the axis goes to Disabled, except from ErrorStop, which it keeps while
+           the error is pending; with an axis error pending, the axis goes to ErrorStop and the
+           commands end with that error. *)
         g_trust_motion_power_stage[AxisIndex] := FALSE;
-        TRUST_MOTION_AbortAllCommands(AxisIndex := AxisIndex);
+        TRUST_MOTION_AbortAllCommands(AxisIndex := AxisIndex, ErrorID := g_trust_motion_axis_error[AxisIndex]);
+        IF g_trust_motion_axis_error[AxisIndex] <> WORD#16#0000 THEN
+            g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcErrorStop;
+        END_IF;
         g_trust_motion_actual_velocity[AxisIndex] := REAL#0.0;
         g_trust_motion_set_velocity[AxisIndex] := REAL#0.0;
         g_trust_motion_commanded_velocity[AxisIndex] := REAL#0.0;
@@ -295,6 +300,8 @@ ELSIF LastExecute THEN
         Done := TRUE;
         IF g_trust_motion_power_stage[AxisIndex] THEN
             g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcStandstill;
+        ELSIF g_trust_motion_state[AxisIndex] <> MC_AXIS_STATUS#mcErrorStop THEN
+            g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcDisabled;
         END_IF;
         g_trust_motion_decelerating[AxisIndex] := FALSE;
     END_IF;
