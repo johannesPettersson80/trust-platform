@@ -125,7 +125,7 @@ Type: `FUNCTION_BLOCK`
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
-Usage notes: Call every scan. `Enable` is level-sensitive; the block is not a one-shot command.
+Usage notes: Call every scan. `Enable` is level-sensitive; the block is not a one-shot command. On the virtual axis the power stage follows `Enable` at once: `Enable` FALSE turns it off, takes the axis to Disabled (an axis in ErrorStop keeps that state until `MC_Reset`) and ends every on-going command with `CommandAborted`.
 
 ### `MC_Home`
 Run the basic PLCopen homing command and declare the homed position when the sequence completes.
