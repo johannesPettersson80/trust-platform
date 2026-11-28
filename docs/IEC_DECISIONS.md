@@ -823,3 +823,15 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - A flat address is a byte offset of its area (specification 11 §6.4), so `%IW0` and `%IW1` share byte 1.
 - Reason:
   - Writing one changes the other, which examples did by mistake (checklist G235), while a status word read whole and by its bits can be meant. CODESYS Static Analysis reports the same case as "Overlapping memory areas" (rule SA0028) and does not refuse it.
+
+## 2026-11-28 - INTERNAL elements of a namespace
+
+- Area: namespaces (`NAMESPACE`), access specifier `INTERNAL`
+- IEC context: IEC 61131-3 Ed.3 §6.9.2 says that a namespace's elements, "user-defined data types - using keyword TYPE, functions, programs, function block types and their variables and methods, classes and their variables and methods, interfaces, namespaces", may each be followed by the access specifier `INTERNAL` "for an access only within the namespace itself", and its Examples 1 and 2 write `FUNCTION INTERNAL TimeTick: DWORD` and `CLASS INTERNAL B`. Annex A's grammar has `INTERNAL` only in `Namespace_Decl` and in `Access_Spec`, which members take, so it does not admit those examples. The text does not say where the specifier stands beside `FINAL` or `ABSTRACT`, what it means in a `TYPE` block of several types, or whether a namespace nested in the declaring one is "within" it.
+- Decision:
+  - The text and the examples hold: `INTERNAL` follows the keyword of a `TYPE`, `FUNCTION`, `FUNCTION_BLOCK`, `PROGRAM`, `CLASS` or `INTERFACE` declaration of a namespace, before `FINAL` or `ABSTRACT`.
+  - `TYPE INTERNAL` makes every type of its block INTERNAL.
+  - An INTERNAL element is named only inside its exact declaring namespace, as an INTERNAL member is (specification 04): a call, a reference to it by name through `USING`, or a declaration of a variable of its type outside that namespace, a nested one included, is an error.
+  - `INTERNAL` on an element outside any namespace is an error, since there is no namespace to limit it to.
+- Reason:
+  - The examples are the standard's own use of the feature, and its grammar would refuse its own Example 1. One rule for elements and members, the exact declaring namespace, keeps a nested namespace from reaching what its parent kept to itself, which is the conservative reading of "within the namespace itself".

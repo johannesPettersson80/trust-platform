@@ -425,6 +425,25 @@ impl<'a, 'b> ResolveChecker<'a, 'b> {
             return false;
         }
         let owner_id = self.checker.resolve_ref().member_owner(member_id);
+        // IEC 61131-3 Ed.3 §6.9.2: an INTERNAL element of a namespace, a POU or a type, is named
+        // only inside its declaring namespace, as an INTERNAL member is (specification 04).
+        if owner_id.is_none() && member.visibility == Visibility::Internal {
+            let resolve = self.checker.resolve_ref();
+            let declared = resolve.namespace_path_for_symbol(member_id);
+            if resolve.current_namespace_path() == declared {
+                return true;
+            }
+            self.checker.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                format!(
+                    "cannot access INTERNAL '{}' outside namespace '{}'",
+                    member.name,
+                    declared.join(".")
+                ),
+            );
+            return false;
+        }
         match self
             .checker
             .resolve_ref()

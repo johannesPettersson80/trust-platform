@@ -48,6 +48,11 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_class(&mut self) {
         self.start_node(SyntaxKind::Class);
         self.bump(); // CLASS
+                     // IEC 61131-3 Ed.3 §6.9.2: a namespace's element may be INTERNAL, the specifier directly after
+                     // its keyword (Examples 1 and 2: `FUNCTION INTERNAL TimeTick : DWORD`, `CLASS INTERNAL B`).
+        if self.at(TokenKind::KwInternal) {
+            self.bump();
+        }
 
         if self.at(TokenKind::KwFinal) || self.at(TokenKind::KwAbstract) {
             self.bump();
@@ -127,6 +132,11 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_interface(&mut self) {
         self.start_node(SyntaxKind::Interface);
         self.bump(); // INTERFACE
+                     // IEC 61131-3 Ed.3 §6.9.2: a namespace's element may be INTERNAL, the specifier directly after
+                     // its keyword (Examples 1 and 2: `FUNCTION INTERNAL TimeTick : DWORD`, `CLASS INTERNAL B`).
+        if self.at(TokenKind::KwInternal) {
+            self.bump();
+        }
 
         if self.at(TokenKind::Ident) {
             self.parse_name();

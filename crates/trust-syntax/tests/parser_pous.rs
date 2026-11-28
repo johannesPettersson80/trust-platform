@@ -226,6 +226,54 @@ END_NAMESPACE"#
 }
 
 #[test]
+fn internal_elements_of_a_namespace_parse_with_their_specifier() {
+    // IEC 61131-3 Ed.3 §6.9.2: each element of a namespace may be INTERNAL, the specifier directly
+    // after its keyword (Examples 1 and 2: `FUNCTION INTERNAL TimeTick: DWORD`, `CLASS INTERNAL
+    // B`); docs/IEC_DECISIONS.md takes the text, which lists types, functions, programs, function
+    // blocks, classes and interfaces, over Annex A's grammar, which has INTERNAL on namespaces and
+    // members only. Each of the six declarations parses without an error, and its node holds the
+    // INTERNAL token, from which the analysis reads the access. Catches `expected function name`
+    // and the other parse errors at INTERNAL, and a specifier left outside the declaration's node.
+    let parsed = parse(
+        r#"NAMESPACE Timers
+TYPE INTERNAL Level : INT; END_TYPE
+FUNCTION INTERNAL TimeTick : DWORD
+TimeTick := DWORD#1;
+END_FUNCTION
+FUNCTION_BLOCK INTERNAL Ton
+END_FUNCTION_BLOCK
+PROGRAM INTERNAL Housekeeping
+END_PROGRAM
+CLASS INTERNAL B
+END_CLASS
+INTERFACE INTERNAL I
+END_INTERFACE
+END_NAMESPACE"#,
+    );
+    assert!(parsed.ok(), "{:?}", parsed.errors());
+    let declarations: Vec<SyntaxKind> = parsed
+        .syntax()
+        .descendants()
+        .filter(|node| {
+            node.children_with_tokens()
+                .any(|element| element.kind() == SyntaxKind::KwInternal)
+        })
+        .map(|node| node.kind())
+        .collect();
+    assert_eq!(
+        declarations,
+        [
+            SyntaxKind::TypeDecl,
+            SyntaxKind::Function,
+            SyntaxKind::FunctionBlock,
+            SyntaxKind::Program,
+            SyntaxKind::Class,
+            SyntaxKind::Interface,
+        ]
+    );
+}
+
+#[test]
 fn test_namespace_with_var_global() {
     let parsed = parse(
         r#"NAMESPACE GVL

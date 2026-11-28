@@ -82,6 +82,17 @@ impl SymbolCollector<'_> {
             name_range,
         );
         symbol.parent = self.current_parent();
+        // IEC 61131-3 Ed.3 §6.9.2: `TYPE INTERNAL` makes every type of its block INTERNAL.
+        if type_def
+            .ancestors()
+            .find(|node| node.kind() == SyntaxKind::TypeDecl)
+            .is_some_and(|block| {
+                explicit_visibility_from_node(&block) == Some(Visibility::Internal)
+            })
+        {
+            symbol.visibility = Visibility::Internal;
+        }
+        self.refuse_internal_outside_namespace(&symbol, name_range);
         // An enumeration's CODESYS attributes stand before the `TYPE` keyword of its block
         // (specification 02 §3.1).
         if type_def.kind() == SyntaxKind::EnumDef
@@ -1034,7 +1045,18 @@ impl SymbolCollector<'_> {
                 range,
             );
             match scoped_outcome.clone() {
-                SemanticOutcome::Resolved(type_id) => return SemanticOutcome::Resolved(type_id),
+                SemanticOutcome::Resolved(type_id) => {
+                    if let SemanticOutcome::Resolved(symbol_id) = self
+                        .resolve_symbol_in_scope_outcome(
+                            parts[0].as_str(),
+                            self.table.current_scope(),
+                            range,
+                        )
+                    {
+                        self.refuse_internal_type_outside(symbol_id, range);
+                    }
+                    return SemanticOutcome::Resolved(type_id);
+                }
                 SemanticOutcome::Unknown { .. } => {
                     return self.resolve_project_type_path_outcome(parts, range);
                 }
@@ -1059,7 +1081,9 @@ impl SymbolCollector<'_> {
             let symbol_id = self.table.resolve_qualified(&candidate);
             if let Some(symbol) = symbol_id.and_then(|id| self.table.get(id)) {
                 if symbol.is_type() {
-                    return SemanticOutcome::Resolved(symbol.type_id);
+                    let (symbol_id, type_id) = (symbol.id, symbol.type_id);
+                    self.refuse_internal_type_outside(symbol_id, range);
+                    return SemanticOutcome::Resolved(type_id);
                 }
                 return SemanticOutcome::WrongKind {
                     symbol_id: symbol.id,

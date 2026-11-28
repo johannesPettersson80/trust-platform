@@ -42,6 +42,8 @@ mod generic_type_contract;
 mod hir_mutation_hardening;
 #[path = "semantic_type_checking/incomplete_standard_calls.rs"]
 mod incomplete_standard_calls;
+#[path = "semantic_type_checking/internal_namespace_elements.rs"]
+mod internal_namespace_elements;
 #[path = "semantic_type_checking/member_access_acceptance.rs"]
 mod member_access_acceptance;
 #[path = "semantic_type_checking/member_access_declaration_rejection.rs"]

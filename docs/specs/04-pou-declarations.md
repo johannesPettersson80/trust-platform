@@ -1058,7 +1058,13 @@ END_VAR
 3. USING brings names from the referenced namespace into scope (direct members only)
 4. Qualified names can always be used
 5. Name conflicts resolved by qualification
-6. INTERNAL access specifier limits scope to namespace
+6. INTERNAL access specifier limits scope to namespace. Besides a namespace and a member, a namespace's
+   `TYPE`, `FUNCTION`, `FUNCTION_BLOCK`, `PROGRAM`, `CLASS` and `INTERFACE` declaration may be INTERNAL, the
+   keyword directly after the declaring keyword (`FUNCTION INTERNAL TimeTick : DWORD`, IEC 61131-3 Ed.3
+   §6.9.2, Examples 1 and 2; `TYPE INTERNAL` covers every type of its block). Such an element is named only
+   inside its exact declaring namespace: a call of it, a name of it that a `USING` brings in, or a variable of
+   its type outside that namespace, a nested one included, is an error (E202). `INTERNAL` on an element outside
+   any namespace is an error (docs/IEC_DECISIONS.md, 2026-11-28)
 7. A namespace's `VAR_GLOBAL` list preceded by `{attribute 'qualified_only'}` (CODESYS, vendor
    extension; the vendor's attribute help: the variables of such a global variable list "are
    addressed only by specifying the global variable name", `GVL.iVar`, and an unqualified `iVar`
