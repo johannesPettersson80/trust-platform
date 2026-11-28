@@ -7,6 +7,7 @@ mod hmi_operations;
 mod hmi_reads;
 mod mapping;
 mod models;
+mod presence;
 mod security;
 mod startup_publish;
 mod version;
@@ -17,6 +18,7 @@ pub use models::{
     MeshLivelinessEvent, MeshLivelinessSnapshot, MeshQosProfile, MeshReadiness, MeshService,
     MeshTopologyEvidence,
 };
+pub use presence::{MeshPeerChange, MeshPeers, MeshPresenceWatch, MESH_PEER_GRACE};
 pub use startup_publish::{start_mesh, start_mesh_with_tls};
 pub use version::{validate_zenoh_version_policy, ZENOHD_BASELINE_VERSION, ZENOH_BASELINE_VERSION};
 

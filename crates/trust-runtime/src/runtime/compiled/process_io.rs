@@ -168,13 +168,21 @@ impl CompiledRuntime {
     /// drivers see: the program's own image with the bytes that the MQTT tags bind after it
     /// (specification 11 §6.5).
     pub fn io_input_overlaps(&self) -> Vec<InputOverlap> {
-        let io = self.cycle.process_io();
-        let image_len = self.cycle.program().inputs.len() + lock(&io.extra).inputs.len();
+        let image_len = self.driver_input_len();
         let outputs = self.driver_output_len();
         crate::io::input_overlaps(
-            &io_subsystem::declared_inputs(&lock_drivers(&io.drivers), outputs),
+            &io_subsystem::declared_inputs(
+                &lock_drivers(&self.cycle.process_io().drivers),
+                outputs,
+            ),
             image_len,
         )
+    }
+
+    /// The length of the input image the drivers see: the program's own with the bytes that the
+    /// MQTT tags bind after it.
+    pub(super) fn driver_input_len(&self) -> usize {
+        self.cycle.program().inputs.len() + lock(&self.cycle.process_io().extra).inputs.len()
     }
 
     /// The length of the output image the drivers get: the program's own with the bytes that the

@@ -315,10 +315,22 @@ fn an_installed_bundle_builds_for_every_module_target() {
     assert!(Path::new(&installed).join("manifest.json").is_file());
 }
 
+/// What a command says when this release's toolchain is not installed (specification 44 §4.6, "When
+/// none is installed"): the toolchain named once, with what installs it.
+fn not_installed() -> String {
+    format!(
+        "the truST toolchain {} is not installed: `trust-runtime toolchain install` installs it, \
+         from the bundle beside the tools or downloaded (about 195 to 225 MB, once)",
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
 /// Specification 44 NX-08 (the CODESYS toolkit's B7): a build that needs the toolchain and finds
 /// none installs nothing silently. Without a terminal and without `--install-toolchain` it fails
-/// with the advice to run `trust-runtime toolchain install` or to build with the flag, and creates
-/// no toolchains folder. Catches the old first build, which downloaded about 200 MB without asking.
+/// with the sentence of §4.6, "When none is installed", and the advice to build with the flag, and
+/// creates no toolchains folder. Catches the old first build, which downloaded about 200 MB without
+/// asking, and the error that named the toolchain twice, `the Rust toolchain: the truST toolchain
+/// <version> is not installed: ...` (checklist G342).
 #[test]
 fn a_build_without_a_terminal_installs_no_toolchain_unasked() {
     let fixture = Fixture::new();
@@ -326,9 +338,12 @@ fn a_build_without_a_terminal_installs_no_toolchain_unasked() {
     let output = fixture.run(&[os("build"), os("--project"), project.as_os_str()], None);
     assert!(!output.status.success(), "{}", failure(&output));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("is not installed: `trust-runtime toolchain install` installs it")
-            && stderr.contains("or build again with `--install-toolchain`"),
+    assert_eq!(
+        stderr.trim_end(),
+        format!(
+            "Error: {}; or build again with `--install-toolchain`",
+            not_installed()
+        ),
         "{}",
         failure(&output)
     );
@@ -338,4 +353,14 @@ fn a_build_without_a_terminal_installs_no_toolchain_unasked() {
         failure(&output)
     );
     assert!(!fixture.trust_data().join("toolchains").exists());
+}
+
+/// Specification 44 §4.6, "When none is installed": `toolchain status` without a toolchain prints
+/// the sentence that names it once and what installs it. Catches the status that said `the Rust
+/// toolchain: the truST toolchain <version> is not installed: ...` (checklist G342).
+#[test]
+fn toolchain_status_names_a_missing_toolchain_once() {
+    let fixture = Fixture::new();
+    let stdout = succeeded(&fixture.run(&[os("toolchain"), os("status")], None));
+    assert_eq!(stdout.trim_end(), not_installed());
 }

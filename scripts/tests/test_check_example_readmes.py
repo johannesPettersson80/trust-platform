@@ -213,6 +213,24 @@ class ExampleReadmeStandardTests(unittest.TestCase):
         # Catches a converted README that drifted, a new example in the old style, or a stale list entry.
         self.assertEqual(check.findings(ROOT), [])
 
+    def test_a_blank_line_stands_between_two_pending_entries(self) -> None:
+        # Checklist G344: each conversion takes its entry's line off the pending list and leaves the blank lines, so
+        # that two pull requests that take neighbouring entries off merge without a conflict. Catches the list
+        # written back with its entries on adjacent lines, as `json.dump` writes it, which brings the conflicts back.
+        text = (ROOT / check.LISTS).read_text(encoding="utf-8")
+        lines = text.splitlines()
+        start = next(index for index, line in enumerate(lines) if line.strip().startswith('"pending"'))
+        if lines[start].rstrip().endswith("[]"):
+            entries = []
+        else:
+            end = next(index for index in range(start + 1, len(lines)) if lines[index].strip().startswith("]"))
+            entries = [index for index in range(start + 1, end) if lines[index].strip()]
+        # One line per pending entry, so that the check below sees every entry; an empty list passes, as it will once
+        # the last README is converted.
+        self.assertEqual(len(entries), len(json.loads(text)["pending"]), "each pending entry on a line of its own")
+        adjacent = [lines[first].strip() for first, second in zip(entries, entries[1:]) if second == first + 1]
+        self.assertEqual(adjacent, [], "entries followed directly by the next one")
+
 
 if __name__ == "__main__":
     unittest.main()

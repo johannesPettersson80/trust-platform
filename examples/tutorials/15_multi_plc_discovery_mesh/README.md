@@ -182,6 +182,12 @@ starts from tutorial 13's project.
     trust-runtime run --project /tmp/trust-plc-a
     ```
 
+    Among PLC-A's start lines, one says that PLC-B joined its mesh:
+
+    ```text
+    {"data":{"peer":"PlcB"},"event":"mesh_peer_joined","level":"info","ts":1795825352550}
+    ```
+
 6. In the third terminal, switch PLC-B's input on, then read PLC-B's lamp and PLC-A's copy of it:
 
     ```bash
@@ -243,7 +249,10 @@ own control endpoint, a socket inside its folder, so `ctl --project` reaches eac
 
 **The connection.** A mesh links only to the peers its `connect` names, here PLC-A to PLC-B's port,
 and to the runtimes that connect to its `listen` port; it does not look for other meshes. The two
-meshes here listen on this computer only and have no `auth_token`.
+meshes here listen on this computer only and have no `auth_token`. Each runtime logs a runtime that
+joins its mesh, `mesh_peer_joined`, and one that leaves it, `mesh_peer_left`, and 5 s after its start
+it warns with `mesh_peer_missing` about every runtime that a subscription names and that is not
+there, with the subscriptions that wait for it: PLC-A would name `PlcB` if PLC-B did not run.
 
 **The search.** `discover --endpoint` asks PLC-A to search, and PLC-A finds the runtimes of its
 mesh: PLC-B, under its resource name and its runtime ID. The warning says that the search learned no
@@ -262,16 +271,35 @@ only between the PLCs.
 
 - Subscribe under PLC-B's discovery name instead of its resource name: change `"PlcB:P1.LampOut"`
   to `"LineB:P1.LampOut"` in PLC-A's `runtime.toml` and start PLC-A again. `validate` still
-  answers `Project ok`, but `P1.RemoteLamp` stays `false` whatever PLC-B's lamp does: nothing flows,
-  and nothing fails, as for a variable that the program does not have. Change it back.
+  answers `Project ok`, and `P1.RemoteLamp` stays `false` whatever PLC-B's lamp does. PLC-A's output
+  says why: `PlcB` joined, but 5 s after the start no runtime named `LineB` has:
+
+  ```text
+  {"data":{"peer":"PlcB"},"event":"mesh_peer_joined","level":"info","ts":1795826706006}
+  {"data":{"hint":"no runtime of this name has joined: check that it runs, that a `connect` entry reaches it, that the subscription names it by its resource name, `<site>/<resource>` in another site, and that both meshes have the same `auth_token`","peer":"LineB","subscriptions":["LineB:P1.LampOut"],"waited_ms":5000},"event":"mesh_peer_missing","level":"warn","ts":1795826711009}
+  ```
+
+  The subscription names PLC-B otherwise than the mesh does. Change it back.
 - Add `auth_token = "0123456789abcdef0123456789abcdef0123456789abcdef"` to PLC-B's `[runtime.mesh]`
   only, and start both runtimes again: PLC-A can no longer join, and `P1.RemoteLamp` stays `false`.
-  Neither runtime's output says why, so compare the tokens when a value does not arrive. Add the
-  same line to PLC-A's `[runtime.mesh]`: the lamp crosses again.
-- Stop PLC-B while PLC-A runs. PLC-A's `P1.RemoteLamp` keeps the last value it received: a
-  subscriber cannot tell a publisher that is away from one whose value stays. Start PLC-B again:
-  PLC-A connects again, and `P1.RemoteLamp` follows PLC-B's lamp, `false` after its start and
-  `true` once you switch its input on.
+  5 s after its start PLC-A warns that `PlcB` is missing:
+
+  ```text
+  {"data":{"hint":"no runtime of this name has joined: check that it runs, that a `connect` entry reaches it, that the subscription names it by its resource name, `<site>/<resource>` in another site, and that both meshes have the same `auth_token`","peer":"PlcB","subscriptions":["PlcB:P1.LampOut"],"waited_ms":5000},"event":"mesh_peer_missing","level":"warn","ts":1795826081741}
+  ```
+
+  PLC-B's output says nothing about it, since a mesh does not tell whom it refused, so compare the
+  tokens when a peer is missing. Add the same line to PLC-A's `[runtime.mesh]` and start PLC-A again:
+  it logs `mesh_peer_joined` for `PlcB`, and the lamp crosses again.
+- Stop PLC-B while PLC-A runs. PLC-A warns that PLC-B left its mesh:
+
+  ```text
+  {"data":{"peer":"PlcB"},"event":"mesh_peer_left","level":"warn","ts":1795825359053}
+  ```
+
+  and its `P1.RemoteLamp` keeps the last value it received. Start PLC-B again: PLC-A connects again
+  and logs `mesh_peer_joined` for `PlcB`, and `P1.RemoteLamp` follows PLC-B's lamp, `false` after
+  its start and `true` once you switch its input on.
 
 ## Reference
 
