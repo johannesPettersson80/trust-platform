@@ -6,6 +6,9 @@
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
 
+#[path = "simulator_support/mod.rs"]
+mod simulator_support;
+
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -222,48 +225,6 @@ fn tutorial_12_scenarios_run_as_its_readme_describes_them() {
         "scenario 4: the transfer stops",
     );
     assert_eq!(variable(&runtime, "P1.ModeText"), "\"STOPPED\"");
-}
-
-#[test]
-fn tutorial_18_runs_its_simulation_as_its_readme_writes_it() {
-    // examples/tutorials/18_simulation_toml_fault_injection/README.md: step 1 copies tutorial 13's
-    // project, step 3 adds its simulation.toml (a coupling of %QX0.0 back to %IX0.0, two timed
-    // inputs and a fault at 1,800 ms of simulated time), and step 4 runs `play --simulation
-    // --time-scale 8`; step 5 has the reader confirm the injected fault's message. Catches a
-    // simulation.toml the runtime refuses, as the step's coupling with `on_true` and `on_false`
-    // and no threshold was ("coupling on_true/on_false require threshold").
-    let mut files = here_documents(
-        &std::fs::read_to_string(
-            repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
-        )
-        .expect("tutorial 13's README"),
-    );
-    files.extend(here_documents(
-        &std::fs::read_to_string(
-            repo_root().join("examples/tutorials/18_simulation_toml_fault_injection/README.md"),
-        )
-        .expect("tutorial 18's README"),
-    ));
-    assert!(
-        files.iter().any(|(file, _)| file == "simulation.toml"),
-        "step 3 writes simulation.toml"
-    );
-    let runtime = ExampleRuntime::written("tutorial-18", files)
-        .play_arg("--simulation")
-        .play_arg("--time-scale")
-        .play_arg("8")
-        .start();
-    runtime.wait_until(STEP, "step 5: the injected fault is reported", || {
-        runtime.ctl_result(&["faults"])["faults"]
-            .as_array()
-            .is_some_and(|faults| {
-                faults.iter().any(|fault| {
-                    fault["error"]
-                        .as_str()
-                        .is_some_and(|error| error.contains("tutorial simulated input dropout"))
-                })
-            })
-    });
 }
 
 #[test]
@@ -718,3 +679,6 @@ mod observability;
 
 #[path = "tutorial_projects/mesh_sharing.rs"]
 mod mesh_sharing;
+
+#[path = "tutorial_projects/simulation.rs"]
+mod simulation;
