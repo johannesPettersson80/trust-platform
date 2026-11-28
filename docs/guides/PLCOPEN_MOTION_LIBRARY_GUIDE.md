@@ -170,8 +170,10 @@ Type: `FUNCTION_BLOCK`
 Usage notes: Use for emergency or immediate stop handling. It does not rely on
 buffered blending behavior. If the deterministic kernel reaches zero velocity
 on the accepting invocation, `Done` is TRUE and `Busy` is FALSE while the axis
-remains in `Stopping` until `Execute` goes FALSE. When the power goes off, the axis goes to
-Disabled, and `MC_Stop` held or released leaves it there.
+remains in `Stopping` until `Execute` goes FALSE. It aborts every ongoing command
+(`CommandAborted`), and while the axis is in `Stopping` every other motion block is refused with
+`mcERR_InvalidState`. Releasing it takes the axis to `Standstill` only from `Stopping`: an axis that went
+to Disabled (the power off) or to ErrorStop meanwhile stays there.
 
 ### `MC_Halt`
 Request a halt while preserving buffered-motion semantics.

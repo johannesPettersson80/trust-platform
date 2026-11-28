@@ -1090,6 +1090,97 @@ ReadStatus(Axis := Axis, Enable := TRUE);
 ASSERT_TRUE(ReadStatus.ErrorStop);
 END_TEST_PROGRAM
 
+TEST_PROGRAM plcopen_motion_single_axis_stop_aborts_the_move_and_blocks_motion_until_released
+(* PLCopen Part 1 §3.3: MC_Stop 'aborts any ongoing Function Block execution' and takes the axis to
+   Stopping; 'While the axis is in state Stopping, no other FB can perform any motion on the same
+   axis'; with Done set and Execute FALSE the axis goes to Standstill. A velocity move ends with
+   CommandAborted, a move and a halt issued while the stop is held are refused with
+   mcERR_InvalidState, another MC_Stop is accepted, and after the release a move is accepted again.
+   Catches a stop that leaves the move running, lets another block move the axis while stopping, or
+   refuses a second stop (G348c). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    Velocity : MC_MoveVelocity;
+    Move : MC_MoveAbsolute;
+    Halt : MC_Halt;
+    Stop : MC_Stop;
+    SecondStop : MC_Stop;
+    ReadStatus : MC_ReadStatus;
+END_VAR
+
+Axis.AxisId := UDINT#1212;
+Axis.InternalIndex := UINT#17;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Power(Axis := Axis, Enable := TRUE);
+Velocity(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Velocity.Active);
+Stop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ASSERT_TRUE(Stop.Done);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Stopping);
+Velocity(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#10.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcPositiveDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Velocity.CommandAborted);
+ASSERT_FALSE(Velocity.Busy);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Move.Error);
+ASSERT_EQUAL(WORD#16#0100, Move.ErrorID);
+ASSERT_FALSE(Move.Busy);
+Halt(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_TRUE(Halt.Error);
+ASSERT_EQUAL(WORD#16#0100, Halt.ErrorID);
+SecondStop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ASSERT_TRUE(SecondStop.Done);
+ASSERT_FALSE(SecondStop.Error);
+Stop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Stopping);
+SecondStop(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+Stop(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Standstill);
+Move(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+Move(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#0.0, Deceleration := REAL#0.0, Jerk := REAL#0.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+ASSERT_FALSE(Move.Error);
+ASSERT_TRUE(Move.Busy);
+END_TEST_PROGRAM
+
+TEST_PROGRAM plcopen_motion_single_axis_stop_leaves_errorstop_to_reset
+(* PLCopen Part 1 §2.1: ErrorStop has the highest priority, and the state remains ErrorStop while the
+   error is pending, until MC_Reset. An axis that enters ErrorStop while MC_Stop is held stays in
+   ErrorStop on the next call of the held stop and when the stop is released; MC_Reset takes it to
+   Standstill. Catches a held stop that puts a faulted axis back in Stopping, or a released stop that
+   takes it to Standstill without a reset (G348c). *)
+VAR
+    Axis : AXIS_REF;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    Power : MC_Power;
+    Stop : MC_Stop;
+    Reset : MC_Reset;
+    ReadStatus : MC_ReadStatus;
+END_VAR
+
+Axis.AxisId := UDINT#1213;
+Axis.InternalIndex := UINT#18;
+Seed(Axis := Axis, ResetDefaults := TRUE);
+Power(Axis := Axis, Enable := TRUE);
+Stop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Stopping);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcErrorStop, ApplyAxisError := TRUE, AxisErrorID := WORD#16#0200);
+Stop(Axis := Axis, Execute := TRUE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+Stop(Axis := Axis, Execute := FALSE, Deceleration := REAL#1.0, Jerk := REAL#1.0);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.ErrorStop);
+ASSERT_FALSE(ReadStatus.Standstill);
+Reset(Axis := Axis, Execute := TRUE);
+ReadStatus(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadStatus.Standstill);
+END_TEST_PROGRAM
+
 TEST_PROGRAM plcopen_motion_single_axis_read_status_and_reset_state_paths
 VAR
     AxisStop : AXIS_REF;

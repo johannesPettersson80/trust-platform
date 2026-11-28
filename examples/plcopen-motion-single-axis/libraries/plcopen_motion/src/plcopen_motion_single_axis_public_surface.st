@@ -279,12 +279,16 @@ IF Execute THEN
             Done := FALSE;
             Error := TRUE;
             ErrorID := WORD#16#0101;
-        ELSIF TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
+        ELSIF TRUST_MOTION_RefusedStopByAxisState(AxisIndex := AxisIndex) <> WORD#16#0000 THEN
             Busy := FALSE;
             Done := FALSE;
             Error := TRUE;
-            ErrorID := TRUST_MOTION_RefusedByAxisState(AxisIndex := AxisIndex);
+            ErrorID := TRUST_MOTION_RefusedStopByAxisState(AxisIndex := AxisIndex);
         ELSE
+            (* PLCopen Part 1 §3.3: the stop aborts any ongoing Function Block execution and takes the
+               axis to Stopping, where no other block moves it; the virtual axis reaches velocity
+               zero at once, so Done comes on this call. *)
+            TRUST_MOTION_AbortAllCommands(AxisIndex := AxisIndex, ErrorID := WORD#16#0000);
             Busy := FALSE;
             Done := TRUE;
             g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcStopping;
@@ -293,26 +297,22 @@ IF Execute THEN
             g_trust_motion_commanded_velocity[AxisIndex] := REAL#0.0;
             g_trust_motion_constant_velocity[AxisIndex] := FALSE;
             g_trust_motion_accelerating[AxisIndex] := FALSE;
-            g_trust_motion_decelerating[AxisIndex] := TRUE;
+            g_trust_motion_decelerating[AxisIndex] := FALSE;
         END_IF;
     ELSE
         IF NOT Error THEN
             Busy := FALSE;
             Done := TRUE;
-            (* An axis whose power went off is Disabled and stays so (PLCopen Part 1 §2.1). *)
-            IF g_trust_motion_power_stage[AxisIndex] THEN
-                g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcStopping;
-            END_IF;
         END_IF;
     END_IF;
 ELSIF LastExecute THEN
     IF NOT Error THEN
         Busy := FALSE;
         Done := TRUE;
-        IF g_trust_motion_power_stage[AxisIndex] THEN
+        (* The axis leaves Stopping for Standstill when Execute falls (§3.3); a power off or an axis
+           error in the meantime has taken it to Disabled or ErrorStop, where it stays. *)
+        IF g_trust_motion_state[AxisIndex] = MC_AXIS_STATUS#mcStopping THEN
             g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcStandstill;
-        ELSIF g_trust_motion_state[AxisIndex] <> MC_AXIS_STATUS#mcErrorStop THEN
-            g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcDisabled;
         END_IF;
         g_trust_motion_decelerating[AxisIndex] := FALSE;
     ELSE
