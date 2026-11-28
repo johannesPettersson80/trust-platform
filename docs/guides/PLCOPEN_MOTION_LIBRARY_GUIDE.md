@@ -125,7 +125,7 @@ Type: `FUNCTION_BLOCK`
 - `Valid : BOOL`: TRUE when the readback outputs are valid this scan.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
-Usage notes: Call every scan. `Enable` is level-sensitive; the block is not a one-shot command.
+Usage notes: Call every scan. `Enable` is level-sensitive; the block is not a one-shot command. On the virtual axis the power stage follows `Enable` at once, on while the axis is ready for power (`ReadyForPowerOn` and `CommunicationReady`). `Enable` FALSE turns it off and takes the axis to Disabled; every on-going motion command, active or buffered, ends with `CommandAborted`, and a parameter write queued behind them ends with `Error` and `mcERR_InvalidState`. An axis in ErrorStop keeps that state until `MC_Reset`, and an axis error that no block has reported yet takes the axis to ErrorStop, where the commands end with `Error` and that error.
 
 ### `MC_Home`
 Run the basic PLCopen homing command and declare the homed position when the sequence completes.
@@ -143,7 +143,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Typical sequence is `MC_Power` -> `MC_Home` -> wait for `Done` -> move commands.
@@ -163,13 +163,14 @@ Type: `FUNCTION_BLOCK`
 
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use for emergency or immediate stop handling. It does not rely on
 buffered blending behavior. If the deterministic kernel reaches zero velocity
 on the accepting invocation, `Done` is TRUE and `Busy` is FALSE while the axis
-remains in `Stopping` until `Execute` goes FALSE.
+remains in `Stopping` until `Execute` goes FALSE. When the power goes off, the axis goes to
+Disabled, and `MC_Stop` held or released leaves it there.
 
 ### `MC_Halt`
 Request a halt while preserving buffered-motion semantics.
@@ -188,7 +189,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use when you want a controlled halt that still participates in the PLCopen buffering model.
@@ -215,7 +216,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Keep calling the block every scan after the rising edge; monitor `Busy`, `Active`, and `Done`.
@@ -241,7 +242,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use buffered mode when you want this command to queue behind another motion command.
@@ -267,7 +268,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use when the next target should be relative to the current commanded path rather than the actual position.
@@ -293,7 +294,7 @@ Type: `FUNCTION_BLOCK`
 - `InVelocity : BOOL`: TRUE when the commanded velocity is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use `InVelocity` plus readback FBs when your state machine needs confirmation that the commanded velocity has been reached.
@@ -321,7 +322,7 @@ Type: `FUNCTION_BLOCK`
 - `InEndVelocity : BOOL`: TRUE when the commanded end-velocity condition is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use when segment-to-segment transitions need a non-zero end velocity.
@@ -348,7 +349,7 @@ Type: `FUNCTION_BLOCK`
 - `InEndVelocity : BOOL`: TRUE when the commanded end-velocity condition is reached.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use for relative segments that should leave the segment with a specific end velocity.
@@ -2024,7 +2025,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Usually one part of a larger homing recipe.
@@ -2051,7 +2052,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Choose the direction and switch mode so the step matches your machine hardware.
@@ -2079,7 +2080,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use when a hard-stop or torque-detection style homing step is required.
@@ -2106,7 +2107,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use when your axis hardware provides a dedicated reference pulse.
@@ -2131,7 +2132,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 
@@ -2151,7 +2152,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use when an external mechanism has already established the absolute position.
@@ -2171,7 +2172,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 
@@ -2195,7 +2196,7 @@ Type: `FUNCTION_BLOCK`
 - `Done : BOOL`: TRUE when the requested command has completed successfully.
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Active : BOOL`: TRUE while this FB owns the currently active motion command.
-- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
+- `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command, a stop condition or the axis's power going off.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
 Usage notes: Use as the closing step after earlier homing steps locate the reference.

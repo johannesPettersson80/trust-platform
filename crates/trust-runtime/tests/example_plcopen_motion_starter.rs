@@ -2,16 +2,17 @@
 //! virtual axis once at start and then on each rising edge of its request, as its README's
 //! walkthrough says. The real `trust-runtime` runs a private copy of the example, and the test
 //! writes the request with `ctl io-write`, as Live Values' Write does (the simulated input keeps the
-//! value written).
+//! value written). The starter's copy of the PLCopen motion library is the shipped library.
 //!
 //! The test needs the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
 
+use std::path::Path;
 use std::time::Duration;
 
-use runtime_process::{ExampleRuntime, Runtime, Snapshot};
+use runtime_process::{repo_root, ExampleRuntime, Runtime, Snapshot};
 
 /// The longest wait for the runtime to show a state.
 const WAIT: Duration = Duration::from_secs(60);
@@ -79,4 +80,46 @@ fn the_starter_moves_its_axis_on_each_rising_edge_of_its_request() {
         snapshot.int("%MW0") == 3
     });
     assert_eq!(axis(&back), (3, 25.0, 0));
+}
+
+/// The names of the files in `dir`, sorted.
+fn file_names(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .unwrap_or_else(|error| panic!("read {}: {error}", dir.display()))
+        .map(|entry| {
+            entry
+                .expect("a folder entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn the_starters_motion_library_is_the_shipped_library() {
+    // The starter carries its own copy of libraries/plcopen_motion/single_axis_core, so that the
+    // gallery copies a project that builds alone. Catches a fix of the library that the starter's
+    // copy misses, as the virtual axis's power off would have been (G348).
+    let root = repo_root();
+    let library = root.join("libraries/plcopen_motion/single_axis_core/src");
+    let copy = root.join("examples/plcopen-motion-single-axis/libraries/plcopen_motion/src");
+    let names = file_names(&library);
+    assert_eq!(
+        names,
+        file_names(&copy),
+        "the copy holds the library's files"
+    );
+    for name in &names {
+        let shipped = std::fs::read(library.join(name)).expect("the library's file");
+        let copied = std::fs::read(copy.join(name)).expect("the copy's file");
+        assert!(
+            shipped == copied,
+            "{name} differs between {} and {}",
+            library.display(),
+            copy.display()
+        );
+    }
 }
