@@ -181,6 +181,18 @@ impl MqttIoDriver {
     /// # Errors
     ///
     /// `mqtt: <key>: <reason>` for the first key that the rules refuse.
+    /// The bytes of the input image that the driver of `value` fills, from its parameters alone
+    /// (specification 42, §5 item 4), as its `input_bytes` gives them once it runs.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of parameters that the driver refuses.
+    pub(crate) fn declared_input_bytes(
+        value: &toml::Value,
+    ) -> Result<Vec<std::ops::Range<usize>>, RuntimeError> {
+        Ok(crate::io::declared_inputs::mqtt(&Self::read_params(value)?))
+    }
+
     pub(super) fn read_params(value: &toml::Value) -> Result<MqttParams, RuntimeError> {
         shared_params(NAME, value, MqttParams::from_json)
     }
@@ -263,27 +275,7 @@ impl IoDriver for MqttIoDriver {
     /// mappings or one with the Sparkplug B profile, which takes only its node's commands
     /// (specification 32 §4, §9), declares none.
     fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
-        let state = self.shared.lock();
-        let params = state.exchange.params();
-        if !params.input_points.is_empty() {
-            return crate::io::joined_bytes(
-                params
-                    .input_points
-                    .iter()
-                    .map(|point| {
-                        let start = usize::try_from(point.image_offset).unwrap_or(usize::MAX);
-                        let len =
-                            usize::try_from(point.data_type.image_bytes()).unwrap_or(usize::MAX);
-                        start..start.saturating_add(len)
-                    })
-                    .collect(),
-            );
-        }
-        if params.input_enabled() && params.sparkplug.is_none() {
-            std::iter::once(0..usize::MAX).collect()
-        } else {
-            Vec::new()
-        }
+        crate::io::declared_inputs::mqtt(self.shared.lock().exchange.params())
     }
 
     /// The broker, and whether the session is connected or why it is not (specification 42, §4

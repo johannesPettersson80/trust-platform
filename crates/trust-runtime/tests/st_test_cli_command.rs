@@ -44,6 +44,46 @@ fn trust_dev_bin() -> PathBuf {
 }
 
 #[test]
+fn a_run_without_the_toolchain_names_it_once() {
+    // Specification 44 §4.6, "When none is installed": `trust-dev test` that finds no toolchain,
+    // with a data folder of its own and no `TRUST_TOOLCHAIN`, ends with the one sentence that names
+    // the toolchain and what installs it, and with exit code 1 in its human mode. Catches the error
+    // that named it three times, `the tests need the toolchain: the Rust toolchain: the truST
+    // toolchain <version> is not installed: ...` (checklist G342).
+    let folder = unique_temp_dir("st-test-without-toolchain");
+    let project = folder.join("project");
+    std::fs::create_dir_all(project.join("src")).expect("the project folder");
+    for name in ["home", "data"] {
+        std::fs::create_dir_all(folder.join(name)).expect("a user folder");
+    }
+    std::fs::write(
+        project.join("src/tests.st"),
+        "TEST_PROGRAM Passes\nASSERT_TRUE(IN := TRUE);\nEND_TEST_PROGRAM\n",
+    )
+    .expect("the test source");
+    let output = trust_dev_command()
+        .args(["test", "--project"])
+        .arg(&project)
+        .env("HOME", folder.join("home"))
+        .env("XDG_DATA_HOME", folder.join("data"))
+        .env("LOCALAPPDATA", folder.join("data"))
+        .env_remove("TRUST_TOOLCHAIN")
+        .output()
+        .expect("run trust-dev test");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(
+        stderr.trim_end(),
+        format!(
+            "Error: the truST toolchain {} is not installed: `trust-runtime toolchain install` \
+             installs it, from the bundle beside the tools or downloaded (about 195 to 225 MB, once)",
+            env!("CARGO_PKG_VERSION")
+        )
+    );
+    let _ = std::fs::remove_dir_all(folder);
+}
+
+#[test]
 fn list_flag_lists_tutorial_10_tests_without_executing() {
     let tutorial = tutorial_project_path("10_unit_testing_101");
     let output = trust_dev_command()
@@ -360,3 +400,8 @@ END_PROGRAM
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[path = "st_test_cli_command/readme_steps.rs"]
+mod readme_steps;
+#[path = "st_test_cli_command/tutorial_10.rs"]
+mod tutorial_10;

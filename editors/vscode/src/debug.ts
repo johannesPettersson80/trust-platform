@@ -43,12 +43,30 @@ export type DebugReloadEvent = {
 const debugReloadEmitter = new vscode.EventEmitter<DebugReloadEvent>();
 export const onDidDebugReload = debugReloadEmitter.event;
 
-// The debug output channel is user-visible; never log the injected per-session control token.
-function redactDebugConfig(config: vscode.DebugConfiguration): Record<string, unknown> {
-  if (config.controlAuthToken === undefined) {
-    return config as Record<string, unknown>;
+// The debug output channel is user-visible and pasted into issues: its lines name a session or a message, never a
+// configuration or a message's arguments or body, which hold control tokens (a launch's `controlAuthToken`, an
+// attach's `authToken`; checklist G346).
+
+/** The channel's line for `session` at `event`: its name, type and request. */
+export function debugSessionLine(
+  event: string,
+  session: Pick<vscode.DebugSession, "name" | "type" | "configuration">
+): string {
+  return `Debug session ${event}: ${session.name} type=${session.type} request=${session.configuration?.request ?? "<none>"}`;
+}
+
+/** The channel's text for the Debug Adapter Protocol message `value`: its kind, command or event and sequence number,
+ * and a response's success and error text; never its arguments or body. */
+export function dapMessageLine(value: unknown): string {
+  const message = (value ?? {}) as Record<string, unknown>;
+  const parts = [typeof message.type === "string" ? message.type : "message"];
+  for (const name of ["command", "event"]) {
+    if (typeof message[name] === "string") parts.push(message[name] as string);
   }
-  return { ...config, controlAuthToken: "***" };
+  if (typeof message.seq === "number") parts.push(`seq=${message.seq}`);
+  if (typeof message.success === "boolean") parts.push(`success=${message.success}`);
+  if (typeof message.message === "string" && message.message) parts.push(`message=${JSON.stringify(message.message)}`);
+  return parts.join(" ");
 }
 
 async function applyLaunchControlEndpoint(
@@ -130,21 +148,6 @@ function withTimeout<T>(
 }
 
 // Same, for a DAP message (the launch request carries the config under `arguments`).
-function redactDapMessage(value: unknown): unknown {
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-  const message = value as { arguments?: Record<string, unknown> };
-  const args = message.arguments;
-  if (args && typeof args === "object" && "controlAuthToken" in args) {
-    return {
-      ...(value as Record<string, unknown>),
-      arguments: { ...args, controlAuthToken: "***" },
-    };
-  }
-  return value;
-}
-
 type LaunchFallbackState = {
   seenLaunch: boolean;
   fallbackTimer?: NodeJS.Timeout;
@@ -528,17 +531,10 @@ class StructuredTextDebugAdapterTrackerFactory
     };
     launchFallbackState.set(sessionId, state);
     const channel = debugChannel();
-    const formatMessage = (value: unknown): string => {
-      try {
-        return JSON.stringify(redactDapMessage(value));
-      } catch (err) {
-        return String(err);
-      }
-    };
     channel.appendLine(`Debug adapter tracker attached: ${session.name}`);
     return {
       onWillReceiveMessage: (message) => {
-        channel.appendLine(`[DAP <-] ${formatMessage(message)}`);
+        channel.appendLine(`[DAP <-] ${dapMessageLine(message)}`);
         const command = (message as { command?: string }).command;
         if (command && interestingCommands.has(command)) {
           channel.appendLine(`[DAP <-] ${command}`);
@@ -548,7 +544,7 @@ class StructuredTextDebugAdapterTrackerFactory
         }
       },
       onDidSendMessage: (message) => {
-        channel.appendLine(`[DAP ->] ${formatMessage(message)}`);
+        channel.appendLine(`[DAP ->] ${dapMessageLine(message)}`);
         const event = (message as { event?: string }).event;
         if (event && interestingEvents.has(event)) {
           channel.appendLine(`[DAP ->] event ${event}`);
@@ -616,19 +612,9 @@ export function registerDebugAdapter(
     vscode.debug.registerDebugAdapterTrackerFactory(DEBUG_TYPE, trackerFactory)
   );
 
-  const stringifySession = (session: vscode.DebugSession): string => {
-    try {
-      return JSON.stringify(session.configuration);
-    } catch (err) {
-      return String(err);
-    }
-  };
-
   context.subscriptions.push(
     vscode.debug.onDidStartDebugSession((session) => {
-      debugChannel().appendLine(
-        `Debug session started: ${session.name} type=${session.type} config=${stringifySession(session)}`
-      );
+      debugChannel().appendLine(debugSessionLine("started", session));
       if (session.type === DEBUG_TYPE) {
         structuredTextSessions.set(structuredTextSessionKey(session), session);
         markSessionProgram(session);
@@ -638,9 +624,7 @@ export function registerDebugAdapter(
 
   context.subscriptions.push(
     vscode.debug.onDidTerminateDebugSession((session) => {
-      debugChannel().appendLine(
-        `Debug session terminated: ${session.name} type=${session.type} config=${stringifySession(session)}`
-      );
+      debugChannel().appendLine(debugSessionLine("terminated", session));
       if (session.type === DEBUG_TYPE) {
         const sessionId = session.id ?? session.name;
         const current = launchFallbackState.get(sessionId);
@@ -747,20 +731,20 @@ export function registerDebugAdapter(
         const pendingTimer = setTimeout(() => {
           const active = vscode.debug.activeDebugSession;
           debugChannel().appendLine(
-            `startDebugging still pending after 5s: active=${active?.name ?? "<none>"} type=${active?.type ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
+            `startDebugging still pending after 5s: active=${active?.name ?? "<none>"} type=${active?.type ?? "<none>"} request=${config.request ?? "<none>"}`
           );
         }, 5000);
         try {
           const started = await vscode.debug.startDebugging(folder, config);
           clearTimeout(pendingTimer);
           debugChannel().appendLine(
-            `startDebugging result: ${started} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
+            `startDebugging result: ${started} folder=${folder?.name ?? "<none>"} request=${config.request ?? "<none>"}`
           );
           return started;
         } catch (err: unknown) {
           clearTimeout(pendingTimer);
           debugChannel().appendLine(
-            `startDebugging error: ${err instanceof Error ? err.message : String(err)} folder=${folder?.name ?? "<none>"} config=${JSON.stringify(redactDebugConfig(config))}`
+            `startDebugging error: ${err instanceof Error ? err.message : String(err)} folder=${folder?.name ?? "<none>"} request=${config.request ?? "<none>"}`
           );
           throw err;
         }

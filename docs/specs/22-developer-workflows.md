@@ -1627,6 +1627,23 @@ from source, so the project's repository needs no Rust and no truST checkout
 truST checkout can, and started only on changes to `sources/**`, a folder that
 truST projects do not use).
 
+## Project CI image
+
+`docker/ci/trust-runtime-ci.Dockerfile` builds an image for a project's own
+pipeline on any CI system that runs containers. From `debian:bookworm-slim`,
+pinned by digest, it installs the truST release that the build argument
+`TRUST_VERSION` names, for the platform the image is built for
+(`trust-runtime-linux-x64.tar.gz` for `amd64`, `trust-runtime-linux-arm64.tar.gz`
+for `arm64`): it downloads the release archive and the release's `SHA256SUMS`,
+checks the archive against its line there before unpacking it, and puts its
+`trust-runtime` and `trust-dev` on the `PATH`. It then installs that release's
+toolchain (specification 44 §4.6) in the data folder of the image's user, root.
+A pipeline runs the steps of the project CI template in the image, the project's
+folder mounted at `/workspace`, its working folder. Nothing of truST is built
+from source (27 November 2026: the image was a Rust image whose usage built
+truST with `cargo run`, which only a truST checkout can, and ran the deprecated
+alias `trust-runtime test`).
+
 ## trust-dev output
 
 What a `trust-dev` command prints on the standard output ends quietly when its

@@ -399,6 +399,64 @@ fn ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report() 
 }
 
 #[test]
+fn ci_image_installs_a_checked_release_and_its_toolchain() {
+    // Specification 22, "Project CI image": the image for a project's pipeline starts from a base
+    // pinned by digest, installs the release that TRUST_VERSION names for the image's platform from
+    // its archive, checked against the release's SHA256SUMS before it is unpacked, puts its tools on
+    // the PATH, installs that release's toolchain, and builds nothing of truST from source. Catches
+    // the image that built truST with `cargo run` in a truST checkout and ran the deprecated alias
+    // `trust-runtime test`, a floating base image, and an archive unpacked unchecked.
+    let image = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("docker")
+        .join("ci")
+        .join("trust-runtime-ci.Dockerfile");
+    let text = repository_source_tree_read_to_string!(
+        (&image, repo_root()),
+        roots = ["docker/ci"],
+        extension = "Dockerfile",
+    )
+    .expect("read the CI image's Dockerfile");
+    let at = |needle: &str| {
+        text.find(needle)
+            .unwrap_or_else(|| panic!("the Dockerfile holds `{needle}`:\n{text}"))
+    };
+    assert!(
+        text.lines()
+            .any(|line| line.starts_with("FROM debian:bookworm-slim@sha256:")),
+        "the base image is pinned by digest"
+    );
+    for gone in ["cargo ", "trust-runtime test", "FROM rust:"] {
+        assert!(
+            !text.contains(gone),
+            "nothing of truST is built from source: `{gone}`"
+        );
+    }
+    let version = at("ARG TRUST_VERSION=");
+    let platform = at("amd64) platform=linux-x64 ;;");
+    let download = at("releases/download/v${TRUST_VERSION}");
+    let archive = at("curl -fsSLO \"${base}/${archive}\"");
+    let sums = at("curl -fsSLO \"${base}/SHA256SUMS\"");
+    let check = at("sha256sum --check --strict -");
+    let unpack = at("tar -xzf \"${archive}\" -C /opt/trust");
+    let on_path = at("ENV PATH=/opt/trust:${PATH}");
+    let toolchain = at("RUN trust-runtime toolchain install");
+    assert!(
+        version < platform
+            && platform < download
+            && download < archive
+            && archive < check
+            && sums < check
+            && check < unpack
+            && unpack < on_path
+            && on_path < toolchain,
+        "the archive is checked against SHA256SUMS before it is unpacked, put on the PATH, and the \
+         toolchain installed after it"
+    );
+}
+
+#[test]
 fn ci_template_file_contains_expected_command_sequence() {
     // Specification 22, "Project CI template": the workflow that a project's repository copies
     // starts on its sources (`src/**`, the folder `build` takes by default) and its root

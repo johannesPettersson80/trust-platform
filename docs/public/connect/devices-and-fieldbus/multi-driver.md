@@ -19,7 +19,7 @@ Success means each driver has a separate purpose, no config mixes single-driver
 and multi-driver forms, and one process-image address is not silently owned by
 two paths. When two drivers do fill the same input bytes, the runtime logs the
 warning `io_inputs_overlap` at every start, with both drivers' links and the
-bytes.
+bytes, and `trust-runtime validate` prints the same warning before a start.
 
 Use the single-driver form first unless commissioning or migration really needs
 two planes at once.

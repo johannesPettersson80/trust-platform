@@ -23,6 +23,7 @@ mod analog;
 mod can;
 #[cfg(target_os = "linux")]
 mod counter;
+mod declared_inputs;
 #[cfg(all(test, target_os = "linux"))]
 mod fake_sysfs;
 mod gpio;
@@ -40,7 +41,7 @@ pub use identify::{
     host_identify, safe_outputs_hold_bit, safe_state_holds_bit, HostIdentify, HostIdentifyOutput,
     IdentifyHandle, ImageBit,
 };
-pub use input_overlap::{input_overlaps, InputOverlap};
+pub use input_overlap::{input_overlaps, InputOverlap, INPUT_OVERLAP_EVENT};
 pub use link_names::{io_link_name, link_protocol};
 pub use loopback::LoopbackIoDriver;
 pub(crate) use registry::params_text;

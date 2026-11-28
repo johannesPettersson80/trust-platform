@@ -1,7 +1,8 @@
 //! Composed drivers that fill the same bytes of the input image (specification 11 §6.5). Each
 //! driver reads into the one image in the configured order, so a later driver overwrites what an
 //! earlier one read into the bytes both fill. A composition may mean that, so the runtime does not
-//! refuse it; it warns at every program start.
+//! refuse it; it warns at every program start, and `trust-runtime validate` lists the same
+//! overlaps from the drivers' parameters.
 
 use std::ops::Range;
 
@@ -17,6 +18,24 @@ pub struct InputOverlap {
     pub later: SmolStr,
     /// The bytes both fill, within the image.
     pub bytes: Range<usize>,
+}
+
+/// The event of an overlap, which the runtime logs as a warning at each start.
+pub const INPUT_OVERLAP_EVENT: &str = "io_inputs_overlap";
+
+impl InputOverlap {
+    /// The event's data: its identifier, the earlier and the later driver, and the first and the
+    /// last byte both fill.
+    #[must_use]
+    pub fn event_data(&self) -> serde_json::Value {
+        serde_json::json!({
+            "event_id": "TRUST-RT-IO-OVERLAP-001",
+            "earlier": self.earlier.as_str(),
+            "later": self.later.as_str(),
+            "first_byte": self.bytes.start,
+            "last_byte": self.bytes.end - 1,
+        })
+    }
 }
 
 /// The overlaps of `drivers`, each named with the input bytes it declares (specification 42 §5
