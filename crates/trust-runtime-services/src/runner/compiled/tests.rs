@@ -998,6 +998,7 @@ fn a_stepped_fault_names_the_statement_that_raised_it() {
             Some(StatementAt {
                 file: "main.st".into(),
                 line: 2,
+                last_line: 2,
             }),
         ),
         (true, None),

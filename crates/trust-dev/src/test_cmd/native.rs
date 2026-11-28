@@ -723,11 +723,17 @@ fn cycles_on_device(
     }
 }
 
-/// The statement a device's step names in `error_at` as the one that raised its error (specification 11 §6.8.1).
+/// The statement a device's step names in `error_at` as the one that raised its error (specification 11 §6.8.1); a
+/// runtime that names no `last_line`, as one released before it, names the statement by its first line alone.
 fn step_error_at(result: &serde_json::Value) -> Option<trust_runtime::native::StatementAt> {
     let at = result.get("error_at")?;
+    let line = u32::try_from(at["line"].as_u64()?).ok()?;
     Some(trust_runtime::native::StatementAt {
         file: at["file"].as_str()?.into(),
-        line: u32::try_from(at["line"].as_u64()?).ok()?,
+        line,
+        last_line: at["last_line"]
+            .as_u64()
+            .and_then(|last| u32::try_from(last).ok())
+            .unwrap_or(line),
     })
 }

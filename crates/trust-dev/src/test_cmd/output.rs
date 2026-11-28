@@ -211,7 +211,8 @@ fn display_project(project_root: &Path) -> String {
 }
 
 /// A place in the sources as the reports name it (specification 22): the file as [`display_path`]
-/// writes it, the 1-based line and that line's text, trimmed, unless it is empty.
+/// writes it, the 1-based line and the source there, unless it is empty: a statement's own text,
+/// its lines trimmed and joined by one space, or a declaration's line, trimmed.
 struct Place {
     file: String,
     line: usize,
@@ -225,9 +226,17 @@ fn failure_place(project_root: &Path, result: &ExecutedTest) -> Option<Place> {
     let at = result.failed_at.as_ref()?;
     let file = project_root.join(at.file.as_str());
     let line = usize::try_from(at.line).ok()?;
+    let last = usize::try_from(at.last_line).ok()?.max(line);
     let source = std::fs::read_to_string(&file).ok().and_then(|text| {
-        let text = text.lines().nth(line.checked_sub(1)?)?.trim();
-        (!text.is_empty()).then(|| text.to_string())
+        let joined = text
+            .lines()
+            .skip(line.checked_sub(1)?)
+            .take(last - line + 1)
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        (!joined.is_empty()).then_some(joined)
     });
     Some(Place {
         file: display_path(project_root, &file),

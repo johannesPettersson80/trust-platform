@@ -39,7 +39,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
     // value texts and in the order of their names, the watches in the request's order and the
     // program instance to run. The
     // reply is `time_ns`, the values and the direct values in the conformance encoding, and the
-    // text of the scan's error with the file and line of the statement that raised it and the
+    // text of the scan's error with the file, line and last line of the statement that raised it and the
     // failed assertion's values, only those it has (specification 11 §6.8.1). Catches inputs written in the request's order instead of the
     // names' order, a restart mode read case-sensitively, a text `1_000` read as anything but
     // 1000, an error reported other than by its text, its statement or its values left out, and a
@@ -54,6 +54,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
         error_at: Some(StatementAt {
             file: "src/tests.st".into(),
             line: 7,
+            last_line: 9,
         }),
         assertion: Some(FailedAssertion {
             name: "ASSERT_GREATER",
@@ -98,7 +99,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
             },
             "direct": {"%QX0.1": {"type": "BOOL", "value": true}},
             "errors": ["arithmetic overflow"],
-            "error_at": {"file": "src/tests.st", "line": 7},
+            "error_at": {"file": "src/tests.st", "line": 7, "last_line": 9},
             "assertion": {
                 "name": "ASSERT_GREATER",
                 "actual": {"type": "INT", "value": 3},
