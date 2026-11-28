@@ -195,6 +195,11 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 .resolve_namespace_qualified_symbol(callee)
             {
                 self.checker.record_resolved_symbol(callee, symbol_id);
+                // An INTERNAL function of a namespace is called only inside it (IEC 61131-3 Ed.3
+                // §6.9.2); the call is checked on, so that its arguments are checked too.
+                self.checker
+                    .resolve()
+                    .check_member_access(symbol_id, callee.text_range());
                 if let Some(call_target) = self.checker.resolve_ref().resolve_call_target(symbol_id)
                 {
                     self.check_call_arguments(call_target.param_owner, &call_target.kind, node);

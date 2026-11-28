@@ -50,6 +50,11 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_type_decl(&mut self) {
         self.start_node(SyntaxKind::TypeDecl);
         self.bump(); // TYPE
+                     // IEC 61131-3 Ed.3 §6.9.2: a namespace's element may be INTERNAL, the specifier directly after
+                     // its keyword (`TYPE INTERNAL` makes every type of the block INTERNAL).
+        if self.at(TokenKind::KwInternal) {
+            self.bump();
+        }
 
         while !self.at(TokenKind::KwEndType) && !self.at_end() {
             if self.at(TokenKind::Ident) {

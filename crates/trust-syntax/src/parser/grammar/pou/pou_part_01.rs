@@ -19,6 +19,11 @@ impl Parser<'_, '_> {
 
         self.start_node(SyntaxKind::Program);
         self.bump(); // PROGRAM / TEST_PROGRAM
+                     // IEC 61131-3 Ed.3 §6.9.2: a namespace's element may be INTERNAL, the specifier directly after
+                     // its keyword (Examples 1 and 2: `FUNCTION INTERNAL TimeTick : DWORD`, `CLASS INTERNAL B`).
+        if self.at(TokenKind::KwInternal) {
+            self.bump();
+        }
 
         if self.at(TokenKind::Ident) {
             self.parse_name();
@@ -90,6 +95,11 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_function(&mut self) {
         self.start_node(SyntaxKind::Function);
         self.bump(); // FUNCTION
+                     // IEC 61131-3 Ed.3 §6.9.2: a namespace's element may be INTERNAL, the specifier directly after
+                     // its keyword (Examples 1 and 2: `FUNCTION INTERNAL TimeTick : DWORD`, `CLASS INTERNAL B`).
+        if self.at(TokenKind::KwInternal) {
+            self.bump();
+        }
 
         if self.at(TokenKind::Ident) {
             self.parse_name();
@@ -142,6 +152,11 @@ impl Parser<'_, '_> {
 
         self.start_node(SyntaxKind::FunctionBlock);
         self.bump(); // FUNCTION_BLOCK / TEST_FUNCTION_BLOCK
+                     // IEC 61131-3 Ed.3 §6.9.2: a namespace's element may be INTERNAL, the specifier directly after
+                     // its keyword (Examples 1 and 2: `FUNCTION INTERNAL TimeTick : DWORD`, `CLASS INTERNAL B`).
+        if self.at(TokenKind::KwInternal) {
+            self.bump();
+        }
 
         if self.at(TokenKind::KwFinal) || self.at(TokenKind::KwAbstract) {
             self.bump();

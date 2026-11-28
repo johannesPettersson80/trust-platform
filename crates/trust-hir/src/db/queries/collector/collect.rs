@@ -219,6 +219,7 @@ impl SymbolCollector<'_> {
 
         let mut symbol = Symbol::new(SymbolId::UNKNOWN, name.clone(), kind, symbol_type_id, range);
         symbol.visibility = self.visibility_for_pou(node, &symbol.kind);
+        self.refuse_internal_outside_namespace(&symbol, range);
         symbol.modifiers = modifiers_from_node(node);
         // CODESYS's `{attribute 'hide'}` and `{attribute 'hide_all_locals'}` in the POU's first line
         // (specification 14 §6.1.2).
